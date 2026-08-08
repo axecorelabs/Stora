@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifySession } from '@/lib/auth';
-import { uploadToWasabi, generateFileKey, validateImageFile } from '@/lib/wasabi';
+import { uploadToR2, generateFileKey, validateImageFile } from '@/lib/r2';
 
 export async function POST(req) {
   try {
@@ -37,8 +37,8 @@ export async function POST(req) {
     // Generate unique file key (use user.id instead of user._id)
     const fileKey = generateFileKey(user.id, file.name);
 
-    // Upload to Wasabi
-    const imageUrl = await uploadToWasabi(file, fileKey);
+    // Upload to R2
+    const imageUrl = await uploadToR2(file, fileKey);
 
     return NextResponse.json({
       success: true,

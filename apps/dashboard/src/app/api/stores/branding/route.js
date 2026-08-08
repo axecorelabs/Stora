@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
-import { uploadToWasabi, generateFileKey, validateImageFile, deleteFromWasabi } from '@/lib/wasabi';
+import { uploadToR2, generateFileKey, validateImageFile, deleteFromR2, extractKeyFromUrl } from '@/lib/r2';
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -87,18 +87,18 @@ export async function PUT(req) {
         // Delete old logo if exists
         if (currentBranding.logo) {
           try {
-            const oldKey = currentBranding.logo.split('.com/')[1];
+            const oldKey = extractKeyFromUrl(currentBranding.logo);
             if (oldKey) {
-              await deleteFromWasabi(oldKey);
+              await deleteFromR2(oldKey);
             }
           } catch (deleteError) {
             console.warn('Failed to delete old logo:', deleteError);
           }
         }
-        
+
         // Upload new logo
         const logoKey = generateFileKey(user.id, `logo-${logoFile.name}`);
-        const logoUrl = await uploadToWasabi(logoFile, logoKey);
+        const logoUrl = await uploadToR2(logoFile, logoKey);
         updatedBranding.logo = logoUrl;
         
       } catch (uploadError) {
@@ -117,18 +117,18 @@ export async function PUT(req) {
         // Delete old banner if exists
         if (currentBranding.banner) {
           try {
-            const oldKey = currentBranding.banner.split('.com/')[1];
+            const oldKey = extractKeyFromUrl(currentBranding.banner);
             if (oldKey) {
-              await deleteFromWasabi(oldKey);
+              await deleteFromR2(oldKey);
             }
           } catch (deleteError) {
             console.warn('Failed to delete old banner:', deleteError);
           }
         }
-        
+
         // Upload new banner
         const bannerKey = generateFileKey(user.id, `banner-${bannerFile.name}`);
-        const bannerUrl = await uploadToWasabi(bannerFile, bannerKey);
+        const bannerUrl = await uploadToR2(bannerFile, bannerKey);
         updatedBranding.banner = bannerUrl;
         
       } catch (uploadError) {

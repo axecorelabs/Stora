@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
-import { uploadToWasabi, generateFileKey, validateImageFile } from '@/lib/wasabi';
+import { uploadToR2, generateFileKey, validateImageFile } from '@/lib/r2';
 import { loadServiceDocument } from '@/lib/services';
 
 export async function POST(request) {
@@ -41,7 +41,7 @@ export async function POST(request) {
         try {
           validateImageFile(file);
           const fileKey = generateFileKey(user.id.toString(), file.name);
-          const imageUrl = await uploadToWasabi(file, fileKey);
+          const imageUrl = await uploadToR2(file, fileKey);
           portfolioUrls.push(imageUrl);
         } catch (error) {
           console.error('Error uploading portfolio image:', error);
