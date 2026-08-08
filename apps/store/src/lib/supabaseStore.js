@@ -137,23 +137,48 @@ export async function findStoreById(storeId) {
   return transformStoreFields(data);
 }
 
-export async function findStoreBySlug(slug) {
-  console.log('Finding store by slug:', slug);
-  
-  const { data, error } = await supabaseAdmin
+// Public store URLs are keyed by website.websitePath (a clean, editable slug),
+// which is distinct from the store_slug column (generated once at creation with
+// a random suffix, e.g. "korrys-fit-3555b3" vs websitePath "korrys-fit"). Try
+// store_slug first for backwards compatibility, then fall back to websitePath.
+async function findActiveStoreByPathOrSlug(slug) {
+  const { data: bySlug, error: slugError } = await supabaseAdmin
     .from('stores')
     .select('*')
     .eq('store_slug', slug)
     .eq('is_active', true)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    if (error.code === 'PGRST116') {
-      console.log('No store found with slug:', slug);
-      return null;
-    }
-    console.error('Error finding store by slug:', error);
+  if (slugError) {
+    console.error('Error finding store by store_slug:', slugError);
     throw new Error('Failed to find store');
+  }
+
+  if (bySlug) return bySlug;
+
+  const { data: byPath, error: pathError } = await supabaseAdmin
+    .from('stores')
+    .select('*')
+    .contains('website', { websitePath: slug })
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (pathError) {
+    console.error('Error finding store by website path:', pathError);
+    throw new Error('Failed to find store');
+  }
+
+  return byPath || null;
+}
+
+export async function findStoreBySlug(slug) {
+  console.log('Finding store by slug:', slug);
+
+  const data = await findActiveStoreByPathOrSlug(slug);
+
+  if (!data) {
+    console.log('No store found with slug:', slug);
+    return null;
   }
 
   console.log('Store found:', data?.store_name);
@@ -162,21 +187,7 @@ export async function findStoreBySlug(slug) {
 
 export async function findStoreByWebsitePath(websitePath) {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('stores')
-      .select('*')
-      .eq('store_slug', websitePath)
-      .eq('is_active', true)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      console.error('Error finding store by website path:', error);
-      throw new Error('Failed to find store');
-    }
-
+    const data = await findActiveStoreByPathOrSlug(websitePath);
     return transformStoreFields(data);
   } catch (error) {
     console.error('Database connection error for store lookup:', error.message);
