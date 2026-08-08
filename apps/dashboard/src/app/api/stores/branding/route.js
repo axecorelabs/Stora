@@ -6,6 +6,11 @@ import { uploadToR2, generateFileKey, validateImageFile, deleteFromR2, extractKe
 // Helper to transform store data for response
 function transformStore(store) {
   if (!store) return null;
+
+  const websiteData = typeof store.website === 'string' ? JSON.parse(store.website) : store.website;
+  const websitePath = websiteData?.websitePath || store.store_slug;
+  const storeBaseUrl = process.env.NEXT_PUBLIC_STORE_URL || 'https://stora.com.ng';
+
   return {
     id: store.id,
     mongoId: store.mongo_id,
@@ -29,7 +34,10 @@ function transformStore(store) {
     totalOrders: store.total_orders || 0,
     averageRating: parseFloat(store.average_rating) || 0,
     totalReviews: store.total_reviews || 0,
-    website: typeof store.website === 'string' ? JSON.parse(store.website) : store.website,
+    website: websiteData,
+    websitePath,
+    websiteUrl: websitePath ? `${storeBaseUrl}/${websitePath}` : null,
+    websiteFullPath: websitePath ? `${storeBaseUrl.replace(/^https?:\/\//, '')}/${websitePath}` : null,
     createdAt: store.created_at,
     updatedAt: store.updated_at
   };
