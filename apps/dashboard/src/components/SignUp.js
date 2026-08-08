@@ -132,184 +132,211 @@ export default function SignUp({ onToggleMode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-white relative overflow-hidden">
-      {/* Background with subtle pattern */}
-      <div className="absolute inset-0 z-0 bg-white">
-        {/* Subtle Gradient Accents */}
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-gray-50"></div>
-
-        {/* Subtle Blur Spots for Depth */}
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-30 blur-3xl bg-gray-100"></div>
-        <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full opacity-30 blur-3xl bg-gray-100"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-20 blur-3xl bg-green-50"></div>
+    <div className="h-screen w-full grid lg:grid-cols-2 overflow-hidden animate-rise-in bg-white">
+      {/* Hero panel */}
+      <div className="hidden lg:block relative">
+        <img
+          src="/stora3.png"
+          alt="Stora — manage your store, grow your business"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
       </div>
 
-      {/* Content */}
-      <div className="flex w-screen flex-col justify-center px-12 py-12 relative z-10">
-        <div className="mx-auto w-full max-w-sm">
-          {/* Sign Up Form - No Card Background, Direct Text on Blur */}
-          <div className="rounded-3xl p-8">
-            <div className="space-y-6">
-              <div className="text-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Your Account</h1>
-                <p className="text-gray-600 text-sm">Join IVMA and start managing your inventory</p>
-              </div>
-
-              {errors.submit && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-                  <p className="text-red-600 text-sm">{errors.submit}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* First Name and Last Name side by side */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      placeholder="John"
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400 ${
-                        errors.firstName ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    />
-                    {errors.firstName && <p className="text-red-400 text-xs mt-1">{errors.firstName}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      placeholder="Doe"
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400 ${
-                        errors.lastName ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    />
-                    {errors.lastName && <p className="text-red-400 text-xs mt-1">{errors.lastName}</p>}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="john@example.com"
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400 ${
-                        errors.email ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    />
-                    <div className="absolute right-3 top-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 7.89a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  </div>
-                  {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      placeholder="••••••"
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-400 ${
-                        errors.password ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={togglePasswordVisibility}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
-                  
-                  {/* Password Requirements */}
-                  {formData.password && (
-                    <div className="mt-3 space-y-2">
-                      {passwordChecks.map((check, index) => (
-                        <div key={index} className="flex items-center text-xs">
-                          <div className={`w-2 h-2 rounded-full mr-2 ${check.valid ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                          <span className={check.valid ? 'text-green-600' : 'text-gray-500'}>
-                            {check.label}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="agreeToTerms"
-                      checked={formData.agreeToTerms}
-                      onChange={handleChange}
-                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                    />
-                    <label className="ml-2 block text-sm text-gray-700">
-                      I agree to the Terms of Service and Privacy Policy
-                    </label>
-                  </div>
-                  {errors.agreeToTerms && <p className="text-red-400 text-xs mt-1">{errors.agreeToTerms}</p>}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-gray-900 text-white py-3 px-4 rounded-lg hover:bg-black hover:shadow-lg hover:shadow-green-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Creating account...
-                    </>
-                  ) : (
-                    "Sign Up"
-                  )}
-                </button>
-              </form>
-
-              <div className="text-center">
-                <p className="text-sm text-gray-600">
-                  Already have an account?{" "}
-                  <button 
-                    onClick={onToggleMode}
-                    className="text-green-600 font-medium hover:text-green-700 hover:underline"
-                  >
-                    Sign in
-                  </button>
-                </p>
-              </div>
+      {/* Form panel */}
+      <div className="flex flex-col justify-center px-8 py-12 sm:px-14 overflow-y-auto">
+        <div className="w-full max-w-sm mx-auto">
+          <div className="flex justify-center lg:hidden mb-6">
+            <div className="w-12 h-12 rounded-xl overflow-hidden">
+              <img
+                src="/stora.png"
+                alt="Stora Logo"
+                className="object-contain w-full h-full"
+              />
             </div>
           </div>
+
+          <h1
+            className="text-[28px] leading-tight font-bold text-[#0B3B2E] text-center tracking-tight"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Create your account
+          </h1>
+          <p className="text-gray-500 text-sm text-center mt-1.5 mb-8">
+            Join Stora and start managing your inventory
+          </p>
+
+          {errors.submit && (
+            <div className="mb-5 border-l-2 border-red-500 bg-red-50 pl-3 pr-3 py-2.5 rounded-r-md">
+              <p className="text-red-700 text-sm">{errors.submit}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* First Name and Last Name side by side */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  placeholder="First name"
+                  className={`w-full rounded-xl border px-4 py-3 text-[15px] text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-4 transition-colors ${
+                    errors.firstName
+                      ? "border-red-300 focus:ring-red-100"
+                      : "border-gray-200 focus:border-[#0B3B2E] focus:ring-[#0B3B2E]/10"
+                  }`}
+                />
+                {errors.firstName && (
+                  <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.firstName}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  placeholder="Last name"
+                  className={`w-full rounded-xl border px-4 py-3 text-[15px] text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-4 transition-colors ${
+                    errors.lastName
+                      ? "border-red-300 focus:ring-red-100"
+                      : "border-gray-200 focus:border-[#0B3B2E] focus:ring-[#0B3B2E]/10"
+                  }`}
+                />
+                {errors.lastName && (
+                  <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.lastName}</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Email address"
+                autoComplete="email"
+                className={`w-full rounded-xl border px-4 py-3 text-[15px] text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-4 transition-colors ${
+                  errors.email
+                    ? "border-red-300 focus:ring-red-100"
+                    : "border-gray-200 focus:border-[#0B3B2E] focus:ring-[#0B3B2E]/10"
+                }`}
+              />
+              {errors.email && (
+                <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.email}</p>
+              )}
+            </div>
+
+            <div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Password"
+                  autoComplete="new-password"
+                  className={`w-full rounded-xl border px-4 py-3 pr-11 text-[15px] text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-4 transition-colors ${
+                    errors.password
+                      ? "border-red-300 focus:ring-red-100"
+                      : "border-gray-200 focus:border-[#0B3B2E] focus:ring-[#0B3B2E]/10"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={togglePasswordVisibility}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.password}</p>
+              )}
+
+              {/* Password Requirements */}
+              {formData.password && (
+                <div className="mt-3 space-y-1.5">
+                  {passwordChecks.map((check, index) => (
+                    <div key={index} className="flex items-center text-xs">
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full mr-2 ${
+                          check.valid ? "bg-[#0B3B2E]" : "bg-gray-300"
+                        }`}
+                      ></div>
+                      <span className={check.valid ? "text-[#0B3B2E]" : "text-gray-500"}>
+                        {check.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="agreeToTerms"
+                  checked={formData.agreeToTerms}
+                  onChange={handleChange}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#0B3B2E] cursor-pointer"
+                />
+                I agree to the Terms of Service and Privacy Policy
+              </label>
+              {errors.agreeToTerms && (
+                <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.agreeToTerms}</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-[#0B3B2E] text-white py-3.5 px-4 rounded-xl font-medium hover:bg-[#0F4A38] hover:shadow-[0_10px_30px_-10px_rgba(198,161,91,0.6)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Creating account...
+                </>
+              ) : (
+                "Sign Up"
+              )}
+            </button>
+          </form>
+
+          <p className="text-center text-sm text-gray-600 mt-6">
+            Already have an account?{" "}
+            <button
+              onClick={onToggleMode}
+              className="text-[#0B3B2E] font-semibold hover:underline"
+            >
+              Sign in
+            </button>
+          </p>
         </div>
       </div>
     </div>

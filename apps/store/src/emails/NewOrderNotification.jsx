@@ -44,7 +44,7 @@ export const NewOrderNotification = ({
     customerNotes: '',
     _id: '123',
   },
-  baseUrl = 'https://ivma.ng',
+  baseUrl = 'https://app.stora.com.ng',
 }) => {
   const previewText = `New order #${order.orderNumber} from ${order.customerSnapshot.firstName} ${order.customerSnapshot.lastName}`;
 
@@ -63,7 +63,7 @@ export const NewOrderNotification = ({
           <Section style={content}>
             <Text style={paragraph}>Hi {storeName},</Text>
             <Text style={paragraph}>
-              Great news! You have received a new order through your IVMA store.
+              Great news! You have received a new order through your Stora store.
             </Text>
 
             {/* Order Details Box */}
@@ -170,7 +170,7 @@ export const NewOrderNotification = ({
             </Section>
 
             <Text style={paragraph}>
-              Thank you for using IVMA Store to manage your business!
+              Thank you for using Stora Store to manage your business!
             </Text>
           </Section>
 
@@ -178,12 +178,12 @@ export const NewOrderNotification = ({
           <Section style={footer}>
             <Text style={footerText}>
               Need help? Contact us at{' '}
-              <Link href="mailto:support@ivmastore.com" style={footerLink}>
-                support@ivmastore.com
+              <Link href="mailto:support@stora.com.ng" style={footerLink}>
+                support@stora.com.ng
               </Link>
             </Text>
             <Text style={footerCopyright}>
-              © {new Date().getFullYear()} IVMA Store. All rights reserved.
+              © {new Date().getFullYear()} Stora Store. All rights reserved.
             </Text>
           </Section>
         </Container>

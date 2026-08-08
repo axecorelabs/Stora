@@ -1,5 +1,5 @@
 export const getPasswordResetTemplate = (resetToken, firstName, email) => {
-  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://ivma.ng'}/reset-password?token=${resetToken}`;
+  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.stora.com.ng'}/reset-password?token=${resetToken}`;
   
   const html = `
     <!DOCTYPE html>
@@ -72,13 +72,13 @@ export const getPasswordResetTemplate = (resetToken, firstName, email) => {
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">IVMA</div>
+          <div class="logo">Stora</div>
           <h1>Password Reset Request</h1>
         </div>
         
         <p>Hi ${firstName},</p>
         
-        <p>We received a request to reset your IVMA account password. Click the button below to create a new password:</p>
+        <p>We received a request to reset your Stora account password. Click the button below to create a new password:</p>
         
         <div style="text-align: center; margin: 30px 0;">
           <a href="${resetUrl}" class="button">
@@ -95,14 +95,14 @@ export const getPasswordResetTemplate = (resetToken, firstName, email) => {
           <strong>⚠️ Security Note:</strong> If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
         </div>
         
-        <p>If you're having trouble, contact our support team at support@ivma.ng</p>
+        <p>If you're having trouble, contact our support team at support@app.stora.com.ng</p>
         
-        <p>Best regards,<br>The IVMA Team</p>
+        <p>Best regards,<br>The Stora Team</p>
         
         <div class="footer">
-          <p>© ${new Date().getFullYear()} IVMA. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Stora. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
-          <p>IVMA - Intelligent Inventory Management & Analytics</p>
+          <p>Stora - Inventory Management & Analytics</p>
         </div>
       </div>
     </body>
@@ -114,7 +114,7 @@ export const getPasswordResetTemplate = (resetToken, firstName, email) => {
     
     Hi ${firstName},
     
-    We received a request to reset your IVMA account password.
+    We received a request to reset your Stora account password.
     
     Click this link to reset your password:
     ${resetUrl}
@@ -123,13 +123,13 @@ export const getPasswordResetTemplate = (resetToken, firstName, email) => {
     
     If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
     
-    If you're having trouble, contact our support team at support@ivma.ng
+    If you're having trouble, contact our support team at support@app.stora.com.ng
     
     Best regards,
-    The IVMA Team
+    The Stora Team
     
-    © ${new Date().getFullYear()} IVMA. All rights reserved.
+    © ${new Date().getFullYear()} Stora. All rights reserved.
   `;
 
-  return { html, text, subject: 'Reset Your IVMA Password' };
+  return { html, text, subject: 'Reset Your Stora Password' };
 };

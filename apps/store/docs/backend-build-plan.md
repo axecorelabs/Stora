@@ -1,8 +1,8 @@
-# Backend Build Plan — IVMA Store
+# Backend Build Plan — Stora Store
 
 ## What This Document Is
 
-A complete technical specification for building the backend server that powers the IVMA customer storefront. This backend replaces the current Next.js API routes and sits between the frontend and Supabase. The IVMA inventory management app (admin) will also consume some of these endpoints instead of calling Supabase directly.
+A complete technical specification for building the backend server that powers the Stora customer storefront. This backend replaces the current Next.js API routes and sits between the frontend and Supabase. The Stora inventory management app (admin) will also consume some of these endpoints instead of calling Supabase directly.
 
 See `backend-api-endpoints.md` for the full endpoint contracts.
 
@@ -11,14 +11,14 @@ See `backend-api-endpoints.md` for the full endpoint contracts.
 ## System Overview
 
 ```
-[ ivma-store (Next.js frontend) ]
+[ stora-store (Next.js frontend) ]
                ↓  HTTP
     [ Backend Server (Node.js) ]
                ↓  Supabase JS SDK (service role key)
          [ Supabase (PostgreSQL) ]
 ```
 
-The frontend and IVMA admin app **never talk to Supabase directly**. All database access goes through the backend.
+The frontend and Stora admin app **never talk to Supabase directly**. All database access goes through the backend.
 
 ---
 
@@ -83,7 +83,7 @@ updated_at        timestamptz DEFAULT now()
 ### `stores`
 ```sql
 id                  uuid PRIMARY KEY
-owner_id            uuid REFERENCES users(id)  -- IVMA app user
+owner_id            uuid REFERENCES users(id)  -- Stora app user
 store_name          text NOT NULL
 store_slug          text UNIQUE NOT NULL       -- used in storefront URL
 store_description   text
@@ -591,12 +591,12 @@ SUPABASE_SERVICE_ROLE_KEY=<service role key>    # never expose to frontend
 # Server
 PORT=3001
 NODE_ENV=production
-BASE_URL=https://store.ivma.ng                  # used in password reset links
-FRONTEND_ORIGIN=https://store.ivma.ng           # for CORS
+BASE_URL=https://stora.com.ng                  # used in password reset links
+FRONTEND_ORIGIN=https://stora.com.ng           # for CORS
 
 # Email
 RESEND_API_KEY=<key>                            # or SMTP credentials
-EMAIL_FROM=noreply@ivma.ng
+EMAIL_FROM=noreply@app.stora.com.ng
 ```
 
 ---

@@ -1,4 +1,4 @@
-# IVMA monorepo
+# Stora monorepo
 
 Two Next.js apps sharing one Supabase/Postgres database, managed as npm workspaces.
 

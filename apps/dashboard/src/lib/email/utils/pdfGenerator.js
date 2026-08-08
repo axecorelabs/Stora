@@ -1,6 +1,6 @@
 import { formatDateTime } from './formatters.js';
 
-export const generateReceiptPDF = async (orderData, saleData, storeName = 'IVMA Store', storeLogoUrl = null, brandingColors = null) => {
+export const generateReceiptPDF = async (orderData, saleData, storeName = 'Stora Store', storeLogoUrl = null, brandingColors = null) => {
   try {
     const { jsPDF } = await import('jspdf');
     const QRCode = (await import('qrcode')).default;
@@ -40,9 +40,9 @@ export const generateReceiptPDF = async (orderData, saleData, storeName = 'IVMA 
       doc.setFont('courier', 'bold');
       doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
       
-      doc.text('IVMA', pageWidth / 2, 40, { align: 'center', angle: -45 });
-      doc.text('IVMA', pageWidth / 2, 80, { align: 'center', angle: -45 });
-      doc.text('IVMA', pageWidth / 2, 120, { align: 'center', angle: -45 });
+      doc.text('Stora', pageWidth / 2, 40, { align: 'center', angle: -45 });
+      doc.text('Stora', pageWidth / 2, 80, { align: 'center', angle: -45 });
+      doc.text('Stora', pageWidth / 2, 120, { align: 'center', angle: -45 });
       
       doc.setGState(new doc.GState({ opacity: 1 }));
       doc.setTextColor(0, 0, 0);
@@ -288,13 +288,13 @@ export const generateReceiptPDF = async (orderData, saleData, storeName = 'IVMA 
       console.error('Failed to generate QR code:', error);
     }
 
-    // IVMA branding
+    // Stora branding
     yPosition += 1;
     doc.setFontSize(5);
     doc.setFont('courier', 'normal');
     doc.setTextColor(100, 100, 100);
-    addCenteredText('Powered by IVMA', 5);
-    addCenteredText('ivma.ng', 5);
+    addCenteredText('Powered by Stora', 5);
+    addCenteredText('app.stora.com.ng', 5);
     
     doc.setTextColor(0, 0, 0);
 

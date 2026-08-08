@@ -23,7 +23,7 @@ export default function StoreOrderDetailsPage({ params }) {
 
   // Fetch store if not loaded
   useEffect(() => {
-    if (resolvedParams.slug && (!currentStore || currentStore.ivmaWebsite?.websitePath !== resolvedParams.slug)) {
+    if (resolvedParams.slug && (!currentStore || currentStore.website?.websitePath !== resolvedParams.slug)) {
       fetchStore(resolvedParams.slug);
     }
   }, [resolvedParams.slug, currentStore, fetchStore]);
@@ -76,7 +76,7 @@ export default function StoreOrderDetailsPage({ params }) {
   const formatWhatsAppMessage = (storeName, orderNumber, customerName, itemCount) => {
     return encodeURIComponent(
       `Hi ${storeName}! 👋\n\n` +
-      `I placed an order through your IVMA store and would like to confirm the details:\n\n` +
+      `I placed an order through your Stora store and would like to confirm the details:\n\n` +
       `📦 Order #${orderNumber}\n` +
       `👤 Customer: ${customerName}\n` +
       `📋 Items: ${itemCount} ${itemCount === 1 ? 'item' : 'items'}\n\n` +

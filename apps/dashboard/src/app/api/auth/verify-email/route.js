@@ -120,7 +120,7 @@ export async function POST(req) {
     // Create session
     const response = NextResponse.json({
       success: true,
-      message: 'Email verified successfully! Welcome to IVMA!',
+      message: 'Email verified successfully! Welcome to Stora!',
       user: {
         id: updatedUser.id,
         firstName: updatedUser.first_name,

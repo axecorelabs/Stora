@@ -98,16 +98,16 @@ export default function InventoryPage() {
       description: 'Total unique products',
       value: String(Number(stats.totalItems) || 0),
       icon: Package,
-      iconBg: 'bg-teal-100',
-      iconColor: 'text-teal-600'
+      iconBg: 'bg-brand-100',
+      iconColor: 'text-brand-800'
     },
     {
       title: 'Low Stock Items',
       description: 'Items below reorder level',
       value: String(Number(stats.lowStockItems) || 0),
       icon: AlertTriangle,
-      iconBg: 'bg-yellow-100',
-      iconColor: 'text-yellow-600'
+      iconBg: 'bg-gold-500/15',
+      iconColor: 'text-gold-600'
     },
     {
       title: 'Out of Stock',
@@ -122,16 +122,16 @@ export default function InventoryPage() {
       description: 'Total inventory worth (cost)',
       value: formatCurrency(Number(stats.totalStockValue) || 0),
       icon: ShoppingBag,
-      iconBg: 'bg-green-100',
-      iconColor: 'text-green-600'
+      iconBg: 'bg-brand-100',
+      iconColor: 'text-brand-800'
     },
     {
       title: 'Expected Revenue',
       description: 'Total selling value if all sold',
       value: formatCurrency(Number(stats.totalSellingValue) || 0),
       icon: TrendingUp,
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600'
+      iconBg: 'bg-brand-100',
+      iconColor: 'text-brand-800'
     }
   ] : [];
 
@@ -298,22 +298,20 @@ export default function InventoryPage() {
   if (isLoading) {
     return (
       <DashboardLayout title="Inventory Management" subtitle={getCurrentDate()}>
-        {/* Stats Cards Skeleton - Responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6 mb-6 md:mb-8">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 animate-pulse">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center mb-2 md:mb-3">
-                    <div className="w-8 h-8 md:w-9 md:h-9 bg-gray-200 rounded-xl mr-2 md:mr-3"></div>
-                    <div className="h-3 md:h-4 w-20 md:w-24 bg-gray-200 rounded"></div>
-                  </div>
-                  <div className="h-2.5 md:h-3 w-24 md:w-32 bg-gray-200 rounded mb-2 md:mb-3"></div>
-                  <div className="h-6 md:h-8 w-12 md:w-16 bg-gray-200 rounded"></div>
+        {/* Stats strip Skeleton */}
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 md:mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="p-5 animate-pulse">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 bg-gray-200 rounded-lg"></div>
+                  <div className="h-3 w-20 bg-gray-200 rounded"></div>
                 </div>
+                <div className="h-7 w-16 bg-gray-200 rounded mb-2"></div>
+                <div className="h-3 w-24 bg-gray-200 rounded"></div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Table Skeleton - Responsive */}
@@ -330,9 +328,9 @@ export default function InventoryPage() {
             </div>
           </div>
 
-          {/* Table Content Skeleton - Desktop Only */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full">
+          {/* Table Skeleton — same min-width + scroll container as the real table below */}
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[700px] md:min-w-[800px]">
               <thead className="bg-gray-50/50">
                 <tr>
                   {['Product', 'SKU', 'Category', 'Quantity', 'Cost Price', 'Selling Price', 'Stock Value', 'Status', 'Action'].map((header, idx) => (
@@ -393,45 +391,6 @@ export default function InventoryPage() {
             </table>
           </div>
 
-          {/* Mobile/Tablet Card View Skeleton */}
-          <div className="lg:hidden divide-y divide-gray-100">
-            {[1, 2, 3, 4, 5, 6].map((card) => (
-              <div key={card} className="p-4 animate-pulse">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="h-4 w-32 bg-gray-200 rounded mb-2"></div>
-                    <div className="h-3 w-24 bg-gray-200 rounded"></div>
-                  </div>
-                  <div className="h-6 w-20 bg-gray-200 rounded-full"></div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                  <div>
-                    <div className="h-3 w-16 bg-gray-200 rounded mb-1"></div>
-                    <div className="h-4 w-20 bg-gray-200 rounded"></div>
-                  </div>
-                  <div>
-                    <div className="h-3 w-16 bg-gray-200 rounded mb-1"></div>
-                    <div className="h-4 w-20 bg-gray-200 rounded"></div>
-                  </div>
-                  <div>
-                    <div className="h-3 w-16 bg-gray-200 rounded mb-1"></div>
-                    <div className="h-4 w-24 bg-gray-200 rounded"></div>
-                  </div>
-                  <div>
-                    <div className="h-3 w-16 bg-gray-200 rounded mb-1"></div>
-                    <div className="h-4 w-20 bg-gray-200 rounded"></div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end space-x-2 mt-3 pt-3 border-t border-gray-100">
-                  <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
-                  <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
-                </div>
-              </div>
-            ))}
-          </div>
-
           {/* Footer Skeleton */}
           <div className="px-4 md:px-6 py-3 md:py-4 border-t border-gray-100 bg-gray-50">
             <div className="h-3 md:h-4 w-48 md:w-64 bg-gray-200 rounded animate-pulse"></div>
@@ -443,33 +402,31 @@ export default function InventoryPage() {
 
   return (
     <DashboardLayout title="Inventory Management" subtitle={getCurrentDate()}>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6 mb-6 md:mb-8">
-        {statsCards.map((stat, index) => {
-          const IconComponent = stat.icon;
-          return (
-            <div key={index} className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 border border-gray-100 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center mb-2 md:mb-3">
-                    <div className={`p-1.5 md:p-2 ${stat.iconBg} rounded-lg md:rounded-xl mr-2 md:mr-3`}>
-                      <IconComponent className={`w-4 h-4 md:w-5 md:h-5 ${stat.iconColor}`} />
-                    </div>
-                    <h3 className="text-xs md:text-sm font-medium text-gray-900">{stat.title}</h3>
-                  </div>
-                  <p className="text-[10px] md:text-xs text-gray-500 mb-2 md:mb-3">{stat.description}</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-900">
-                    {isLoadingStats ? (
-                      <span className="inline-block w-16 h-8 bg-gray-200 animate-pulse rounded"></span>
-                    ) : (
-                      stat.value
-                    )}
-                  </p>
+      {/* Stats strip */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 md:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
+          {statsCards.map((stat, index) => {
+            const IconComponent = stat.icon;
+            return (
+              <div key={index} className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${stat.iconBg} ${stat.iconColor}`}>
+                    <IconComponent className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm text-gray-500">{stat.title}</span>
                 </div>
+                <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {isLoadingStats ? (
+                    <span className="inline-block w-16 h-7 bg-gray-100 animate-pulse rounded"></span>
+                  ) : (
+                    stat.value
+                  )}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">{stat.description}</p>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Inventory Overview */}
@@ -489,7 +446,7 @@ export default function InventoryPage() {
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 md:pl-10 pr-3 md:pr-4 py-1.5 md:py-2 w-full sm:w-48 md:w-64 lg:w-80 bg-gray-50 border-0 rounded-lg md:rounded-xl focus:outline-none text-gray-900 focus:ring-2 focus:ring-teal-500 focus:bg-white text-xs md:text-sm transition-all duration-200"
+                  className="pl-8 md:pl-10 pr-3 md:pr-4 py-1.5 md:py-2 w-full sm:w-48 md:w-64 lg:w-80 bg-gray-50 border-0 rounded-lg md:rounded-xl focus:outline-none text-gray-900 focus:ring-2 focus:ring-brand-800 focus:bg-white text-xs md:text-sm transition-all duration-200"
                 />
               </div>
               
@@ -533,7 +490,7 @@ export default function InventoryPage() {
 
               <button 
                 onClick={() => router.push('/dashboard/inventory/add')}
-                className="flex items-center justify-center space-x-1 md:space-x-1.5 lg:space-x-2 px-2.5 md:px-3 lg:px-4 py-1.5 md:py-2 bg-teal-600 text-white rounded-lg md:rounded-xl hover:bg-teal-700 text-xs md:text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
+                className="flex items-center justify-center space-x-1 md:space-x-1.5 lg:space-x-2 px-2.5 md:px-3 lg:px-4 py-1.5 md:py-2 bg-brand-800 text-white rounded-lg md:rounded-xl hover:bg-brand-900 text-xs md:text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 <span className="hidden xs:inline">Add</span>
@@ -546,13 +503,13 @@ export default function InventoryPage() {
             <div className="mt-3 md:mt-4 flex items-center space-x-2">
               <span className="text-xs md:text-sm text-gray-500">Active filters:</span>
               <div className="flex items-center space-x-2 overflow-x-auto">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand-100 text-brand-900">
                   {filterBy === 'category' && `Category: ${filterValue}`}
                   {filterBy === 'status' && `Status: ${statusOptions.find(opt => opt.value === filterValue)?.label}`}
                   {filterBy === 'sku' && `SKU Prefix: ${filterValue}`}
                   <button
                     onClick={() => setFilterValue('')}
-                    className="ml-2 text-teal-600 hover:text-teal-800"
+                    className="ml-2 text-brand-800 hover:text-brand-900"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -590,7 +547,7 @@ export default function InventoryPage() {
                           <p className="text-gray-500 text-sm mb-6">Get started by adding your first product to track</p>
                           <button 
                             onClick={() => router.push('/dashboard/inventory/add')}
-                            className="flex items-center space-x-2 px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                            className="flex items-center space-x-2 px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
                           >
                             <Plus className="w-4 h-4" />
                             <span>Add Your First Item</span>
@@ -625,7 +582,7 @@ export default function InventoryPage() {
                     <td className="px-3 md:px-6 py-3 md:py-4">
                       <div className="flex items-start space-x-2 md:space-x-3">
                         {/* Product Image - Use actual image or fallback to package icon */}
-                        <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-brand-50 to-brand-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {item.image || (item.images && item.images.length > 0) ? (
                             <img 
                               src={item.image || item.images[0].url} 
@@ -638,7 +595,7 @@ export default function InventoryPage() {
                               }}
                             />
                           ) : null}
-                          <Package className={`w-5 h-5 md:w-6 md:h-6 text-teal-600 ${(item.image || (item.images && item.images.length > 0)) ? 'hidden' : ''}`} />
+                          <Package className={`w-5 h-5 md:w-6 md:h-6 text-brand-800 ${(item.image || (item.images && item.images.length > 0)) ? 'hidden' : ''}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs md:text-sm font-semibold text-gray-900 truncate">{item.productName}</div>
@@ -691,7 +648,7 @@ export default function InventoryPage() {
                         </div>
                         <div className="flex items-center space-x-1 md:space-x-2">
                           <span className="text-[10px] md:text-xs text-gray-500">Sell:</span>
-                          <span className="text-xs md:text-sm font-medium text-teal-600">
+                          <span className="text-xs md:text-sm font-medium text-brand-800">
                             {formatCurrency(item.currentSellingPrice || item.sellingPrice)}
                           </span>
                         </div>
@@ -722,7 +679,7 @@ export default function InventoryPage() {
                       <div className="flex items-center justify-center space-x-1 md:space-x-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => router.push(`/dashboard/inventory/${item._id}`)}
-                          className="p-1.5 md:p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-all hover:shadow-sm"
+                          className="p-1.5 md:p-2 text-brand-800 hover:bg-brand-50 rounded-lg transition-all hover:shadow-sm"
                           title="View Details"
                         >
                           <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
@@ -752,8 +709,8 @@ export default function InventoryPage() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
               <p className="text-xs md:text-sm text-gray-600">
                 Showing <span className="font-semibold text-gray-900">{getFilteredInventoryData().length}</span> of <span className="font-semibold text-gray-900">{inventoryData.length}</span> items
-                {searchTerm && <span className="text-teal-600"> matching "{searchTerm}"</span>}
-                {filterBy !== 'all' && filterValue && <span className="text-teal-600"> • Filtered by {filterBy}</span>}
+                {searchTerm && <span className="text-brand-800"> matching "{searchTerm}"</span>}
+                {filterBy !== 'all' && filterValue && <span className="text-brand-800"> • Filtered by {filterBy}</span>}
               </p>
               {getFilteredInventoryData().length > 0 && (
                 <div className="text-xs md:text-sm text-gray-600">

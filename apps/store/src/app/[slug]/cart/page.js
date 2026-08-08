@@ -94,7 +94,7 @@ export default function StoreCartPage({ params }) {
     if (
       resolvedParams.slug &&
       (!currentStore ||
-        currentStore.ivmaWebsite?.websitePath !== resolvedParams.slug)
+        currentStore.website?.websitePath !== resolvedParams.slug)
     ) {
       fetchStore(resolvedParams.slug);
     }
@@ -343,7 +343,7 @@ export default function StoreCartPage({ params }) {
   ) => {
     return encodeURIComponent(
       `Hi ${storeName}! 👋\n\n` +
-        `I just placed an order through your IVMA store:\n` +
+        `I just placed an order through your Stora store:\n` +
         `Order #${orderNumber}\n` +
         `Customer: ${customerName}\n` +
         `Items: ${itemCount}\n\n` +

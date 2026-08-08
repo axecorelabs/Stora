@@ -13,9 +13,9 @@ import * as React from 'react';
 
 export const WelcomeEmail = ({
   firstName = 'User',
-  siteUrl = 'https://ivma.ng',
+  siteUrl = 'https://app.stora.com.ng',
 }) => {
-  const previewText = `Welcome to IVMA Store, ${firstName}!`;
+  const previewText = `Welcome to Stora Store, ${firstName}!`;
 
   return (
     <Html>
@@ -32,7 +32,7 @@ export const WelcomeEmail = ({
           <Section style={content}>
             <Text style={paragraph}>Hi {firstName},</Text>
             <Text style={paragraph}>
-              Your email has been verified successfully! You're now part of the IVMA Store
+              Your email has been verified successfully! You're now part of the Stora Store
               community.
             </Text>
             <Text style={paragraph}>
@@ -52,14 +52,14 @@ export const WelcomeEmail = ({
             <Text style={paragraph}>
               Happy shopping!
               <br />
-              The IVMA Store Team
+              The Stora Store Team
             </Text>
           </Section>
 
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerText}>
-              © {new Date().getFullYear()} IVMA Store. All rights reserved.
+              © {new Date().getFullYear()} Stora Store. All rights reserved.
             </Text>
           </Section>
         </Container>

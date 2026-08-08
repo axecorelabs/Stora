@@ -205,7 +205,7 @@ export async function POST(req) {
       .select('store_name')
       .eq('owner_id', user.id)
       .single();
-    const storeName = store?.store_name || 'IVMA Store';
+    const storeName = store?.store_name || 'Stora Store';
 
     if (deliveryData.customerEmail) {
       try {

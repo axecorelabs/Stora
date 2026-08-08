@@ -13,7 +13,7 @@ const useStoreStore = create((set, get) => ({
     const { currentStore } = get();
     
     // Don't fetch if we already have the correct store
-    if (currentStore?.ivmaWebsite?.websitePath === websitePath) {
+    if (currentStore?.website?.websitePath === websitePath) {
       return currentStore;
     }
 
@@ -62,7 +62,7 @@ const useStoreStore = create((set, get) => ({
 
     try {
       // This could be a separate endpoint for analytics
-      await fetch(`/api/stores/public/${currentStore.ivmaWebsite.websitePath}/metrics`, {
+      await fetch(`/api/stores/public/${currentStore.website.websitePath}/metrics`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

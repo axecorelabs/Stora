@@ -69,7 +69,7 @@ export default function StoreSocialsModal({
   };
 
   const generateSocialMediaMessage = (platform, storeName) => {
-    const baseMessage = `Hi ${storeName}! 👋\n\nI placed an order through your IVMA store:\n📦 Order #${orderNumber}\n👤 Customer: ${customerName}\n📋 Items: ${itemCount}\n\nPlease confirm my order status. Thank you! 😊`;
+    const baseMessage = `Hi ${storeName}! 👋\n\nI placed an order through your Stora store:\n📦 Order #${orderNumber}\n👤 Customer: ${customerName}\n📋 Items: ${itemCount}\n\nPlease confirm my order status. Thank you! 😊`;
     
     switch (platform) {
       case 'whatsapp':

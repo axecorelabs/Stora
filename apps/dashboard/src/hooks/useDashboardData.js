@@ -170,6 +170,26 @@ export function useDashboardData() {
         throwOnError: false,
       },
       {
+        queryKey: ['sales-trend'],
+        queryFn: async () => {
+          try {
+            const response = await secureApiCall('/api/pos/sales/trend');
+            if (response.success && Array.isArray(response.data?.days)) {
+              return response.data.days;
+            }
+            return [];
+          } catch (error) {
+            console.error('Sales trend error:', error);
+            return [];
+          }
+        },
+        enabled: hasStore && isStoreCheckComplete,
+        staleTime: 2 * 60 * 1000,
+        retry: 2,
+        keepPreviousData: true,
+        throwOnError: false,
+      },
+      {
         queryKey: ['top-inventory'],
         queryFn: async () => {
           try {
@@ -199,6 +219,7 @@ export function useDashboardData() {
     recentSalesQuery,
     pendingOrdersQuery,
     todayOrdersQuery,
+    salesTrendQuery,
     topItemsQuery,
   ] = dashboardQueries;
 
@@ -238,6 +259,7 @@ export function useDashboardData() {
     pendingOrders: pendingOrdersQuery.data?.orders || [],
     totalPendingOrders: Number(pendingOrdersQuery.data?.total) || 0,
     todayOrders: Number(todayOrdersQuery.data) || 0,
+    salesTrend: salesTrendQuery.data || [],
     topItems: topItemsQuery.data || [],
     
     // Individual loading states for debugging

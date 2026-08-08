@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Providers } from "./providers";
@@ -6,10 +6,30 @@ import Head from "next/head";
 import QueryProvider from "@/providers/QueryProvider";
 
 const inter = Inter({ subsets: ["latin"] });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata = {
-  title: "IVMA - Ecommerce Business Management System",
+  metadataBase: new URL("https://app.stora.com.ng"),
+  title: "Stora - Ecommerce Business Management System",
   description: "Professional business management system for businesses",
+  openGraph: {
+    title: "Stora - Ecommerce Business Management System",
+    description: "Professional business management system for businesses",
+    images: [
+      {
+        url: "/stora2.png",
+        width: 1254,
+        height: 1254,
+        alt: "Stora",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Stora - Ecommerce Business Management System",
+    description: "Professional business management system for businesses",
+    images: ["/stora2.png"],
+  },
   icons: {
     icon: [
       {
@@ -52,7 +72,7 @@ export default function RootLayout({ children }) {
           href="/favicon-16x16.png"
         />
       </Head>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${spaceGrotesk.variable}`}>
         <QueryProvider>
           <AuthProvider>
             <Providers>{children}</Providers>

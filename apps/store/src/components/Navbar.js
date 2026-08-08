@@ -20,7 +20,7 @@ export default function Navbar() {
               <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center mr-3">
                 <span className="text-white font-bold text-sm">I</span>
               </div>
-              <h1 className="text-xl font-semibold text-gray-900">IVMA Store</h1>
+              <h1 className="text-xl font-semibold text-gray-900">Stora Store</h1>
             </div>
             
             <div className="hidden md:flex items-center space-x-8">

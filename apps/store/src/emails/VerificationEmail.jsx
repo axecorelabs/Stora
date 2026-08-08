@@ -15,7 +15,7 @@ export const VerificationEmail = ({
   firstName = 'User',
   verificationCode = '123456',
 }) => {
-  const previewText = `Verify your IVMA Store account with code: ${verificationCode}`;
+  const previewText = `Verify your Stora Store account with code: ${verificationCode}`;
 
   return (
     <Html>
@@ -25,7 +25,7 @@ export const VerificationEmail = ({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Heading style={headerHeading}>Welcome to IVMA Store! 🎉</Heading>
+            <Heading style={headerHeading}>Welcome to Stora Store! 🎉</Heading>
           </Section>
 
           {/* Content */}
@@ -46,20 +46,20 @@ export const VerificationEmail = ({
             </Text>
 
             <Text style={paragraph}>
-              If you didn't create an account with IVMA Store, please ignore this email.
+              If you didn't create an account with Stora Store, please ignore this email.
             </Text>
 
             <Text style={paragraph}>
               Best regards,
               <br />
-              The IVMA Store Team
+              The Stora Store Team
             </Text>
           </Section>
 
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerText}>
-              © {new Date().getFullYear()} IVMA Store. All rights reserved.
+              © {new Date().getFullYear()} Stora Store. All rights reserved.
             </Text>
             <Text style={footerText}>This is an automated email. Please do not reply.</Text>
           </Section>

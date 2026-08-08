@@ -170,13 +170,13 @@ async function run() {
     await insert('stores', [
       'id','mongo_id','owner_id','store_name','store_slug','store_description','store_type','store_phone',
       'store_email','address','online_store_info','branding','business_hours','settings','bank_details',
-      'ivma_website','is_active','is_verified','verification_status','total_sales','total_orders',
+      'website','is_active','is_verified','verification_status','total_sales','total_orders',
       'average_rating','total_reviews','created_at','updated_at'
     ], [
       id, oid(s._id), ownerId, s.storeName || 'Store', slug, s.storeDescription || null, s.storeType || 'physical',
       s.storePhone || null, s.storeEmail || null, JSON.stringify(s.address || {}), JSON.stringify(s.onlineStoreInfo || {}),
       JSON.stringify(s.branding || {}), JSON.stringify({}), JSON.stringify(s.settings || {}), JSON.stringify({}),
-      JSON.stringify(s.ivmaWebsite || { status: 'inactive', isEnabled: false }), bool(s.isActive, true), false, 'pending',
+      JSON.stringify(s.website || { status: 'inactive', isEnabled: false }), bool(s.isActive, true), false, 'pending',
       num(s.totalSales ?? s.totalRevenue, 0), 0, 0, 0, date(s.createdAt) || new Date(), date(s.updatedAt) || new Date()
     ]);
   }

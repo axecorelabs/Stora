@@ -13,10 +13,10 @@ import * as React from 'react';
 
 export const PasswordResetEmail = ({
   name = 'User',
-  resetUrl = 'https://ivma.ng/reset-password',
+  resetUrl = 'https://app.stora.com.ng/reset-password',
   expiryMinutes = 30,
 }) => {
-  const previewText = `Reset your IVMA Store password`;
+  const previewText = `Reset your Stora Store password`;
 
   return (
     <Html>
@@ -33,7 +33,7 @@ export const PasswordResetEmail = ({
           <Section style={content}>
             <Text style={paragraph}>Hi {name},</Text>
             <Text style={paragraph}>
-              We received a request to reset your password for your IVMA Store account.
+              We received a request to reset your password for your Stora Store account.
               Click the button below to create a new password:
             </Text>
 
@@ -65,12 +65,12 @@ export const PasswordResetEmail = ({
           <Section style={footer}>
             <Text style={footerText}>
               Need help? Contact us at{' '}
-              <Link href="mailto:support@ivmastore.com" style={footerLink}>
-                support@ivmastore.com
+              <Link href="mailto:support@stora.com.ng" style={footerLink}>
+                support@stora.com.ng
               </Link>
             </Text>
             <Text style={footerCopyright}>
-              © {new Date().getFullYear()} IVMA Store. All rights reserved.
+              © {new Date().getFullYear()} Stora Store. All rights reserved.
             </Text>
           </Section>
         </Container>

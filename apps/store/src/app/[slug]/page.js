@@ -17,7 +17,7 @@ export async function generateMetadata({ params }) {
       };
     }
 
-    const seoSettings = store.ivma_website?.seo_settings || {};
+    const seoSettings = store.website?.seo_settings || {};
     
     return {
       title: seoSettings.meta_title || `${store.storeName} - Quality Products Online`,
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }) {
   } catch (error) {
     console.error('Error generating metadata:', error);
     return {
-      title: 'IVMA Store',
+      title: 'Stora Store',
       description: 'Your marketplace for artisan products'
     };
   }

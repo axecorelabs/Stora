@@ -70,13 +70,13 @@ export const getSubscriptionUpdateTemplate = (firstName, email, subscriptionDeta
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">IVMA</div>
+          <div class="logo">Stora</div>
           <h1>Subscription Update</h1>
         </div>
         
         <p>Hi ${firstName},</p>
         
-        <p>Your IVMA subscription has been updated successfully.</p>
+        <p>Your Stora subscription has been updated successfully.</p>
         
         <div class="info-box">
           <div class="info-row">
@@ -95,10 +95,10 @@ export const getSubscriptionUpdateTemplate = (firstName, email, subscriptionDeta
         
         <p>You can manage your subscription anytime from your dashboard.</p>
         
-        <p>Best regards,<br>The IVMA Team</p>
+        <p>Best regards,<br>The Stora Team</p>
         
         <div class="footer">
-          <p>© ${new Date().getFullYear()} IVMA. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Stora. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
         </div>
       </div>
@@ -111,7 +111,7 @@ export const getSubscriptionUpdateTemplate = (firstName, email, subscriptionDeta
     
     Hi ${firstName},
     
-    Your IVMA subscription has been updated successfully.
+    Your Stora subscription has been updated successfully.
     
     Plan: ${plan}
     Status: ${status}
@@ -120,8 +120,8 @@ export const getSubscriptionUpdateTemplate = (firstName, email, subscriptionDeta
     You can manage your subscription anytime from your dashboard.
     
     Best regards,
-    The IVMA Team
+    The Stora Team
   `;
 
-  return { html, text, subject: `IVMA Subscription Update - ${plan} Plan` };
+  return { html, text, subject: `Stora Subscription Update - ${plan} Plan` };
 };

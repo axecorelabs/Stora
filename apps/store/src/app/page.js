@@ -20,7 +20,7 @@ export default function Home() {
                 <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center mr-3">
                   <span className="text-white font-bold text-sm">I</span>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900">IVMA Store</h3>
+                <h3 className="text-xl font-semibold text-gray-900">Stora Store</h3>
               </div>
               <p className="text-gray-600 leading-relaxed">
                 Empowering small businesses and connecting communities through conscious commerce.
@@ -55,7 +55,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-gray-200 mt-12 pt-8 text-center">
-            <p className="text-gray-500">&copy; 2025 IVMA Store. All rights reserved. Made with ❤️ for small businesses.</p>
+            <p className="text-gray-500">&copy; 2025 Stora Store. All rights reserved. Made with ❤️ for small businesses.</p>
           </div>
         </div>
       </footer>

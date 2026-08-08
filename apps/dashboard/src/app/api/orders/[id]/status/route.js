@@ -290,7 +290,7 @@ export async function PUT(req, { params }) {
       try {
         if (saleResults && saleResults.sales.length > 0) {
           // store was already fetched above via owner_id, reuse its name
-          const storeName = store?.store_name || 'IVMA Store';
+          const storeName = store?.store_name || 'Stora Store';
 
           // Use sale data for the email
           const sale = saleResults.sales[0];

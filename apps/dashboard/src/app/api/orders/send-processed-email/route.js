@@ -42,7 +42,7 @@ export async function POST(req) {
       email,
       orderData,
       saleData,
-      storeName || 'IVMA Store'
+      storeName || 'Stora Store'
     );
 
     if (result.success) {

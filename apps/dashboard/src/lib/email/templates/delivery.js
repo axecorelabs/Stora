@@ -1,6 +1,6 @@
 import { formatCurrency, formatDate, getTimeSlotText, getDeliveryMethodText } from '../utils/formatters.js';
 
-export const getDeliveryScheduledTemplate = (email, deliveryData, saleData, storeName = 'IVMA Store') => {
+export const getDeliveryScheduledTemplate = (email, deliveryData, saleData, storeName = 'Stora Store') => {
   const html = `
     <!DOCTYPE html>
     <html>
@@ -258,7 +258,7 @@ export const getDeliveryScheduledTemplate = (email, deliveryData, saleData, stor
         <p><strong>Contact Information:</strong><br>
         ${storeName}<br>
         ${deliveryData.customerPhone ? `Phone: ${deliveryData.customerPhone}<br>` : ''}
-        Email: support@ivma.ng</p>
+        Email: support@app.stora.com.ng</p>
         
         <p>Thank you for shopping with us!</p>
         
@@ -267,7 +267,7 @@ export const getDeliveryScheduledTemplate = (email, deliveryData, saleData, stor
         <div class="footer">
           <p>© ${new Date().getFullYear()} ${storeName}. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
-          <p>Powered by IVMA - Intelligent Inventory Management & Analytics</p>
+          <p>Powered by Stora - Inventory Management & Analytics</p>
         </div>
       </div>
     </body>

@@ -1,8 +1,8 @@
-# Backend API Endpoints — IVMA Store
+# Backend API Endpoints — Stora Store
 
 ## Overview
 
-This document covers every API endpoint for the IVMA customer storefront. All endpoints are derived from the existing Next.js routes and must be replicated exactly in the new backend server.
+This document covers every API endpoint for the Stora customer storefront. All endpoints are derived from the existing Next.js routes and must be replicated exactly in the new backend server.
 
 Supabase is the **source of truth**. The backend server connects to Supabase using the service role key and handles all business logic before writing to the database.
 
@@ -1008,11 +1008,11 @@ Update settings for a specific wishlist item.
 
 ---
 
-## 7. Admin Endpoints (IVMA App — Store Owner / Admin)
+## 7. Admin Endpoints (Stora App — Store Owner / Admin)
 
-These endpoints are consumed by the IVMA inventory management app. They require a **different auth mechanism** — the store owner is authenticated via Supabase Auth (not the customer session system).
+These endpoints are consumed by the Stora inventory management app. They require a **different auth mechanism** — the store owner is authenticated via Supabase Auth (not the customer session system).
 
-> The IVMA app currently makes direct Supabase calls. The new backend should expose these as proper API endpoints so the IVMA app does not need the Supabase service key.
+> The Stora app currently makes direct Supabase calls. The new backend should expose these as proper API endpoints so the Stora app does not need the Supabase service key.
 
 ### Order Management (Admin)
 

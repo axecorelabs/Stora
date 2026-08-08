@@ -29,7 +29,7 @@ function transformStore(store) {
     totalOrders: store.total_orders || 0,
     averageRating: parseFloat(store.average_rating) || 0,
     totalReviews: store.total_reviews || 0,
-    ivmaWebsite: typeof store.ivma_website === 'string' ? JSON.parse(store.ivma_website) : store.ivma_website,
+    website: typeof store.website === 'string' ? JSON.parse(store.website) : store.website,
     createdAt: store.created_at,
     updatedAt: store.updated_at
   };

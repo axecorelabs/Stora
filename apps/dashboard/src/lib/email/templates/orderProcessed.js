@@ -1,6 +1,6 @@
 import { formatCurrency, formatDate } from '../utils/formatters.js';
 
-export const getOrderProcessedTemplate = (email, orderData, saleData, storeName = 'IVMA Store') => {
+export const getOrderProcessedTemplate = (email, orderData, saleData, storeName = 'Stora Store') => {
   const html = `
     <!DOCTYPE html>
     <html>
@@ -207,7 +207,7 @@ export const getOrderProcessedTemplate = (email, orderData, saleData, storeName 
         <p><strong>Contact Information:</strong><br>
         ${storeName}<br>
         ${orderData.customer.phone ? `Phone: ${orderData.customer.phone}<br>` : ''}
-        Email: support@ivma.ng</p>
+        Email: support@app.stora.com.ng</p>
         
         <p>Thank you for your purchase!</p>
         
@@ -216,7 +216,7 @@ export const getOrderProcessedTemplate = (email, orderData, saleData, storeName 
         <div class="footer">
           <p>© ${new Date().getFullYear()} ${storeName}. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
-          <p>Powered by IVMA - Intelligent Inventory Management & Analytics</p>
+          <p>Powered by Stora - Inventory Management & Analytics</p>
         </div>
       </div>
     </body>

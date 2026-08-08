@@ -404,7 +404,7 @@ export default function StoreFooter() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             
-            {/* Copyright & IVMA Branding */}
+            {/* Copyright & Stora Branding */}
             <div className="text-center sm:text-left">
               <p className="text-sm text-gray-600 font-medium">
                 © {new Date().getFullYear()} {currentStore.storeName}. All rights reserved.
@@ -412,13 +412,13 @@ export default function StoreFooter() {
               <p className="text-xs text-gray-500 mt-1.5 flex items-center justify-center sm:justify-start gap-1">
                 <span>Powered by</span>
                 <a 
-                  href="https://ivma.ng" 
+                  href="https://app.stora.com.ng" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="font-semibold hover:underline inline-flex items-center gap-1 transition-colors"
                   style={{ color: primaryColor }}
                 >
-                  IVMA
+                  Stora
                   <Globe className="w-3 h-3" />
                 </a>
               </p>

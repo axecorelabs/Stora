@@ -81,8 +81,8 @@ export const getVerificationEmailTemplate = (verificationCode, firstName, email)
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">IVMA</div>
-          <h1>Welcome to IVMA!</h1>
+          <div class="logo">Stora</div>
+          <h1>Welcome to Stora!</h1>
         </div>
         
         <p>Hi ${firstName},</p>
@@ -96,7 +96,7 @@ export const getVerificationEmailTemplate = (verificationCode, firstName, email)
         <p>This code will expire in <strong>15 minutes</strong>.</p>
         
         <div class="warning">
-          <strong>⚠️ Security Note:</strong> If you didn't create an account with IVMA, please ignore this email or contact our support team.
+          <strong>⚠️ Security Note:</strong> If you didn't create an account with Stora, please ignore this email or contact our support team.
         </div>
         
         <p>Once verified, you'll get instant access to:</p>
@@ -111,12 +111,12 @@ export const getVerificationEmailTemplate = (verificationCode, firstName, email)
         
         <p>Need help? Our support team is here for you 24/7.</p>
         
-        <p>Best regards,<br>The IVMA Team</p>
+        <p>Best regards,<br>The Stora Team</p>
         
         <div class="footer">
-          <p>© ${new Date().getFullYear()} IVMA. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Stora. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
-          <p>IVMA - Intelligent Inventory Management & Analytics</p>
+          <p>Stora - Inventory Management & Analytics</p>
         </div>
       </div>
     </body>
@@ -124,7 +124,7 @@ export const getVerificationEmailTemplate = (verificationCode, firstName, email)
   `;
 
   const text = `
-    Welcome to IVMA!
+    Welcome to Stora!
     
     Hi ${firstName},
     
@@ -134,13 +134,13 @@ export const getVerificationEmailTemplate = (verificationCode, firstName, email)
     
     This code will expire in 15 minutes.
     
-    If you didn't create an account with IVMA, please ignore this email.
+    If you didn't create an account with Stora, please ignore this email.
     
     Best regards,
-    The IVMA Team
+    The Stora Team
     
-    © ${new Date().getFullYear()} IVMA. All rights reserved.
+    © ${new Date().getFullYear()} Stora. All rights reserved.
   `;
 
-  return { html, text, subject: 'Verify Your IVMA Account' };
+  return { html, text, subject: 'Verify Your Stora Account' };
 };

@@ -82,11 +82,11 @@ export default function DashboardSidebar() {
       {/* Logo */}
       <div className="p-6">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
-            <div className="w-6 h-6 bg-white rounded-full"></div>
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center">
+            <img src="/stora.png" alt="Stora Logo" className="object-contain w-full h-full" />
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-bold text-gray-900">IVMA</span>
+            <span className="text-lg font-bold text-gray-900">Stora</span>
           </div>
         </div>
       </div>
@@ -105,8 +105,8 @@ export default function DashboardSidebar() {
                 onClick={() => handleNavigation(item)}
                 className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
                   isActive
-                    ? 'bg-teal-600 text-white shadow-lg'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'bg-brand-800 text-white shadow-lg'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-brand-50'
                 }`}
               >
                 <div className="flex items-center">

@@ -46,37 +46,37 @@ export default function WebsiteSettingsView({ onBack, store, onStoreUpdated }) {
 
   // Load current settings
   useEffect(() => {
-    if (store?.ivmaWebsite) {
+    if (store?.website) {
       setSettings({
         // SEO Settings
-        metaTitle: store.ivmaWebsite.seoSettings?.metaTitle || '',
-        metaDescription: store.ivmaWebsite.seoSettings?.metaDescription || '',
-        keywords: store.ivmaWebsite.seoSettings?.keywords?.join(', ') || '',
+        metaTitle: store.website.seoSettings?.metaTitle || '',
+        metaDescription: store.website.seoSettings?.metaDescription || '',
+        keywords: store.website.seoSettings?.keywords?.join(', ') || '',
         
         // Customization
-        theme: store.ivmaWebsite.customization?.theme || 'default',
-        layout: store.ivmaWebsite.customization?.layout || 'grid',
-        showInventory: store.ivmaWebsite.customization?.showInventory ?? true,
-        showPrices: store.ivmaWebsite.customization?.showPrices ?? true,
-        enableWhatsAppOrder: store.ivmaWebsite.customization?.enableWhatsAppOrder ?? true,
-        enableDirectPurchase: store.ivmaWebsite.customization?.enableDirectPurchase ?? false,
+        theme: store.website.customization?.theme || 'default',
+        layout: store.website.customization?.layout || 'grid',
+        showInventory: store.website.customization?.showInventory ?? true,
+        showPrices: store.website.customization?.showPrices ?? true,
+        enableWhatsAppOrder: store.website.customization?.enableWhatsAppOrder ?? true,
+        enableDirectPurchase: store.website.customization?.enableDirectPurchase ?? false,
         
         // Analytics
-        isGoogleAnalyticsEnabled: store.ivmaWebsite.analytics?.isGoogleAnalyticsEnabled ?? false,
-        googleAnalyticsId: store.ivmaWebsite.analytics?.googleAnalyticsId || '',
-        trackingCode: store.ivmaWebsite.analytics?.trackingCode || '',
+        isGoogleAnalyticsEnabled: store.website.analytics?.isGoogleAnalyticsEnabled ?? false,
+        googleAnalyticsId: store.website.analytics?.googleAnalyticsId || '',
+        trackingCode: store.website.analytics?.trackingCode || '',
         
         // Domain
-        customDomain: store.ivmaWebsite.domain?.customDomain || '',
-        sslEnabled: store.ivmaWebsite.domain?.sslEnabled ?? true,
+        customDomain: store.website.domain?.customDomain || '',
+        sslEnabled: store.website.domain?.sslEnabled ?? true,
         
         // Website Features
-        contactForm: store.ivmaWebsite.settings?.contactForm ?? true,
-        socialMediaLinks: store.ivmaWebsite.settings?.socialMediaLinks ?? true,
-        storeHours: store.ivmaWebsite.settings?.storeHours ?? true,
-        locationMap: store.ivmaWebsite.settings?.locationMap ?? true,
-        testimonials: store.ivmaWebsite.settings?.testimonials ?? false,
-        blog: store.ivmaWebsite.settings?.blog ?? false
+        contactForm: store.website.settings?.contactForm ?? true,
+        socialMediaLinks: store.website.settings?.socialMediaLinks ?? true,
+        storeHours: store.website.settings?.storeHours ?? true,
+        locationMap: store.website.settings?.locationMap ?? true,
+        testimonials: store.website.settings?.testimonials ?? false,
+        blog: store.website.settings?.blog ?? false
       });
       setLoading(false);
     }
@@ -128,8 +128,8 @@ export default function WebsiteSettingsView({ onBack, store, onStoreUpdated }) {
     
     try {
       const updateData = {
-        ivmaWebsite: {
-          ...store.ivmaWebsite,
+        website: {
+          ...store.website,
           seoSettings: {
             metaTitle: settings.metaTitle,
             metaDescription: settings.metaDescription,

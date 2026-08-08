@@ -11,7 +11,7 @@ export default function Hero() {
           
           <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-8 leading-tight">
             Show Your Business to the World{' '}
-            <span className="text-emerald-500">with IVMA</span>
+            <span className="text-emerald-500">with Stora</span>
           </h1>
           
           <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">

@@ -121,7 +121,7 @@ export default function WishlistPage() {
   };
 
   const handleViewProduct = (item) => {
-    const storeSlug = item.storeSnapshot?.storeSlug || item.storeSnapshot?.ivmaWebsite?.websitePath;
+    const storeSlug = item.storeSnapshot?.storeSlug || item.storeSnapshot?.website?.websitePath;
     if (storeSlug) {
       router.push(`/${storeSlug}/product/${item.product._id || item.product}`);
     } else {

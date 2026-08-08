@@ -1,4 +1,4 @@
--- IVMA initial schema
+-- Stora initial schema
 -- Single source of truth for the app's PostgreSQL/Supabase database.
 -- Replaces MongoDB + the abandoned Sequelize model layer.
 --

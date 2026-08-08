@@ -63,7 +63,7 @@ export default function WebsitePage() {
     if (!store) return;
     
     try {
-      const newStatus = store.ivmaWebsite.status === 'active' ? 'inactive' : 'active';
+      const newStatus = store.website.status === 'active' ? 'inactive' : 'active';
       await toggleWebsite(newStatus);
     } catch (error) {
       console.error('Error toggling website status:', error);
@@ -86,9 +86,9 @@ export default function WebsitePage() {
 
   // Get website status info
   const getWebsiteStatusInfo = () => {
-    if (!store?.ivmaWebsite) return { color: 'gray', text: 'Not Set Up' };
+    if (!store?.website) return { color: 'gray', text: 'Not Set Up' };
     
-    switch (store.ivmaWebsite.status) {
+    switch (store.website.status) {
       case 'active':
         return { color: 'green', text: 'Live & Active' };
       case 'inactive':
@@ -298,7 +298,7 @@ export default function WebsitePage() {
               <Globe className="w-8 h-8 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">IVMA Store</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Stora Store</h1>
               <div className="flex items-center space-x-3 mt-1">
                 <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full bg-${websiteStatus.color}-100 text-${websiteStatus.color}-800`}>
                   {websiteStatus.text}
@@ -345,14 +345,14 @@ export default function WebsitePage() {
                 onClick={toggleWebsiteStatus}
                 disabled={isTogglingWebsite}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 ${
-                  store.ivmaWebsite?.status === 'active'
+                  store.website?.status === 'active'
                     ? 'bg-teal-600'
                     : 'bg-gray-200'
                 } ${isTogglingWebsite ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    store.ivmaWebsite?.status === 'active' ? 'translate-x-6' : 'translate-x-1'
+                    store.website?.status === 'active' ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
@@ -387,7 +387,7 @@ export default function WebsitePage() {
               )}
             </div>
             
-            {store.ivmaWebsite?.status === 'active' ? (
+            {store.website?.status === 'active' ? (
               <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                 {/* Browser Bar */}
                 <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
@@ -753,7 +753,7 @@ export default function WebsitePage() {
                   <span className="text-sm text-gray-600">Total Views</span>
                 </div>
                 <span className="text-sm font-medium text-gray-900">
-                  {store.ivmaWebsite?.metrics?.totalViews || 0}
+                  {store.website?.metrics?.totalViews || 0}
                 </span>
               </div>
               
@@ -763,7 +763,7 @@ export default function WebsitePage() {
                   <span className="text-sm text-gray-600">Monthly Views</span>
                 </div>
                 <span className="text-sm font-medium text-gray-900">
-                  {store.ivmaWebsite?.metrics?.monthlyViews || 0}
+                  {store.website?.metrics?.monthlyViews || 0}
                 </span>
               </div>
               
@@ -773,7 +773,7 @@ export default function WebsitePage() {
                   <span className="text-sm text-gray-600">Total Orders</span>
                 </div>
                 <span className="text-sm font-medium text-gray-900">
-                  {store.ivmaWebsite?.metrics?.totalOrders || 0}
+                  {store.website?.metrics?.totalOrders || 0}
                 </span>
               </div>
 
@@ -787,14 +787,14 @@ export default function WebsitePage() {
                 </span>
               </div> */}
               
-              {store.ivmaWebsite?.metrics?.lastVisit && (
+              {store.website?.metrics?.lastVisit && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <Clock className="w-4 h-4 mr-2 text-gray-500" />
                     <span className="text-sm text-gray-600">Last Visit</span>
                   </div>
                   <span className="text-sm font-medium text-gray-900">
-                    {new Date(store.ivmaWebsite.metrics.lastVisit).toLocaleDateString()}
+                    {new Date(store.website.metrics.lastVisit).toLocaleDateString()}
                   </span>
                 </div>
               )}
@@ -923,9 +923,9 @@ export default function WebsitePage() {
                 </button>
               )}
               
-              {store?.ivmaWebsite?.url && (
+              {store?.website?.url && (
                 <button
-                  onClick={() => window.open(store.ivmaWebsite.url, '_blank')}
+                  onClick={() => window.open(store.website.url, '_blank')}
                   className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
@@ -983,20 +983,20 @@ export default function WebsitePage() {
                 </span>
               </div>
               
-              {store.ivmaWebsite?.activatedAt && (
+              {store.website?.activatedAt && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Activated</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {new Date(store.ivmaWebsite.activatedAt).toLocaleDateString()}
+                    {new Date(store.website.activatedAt).toLocaleDateString()}
                   </span>
                 </div>
               )}
               
-              {store.ivmaWebsite?.lastPublishedAt && (
+              {store.website?.lastPublishedAt && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Last Updated</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {new Date(store.ivmaWebsite.lastPublishedAt).toLocaleDateString()}
+                    {new Date(store.website.lastPublishedAt).toLocaleDateString()}
                   </span>
                 </div>
               )}

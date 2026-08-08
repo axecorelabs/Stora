@@ -19,7 +19,7 @@ const getDeliveryMethodText = (method) => {
   return methods[method] || method;
 };
 
-export const getDeliveryScheduledTemplate = (email, deliveryData, saleData, storeName = 'IVMA Store') => {
+export const getDeliveryScheduledTemplate = (email, deliveryData, saleData, storeName = 'Stora Store') => {
   const html = `
     <!DOCTYPE html>
     <html>

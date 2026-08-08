@@ -28,7 +28,7 @@ function transformStore(store) {
     totalOrders: store.total_orders || 0,
     averageRating: parseFloat(store.average_rating) || 0,
     totalReviews: store.total_reviews || 0,
-    ivmaWebsite: typeof store.ivma_website === 'string' ? JSON.parse(store.ivma_website) : store.ivma_website,
+    website: typeof store.website === 'string' ? JSON.parse(store.website) : store.website,
     createdAt: store.created_at,
     updatedAt: store.updated_at
   };
@@ -71,13 +71,13 @@ export async function PUT(req) {
       );
     }
 
-    // Parse current ivmaWebsite
-    const currentIvmaWebsite = typeof store.ivma_website === 'string' 
-      ? JSON.parse(store.ivma_website) 
-      : store.ivma_website || {};
+    // Parse current website
+    const currentWebsite = typeof store.website === 'string' 
+      ? JSON.parse(store.website) 
+      : store.website || {};
 
     // Generate website path if activating and doesn't exist
-    let websitePath = currentIvmaWebsite.websitePath;
+    let websitePath = currentWebsite.websitePath;
     if (status === 'active' && !websitePath) {
       let basePath = store.store_name
         .toLowerCase()
@@ -99,7 +99,7 @@ export async function PUT(req) {
           .from('stores')
           .select('id')
           .neq('id', store.id)
-          .contains('ivma_website', { websitePath })
+          .contains('website', { websitePath })
           .single();
         
         if (!existingStore) break;
@@ -114,26 +114,26 @@ export async function PUT(req) {
       }
     }
 
-    // Build updated ivmaWebsite
-    const updatedIvmaWebsite = {
-      ...currentIvmaWebsite,
+    // Build updated website
+    const updatedWebsite = {
+      ...currentWebsite,
       status,
       isEnabled: status === 'active',
       websitePath
     };
 
     if (status === 'active') {
-      updatedIvmaWebsite.activatedAt = new Date().toISOString();
-      updatedIvmaWebsite.lastPublishedAt = new Date().toISOString();
+      updatedWebsite.activatedAt = new Date().toISOString();
+      updatedWebsite.lastPublishedAt = new Date().toISOString();
     } else if (status === 'suspended') {
-      updatedIvmaWebsite.suspendedAt = new Date().toISOString();
+      updatedWebsite.suspendedAt = new Date().toISOString();
     }
 
     // Update the store
     const { data: updatedStore, error: updateError } = await supabaseAdmin
       .from('stores')
       .update({
-        ivma_website: updatedIvmaWebsite,
+        website: updatedWebsite,
         updated_at: new Date().toISOString()
       })
       .eq('owner_id', user.id)

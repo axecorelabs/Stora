@@ -472,7 +472,7 @@ export default function CreateStoreModal({ isOpen, onStoreCreated }) {
                       />
                       <div className="mt-2 p-3 bg-teal-50 rounded-lg border border-teal-200">
                         <p className="text-teal-800 text-xs">
-                          <strong>💡 Pro Tip:</strong> Don't have a website yet? We'll also provide you with a custom store on the IVMA e-commerce platform where you can showcase and sell your products online!
+                          <strong>💡 Pro Tip:</strong> Don't have a website yet? We'll also provide you with a custom store on the Stora e-commerce platform where you can showcase and sell your products online!
                         </p>
                       </div>
                     </div>

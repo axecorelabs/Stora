@@ -178,7 +178,7 @@ export default function SignUpModal({ isOpen, onClose, onSuccess, onSwitchToSign
         <div className="flex items-center justify-between p-6 border-b">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Create Account</h2>
-            <p className="text-sm text-gray-600 mt-1">Join IVMA Store community</p>
+            <p className="text-sm text-gray-600 mt-1">Join Stora Store community</p>
           </div>
           <button
             onClick={handleClose}

@@ -402,7 +402,7 @@ export default function InventoryDetailPage() {
       <DashboardLayout title="Loading..." subtitle="Please wait">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-800 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading item details...</p>
           </div>
         </div>
@@ -420,7 +420,7 @@ export default function InventoryDetailPage() {
             <p className="text-gray-600 mb-4">{error}</p>
             <button
               onClick={() => router.push('/dashboard/inventory')}
-              className="px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+              className="px-4 py-2 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors"
             >
               Back to Inventory
             </button>

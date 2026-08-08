@@ -35,9 +35,9 @@ export async function sendVerificationEmail(email, firstName, verificationCode) 
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: 'Verify Your IVMA Store Account',
+    subject: 'Verify Your Stora Store Account',
     html: emailHtml,
-    text: `Hi ${firstName},\n\nThank you for signing up! Your verification code is: ${verificationCode}\n\nThis code will expire in 10 minutes.\n\nIf you didn't create an account with IVMA Store, please ignore this email.\n\nBest regards,\nThe IVMA Store Team`,
+    text: `Hi ${firstName},\n\nThank you for signing up! Your verification code is: ${verificationCode}\n\nThis code will expire in 10 minutes.\n\nIf you didn't create an account with Stora Store, please ignore this email.\n\nBest regards,\nThe Stora Store Team`,
   };
 
   try {
@@ -52,15 +52,15 @@ export async function sendVerificationEmail(email, firstName, verificationCode) 
 
 // Send welcome email
 export async function sendWelcomeEmail(email, firstName) {
-  const siteUrl = process.env.NEXTAUTH_URL || 'https://ivma.ng';
+  const siteUrl = process.env.NEXTAUTH_URL || 'https://app.stora.com.ng';
   const emailHtml = await render(WelcomeEmail({ firstName, siteUrl }));
   
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: 'Welcome to IVMA Store!',
+    subject: 'Welcome to Stora Store!',
     html: emailHtml,
-    text: `Hi ${firstName},\n\nYour email has been verified successfully! You're now part of the IVMA Store community.\n\nStart exploring amazing products from local artisans and vendors.\n\nVisit: ${siteUrl}\n\nHappy shopping!\nThe IVMA Store Team`,
+    text: `Hi ${firstName},\n\nYour email has been verified successfully! You're now part of the Stora Store community.\n\nStart exploring amazing products from local artisans and vendors.\n\nVisit: ${siteUrl}\n\nHappy shopping!\nThe Stora Store Team`,
   };
 
   try {
@@ -77,14 +77,14 @@ export async function sendPasswordResetEmail(email, name, resetUrl, expiryMinute
   const emailHtml = await render(PasswordResetEmail({ name, resetUrl, expiryMinutes }));
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'noreply@ivmastore.com',
+    from: process.env.EMAIL_FROM || 'noreply@stora.com.ng',
     to: email,
-    subject: 'Reset Your Password - IVMA Store',
+    subject: 'Reset Your Password - Stora Store',
     html: emailHtml,
     text: `
 Hi ${name},
 
-We received a request to reset your password for your IVMA Store account.
+We received a request to reset your password for your Stora Store account.
 
 Click the link below to reset your password:
 ${resetUrl}
@@ -93,9 +93,9 @@ This link will expire in ${expiryMinutes} minutes for security reasons.
 
 If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
 
-Need help? Contact us at support@ivmastore.com
+Need help? Contact us at support@stora.com.ng
 
-© ${new Date().getFullYear()} IVMA Store. All rights reserved.
+© ${new Date().getFullYear()} Stora Store. All rights reserved.
     `.trim()
   };
 
@@ -104,18 +104,18 @@ Need help? Contact us at support@ivmastore.com
 
 // Send new order notification to store owner
 export async function sendNewOrderNotification(storeEmail, storeName, order) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://ivma.ng';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://app.stora.com.ng';
   const emailHtml = await render(NewOrderNotification({ storeName, storeEmail, order, baseUrl }));
   
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'noreply@ivmastore.com',
+    from: process.env.EMAIL_FROM || 'noreply@stora.com.ng',
     to: storeEmail,
     subject: `New Order #${order.orderNumber} - ${storeName}`,
     html: emailHtml,
     text: `
 Hi ${storeName},
 
-Great news! You have received a new order through your IVMA store.
+Great news! You have received a new order through your Stora store.
 
 Order Details:
 - Order Number: #${order.orderNumber}
@@ -142,9 +142,9 @@ Next Steps:
 
 View full order details: ${baseUrl}/dashboard/orders/${order._id}
 
-Thank you for using IVMA Store!
+Thank you for using Stora Store!
 
-© ${new Date().getFullYear()} IVMA Store. All rights reserved.
+© ${new Date().getFullYear()} Stora Store. All rights reserved.
     `.trim()
   };
 

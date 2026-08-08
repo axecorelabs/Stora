@@ -28,7 +28,7 @@ function transformStore(store) {
     totalOrders: store.total_orders || 0,
     averageRating: parseFloat(store.average_rating) || 0,
     totalReviews: store.total_reviews || 0,
-    ivmaWebsite: typeof store.ivma_website === 'string' ? JSON.parse(store.ivma_website) : store.ivma_website,
+    website: typeof store.website === 'string' ? JSON.parse(store.website) : store.website,
     createdAt: store.created_at,
     updatedAt: store.updated_at
   };
@@ -62,34 +62,34 @@ export async function PUT(req) {
       );
     }
 
-    // Merge ivmaWebsite settings
-    const currentIvmaWebsite = typeof store.ivma_website === 'string' 
-      ? JSON.parse(store.ivma_website) 
-      : store.ivma_website || {};
+    // Merge website settings
+    const currentWebsite = typeof store.website === 'string' 
+      ? JSON.parse(store.website) 
+      : store.website || {};
     
-    // Build the update - merge nested ivmaWebsite fields
+    // Build the update - merge nested website fields
     const dbUpdate = {
       updated_at: new Date().toISOString()
     };
 
-    // Handle ivmaWebsite nested updates
-    if (updateData.ivmaWebsite || updateData['ivmaWebsite.seoSettings'] || updateData['ivmaWebsite.customization'] || updateData['ivmaWebsite.settings']) {
-      const updatedIvmaWebsite = { ...currentIvmaWebsite };
+    // Handle website nested updates
+    if (updateData.website || updateData['website.seoSettings'] || updateData['website.customization'] || updateData['website.settings']) {
+      const updatedWebsite = { ...currentWebsite };
       
-      if (updateData.ivmaWebsite) {
-        Object.assign(updatedIvmaWebsite, updateData.ivmaWebsite);
+      if (updateData.website) {
+        Object.assign(updatedWebsite, updateData.website);
       }
-      if (updateData['ivmaWebsite.seoSettings']) {
-        updatedIvmaWebsite.seoSettings = { ...updatedIvmaWebsite.seoSettings, ...updateData['ivmaWebsite.seoSettings'] };
+      if (updateData['website.seoSettings']) {
+        updatedWebsite.seoSettings = { ...updatedWebsite.seoSettings, ...updateData['website.seoSettings'] };
       }
-      if (updateData['ivmaWebsite.customization']) {
-        updatedIvmaWebsite.customization = { ...updatedIvmaWebsite.customization, ...updateData['ivmaWebsite.customization'] };
+      if (updateData['website.customization']) {
+        updatedWebsite.customization = { ...updatedWebsite.customization, ...updateData['website.customization'] };
       }
-      if (updateData['ivmaWebsite.settings']) {
-        updatedIvmaWebsite.settings = { ...updatedIvmaWebsite.settings, ...updateData['ivmaWebsite.settings'] };
+      if (updateData['website.settings']) {
+        updatedWebsite.settings = { ...updatedWebsite.settings, ...updateData['website.settings'] };
       }
       
-      dbUpdate.ivma_website = updatedIvmaWebsite;
+      dbUpdate.website = updatedWebsite;
     }
 
     // Update the store

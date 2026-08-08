@@ -16,8 +16,27 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "IVMA Store",
+  metadataBase: new URL("https://stora.com.ng"),
+  title: "Stora Store",
   description: "Your marketplace ",
+  openGraph: {
+    title: "Stora Store",
+    description: "Your marketplace ",
+    images: [
+      {
+        url: "/stora2.png",
+        width: 1254,
+        height: 1254,
+        alt: "Stora Store",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Stora Store",
+    description: "Your marketplace ",
+    images: ["/stora2.png"],
+  },
   icons: {
     icon: [
       {

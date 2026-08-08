@@ -157,7 +157,7 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
         <div className="flex items-center justify-between p-6 border-b">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Sign In</h2>
-            <p className="text-sm text-gray-600 mt-1">Welcome back to IVMA Store</p>
+            <p className="text-sm text-gray-600 mt-1">Welcome back to Stora Store</p>
           </div>
           <button
             onClick={handleClose}

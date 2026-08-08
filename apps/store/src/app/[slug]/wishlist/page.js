@@ -50,7 +50,7 @@ export default function StoreWishlistPage({ params }) {
 
   // Fetch store if not loaded
   useEffect(() => {
-    if (resolvedParams.slug && (!currentStore || currentStore.ivmaWebsite?.websitePath !== resolvedParams.slug)) {
+    if (resolvedParams.slug && (!currentStore || currentStore.website?.websitePath !== resolvedParams.slug)) {
       fetchStore(resolvedParams.slug);
     }
   }, [resolvedParams.slug, currentStore, fetchStore]);
@@ -86,7 +86,7 @@ export default function StoreWishlistPage({ params }) {
         // Filter items from this store only
         const storeItems = data.wishlist?.items?.filter(item => 
           item.storeSnapshot?.storeSlug === resolvedParams.slug ||
-          item.storeSnapshot?.ivmaWebsite?.websitePath === resolvedParams.slug
+          item.storeSnapshot?.website?.websitePath === resolvedParams.slug
         ) || [];
         
         setWishlist({
@@ -151,7 +151,7 @@ export default function StoreWishlistPage({ params }) {
         // Filter items for this store
         const storeItems = data.wishlist?.items?.filter(item => 
           item.storeSnapshot?.storeSlug === resolvedParams.slug ||
-          item.storeSnapshot?.ivmaWebsite?.websitePath === resolvedParams.slug
+          item.storeSnapshot?.website?.websitePath === resolvedParams.slug
         ) || [];
         
         setWishlist({

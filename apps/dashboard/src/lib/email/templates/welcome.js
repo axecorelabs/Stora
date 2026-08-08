@@ -1,5 +1,5 @@
 export const getWelcomeEmailTemplate = (firstName, email) => {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ivma.ng';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.stora.com.ng';
   
   const html = `
     <!DOCTYPE html>
@@ -96,14 +96,14 @@ export const getWelcomeEmailTemplate = (firstName, email) => {
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">IVMA</div>
+          <div class="logo">Stora</div>
           <h1>Welcome Aboard!</h1>
           <div class="success-badge">✓ Account Verified</div>
         </div>
         
         <p>Hi ${firstName},</p>
         
-        <p>🎉 Congratulations! Your IVMA account has been successfully created and verified. You're now ready to revolutionize how you manage your inventory!</p>
+        <p>🎉 Congratulations! Your Stora account has been successfully created and verified. You're now ready to revolutionize how you manage your inventory!</p>
         
         <div style="text-align: center; margin: 30px 0;">
           <a href="${appUrl}/dashboard" class="button">
@@ -151,17 +151,17 @@ export const getWelcomeEmailTemplate = (firstName, email) => {
         
         <p style="margin-top: 30px;">Need help? We're here for you:</p>
         <ul style="padding-left: 20px;">
-          <li>📧 Email: support@ivma.ng</li>
+          <li>📧 Email: support@app.stora.com.ng</li>
           <li>💬 Live Chat: Available in your dashboard</li>
-          <li>📚 Help Center: ivma.ng/help</li>
+          <li>📚 Help Center: app.stora.com.ng/help</li>
         </ul>
         
-        <p style="margin-top: 30px;">Best regards,<br>The IVMA Team</p>
+        <p style="margin-top: 30px;">Best regards,<br>The Stora Team</p>
         
         <div class="footer">
-          <p>© ${new Date().getFullYear()} IVMA. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Stora. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
-          <p>IVMA - Intelligent Inventory Management & Analytics</p>
+          <p>Stora - Inventory Management & Analytics</p>
         </div>
       </div>
     </body>
@@ -173,7 +173,7 @@ export const getWelcomeEmailTemplate = (firstName, email) => {
     
     Hi ${firstName},
     
-    Congratulations! Your IVMA account has been successfully created and verified.
+    Congratulations! Your Stora account has been successfully created and verified.
     
     Your 14-Day Trial Includes:
     - Real-Time Tracking: Monitor stock levels instantly
@@ -193,15 +193,15 @@ export const getWelcomeEmailTemplate = (firstName, email) => {
     Go to your dashboard: ${appUrl}/dashboard
     
     Need help?
-    - Email: support@ivma.ng
+    - Email: support@app.stora.com.ng
     - Live Chat: Available in your dashboard
-    - Help Center: ivma.ng/help
+    - Help Center: app.stora.com.ng/help
     
     Best regards,
-    The IVMA Team
+    The Stora Team
     
-    © ${new Date().getFullYear()} IVMA. All rights reserved.
+    © ${new Date().getFullYear()} Stora. All rights reserved.
   `;
 
-  return { html, text, subject: 'Welcome to IVMA - Your Account is Ready!' };
+  return { html, text, subject: 'Welcome to Stora - Your Account is Ready!' };
 };

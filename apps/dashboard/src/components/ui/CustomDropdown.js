@@ -41,7 +41,7 @@ export default function CustomDropdown({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full px-4 py-3 text-left border rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent ${
+        className={`w-full px-4 py-3 text-left border rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-transparent ${
           disabled 
             ? 'opacity-50 cursor-not-allowed'
             : 'cursor-pointer hover:bg-gray-50'
@@ -68,7 +68,7 @@ export default function CustomDropdown({
               onClick={() => handleSelect(option)}
               className={`w-full px-4 py-3 text-left transition-colors text-black ${
                 value === option.value
-                  ? 'bg-teal-50 text-teal-700'
+                  ? 'bg-brand-50 text-brand-800'
                   : 'hover:bg-gray-50'
               }`}
             >

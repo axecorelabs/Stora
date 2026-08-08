@@ -56,7 +56,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
 
   // Generate receipt HTML content
   const generateReceiptHTML = () => {
-    const storeName = store?.storeName || 'IVMA STORE';
+    const storeName = store?.storeName || 'Stora STORE';
     const storeAddress = store?.storeType === 'physical' && store?.fullAddress ? store.fullAddress : '';
     const storePhone = store?.storePhone || '';
     const storeEmail = store?.storeEmail || '';
@@ -177,8 +177,8 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
           <p>${store?.settings?.receiptFooter || 'Thank you for your business!'}</p>
           <p>Please come again</p>
           <div class="powered-by">
-            <p>Powered by IVMA</p>
-            <p>ivma.ng</p>
+            <p>Powered by Stora</p>
+            <p>app.stora.com.ng</p>
           </div>
         </div>
       </body>
@@ -262,7 +262,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
       receiptDiv.style.lineHeight = '1.6';
       receiptDiv.style.color = '#000';
       
-      const storeName = store?.storeName || 'IVMA STORE';
+      const storeName = store?.storeName || 'Stora STORE';
       const storeAddress = store?.storeType === 'physical' && store?.fullAddress ? store.fullAddress : '';
       const storePhone = store?.storePhone || '';
       const storeEmail = store?.storeEmail || '';
@@ -334,8 +334,8 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
           <div style="font-size: 13px; margin-bottom: 5px;">${store?.settings?.receiptFooter || 'Thank you for your business!'}</div>
           <div style="font-size: 12px; color: #666;">Please come again</div>
           <div style="margin-top: 15px; font-size: 10px; color: #999;">
-            <div>Powered by IVMA</div>
-            <div>ivma.ng</div>
+            <div>Powered by Stora</div>
+            <div>app.stora.com.ng</div>
           </div>
         </div>
       `;
@@ -376,7 +376,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
   // Download receipt as PDF - NOW USING SHARED UTILITY WITH LOGO AND BRANDING
   const downloadReceiptAsPDF = async () => {
     try {
-      const storeName = store?.storeName || 'IVMA Store';
+      const storeName = store?.storeName || 'Stora Store';
       const storeLogoUrl = store?.branding?.logo || null; // ✅ Use branding.logo
       const brandingColors = store?.branding ? {
         primaryColor: store.branding.primaryColor,
@@ -483,7 +483,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
         {/* Receipt Content */}
         <div className="p-6 max-h-96 overflow-y-auto">
           <div className="text-center mb-6">
-            <h4 className="text-xl font-bold text-gray-900">{store?.storeName || 'IVMA STORE'}</h4>
+            <h4 className="text-xl font-bold text-gray-900">{store?.storeName || 'Stora STORE'}</h4>
             {store?.storeType === 'physical' && store?.fullAddress && (
               <p className="text-sm text-gray-600 mt-1">{store.fullAddress}</p>
             )}
@@ -722,10 +722,10 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
             </div>
           )} */}
 
-          {/* IVMA Branding */}
+          {/* Stora Branding */}
           <div className="text-center mt-6 pt-4 border-t border-gray-200">
-            <p className="text-xs text-gray-500">Powered by IVMA</p>
-            <p className="text-xs text-gray-400">ivma.ng</p>
+            <p className="text-xs text-gray-500">Powered by Stora</p>
+            <p className="text-xs text-gray-400">app.stora.com.ng</p>
           </div>
         </div>
 

@@ -799,8 +799,8 @@ export default function AddInventoryPage() {
       <div className="bg-white rounded-2xl pb-6 mb-6">
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-teal-100 rounded-xl">
-              <Package className="w-6 h-6 text-teal-600" />
+            <div className="p-2 bg-brand-100 rounded-xl">
+              <Package className="w-6 h-6 text-brand-800" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Add New Product</h2>
@@ -817,16 +817,16 @@ export default function AddInventoryPage() {
                 <div className="flex flex-col items-center flex-1">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-medium transition-colors ${
                     currentStep > step.number
-                      ? 'bg-teal-600 text-white'
+                      ? 'bg-brand-800 text-white'
                       : currentStep === step.number
-                      ? 'bg-teal-600 text-white ring-4 ring-teal-100'
+                      ? 'bg-brand-800 text-white ring-4 ring-brand-100'
                       : 'bg-gray-200 text-gray-500'
                   }`}>
                     {currentStep > step.number ? <Check className="w-5 h-5" /> : step.number}
                   </div>
                   <div className="mt-2 text-center">
                     <p className={`text-sm font-medium ${
-                      currentStep === step.number ? 'text-teal-600' : 'text-gray-500'
+                      currentStep === step.number ? 'text-brand-800' : 'text-gray-500'
                     }`}>
                       {step.title}
                     </p>
@@ -835,7 +835,7 @@ export default function AddInventoryPage() {
                 </div>
                 {index < steps.length - 1 && (
                   <div className={`h-0.5 flex-1 mx-2 mb-8 ${
-                    currentStep > step.number ? 'bg-teal-600' : 'bg-gray-200'
+                    currentStep > step.number ? 'bg-brand-800' : 'bg-gray-200'
                   }`} />
                 )}
               </div>
@@ -882,7 +882,7 @@ export default function AddInventoryPage() {
                     value={formData.productName}
                     onChange={handleChange}
                     placeholder="e.g., Red T-Shirt, iPhone 13, Bread"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.productName ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -919,7 +919,7 @@ export default function AddInventoryPage() {
                     value={formData.brand}
                     onChange={handleChange}
                     placeholder="e.g., Nike, Samsung, Coca-Cola"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
 
@@ -934,7 +934,7 @@ export default function AddInventoryPage() {
                     onChange={handleChange}
                     rows={3}
                     placeholder="e.g., Blue color, size Large, very soft"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
               </div>
@@ -1064,7 +1064,7 @@ export default function AddInventoryPage() {
                     placeholder="0"
                     disabled={detectedColorVariants.length >= 2}
                     readOnly={detectedColorVariants.length >= 2}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.quantityInStock ? 'border-red-300' : 'border-gray-300'
                     } ${detectedColorVariants.length >= 2 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   />
@@ -1101,7 +1101,7 @@ export default function AddInventoryPage() {
                     min="0"
                     step="0.01"
                     placeholder="5"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.reorderLevel ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -1141,7 +1141,7 @@ export default function AddInventoryPage() {
                     min="0"
                     step="0.01"
                     placeholder="0.00"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.costPrice ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -1168,7 +1168,7 @@ export default function AddInventoryPage() {
                     min="0"
                     step="0.01"
                     placeholder="0.00"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.sellingPrice ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -1220,7 +1220,7 @@ export default function AddInventoryPage() {
                     onClick={() => toggleTag(tag.value)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       formData.tags.includes(tag.value)
-                        ? 'bg-teal-600 text-white'
+                        ? 'bg-brand-800 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -1248,7 +1248,7 @@ export default function AddInventoryPage() {
                     value={formData.supplier}
                     onChange={handleChange}
                     placeholder="e.g., John's Shop, Market Mama"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
 
@@ -1263,7 +1263,7 @@ export default function AddInventoryPage() {
                     value={formData.location}
                     onChange={handleChange}
                     placeholder="e.g., Front shelf, Back room, Counter"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
 
@@ -1278,7 +1278,7 @@ export default function AddInventoryPage() {
                     value={formData.qrCode}
                     onChange={handleChange}
                     placeholder="e.g., QR12345ABC"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
 
@@ -1293,7 +1293,7 @@ export default function AddInventoryPage() {
                     onChange={handleChange}
                     rows={3}
                     placeholder="e.g., People love this, Buy more next week"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
               </div>
@@ -1328,7 +1328,7 @@ export default function AddInventoryPage() {
                 <button
                   type="button"
                   onClick={handleNextStep}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors flex items-center"
+                  className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors flex items-center"
                 >
                   Next
                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -1338,7 +1338,7 @@ export default function AddInventoryPage() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting || isUploadingImage}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                  className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
                 >
                   {isSubmitting || isUploadingImage ? (
                     <>

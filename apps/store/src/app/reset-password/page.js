@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
 
 export const metadata = {
-  title: 'Reset Password - IVMA Store',
+  title: 'Reset Password - Stora Store',
   description: 'Reset your password',
 };
 

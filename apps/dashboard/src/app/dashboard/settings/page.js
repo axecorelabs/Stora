@@ -241,7 +241,7 @@ export default function SettingsPage() {
 
                 <div className="pt-4 border-t border-gray-200">
                   <p className="text-sm text-gray-500 mb-4">
-                    To update your account information, please contact support at <a href="mailto:support@ivma.ng" className="text-teal-600 hover:text-teal-700">support@ivma.ng</a>
+                    To update your account information, please contact support at <a href="mailto:support@app.stora.com.ng" className="text-teal-600 hover:text-teal-700">support@app.stora.com.ng</a>
                   </p>
                 </div>
               </div>

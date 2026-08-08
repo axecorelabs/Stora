@@ -625,35 +625,35 @@ export default function StoreWebsite({ store }) {
       description: store.storeDescription,
       badge: store.storeType === 'physical' ? '🏪 Physical Store' : '🌐 Online Store',
       showLogo: true,
-      showIvmaLogo: false
+      showLogo: false
     },
     {
-      type: 'ivma',
+      type: 'stora',
       title: "Nigeria's #1 Marketplace",
       description: "Shop from thousands of verified stores across Nigeria",
       badge: '🇳🇬 Trusted by Nigerians',
       showLogo: false,
-      showIvmaLogo: true,
+      showLogo: true,
       gradient: 'from-emerald-500 to-teal-600',
       backgroundImage: 'https://images.unsplash.com/photo-1557821552-17105176677c?w=800&h=400&fit=crop'
     },
     {
-      type: 'ivma-features',
-      title: "Why Shop on IVMA?",
+      type: 'stora-features',
+      title: "Why Shop on Stora?",
       description: "Secure payments • Fast delivery • Quality products • 24/7 support",
       badge: '✨ Your Shopping Companion',
       showLogo: false,
-      showIvmaLogo: true,
+      showLogo: true,
       gradient: 'from-blue-500 to-indigo-600',
       backgroundImage: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&h=400&fit=crop'
     },
     {
-      type: 'ivma-discover',
+      type: 'stora-discover',
       title: "Discover Amazing Deals",
       description: "Browse thousands of products from local Nigerian stores",
       badge: '🎉 Shop Local, Shop Smart',
       showLogo: false,
-      showIvmaLogo: true,
+      showLogo: true,
       gradient: 'from-purple-500 to-pink-600',
       backgroundImage: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=400&fit=crop'
     }
@@ -715,7 +715,7 @@ export default function StoreWebsite({ store }) {
                           : 'transparent'
                     }}
                   >
-                    {/* Gradient Background for IVMA slides */}
+                    {/* Gradient Background for Stora slides */}
                     {slide.type !== 'store' && (
                       <div 
                         className={`absolute inset-0 bg-gradient-to-br ${slide.gradient}`}
@@ -746,17 +746,17 @@ export default function StoreWebsite({ store }) {
                           />
                         )}
                         
-                        {/* IVMA Logo - Slightly smaller */}
-                        {slide.showIvmaLogo && (
+                        {/* Stora Logo - Slightly smaller */}
+                        {slide.showLogo && (
                           <img 
                             src="/favicon-16x16.png"
-                            alt="IVMA Logo" 
+                            alt="Stora Logo" 
                             className="h-7 w-auto object-contain bg-white/90 backdrop-blur-sm rounded-lg p-1.5" 
                           />
                         )}
                         
                         {/* Fallback Icon - Smaller */}
-                        {slide.type !== 'store' && !slide.showIvmaLogo && (
+                        {slide.type !== 'store' && !slide.showLogo && (
                           <div className="w-7 h-7 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-base">
                             🛍️
                           </div>

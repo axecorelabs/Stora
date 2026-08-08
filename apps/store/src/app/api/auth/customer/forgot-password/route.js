@@ -40,7 +40,7 @@ export async function POST(request) {
     });
 
     // Create reset URL
-    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://store.ivma.ng'}/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://stora.com.ng'}/reset-password?token=${resetToken}`;
 
     // Send email
     await sendPasswordResetEmail(

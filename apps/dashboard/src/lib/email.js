@@ -58,7 +58,7 @@ const sendWithResend = async (to, subject, html, text) => {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const response = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'IVMA <noreply@ivma.ng>',
+      from: process.env.EMAIL_FROM || 'Stora <noreply@app.stora.com.ng>',
       to,
       subject,
       html,
@@ -89,7 +89,7 @@ const sendEmail = async (to, subject, html, text = '', retries = 2) => {
           await transporter.verify();
           
           const mailOptions = {
-            from: process.env.EMAIL_FROM || 'IVMA <noreply@ivma.ng>',
+            from: process.env.EMAIL_FROM || 'Stora <noreply@app.stora.com.ng>',
             to,
             subject,
             html,
@@ -141,7 +141,7 @@ const sendEmail = async (to, subject, html, text = '', retries = 2) => {
 
 // Send verification email
 export const sendVerificationEmail = async (email, verificationCode, firstName) => {
-  const subject = 'Verify Your IVMA Account';
+  const subject = 'Verify Your Stora Account';
   
   const html = `
     <!DOCTYPE html>
@@ -225,8 +225,8 @@ export const sendVerificationEmail = async (email, verificationCode, firstName) 
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">IVMA</div>
-          <h1>Welcome to IVMA!</h1>
+          <div class="logo">Stora</div>
+          <h1>Welcome to Stora!</h1>
         </div>
         
         <p>Hi ${firstName},</p>
@@ -240,7 +240,7 @@ export const sendVerificationEmail = async (email, verificationCode, firstName) 
         <p>This code will expire in <strong>15 minutes</strong>.</p>
         
         <div class="warning">
-          <strong>⚠️ Security Note:</strong> If you didn't create an account with IVMA, please ignore this email or contact our support team.
+          <strong>⚠️ Security Note:</strong> If you didn't create an account with Stora, please ignore this email or contact our support team.
         </div>
         
         <p>Once verified, you'll get instant access to:</p>
@@ -255,12 +255,12 @@ export const sendVerificationEmail = async (email, verificationCode, firstName) 
         
         <p>Need help? Our support team is here for you 24/7.</p>
         
-        <p>Best regards,<br>The IVMA Team</p>
+        <p>Best regards,<br>The Stora Team</p>
         
         <div class="footer">
-          <p>© ${new Date().getFullYear()} IVMA. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Stora. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
-          <p>IVMA - Intelligent Inventory Management & Analytics</p>
+          <p>Stora - Inventory Management & Analytics</p>
         </div>
       </div>
     </body>
@@ -268,7 +268,7 @@ export const sendVerificationEmail = async (email, verificationCode, firstName) 
   `;
 
   const text = `
-    Welcome to IVMA!
+    Welcome to Stora!
     
     Hi ${firstName},
     
@@ -278,12 +278,12 @@ export const sendVerificationEmail = async (email, verificationCode, firstName) 
     
     This code will expire in 15 minutes.
     
-    If you didn't create an account with IVMA, please ignore this email.
+    If you didn't create an account with Stora, please ignore this email.
     
     Best regards,
-    The IVMA Team
+    The Stora Team
     
-    © ${new Date().getFullYear()} IVMA. All rights reserved.
+    © ${new Date().getFullYear()} Stora. All rights reserved.
   `;
 
   return await sendEmail(email, subject, html, text);
@@ -291,7 +291,7 @@ export const sendVerificationEmail = async (email, verificationCode, firstName) 
 
 // Send welcome email after successful verification
 export const sendWelcomeEmail = async (email, firstName) => {
-  const subject = 'Welcome to IVMA - Your Account is Ready!';
+  const subject = 'Welcome to Stora - Your Account is Ready!';
   
   const html = `
     <!DOCTYPE html>
@@ -388,17 +388,17 @@ export const sendWelcomeEmail = async (email, firstName) => {
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">IVMA</div>
+          <div class="logo">Stora</div>
           <h1>Welcome Aboard!</h1>
           <div class="success-badge">✓ Account Verified</div>
         </div>
         
         <p>Hi ${firstName},</p>
         
-        <p>🎉 Congratulations! Your IVMA account has been successfully created and verified. You're now ready to revolutionize how you manage your inventory!</p>
+        <p>🎉 Congratulations! Your Stora account has been successfully created and verified. You're now ready to revolutionize how you manage your inventory!</p>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://ivma.ng'}/dashboard" class="button">
+          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.stora.com.ng'}/dashboard" class="button">
             Go to Your Dashboard →
           </a>
         </div>
@@ -443,17 +443,17 @@ export const sendWelcomeEmail = async (email, firstName) => {
         
         <p style="margin-top: 30px;">Need help? We're here for you:</p>
         <ul style="padding-left: 20px;">
-          <li>📧 Email: support@ivma.ng</li>
+          <li>📧 Email: support@app.stora.com.ng</li>
           <li>💬 Live Chat: Available in your dashboard</li>
-          <li>📚 Help Center: ivma.ng/help</li>
+          <li>📚 Help Center: app.stora.com.ng/help</li>
         </ul>
         
-        <p style="margin-top: 30px;">Best regards,<br>The IVMA Team</p>
+        <p style="margin-top: 30px;">Best regards,<br>The Stora Team</p>
         
         <div class="footer">
-          <p>© ${new Date().getFullYear()} IVMA. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Stora. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
-          <p>IVMA - Intelligent Inventory Management & Analytics</p>
+          <p>Stora - Inventory Management & Analytics</p>
         </div>
       </div>
     </body>
@@ -465,7 +465,7 @@ export const sendWelcomeEmail = async (email, firstName) => {
     
     Hi ${firstName},
     
-    Congratulations! Your IVMA account has been successfully created and verified.
+    Congratulations! Your Stora account has been successfully created and verified.
     
     Your 14-Day Trial Includes:
     - Real-Time Tracking: Monitor stock levels instantly
@@ -482,17 +482,17 @@ export const sendWelcomeEmail = async (email, firstName) => {
     4. Start tracking sales with POS
     5. Explore analytics and reports
     
-    Go to your dashboard: ${process.env.NEXT_PUBLIC_APP_URL || 'https://ivma.ng'}/dashboard
+    Go to your dashboard: ${process.env.NEXT_PUBLIC_APP_URL || 'https://app.stora.com.ng'}/dashboard
     
     Need help?
-    - Email: support@ivma.ng
+    - Email: support@app.stora.com.ng
     - Live Chat: Available in your dashboard
-    - Help Center: ivma.ng/help
+    - Help Center: app.stora.com.ng/help
     
     Best regards,
-    The IVMA Team
+    The Stora Team
     
-    © ${new Date().getFullYear()} IVMA. All rights reserved.
+    © ${new Date().getFullYear()} Stora. All rights reserved.
   `;
 
   return await sendEmail(email, subject, html, text);
@@ -500,8 +500,8 @@ export const sendWelcomeEmail = async (email, firstName) => {
 
 // Send password reset email
 export const sendPasswordResetEmail = async (email, resetToken, firstName) => {
-  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://ivma.ng'}/reset-password?token=${resetToken}`;
-  const subject = 'Reset Your IVMA Password';
+  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.stora.com.ng'}/reset-password?token=${resetToken}`;
+  const subject = 'Reset Your Stora Password';
   
   const html = `
     <!DOCTYPE html>
@@ -574,13 +574,13 @@ export const sendPasswordResetEmail = async (email, resetToken, firstName) => {
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">IVMA</div>
+          <div class="logo">Stora</div>
           <h1>Password Reset Request</h1>
         </div>
         
         <p>Hi ${firstName},</p>
         
-        <p>We received a request to reset your IVMA account password. Click the button below to create a new password:</p>
+        <p>We received a request to reset your Stora account password. Click the button below to create a new password:</p>
         
         <div style="text-align: center; margin: 30px 0;">
           <a href="${resetUrl}" class="button">
@@ -597,14 +597,14 @@ export const sendPasswordResetEmail = async (email, resetToken, firstName) => {
           <strong>⚠️ Security Note:</strong> If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
         </div>
         
-        <p>If you're having trouble, contact our support team at support@ivma.ng</p>
+        <p>If you're having trouble, contact our support team at support@app.stora.com.ng</p>
         
-        <p>Best regards,<br>The IVMA Team</p>
+        <p>Best regards,<br>The Stora Team</p>
         
         <div class="footer">
-          <p>© ${new Date().getFullYear()} IVMA. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Stora. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
-          <p>IVMA - Intelligent Inventory Management & Analytics</p>
+          <p>Stora - Inventory Management & Analytics</p>
         </div>
       </div>
     </body>
@@ -616,7 +616,7 @@ export const sendPasswordResetEmail = async (email, resetToken, firstName) => {
     
     Hi ${firstName},
     
-    We received a request to reset your IVMA account password.
+    We received a request to reset your Stora account password.
     
     Click this link to reset your password:
     ${resetUrl}
@@ -625,12 +625,12 @@ export const sendPasswordResetEmail = async (email, resetToken, firstName) => {
     
     If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
     
-    If you're having trouble, contact our support team at support@ivma.ng
+    If you're having trouble, contact our support team at support@app.stora.com.ng
     
     Best regards,
-    The IVMA Team
+    The Stora Team
     
-    © ${new Date().getFullYear()} IVMA. All rights reserved.
+    © ${new Date().getFullYear()} Stora. All rights reserved.
   `;
 
   return await sendEmail(email, subject, html, text);
@@ -639,7 +639,7 @@ export const sendPasswordResetEmail = async (email, resetToken, firstName) => {
 // Send subscription update email
 export const sendSubscriptionUpdateEmail = async (email, firstName, subscriptionDetails) => {
   const { plan, status, endDate } = subscriptionDetails;
-  const subject = `IVMA Subscription Update - ${plan} Plan`;
+  const subject = `Stora Subscription Update - ${plan} Plan`;
   
   const html = `
     <!DOCTYPE html>
@@ -710,13 +710,13 @@ export const sendSubscriptionUpdateEmail = async (email, firstName, subscription
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">IVMA</div>
+          <div class="logo">Stora</div>
           <h1>Subscription Update</h1>
         </div>
         
         <p>Hi ${firstName},</p>
         
-        <p>Your IVMA subscription has been updated successfully.</p>
+        <p>Your Stora subscription has been updated successfully.</p>
         
         <div class="info-box">
           <div class="info-row">
@@ -735,10 +735,10 @@ export const sendSubscriptionUpdateEmail = async (email, firstName, subscription
         
         <p>You can manage your subscription anytime from your dashboard.</p>
         
-        <p>Best regards,<br>The IVMA Team</p>
+        <p>Best regards,<br>The Stora Team</p>
         
         <div class="footer">
-          <p>© ${new Date().getFullYear()} IVMA. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} Stora. All rights reserved.</p>
           <p>This email was sent to ${email}</p>
         </div>
       </div>
@@ -751,7 +751,7 @@ export const sendSubscriptionUpdateEmail = async (email, firstName, subscription
     
     Hi ${firstName},
     
-    Your IVMA subscription has been updated successfully.
+    Your Stora subscription has been updated successfully.
     
     Plan: ${plan}
     Status: ${status}
@@ -760,20 +760,20 @@ export const sendSubscriptionUpdateEmail = async (email, firstName, subscription
     You can manage your subscription anytime from your dashboard.
     
     Best regards,
-    The IVMA Team
+    The Stora Team
   `;
 
   return await sendEmail(email, subject, html, text);
 };
 
 // Send delivery scheduled email
-export const sendDeliveryScheduledEmail = async (email, deliveryData, saleData, storeName = 'IVMA Store') => {
+export const sendDeliveryScheduledEmail = async (email, deliveryData, saleData, storeName = 'Stora Store') => {
   const { html, text, subject } = getDeliveryScheduledTemplate(email, deliveryData, saleData, storeName);
   return await sendEmail(email, subject, html, text);
 };
 
 // Send order processed email with receipt
-export const sendOrderProcessedEmail = async (email, orderData, saleData, storeName = 'IVMA Store', storeLogoUrl = null, brandingColors = null) => {
+export const sendOrderProcessedEmail = async (email, orderData, saleData, storeName = 'Stora Store', storeLogoUrl = null, brandingColors = null) => {
   const { html, text, subject } = getOrderProcessedTemplate(email, orderData, saleData, storeName);
   
   // Generate receipt PDF with logo and branding
@@ -796,7 +796,7 @@ const sendEmailWithAttachment = async (to, subject, html, text, attachment) => {
       const resend = new Resend(process.env.RESEND_API_KEY);
 
       const emailData = {
-        from: process.env.EMAIL_FROM || 'IVMA <noreply@ivma.ng>',
+        from: process.env.EMAIL_FROM || 'Stora <noreply@app.stora.com.ng>',
         to,
         subject,
         html,
@@ -819,7 +819,7 @@ const sendEmailWithAttachment = async (to, subject, html, text, attachment) => {
       await transporter.verify();
       
       const mailOptions = {
-        from: process.env.EMAIL_FROM || 'IVMA <noreply@ivma.ng>',
+        from: process.env.EMAIL_FROM || 'Stora <noreply@app.stora.com.ng>',
         to,
         subject,
         html,
