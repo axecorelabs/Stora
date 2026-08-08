@@ -3,17 +3,25 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 
-export default function CustomDropdown({ 
-  options = [], 
-  value, 
-  onChange, 
-  placeholder = "Select an option", 
+const SIZE_STYLES = {
+  md: { button: 'px-4 py-3', icon: 'w-4 h-4', option: 'px-4 py-3' },
+  sm: { button: 'px-3 py-1.5 text-xs', icon: 'w-3.5 h-3.5', option: 'px-3 py-1.5 text-xs' }
+};
+
+export default function CustomDropdown({
+  options = [],
+  value,
+  onChange,
+  placeholder = "Select an option",
   className = "",
   disabled = false,
-  error = false
+  error = false,
+  size = 'md',
+  menuPlacement = 'bottom'
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const sizeStyle = SIZE_STYLES[size] || SIZE_STYLES.md;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -41,13 +49,13 @@ export default function CustomDropdown({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full px-4 py-3 text-left border rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-transparent ${
-          disabled 
+        className={`w-full ${sizeStyle.button} text-left border rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-transparent ${
+          disabled
             ? 'opacity-50 cursor-not-allowed'
             : 'cursor-pointer hover:bg-gray-50'
         } ${
-          error 
-            ? 'border-red-300' 
+          error
+            ? 'border-red-300'
             : 'border-gray-300'
         } bg-white text-black`}
       >
@@ -55,18 +63,20 @@ export default function CustomDropdown({
           <span className={selectedOption ? 'text-black' : 'text-gray-500'}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronDown className={`w-4 h-4 transition-transform text-gray-500 ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`${sizeStyle.icon} transition-transform text-gray-500 ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+        <div className={`absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto ${
+          menuPlacement === 'top' ? 'bottom-full mb-1' : 'mt-1'
+        }`}>
           {options.map((option) => (
             <button
               key={option.value}
               type="button"
               onClick={() => handleSelect(option)}
-              className={`w-full px-4 py-3 text-left transition-colors text-black ${
+              className={`w-full ${sizeStyle.option} text-left transition-colors text-black ${
                 value === option.value
                   ? 'bg-brand-50 text-brand-800'
                   : 'hover:bg-gray-50'

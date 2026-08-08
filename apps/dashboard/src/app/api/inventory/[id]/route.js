@@ -42,6 +42,9 @@ function transformInventory(item) {
     productName: item.name,
     name: item.name,
     description: item.description,
+    brand: item.brand,
+    supplier: item.supplier,
+    location: item.location,
     category: item.category,
     categoryDetails: item.category_details,
     variants: [], // Populated separately from inventory_variants table
