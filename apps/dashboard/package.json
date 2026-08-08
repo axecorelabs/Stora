@@ -1,0 +1,41 @@
+{
+  "name": "ivma-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.917.0",
+    "@aws-sdk/s3-request-presigner": "^3.917.0",
+    "@supabase/supabase-js": "^2.90.1",
+    "@tanstack/react-query": "^5.90.11",
+    "@tanstack/react-query-devtools": "^5.91.1",
+    "@types/pg": "^8.16.0",
+    "aws-sdk": "^2.1692.0",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^17.2.3",
+    "gsap": "^3.13.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.3",
+    "lucide-react": "^0.547.0",
+    "next": "16.0.7",
+    "nodemailer": "^7.0.10",
+    "pg": "^8.16.3",
+    "qrcode": "^1.5.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "resend": "^6.5.2",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.0",
+    "tailwindcss": "^4"
+  }
+}

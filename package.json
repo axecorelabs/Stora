@@ -1,0 +1,16 @@
+{
+  "name": "ivma-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:dashboard": "npm run dev --workspace=apps/dashboard",
+    "dev:store": "npm run dev --workspace=apps/store",
+    "build:dashboard": "npm run build --workspace=apps/dashboard",
+    "build:store": "npm run build --workspace=apps/store",
+    "lint:dashboard": "npm run lint --workspace=apps/dashboard",
+    "lint:store": "npm run lint --workspace=apps/store"
+  }
+}
