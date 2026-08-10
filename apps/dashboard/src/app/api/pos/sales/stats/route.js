@@ -40,10 +40,10 @@ export async function GET(req) {
       // Overall stats
       supabaseAdmin
         .from('sales')
-        .select('id, total')
+        .select('id, total, sale_date')
         .eq('user_id', user.id)
         .eq('status', 'completed'),
-      
+
       // Today's stats
       supabaseAdmin
         .from('sales')
@@ -98,6 +98,10 @@ export async function GET(req) {
     
     const totalItemsSold = itemsSold.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
+    const lastSaleDate = overallSales.reduce((latest, s) => {
+      return !latest || new Date(s.sale_date) > new Date(latest) ? s.sale_date : latest;
+    }, null);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -105,6 +109,7 @@ export async function GET(req) {
         totalRevenue: overallStats.totalRevenue,
         avgSaleAmount: overallStats.avgSaleAmount,
         totalItemsSold: totalItemsSold,
+        lastSaleDate,
         todaySales: todayStats.totalSales,
         todayRevenue: todayStats.totalRevenue,
         weekSales: weekStats.totalSales,
