@@ -893,65 +893,79 @@ export default function POSPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredItems.map(item => {
                 const isLowStock = item.quantityInStock <= (item.reorderLevel || 0);
+                const hasVariants = item.hasVariants && item.variants && item.variants.length > 0;
+                // One badge at a time -- variant count takes priority over batch info
+                // so cards never have to juggle two competing corner labels
+                const cornerBadge = hasVariants
+                  ? { label: `${item.variants.length} variant${item.variants.length === 1 ? '' : 's'}`, className: 'bg-purple-100 text-purple-700' }
+                  : item.hasBatchPricing
+                    ? { label: item.batchPricing?.activeBatchCode || 'Batch', className: 'bg-green-100 text-green-700' }
+                    : null;
+
                 return (
                 <div
                   key={item._id}
-                  className="border border-gray-200 rounded-xl p-4 hover:border-brand-800 hover:shadow-md transition-all cursor-pointer relative"
+                  className="flex flex-col border border-gray-200 rounded-xl p-3 hover:border-brand-800 hover:shadow-md transition-all cursor-pointer"
                   onClick={() => addToCart(item)}
                 >
-                  {/* Variant badge */}
-                  {item.hasVariants && item.variants && item.variants.length > 0 && (
-                    <div className="absolute top-2 left-2 bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full font-medium">
-                      Variants
-                    </div>
-                  )}
-
-                  {/* Batch indicator */}
-                  {item.hasBatchPricing && (
-                    <div className="absolute top-2 right-2 bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">
-                      Batch
-                    </div>
-                  )}
-
-                  <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                  <div className="relative aspect-square bg-gray-100 rounded-lg mb-3 overflow-hidden">
                     {item.image ? (
                       <img
                         src={item.image}
                         alt={item.productName}
-                        className="w-full h-full object-cover rounded-lg"
+                        className="w-full h-full object-cover"
                       />
                     ) : (
-                      <Package className="w-8 h-8 text-gray-400" />
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-8 h-8 text-gray-400" />
+                      </div>
+                    )}
+
+                    {cornerBadge && (
+                      <div className={`absolute top-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate text-[11px] px-2 py-0.5 rounded-full font-medium ${cornerBadge.className}`}>
+                        {cornerBadge.label}
+                      </div>
+                    )}
+
+                    {isLowStock && (
+                      <div className="absolute bottom-1.5 left-1.5 bg-gold-500 text-brand-900 text-[11px] px-2 py-0.5 rounded-full font-semibold">
+                        Low stock
+                      </div>
                     )}
                   </div>
-                  <h4 className="font-medium text-gray-900 text-sm mb-1 truncate">{item.productName}</h4>
-                  <p className="text-xs text-gray-500 mb-2">{item.sku}</p>
-                  
-                  {/* Show variant count if applicable */}
-                  {item.hasVariants && item.variants && item.variants.length > 0 ? (
-                    <p className="text-xs text-purple-600 mb-2">
-                      {item.variants.length} variants
-                    </p>
-                  ) : item.batchPricing?.activeBatchCode && (
-                    <p className="text-xs text-green-600 mb-2">
-                      {item.batchPricing.activeBatchCode}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-brand-800">
-                        {formatCurrency(item.sellingPrice)}
-                      </span>
-                      {item.hasBatchPricing && item.sellingPrice !== item.originalSellingPrice && (
-                        <span className="text-xs text-gray-400 line-through">
-                          {formatCurrency(item.originalSellingPrice)}
+
+                  <div className="flex-1 flex flex-col">
+                    <h4 className="font-medium text-gray-900 text-sm leading-snug line-clamp-2 min-h-[2.5rem]">
+                      {item.productName}
+                    </h4>
+                    <p className="text-xs text-gray-400 mt-0.5 mb-2 truncate">{item.sku}</p>
+
+                    <div className="mt-auto flex items-end justify-between gap-2">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-bold text-brand-800">
+                          {formatCurrency(item.sellingPrice)}
                         </span>
-                      )}
+                        {item.hasBatchPricing && item.sellingPrice !== item.originalSellingPrice && (
+                          <span className="text-xs text-gray-400 line-through">
+                            {formatCurrency(item.originalSellingPrice)}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-gray-500">
+                          {item.quantityInStock} in stock
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(item);
+                        }}
+                        title="Add to cart"
+                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-brand-800 text-white hover:bg-brand-900 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
                     </div>
-                    <span className={`text-xs font-medium ${isLowStock ? 'text-gold-600' : 'text-gray-500'}`}>
-                      {isLowStock ? `Low: ${item.quantityInStock}` : `Stock: ${item.quantityInStock}`}
-                    </span>
                   </div>
                 </div>
                 );
