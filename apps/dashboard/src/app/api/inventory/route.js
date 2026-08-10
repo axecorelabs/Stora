@@ -86,6 +86,14 @@ function transformInventory(item) {
   };
 }
 
+// Generate a fallback SKU when the client doesn't supply one
+function generateSKU(category, name) {
+  const catCode = (category || '').replace(/[^A-Za-z0-9]/g, '').substring(0, 3).toUpperCase() || 'PRD';
+  const nameCode = (name || '').replace(/[^A-Za-z0-9]/g, '').substring(0, 3).toUpperCase() || 'ITM';
+  const suffix = Date.now().toString(36).slice(-5).toUpperCase();
+  return `${catCode}-${nameCode}-${suffix}`;
+}
+
 // Helper to transform batch data
 function transformBatch(batch) {
   if (!batch) return null;
@@ -321,7 +329,7 @@ export async function POST(req) {
         has_variants: inventoryData.hasVariants || (inventoryData.variants && inventoryData.variants.length > 0),
         base_price: inventoryData.sellingPrice || inventoryData.basePrice || 0,
         cost: inventoryData.costPrice || inventoryData.cost || 0,
-        sku: inventoryData.sku,
+        sku: inventoryData.sku || generateSKU(inventoryData.category, inventoryData.productName || inventoryData.name),
         barcode: inventoryData.barcode || null,
         stock_quantity: inventoryData.quantityInStock || inventoryData.stockQuantity || 0,
         minimum_stock: inventoryData.minimumStock || inventoryData.reorderLevel || 5,
