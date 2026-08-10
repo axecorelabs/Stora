@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { generateSKU, backfillMissingSkus } from '@/lib/inventorySku';
+import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 
 // Helper to transform inventory data for response (snake_case to camelCase)
 function transformInventory(item) {
@@ -184,8 +185,9 @@ export async function GET(req) {
       );
     }
 
-    // Backfill SKUs for items created before SKU generation existed
+    // Backfill SKUs and store_id for items created before those were set
     await backfillMissingSkus(inventory);
+    await backfillMissingStoreIds(inventory, user.id);
 
     // Get batches for all inventory items for pricing
     const inventoryIds = inventory.map(item => item.id);
@@ -313,11 +315,20 @@ export async function POST(req) {
       categoryDetails = inventoryData.booksDetails;
     }
 
+    // The public storefront (apps/store) looks products up by store_id, so
+    // items created without one are invisible there even with web visibility on
+    const { data: userStore } = await supabaseAdmin
+      .from('stores')
+      .select('id')
+      .eq('owner_id', user.id)
+      .single();
+
     // Create inventory item
     const { data: newItem, error: invError } = await supabaseAdmin
       .from('inventory')
       .insert({
         user_id: user.id,
+        store_id: userStore?.id || null,
         name: inventoryData.productName || inventoryData.name,
         description: inventoryData.description || '',
         category: inventoryData.category,
