@@ -27,15 +27,14 @@ function calculateAvailableQuantity(inventory) {
   return available;
 }
 
-// The dashboard never writes to inventory.primary_image -- it's always NULL.
-// The real primary image lives in the images array, so resolve it the same
-// way the dashboard's own API does: the entry flagged isPrimary, else the
-// first entry. Each entry can be an object, or for legacy rows a JSON-encoded
-// string or a bare URL string.
-function getPrimaryImageUrl(images) {
-  if (!Array.isArray(images) || images.length === 0) return null;
+// Each entry in inventory.images can be an object ({url, isPrimary, colorTag}),
+// or for legacy rows a JSON-encoded string or a bare URL string -- normalize
+// once here so every consumer downstream (product grid, detail page, cart,
+// variant selector) gets a consistent shape instead of each guessing at it.
+function normalizeImages(images) {
+  if (!Array.isArray(images)) return [];
 
-  const normalized = images.map(img => {
+  return images.map(img => {
     if (typeof img === 'string') {
       try {
         return JSON.parse(img);
@@ -44,10 +43,16 @@ function getPrimaryImageUrl(images) {
       }
     }
     return img;
-  });
+  }).filter(img => img?.url);
+}
 
-  const primary = normalized.find(img => img?.isPrimary);
-  return primary?.url || normalized[0]?.url || null;
+// The dashboard never writes to inventory.primary_image -- it's always NULL.
+// The real primary image lives in the (already-normalized) images array: the
+// entry flagged isPrimary, else the first entry.
+function getPrimaryImageUrl(normalizedImages) {
+  if (normalizedImages.length === 0) return null;
+  const primary = normalizedImages.find(img => img?.isPrimary);
+  return primary?.url || normalizedImages[0]?.url || null;
 }
 
 function transformInventoryToProduct(inventory) {
@@ -78,7 +83,9 @@ function transformInventoryToProduct(inventory) {
   }
   
   console.log(`[Transform] Product: ${inventory.name}, Stock: ${inventory.stock_quantity}, Reserved: ${inventory.quantity_reserved || 0}, Available: ${availableQuantity}, Variants: ${transformedVariants.length}`);
-  
+
+  const normalizedImages = normalizeImages(inventory.images);
+
   return {
     id: inventory.id,
     productName: inventory.name,
@@ -86,8 +93,8 @@ function transformInventoryToProduct(inventory) {
     category: inventory.category,
     brand: inventory.brand,
     description: inventory.description,
-    image: inventory.primary_image || getPrimaryImageUrl(inventory.images),
-    images: inventory.images,
+    image: inventory.primary_image || getPrimaryImageUrl(normalizedImages),
+    images: normalizedImages,
     sellingPrice: inventory.base_price,
     costPrice: inventory.cost,
     quantityInStock: inventory.stock_quantity,
