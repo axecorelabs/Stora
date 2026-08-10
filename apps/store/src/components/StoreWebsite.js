@@ -37,6 +37,7 @@ import {
   Scissors,
   Package,
   Search,
+  SearchX,
   X
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
@@ -1046,8 +1047,12 @@ export default function StoreWebsite({ store }) {
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-20" ref={emptyStateRef}>
-              <div className="empty-emoji text-8xl mb-4">
-                {searchQuery ? '🔍' : '📦'}
+              <div className="empty-emoji mb-4">
+                {searchQuery ? (
+                  <SearchX className="w-16 h-16 text-gray-300 mx-auto" />
+                ) : (
+                  <Package className="w-16 h-16 text-gray-300 mx-auto" />
+                )}
               </div>
               <h4 className="text-xl font-semibold text-gray-900 mb-2">
                 {searchQuery ? 'No Results Found' : 'No Products Found'}
