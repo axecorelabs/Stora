@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, SlidersHorizontal, Grid2X2, List, Search, X } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal, Grid2X2, List, Search, SearchX, Package, X } from "lucide-react";
 import StoreHeader from "@/components/store/StoreHeader";
 import StoreFooter from "@/components/store/StoreFooter";
 import ProductCard from "@/components/store/ProductCard";
@@ -289,7 +289,11 @@ export default function ProductsPageClient({ store, products: initialProducts, s
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-8xl mb-4">{searchQuery ? '🔍' : '📦'}</div>
+            {searchQuery ? (
+              <SearchX className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            ) : (
+              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            )}
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               {searchQuery ? 'No Results Found' : 'No Products Found'}
             </h3>
