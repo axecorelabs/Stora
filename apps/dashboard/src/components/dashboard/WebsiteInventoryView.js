@@ -182,7 +182,7 @@ export default function WebsiteInventoryView({ onBack, store }) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-800 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading website inventory...</p>
         </div>
       </div>
@@ -277,7 +277,7 @@ export default function WebsiteInventoryView({ onBack, store }) {
                   placeholder="Search products..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2.5 w-80 bg-gray-50 border-0 rounded-xl focus:outline-none text-gray-900 focus:ring-2 focus:ring-teal-500 focus:bg-white text-sm transition-all duration-200"
+                  className="pl-10 pr-4 py-2.5 w-80 bg-gray-50 border-0 rounded-xl focus:outline-none text-gray-900 focus:ring-2 focus:ring-brand-800 focus:bg-white text-sm transition-all duration-200"
                 />
               </div>
 
@@ -440,9 +440,9 @@ export default function WebsiteInventoryView({ onBack, store }) {
                             disabled={togglingItems.has(item._id)}
                             className="sr-only peer"
                           />
-                          <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 transition-all ${
+                          <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 transition-all ${
                             Boolean(item.webVisibility)
-                              ? 'bg-teal-600 peer-checked:after:translate-x-full' 
+                              ? 'bg-brand-800 peer-checked:after:translate-x-full' 
                               : 'bg-gray-200'
                           } peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
                             togglingItems.has(item._id) ? 'opacity-50 cursor-not-allowed' : ''
@@ -450,7 +450,7 @@ export default function WebsiteInventoryView({ onBack, store }) {
                         </label>
                         {togglingItems.has(item._id) && (
                           <div className="w-4 h-4">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-800"></div>
                           </div>
                         )}
                       </div>
