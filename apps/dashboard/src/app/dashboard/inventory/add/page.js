@@ -679,7 +679,7 @@ export default function AddInventoryPage() {
         const imageFormData = new FormData();
         imageFormData.append('image', file);
 
-        const response = await secureFormDataCall('/api/inventory/upload-image', 'POST', imageFormData);
+        const response = await secureFormDataCall('/api/inventory/upload-image', imageFormData);
         
         if (response.success) {
           uploadedImages.push({
