@@ -99,16 +99,16 @@ export default function StoreHeader({ store, onSignInClick }) {
             {/* Mobile Layout: Logo/Store Name on Left, Cart + Hamburger on Right */}
             <div className="md:hidden flex items-center justify-between w-full">
               {/* Left: Logo & Store Name */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 {currentStore?.branding?.logo ? (
-                  <img 
-                    src={currentStore.branding.logo} 
-                    alt={currentStore.storeName} 
-                    className="h-8 w-auto object-contain" 
+                  <img
+                    src={currentStore.branding.logo}
+                    alt={currentStore.storeName}
+                    className="h-8 w-auto object-contain shrink-0"
                   />
                 ) : (
-                  <div 
-                    className="h-8 w-8 rounded-lg flex items-center justify-center"
+                  <div
+                    className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
                     style={{ backgroundColor: primaryColor }}
                   >
                     <span className="text-white font-semibold text-sm">
@@ -116,7 +116,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                     </span>
                   </div>
                 )}
-                <h1 className="text-xl font-semibold text-gray-900 truncate">
+                <h1 className="text-xl font-semibold text-gray-900 truncate min-w-0" title={currentStore?.storeName}>
                   {currentStore?.storeName || 'Store'}
                 </h1>
               </div>
@@ -142,17 +142,17 @@ export default function StoreHeader({ store, onSignInClick }) {
             </div>
 
             {/* Desktop Layout: Keep Existing Structure */}
-            <div className="hidden md:flex items-center gap-4">
-              <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-4 min-w-0">
+              <div className="flex items-center gap-3 min-w-0">
                 {currentStore?.branding?.logo ? (
-                  <img 
-                    src={currentStore.branding.logo} 
-                    alt={currentStore.storeName} 
-                    className="h-8 w-auto object-contain" 
+                  <img
+                    src={currentStore.branding.logo}
+                    alt={currentStore.storeName}
+                    className="h-8 w-auto object-contain shrink-0"
                   />
                 ) : (
-                  <div 
-                    className="h-8 w-8 rounded-lg flex items-center justify-center"
+                  <div
+                    className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
                     style={{ backgroundColor: primaryColor }}
                   >
                     <span className="text-white font-semibold text-sm">
@@ -160,7 +160,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                     </span>
                   </div>
                 )}
-                <h1 className="text-xl font-semibold text-gray-900">
+                <h1 className="text-xl font-semibold text-gray-900 truncate max-w-[16rem] min-w-0" title={currentStore?.storeName}>
                   {currentStore?.storeName || 'Store'}
                 </h1>
               </div>
@@ -297,16 +297,16 @@ export default function StoreHeader({ store, onSignInClick }) {
           <div className="fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-white shadow-xl z-50 md:hidden transform transition-transform duration-300 ease-out">
             {/* Panel Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 {currentStore?.branding?.logo ? (
-                  <img 
-                    src={currentStore.branding.logo} 
-                    alt={currentStore.storeName} 
-                    className="h-8 w-auto object-contain" 
+                  <img
+                    src={currentStore.branding.logo}
+                    alt={currentStore.storeName}
+                    className="h-8 w-auto object-contain shrink-0"
                   />
                 ) : (
-                  <div 
-                    className="h-8 w-8 rounded-lg flex items-center justify-center"
+                  <div
+                    className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
                     style={{ backgroundColor: primaryColor }}
                   >
                     <span className="text-white font-semibold text-sm">
@@ -314,9 +314,9 @@ export default function StoreHeader({ store, onSignInClick }) {
                     </span>
                   </div>
                 )}
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-semibold text-gray-900 text-sm">Menu</h3>
-                  <p className="text-xs text-gray-500">{currentStore?.storeName}</p>
+                  <p className="text-xs text-gray-500 truncate" title={currentStore?.storeName}>{currentStore?.storeName}</p>
                 </div>
               </div>
               <button
