@@ -2,19 +2,19 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { 
-  Store, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Globe, 
-  Instagram, 
+import {
+  Store,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  Instagram,
   MessageCircle,
   Edit3,
   Settings,
   DollarSign,
-  Clock,
-  Users,
+  CheckCircle2,
+  Sparkles,
   Package,
   Receipt,
   Calendar,
@@ -24,10 +24,23 @@ import {
   AlertCircle
 } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import Button from "@/components/ui/Button";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
 import AddPhysicalStoreModal from "@/components/dashboard/AddPhysicalStoreModal";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import { useRouter } from "next/navigation";
+
+function SectionHeader({ icon: Icon, title, tone = "brand" }) {
+  const toneClasses = tone === "gold" ? "bg-gold-500/15 text-gold-600" : "bg-brand-100 text-brand-800";
+  return (
+    <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-3">
+      <span className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${toneClasses}`}>
+        <Icon className="w-4.5 h-4.5" />
+      </span>
+      {title}
+    </h2>
+  );
+}
 
 export default function StorePage() {
   const { secureApiCall } = useAuth();
@@ -268,7 +281,7 @@ export default function StorePage() {
       <DashboardLayout title="Store Management" subtitle="Manage your store information and settings">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-800 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading store information...</p>
           </div>
         </div>
@@ -286,7 +299,7 @@ export default function StorePage() {
             <p className="text-gray-400 text-sm mb-4">Create your store to get started</p>
             <button
               onClick={() => setIsCreateStoreModalOpen(true)}
-              className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+              className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors"
             >
               Create Store
             </button>
@@ -308,8 +321,8 @@ export default function StorePage() {
       <div className="mb-8 bg-white rounded-2xl p-6 border border-gray-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="p-3 bg-teal-100 rounded-2xl">
-              <Store className="w-8 h-8 text-teal-600" />
+            <div className="p-3 bg-brand-100 rounded-2xl">
+              <Store className="w-8 h-8 text-brand-800" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{store.storeName}</h1>
@@ -326,40 +339,27 @@ export default function StorePage() {
           <div className="flex items-center space-x-3">
             {/* Add Physical Store Button - only show for online stores */}
             {store.storeType === 'online' && (
-              <button
-                onClick={() => setIsAddPhysicalStoreModalOpen(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
-              >
+              <Button variant="gold" onClick={() => setIsAddPhysicalStoreModalOpen(true)}>
                 <MapPin className="w-4 h-4" />
                 <span>Add Physical Store</span>
-              </button>
+              </Button>
             )}
-            
+
             {!isEditing ? (
-              <button
-                onClick={startEditing}
-                className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
-              >
+              <Button variant="primary" onClick={startEditing}>
                 <Edit3 className="w-4 h-4" />
                 <span>Edit Store</span>
-              </button>
+              </Button>
             ) : (
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={cancelEditing}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
-                >
+                <Button variant="secondary" onClick={cancelEditing}>
                   <X className="w-4 h-4" />
                   <span>Cancel</span>
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isSubmitting}
-                  className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
+                </Button>
+                <Button variant="primary" onClick={handleSave} disabled={isSubmitting}>
                   <Save className="w-4 h-4" />
                   <span>{isSubmitting ? 'Saving...' : 'Save Changes'}</span>
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -372,16 +372,55 @@ export default function StorePage() {
         </div>
       )}
 
+      {/* Store Stats Strip */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand-100 text-brand-800">
+                <Receipt className="w-4 h-4" />
+              </span>
+              <span className="text-sm text-gray-500">Total Sales</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {store.totalOrders || 0}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Orders processed</p>
+          </div>
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-gold-500/15 text-gold-600">
+                <DollarSign className="w-4 h-4" />
+              </span>
+              <span className="text-sm text-gray-500">Total Revenue</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {formatCurrency(store.totalSales)}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Lifetime earnings</p>
+          </div>
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand-100 text-brand-800">
+                <Calendar className="w-4 h-4" />
+              </span>
+              <span className="text-sm text-gray-500">Last Sale</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">
+              {store.lastSaleDate ? formatDate(store.lastSaleDate) : 'No sales yet'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Most recent activity</p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Information */}
         <div className="lg:col-span-2 space-y-8">
           {/* Basic Information */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-              <Store className="w-5 h-5 mr-2 text-gray-600" />
-              Basic Information
-            </h2>
-            
+            <SectionHeader icon={Store} title="Basic Information" />
+
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -392,7 +431,7 @@ export default function StorePage() {
                       name="storeName"
                       value={editData.storeName}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                         errors.storeName ? 'border-red-300' : 'border-gray-300'
                       }`}
                     />
@@ -418,7 +457,7 @@ export default function StorePage() {
                     value={editData.storeDescription}
                     onChange={handleChange}
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 ) : (
                   <p className="text-gray-900 py-3">{store.storeDescription || 'No description provided'}</p>
@@ -434,7 +473,7 @@ export default function StorePage() {
                       name="storePhone"
                       value={editData.storePhone}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     />
                   ) : (
                     <div className="flex items-center py-3">
@@ -452,7 +491,7 @@ export default function StorePage() {
                       name="storeEmail"
                       value={editData.storeEmail}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     />
                   ) : (
                     <div className="flex items-center py-3">
@@ -468,11 +507,8 @@ export default function StorePage() {
           {/* Location Information */}
           {store.storeType === 'physical' ? (
             <div className="bg-white rounded-2xl p-6 border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                <MapPin className="w-5 h-5 mr-2 text-gray-600" />
-                Location Information
-              </h2>
-              
+              <SectionHeader icon={MapPin} title="Location Information" />
+
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
@@ -482,7 +518,7 @@ export default function StorePage() {
                       name="address.street"
                       value={editData.address.street}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     />
                   ) : (
                     <p className="text-gray-900 py-3">{store.address.street || 'Not provided'}</p>
@@ -498,7 +534,7 @@ export default function StorePage() {
                         name="address.city"
                         value={editData.address.city}
                         onChange={handleChange}
-                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                           errors['address.city'] ? 'border-red-300' : 'border-gray-300'
                         }`}
                       />
@@ -543,7 +579,7 @@ export default function StorePage() {
                         name="address.postalCode"
                         value={editData.address.postalCode}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                       />
                     ) : (
                       <p className="text-gray-900 py-3">{store.address.postalCode || 'Not provided'}</p>
@@ -555,11 +591,8 @@ export default function StorePage() {
           ) : (
             /* Online Store Information */
             <div className="bg-white rounded-2xl p-6 border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                <Globe className="w-5 h-5 mr-2 text-gray-600" />
-                Online Presence
-              </h2>
-              
+              <SectionHeader icon={Globe} title="Online Presence" />
+
               <div className="space-y-6">
                 {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Website URL</label>
@@ -569,7 +602,7 @@ export default function StorePage() {
                       name="onlineStoreInfo.website"
                       value={editData.onlineStoreInfo.website}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     />
                   ) : (
                     <div className="flex items-center py-3">
@@ -588,7 +621,7 @@ export default function StorePage() {
                         name="onlineStoreInfo.socialMedia.instagram"
                         value={editData.onlineStoreInfo.socialMedia.instagram}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                       />
                     ) : (
                       <div className="flex items-center py-3">
@@ -606,7 +639,7 @@ export default function StorePage() {
                         name="onlineStoreInfo.socialMedia.whatsapp"
                         value={editData.onlineStoreInfo.socialMedia.whatsapp}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                       />
                     ) : (
                       <div className="flex items-center py-3">
@@ -622,11 +655,8 @@ export default function StorePage() {
 
           {/* Store Settings */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-              <Settings className="w-5 h-5 mr-2 text-gray-600" />
-              Store Settings
-            </h2>
-            
+            <SectionHeader icon={Settings} title="Store Settings" tone="gold" />
+
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -657,7 +687,7 @@ export default function StorePage() {
                       min="0"
                       max="100"
                       step="0.1"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     />
                   ) : (
                     <p className="text-gray-900 py-3">{store.settings.taxRate}%</p>
@@ -673,7 +703,7 @@ export default function StorePage() {
                     name="settings.receiptFooter"
                     value={editData.settings.receiptFooter}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 ) : (
                   <p className="text-gray-900 py-3">{store.settings.receiptFooter}</p>
@@ -685,39 +715,14 @@ export default function StorePage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Store Stats */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Store Statistics</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Receipt className="w-4 h-4 mr-2 text-gray-500" />
-                  <span className="text-sm text-gray-600">Total Sales</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900">{store.totalSales}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
-                  <span className="text-sm text-gray-600">Total Revenue</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900">{formatCurrency(store.totalRevenue)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                  <span className="text-sm text-gray-600">Last Sale</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900">
-                  {store.lastSaleDate ? formatDate(store.lastSaleDate) : 'No sales yet'}
-                </span>
-              </div>
-            </div>
-          </div>
-
           {/* Store Status */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Store Status</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-3">
+              <span className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 bg-brand-100 text-brand-800">
+                <CheckCircle2 className="w-4.5 h-4.5" />
+              </span>
+              Store Status
+            </h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Status</span>
@@ -730,7 +735,7 @@ export default function StorePage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Setup Complete</span>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  store.setupCompleted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  store.setupCompleted ? 'bg-green-100 text-green-800' : 'bg-gold-500/15 text-gold-600'
                 }`}>
                   {store.setupCompleted ? 'Complete' : 'Incomplete'}
                 </span>
@@ -748,11 +753,16 @@ export default function StorePage() {
 
           {/* Quick Actions */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-3">
+              <span className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 bg-gold-500/15 text-gold-600">
+                <Sparkles className="w-4.5 h-4.5" />
+              </span>
+              Quick Actions
+            </h3>
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={() => router.push('/dashboard/sales')}
-                className="w-full flex items-center justify-center px-4 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+                className="w-full flex items-center justify-center px-4 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors"
               >
                 <Receipt className="w-4 h-4 mr-2" />
                 View Sales
@@ -767,7 +777,7 @@ export default function StorePage() {
               {store.storeType === 'online' && (
                 <button
                   onClick={() => setIsAddPhysicalStoreModalOpen(true)}
-                  className="w-full flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+                  className="w-full flex items-center justify-center px-4 py-3 bg-gold-500 text-brand-900 rounded-xl hover:bg-gold-400 transition-colors shadow-sm hover:shadow-md"
                 >
                   <MapPin className="w-4 h-4 mr-2" />
                   Add Physical Location

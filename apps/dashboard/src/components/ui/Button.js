@@ -5,6 +5,8 @@ const variantClasses = {
     "bg-white text-brand-800 border border-gray-200 hover:border-brand-800 hover:bg-brand-50 focus-visible:ring-brand-800/20",
   ghost:
     "bg-transparent text-brand-800 hover:bg-brand-50 focus-visible:ring-brand-800/20",
+  gold:
+    "bg-gold-500 text-brand-900 hover:bg-gold-400 shadow-lg hover:shadow-xl focus-visible:ring-gold-500/30",
 };
 
 const sizeClasses = {
