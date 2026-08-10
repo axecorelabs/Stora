@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
+import { generateSKU, backfillMissingSkus } from '@/lib/inventorySku';
 
 // Helper to transform inventory data for response (snake_case to camelCase)
 function transformInventory(item) {
@@ -84,14 +85,6 @@ function transformInventory(item) {
     createdAt: item.created_at,
     updatedAt: item.updated_at
   };
-}
-
-// Generate a fallback SKU when the client doesn't supply one
-function generateSKU(category, name) {
-  const catCode = (category || '').replace(/[^A-Za-z0-9]/g, '').substring(0, 3).toUpperCase() || 'PRD';
-  const nameCode = (name || '').replace(/[^A-Za-z0-9]/g, '').substring(0, 3).toUpperCase() || 'ITM';
-  const suffix = Date.now().toString(36).slice(-5).toUpperCase();
-  return `${catCode}-${nameCode}-${suffix}`;
 }
 
 // Helper to transform batch data
@@ -190,6 +183,9 @@ export async function GET(req) {
         { status: 500 }
       );
     }
+
+    // Backfill SKUs for items created before SKU generation existed
+    await backfillMissingSkus(inventory);
 
     // Get batches for all inventory items for pricing
     const inventoryIds = inventory.map(item => item.id);
