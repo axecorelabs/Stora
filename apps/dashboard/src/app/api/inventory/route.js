@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
+import { generateSKU, backfillMissingSkus } from '@/lib/inventorySku';
 
 // Helper to transform inventory data for response (snake_case to camelCase)
 function transformInventory(item) {
@@ -183,6 +184,9 @@ export async function GET(req) {
       );
     }
 
+    // Backfill SKUs for items created before SKU generation existed
+    await backfillMissingSkus(inventory);
+
     // Get batches for all inventory items for pricing
     const inventoryIds = inventory.map(item => item.id);
     
@@ -321,7 +325,7 @@ export async function POST(req) {
         has_variants: inventoryData.hasVariants || (inventoryData.variants && inventoryData.variants.length > 0),
         base_price: inventoryData.sellingPrice || inventoryData.basePrice || 0,
         cost: inventoryData.costPrice || inventoryData.cost || 0,
-        sku: inventoryData.sku,
+        sku: inventoryData.sku || generateSKU(inventoryData.category, inventoryData.productName || inventoryData.name),
         barcode: inventoryData.barcode || null,
         stock_quantity: inventoryData.quantityInStock || inventoryData.stockQuantity || 0,
         minimum_stock: inventoryData.minimumStock || inventoryData.reorderLevel || 5,
