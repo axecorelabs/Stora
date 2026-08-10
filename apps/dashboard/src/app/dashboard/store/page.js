@@ -46,6 +46,7 @@ export default function StorePage() {
   const { secureApiCall } = useAuth();
   const router = useRouter();
   const [store, setStore] = useState(null);
+  const [salesStats, setSalesStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
@@ -125,8 +126,22 @@ export default function StorePage() {
     }
   };
 
+  // Fetch real sales stats -- the stores table's own total_sales/total_orders
+  // columns are never updated by the app, so they don't reflect actual sales
+  const fetchSalesStats = async () => {
+    try {
+      const response = await secureApiCall('/api/pos/sales/stats');
+      if (response.success) {
+        setSalesStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching sales stats:', error);
+    }
+  };
+
   useEffect(() => {
     fetchStore();
+    fetchSalesStats();
   }, []);
 
   // Handle store creation
@@ -383,9 +398,9 @@ export default function StorePage() {
               <span className="text-sm text-gray-500">Total Sales</span>
             </div>
             <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {store.totalOrders || 0}
+              {salesStats ? salesStats.totalSales : '—'}
             </p>
-            <p className="text-xs text-gray-400 mt-1">Orders processed</p>
+            <p className="text-xs text-gray-400 mt-1">Completed transactions</p>
           </div>
           <div className="p-5">
             <div className="flex items-center gap-2 mb-3">
@@ -395,7 +410,7 @@ export default function StorePage() {
               <span className="text-sm text-gray-500">Total Revenue</span>
             </div>
             <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {formatCurrency(store.totalSales)}
+              {salesStats ? formatCurrency(salesStats.totalRevenue) : '—'}
             </p>
             <p className="text-xs text-gray-400 mt-1">Lifetime earnings</p>
           </div>
@@ -407,7 +422,7 @@ export default function StorePage() {
               <span className="text-sm text-gray-500">Last Sale</span>
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              {store.lastSaleDate ? formatDate(store.lastSaleDate) : 'No sales yet'}
+              {salesStats?.lastSaleDate ? formatDate(salesStats.lastSaleDate) : 'No sales yet'}
             </p>
             <p className="text-xs text-gray-400 mt-1">Most recent activity</p>
           </div>

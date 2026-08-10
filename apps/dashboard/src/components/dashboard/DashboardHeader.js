@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect } from "react";
 import NotificationPanel from "./NotificationPanel";
 
-export default function DashboardHeader({ title = "Inventory Management", subtitle = "Today, August 16th 2024" }) {
+export default function DashboardHeader({ title = "Inventory Management", subtitle = "Today, August 16th 2024", isSidebarCollapsed = false }) {
   const { user, signOut, secureApiCall } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
@@ -51,7 +51,7 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
 
   return (
     <>
-      <header className="fixed top-0 left-64 right-0 bg-white px-6 py-5 border-b border-gray-200 z-20">
+      <header className={`fixed top-0 right-0 bg-white px-6 py-5 border-b border-gray-200 z-20 transition-[left] duration-300 ${isSidebarCollapsed ? 'left-20' : 'left-64'}`}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
