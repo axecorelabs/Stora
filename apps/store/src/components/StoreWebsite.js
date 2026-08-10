@@ -542,18 +542,6 @@ export default function StoreWebsite({ store }) {
         }
       );
 
-      // Floating animation for emoji
-      const emoji = emptyStateRef.current.querySelector('.empty-emoji');
-      if (emoji) {
-        gsap.to(emoji, {
-          y: -20,
-          duration: 2,
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut"
-        });
-      }
-
     }, emptyStateRef);
 
     return () => ctx.revert();
@@ -1047,7 +1035,7 @@ export default function StoreWebsite({ store }) {
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-20" ref={emptyStateRef}>
-              <div className="empty-emoji mb-4">
+              <div className="mb-4">
                 {searchQuery ? (
                   <SearchX className="w-16 h-16 text-gray-300 mx-auto" />
                 ) : (
