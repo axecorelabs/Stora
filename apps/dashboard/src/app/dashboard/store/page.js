@@ -25,22 +25,11 @@ import {
 } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
 import AddPhysicalStoreModal from "@/components/dashboard/AddPhysicalStoreModal";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import { useRouter } from "next/navigation";
-
-function SectionHeader({ icon: Icon, title, tone = "brand" }) {
-  const toneClasses = tone === "gold" ? "bg-gold-500/15 text-gold-600" : "bg-brand-100 text-brand-800";
-  return (
-    <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-3">
-      <span className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${toneClasses}`}>
-        <Icon className="w-4.5 h-4.5" />
-      </span>
-      {title}
-    </h2>
-  );
-}
 
 export default function StorePage() {
   const { secureApiCall } = useAuth();
