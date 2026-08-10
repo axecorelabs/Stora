@@ -1,34 +1,48 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ReceiptModal from "@/components/dashboard/ReceiptModal";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
 import DeliveryScheduleModal from "@/components/dashboard/DeliveryScheduleModal";
 import VariantSelectionModal from "@/components/dashboard/VariantSelectionModal";
+import SectionHeader from "@/components/ui/SectionHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import useOrderProcessingStore from "@/store/orderProcessingStore";
 import { usePOSData } from "@/hooks/usePOSData";
-import { 
-  Search, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  Calculator, 
-  CreditCard, 
-  Banknote, 
-  Smartphone, 
-  User, 
-  Receipt, 
+import {
+  Search,
+  Plus,
+  Minus,
+  Trash2,
+  Calculator,
+  CreditCard,
+  Banknote,
+  Smartphone,
+  User,
+  Receipt,
   ShoppingCart,
   Package,
   Scan,
   Store,
-  CheckCircle, 
-  AlertCircle, 
-  ArrowLeft, 
+  CheckCircle,
+  AlertCircle,
+  ArrowLeft,
   FileText
 } from "lucide-react";
+
+// Suggests round-number cash amounts a cashier can tap instead of typing,
+// covering common Naira notes plus a couple of round-ups above the total
+function getQuickCashAmounts(total) {
+  if (!total || total <= 0) return [];
+  const amounts = new Set();
+  [500, 1000, 2000, 5000, 10000].forEach(note => {
+    if (note >= total) amounts.add(note);
+  });
+  amounts.add(Math.ceil(total / 1000) * 1000);
+  amounts.add(Math.ceil(total / 500) * 500);
+  return Array.from(amounts).sort((a, b) => a - b).slice(0, 4);
+}
 
 export default function POSPage() {
   const { secureApiCall } = useAuth();
@@ -78,6 +92,16 @@ export default function POSPage() {
   const [selectedItemForVariant, setSelectedItemForVariant] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
+  const searchInputRef = useRef(null);
+
+  // Keep the search/scan field focused and ready -- a barcode scanner just
+  // types into whatever has focus, so the cashier shouldn't need to click first
+  useEffect(() => {
+    if (!isLoading) {
+      searchInputRef.current?.focus();
+    }
+  }, [isLoading]);
+
   // Show create store modal if no store
   useEffect(() => {
     if (hasStore === false) {
@@ -97,10 +121,12 @@ export default function POSPage() {
     let filtered = inventoryItems;
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(item =>
-        item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.brand?.toLowerCase().includes(searchTerm.toLowerCase())
+        item.productName.toLowerCase().includes(term) ||
+        item.sku.toLowerCase().includes(term) ||
+        item.barcode?.toLowerCase().includes(term) ||
+        item.brand?.toLowerCase().includes(term)
       );
     }
 
@@ -115,6 +141,26 @@ export default function POSPage() {
   const categories = useMemo(() => {
     return [...new Set(inventoryItems.map(item => item.category))];
   }, [inventoryItems]);
+
+  // Handle Enter from the search box like a barcode scan: an exact barcode/SKU
+  // match adds straight to cart, otherwise a single narrowed-down result does too
+  const handleSearchKeyDown = (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return;
+
+    const exactMatch = inventoryItems.find(item =>
+      item.barcode?.toLowerCase() === term || item.sku.toLowerCase() === term
+    );
+    const matchToAdd = exactMatch || (filteredItems.length === 1 ? filteredItems[0] : null);
+
+    if (matchToAdd) {
+      addToCart(matchToAdd);
+      setSearchTerm('');
+    }
+  };
 
   // Add item to cart
   const addToCart = (item) => {
@@ -372,6 +418,9 @@ export default function POSPage() {
 
         // Refetch inventory to update stock
         refetchInventory();
+
+        // Ready for the next customer
+        searchInputRef.current?.focus();
       } else {
         throw new Error(result.message || 'Failed to process sale');
       }
@@ -768,8 +817,8 @@ export default function POSPage() {
       {store && (
         <div className="mb-6 bg-white rounded-2xl p-4 border border-gray-100">
           <div className="flex items-center space-x-4">
-            <div className="p-2 bg-teal-100 rounded-xl">
-              <Store className="w-6 h-6 text-teal-600" />
+            <div className="p-2 bg-brand-100 rounded-xl">
+              <Store className="w-6 h-6 text-brand-800" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">{store.storeName}</h2>
@@ -792,14 +841,20 @@ export default function POSPage() {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Search products by name, SKU, or scan barcode..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                  onKeyDown={handleSearchKeyDown}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                 />
               </div>
-              <button className="p-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors">
+              <button
+                onClick={() => searchInputRef.current?.focus()}
+                title="Scan a barcode or type a SKU, then press Enter to add it straight to the cart"
+                className="p-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors"
+              >
                 <Scan className="w-5 h-5" />
               </button>
             </div>
@@ -808,9 +863,9 @@ export default function POSPage() {
             <div className="flex items-center space-x-2 overflow-x-auto">
               <button
                 onClick={() => setSelectedCategory('')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-                  selectedCategory === '' 
-                    ? 'bg-teal-600 text-white' 
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedCategory === ''
+                    ? 'bg-brand-800 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -820,9 +875,9 @@ export default function POSPage() {
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-                    selectedCategory === category 
-                      ? 'bg-teal-600 text-white' 
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedCategory === category
+                      ? 'bg-brand-800 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -834,12 +889,14 @@ export default function POSPage() {
 
           {/* Product Grid - Modified to show variant badge */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Products</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredItems.map(item => (
+            <SectionHeader icon={Package} title="Products" tone="gold" />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {filteredItems.map(item => {
+                const isLowStock = item.quantityInStock <= (item.reorderLevel || 0);
+                return (
                 <div
                   key={item._id}
-                  className="border border-gray-200 rounded-xl p-4 hover:border-teal-500 hover:shadow-md transition-all cursor-pointer relative"
+                  className="border border-gray-200 rounded-xl p-4 hover:border-brand-800 hover:shadow-md transition-all cursor-pointer relative"
                   onClick={() => addToCart(item)}
                 >
                   {/* Variant badge */}
@@ -848,14 +905,14 @@ export default function POSPage() {
                       Variants
                     </div>
                   )}
-                  
+
                   {/* Batch indicator */}
                   {item.hasBatchPricing && (
                     <div className="absolute top-2 right-2 bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">
                       Batch
                     </div>
                   )}
-                  
+
                   <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
                     {item.image ? (
                       <img
@@ -883,7 +940,7 @@ export default function POSPage() {
                   
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
-                      <span className="text-sm font-bold text-teal-600">
+                      <span className="text-sm font-bold text-brand-800">
                         {formatCurrency(item.sellingPrice)}
                       </span>
                       {item.hasBatchPricing && item.sellingPrice !== item.originalSellingPrice && (
@@ -892,14 +949,15 @@ export default function POSPage() {
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-gray-500">
-                      Stock: {item.quantityInStock}
+                    <span className={`text-xs font-medium ${isLowStock ? 'text-gold-600' : 'text-gray-500'}`}>
+                      {isLowStock ? `Low: ${item.quantityInStock}` : `Stock: ${item.quantityInStock}`}
                     </span>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
-            
+
             {filteredItems.length === 0 && (
               <div className="text-center py-12">
                 <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -910,12 +968,14 @@ export default function POSPage() {
         </div>
 
         {/* Cart and Checkout - Right Side */}
-        <div className="space-y-6">
+        <div className="space-y-6 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1">
           {/* Cart - Modified to show variant info */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <ShoppingCart className="w-5 h-5 mr-2" />
+                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-100 text-brand-800 mr-2">
+                  <ShoppingCart className="w-4 h-4" />
+                </span>
                 {isProcessingOrder ? 'Order Items' : 'Cart'} ({cart.length})
               </h3>
               {cart.length > 0 && !isProcessingOrder && (
@@ -968,7 +1028,7 @@ export default function POSPage() {
                       <span className="w-8 text-center text-gray-900 font-medium">{item.quantity}</span>
                       <button
                         onClick={() => updateCartQuantity(item._id, item.quantity + 1, item.variant?.variantId)}
-                        className="p-1 text-gray-500 hover:text-teal-600"
+                        className="p-1 text-gray-500 hover:text-brand-800"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -996,10 +1056,7 @@ export default function POSPage() {
 
           {/* Customer Info */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <User className="w-5 h-5 mr-2" />
-              Customer Info {isProcessingOrder && '(From Order)'}
-            </h3>
+            <SectionHeader icon={User} title={`Customer Info ${isProcessingOrder ? '(From Order)' : ''}`} />
             <div className="space-y-3">
               <input
                 type="text"
@@ -1012,7 +1069,7 @@ export default function POSPage() {
                     updateOrderCustomer(newCustomer);
                   }
                 }}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                   isProcessingOrder ? 'bg-blue-50 border-blue-200' : 'border-gray-300'
                 }`}
               />
@@ -1027,7 +1084,7 @@ export default function POSPage() {
                     updateOrderCustomer(newCustomer);
                   }
                 }}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                   isProcessingOrder ? 'bg-blue-50 border-blue-200' : 'border-gray-300'
                 }`}
               />
@@ -1036,10 +1093,7 @@ export default function POSPage() {
 
           {/* Payment and Totals */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Calculator className="w-5 h-5 mr-2" />
-              Payment & Totals
-            </h3>
+            <SectionHeader icon={Calculator} title="Payment & Totals" tone="gold" />
 
             {/* Discount and Tax */}
             <div className="space-y-3 mb-4">
@@ -1051,7 +1105,7 @@ export default function POSPage() {
                   max="100"
                   value={discount}
                   onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-black"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
                   placeholder="0"
                 />
                 <span className="text-sm text-gray-600">%</span>
@@ -1064,7 +1118,7 @@ export default function POSPage() {
                   max="100"
                   value={tax}
                   onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-black"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
                   placeholder="0"
                 />
                 <span className="text-sm text-gray-600">%</span>
@@ -1079,7 +1133,7 @@ export default function POSPage() {
                   onClick={() => setPaymentMethod('cash')}
                   className={`p-3 rounded-lg border text-sm font-medium ${
                     paymentMethod === 'cash'
-                      ? 'border-teal-500 bg-teal-50 text-teal-700'
+                      ? 'border-brand-800 bg-brand-50 text-brand-800'
                       : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -1090,7 +1144,7 @@ export default function POSPage() {
                   onClick={() => setPaymentMethod('transfer')}
                   className={`p-3 rounded-lg border text-sm font-medium ${
                     paymentMethod === 'transfer'
-                      ? 'border-teal-500 bg-teal-50 text-teal-700'
+                      ? 'border-brand-800 bg-brand-50 text-brand-800'
                       : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -1101,7 +1155,7 @@ export default function POSPage() {
                   onClick={() => setPaymentMethod('pos')}
                   className={`p-3 rounded-lg border text-sm font-medium ${
                     paymentMethod === 'pos'
-                      ? 'border-teal-500 bg-teal-50 text-teal-700'
+                      ? 'border-brand-800 bg-brand-50 text-brand-800'
                       : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -1119,9 +1173,36 @@ export default function POSPage() {
                   type="number"
                   value={amountReceived}
                   onChange={(e) => setAmountReceived(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-black"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && cart.length > 0 && parseFloat(amountReceived || 0) >= total && !isSaleProcessing) {
+                      e.preventDefault();
+                      processSale();
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
                   placeholder="0.00"
                 />
+                {total > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setAmountReceived(String(total))}
+                      className="px-2.5 py-1 text-xs font-medium rounded-lg bg-brand-100 text-brand-800 hover:bg-brand-200 transition-colors"
+                    >
+                      Exact ({formatCurrency(total)})
+                    </button>
+                    {getQuickCashAmounts(total).map(amount => (
+                      <button
+                        key={amount}
+                        type="button"
+                        onClick={() => setAmountReceived(String(amount))}
+                        className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                      >
+                        {formatCurrency(amount)}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1165,7 +1246,7 @@ export default function POSPage() {
                 isSaleProcessing || 
                 (!isProcessingOrder && paymentMethod === 'cash' && parseFloat(amountReceived || 0) < total)
               }
-              className="w-full mt-4 bg-teal-600 text-white py-3 rounded-xl font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              className="w-full mt-4 bg-brand-800 text-white py-3 rounded-xl font-medium hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             >
               {isSaleProcessing ? (
                 <>
@@ -1231,7 +1312,7 @@ export default function POSPage() {
                     setIsDeliveryPromptOpen(false);
                     setIsDeliveryModalOpen(true);
                   }}
-                  className="flex-1 px-4 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+                  className="flex-1 px-4 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors"
                 >
                   Yes, Schedule
                 </button>
