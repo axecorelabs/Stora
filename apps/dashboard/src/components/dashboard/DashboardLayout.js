@@ -7,23 +7,25 @@ import DashboardHeader from "./DashboardHeader";
 
 const SIDEBAR_COLLAPSED_KEY = "stora-sidebar-collapsed";
 
+// Read the saved preference synchronously so the very first render already
+// has the right state -- each dashboard page remounts this layout on
+// navigation, and restoring the preference in a post-mount effect meant the
+// sidebar visibly opened, then immediately snapped shut, on every tab switch
+function getInitialCollapsedState() {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+}
+
 export default function DashboardLayout({ children, title, subtitle }) {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialCollapsedState);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push('/');
     }
   }, [isAuthenticated, loading, router]);
-
-  // Restore the user's sidebar preference after mount (each dashboard page
-  // remounts this layout, so state alone wouldn't survive navigation)
-  useEffect(() => {
-    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-    if (saved === 'true') setIsSidebarCollapsed(true);
-  }, []);
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(prev => {
