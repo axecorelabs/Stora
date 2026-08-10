@@ -4,38 +4,51 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
 import WebsiteSettingsView from "@/components/dashboard/WebsiteSettingsView";
 import WebsiteInventoryView from "@/components/dashboard/WebsiteInventoryView";
+import Button from "@/components/ui/Button";
+import SectionHeader from "@/components/ui/SectionHeader";
 import { useWebsiteData } from "@/hooks/useWebsiteData";
-import { 
-  Globe, 
-  Store, 
-  AlertCircle, 
-  Eye, 
-  ExternalLink, 
-  Settings, 
+import {
+  Globe,
+  Store,
+  AlertCircle,
+  Eye,
+  ExternalLink,
+  Settings,
   Palette,
   BarChart3,
   Users,
   Copy,
   Check,
-  Power,
-  Edit3,
   Share2,
   Instagram,
+  Facebook,
+  Twitter,
   MessageCircle,
   Mail,
   Phone,
   MapPin,
   Clock,
-  Package
+  Package,
+  Info
 } from "lucide-react";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
+
+// Website status -> literal badge classes (Tailwind can't resolve
+// dynamically-built class names like `bg-${color}-100` at build time)
+const WEBSITE_STATUS_STYLES = {
+  active: { badge: 'bg-green-100 text-green-800', text: 'Live & Active' },
+  inactive: { badge: 'bg-gray-100 text-gray-700', text: 'Inactive' },
+  pending: { badge: 'bg-gold-500/15 text-gold-600', text: 'Setting Up...' },
+  suspended: { badge: 'bg-red-100 text-red-800', text: 'Suspended' },
+  maintenance: { badge: 'bg-orange-100 text-orange-800', text: 'Maintenance' },
+};
+const DEFAULT_STATUS_STYLE = { badge: 'bg-gray-100 text-gray-700', text: 'Not Set Up' };
 
 export default function WebsitePage() {
   const [isCreateStoreModalOpen, setIsCreateStoreModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [currentView, setCurrentView] = useState('main'); // 'main', 'settings', or 'inventory'
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
-  const [isShareDropdownOpen, setIsShareDropdownOpen] = useState(false);
 
   // Use TanStack Query for data fetching
   const {
@@ -85,26 +98,9 @@ export default function WebsitePage() {
   };
 
   // Get website status info
-  const getWebsiteStatusInfo = () => {
-    if (!store?.website) return { color: 'gray', text: 'Not Set Up' };
-    
-    switch (store.website.status) {
-      case 'active':
-        return { color: 'green', text: 'Live & Active' };
-      case 'inactive':
-        return { color: 'gray', text: 'Inactive' };
-      case 'pending':
-        return { color: 'yellow', text: 'Setting Up...' };
-      case 'suspended':
-        return { color: 'red', text: 'Suspended' };
-      case 'maintenance':
-        return { color: 'orange', text: 'Maintenance' };
-      default:
-        return { color: 'gray', text: 'Unknown' };
-    }
-  };
-
-  const websiteStatus = getWebsiteStatusInfo();
+  const websiteStatus = store?.website
+    ? (WEBSITE_STATUS_STYLES[store.website.status] || { badge: 'bg-gray-100 text-gray-700', text: 'Unknown' })
+    : DEFAULT_STATUS_STYLE;
 
   const handleBrandingUpdated = (updatedStore) => {
     refetchStore();
@@ -121,10 +117,10 @@ export default function WebsitePage() {
 
   // Get social media links with proper formatting - memoized (returns array, not function)
   const socialMediaLinks = useMemo(() => {
-    if (!store?.socialMedia) return [];
+    if (!store?.onlineStoreInfo?.socialMedia) return [];
 
     const socialLinks = [];
-    const socials = store.socialMedia;
+    const socials = store.onlineStoreInfo.socialMedia;
 
     // WhatsApp
     if (socials.whatsapp) {
@@ -181,7 +177,7 @@ export default function WebsitePage() {
     }
 
     return socialLinks;
-  }, [store?.socialMedia]);
+  }, [store?.onlineStoreInfo?.socialMedia]);
 
   // Handle social media link click
   const handleSocialClick = (socialLink) => {
@@ -247,7 +243,7 @@ export default function WebsitePage() {
             <p className="text-gray-400 text-sm mb-4">You need to set up your store first to manage your website</p>
             <button
               onClick={() => setIsCreateStoreModalOpen(true)}
-              className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+              className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors"
             >
               Create Store
             </button>
@@ -290,78 +286,148 @@ export default function WebsitePage() {
   // Main website management view - no flickering because data is cached
   return (
     <DashboardLayout title="Website Management" subtitle="Manage your online store presence">
-      {/* Website Status Toggle */}
-      <div className="mb-8 bg-white rounded-2xl p-6 border border-gray-100">
-        <div className="flex items-center justify-between">
+      {/* Website Header */}
+      <div className="mb-6 bg-white rounded-2xl p-6 border border-gray-100">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center space-x-4">
-            <div className="p-3 bg-blue-100 rounded-2xl">
-              <Globe className="w-8 h-8 text-blue-600" />
+            <div className="p-3 bg-brand-100 rounded-2xl">
+              <Globe className="w-8 h-8 text-brand-800" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Stora Store</h1>
-              <div className="flex items-center space-x-3 mt-1">
-                <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full bg-${websiteStatus.color}-100 text-${websiteStatus.color}-800`}>
+              <h1 className="text-2xl font-bold text-gray-900">{store.storeName}</h1>
+              <div className="flex items-center flex-wrap gap-2 mt-1">
+                <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${websiteStatus.badge}`}>
                   {websiteStatus.text}
                 </span>
-                {store.websiteUrl && (
+                {store.websiteFullPath && (
                   <span className="text-sm text-gray-500">{store.websiteFullPath}</span>
                 )}
               </div>
             </div>
           </div>
-          
-          <div className="flex items-center space-x-4">
-            {/* Website URL Display */}
-            {store.websiteUrl && (
-              <div className="flex items-center space-x-2 bg-gray-50 rounded-xl px-4 py-2">
-                <span className="text-sm text-gray-600">{store.websiteUrl}</span>
-                <button
-                  onClick={copyWebsiteUrl}
-                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                  title="Copy URL"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
-                <a
-                  href={store.websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                  title="Visit website"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
+
+          {/* Primary actions, promoted here so they don't require scrolling to Quick Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="secondary" size="sm" onClick={() => setIsBrandingModalOpen(true)}>
+              <Palette className="w-4 h-4" />
+              <span>Customize Design</span>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setCurrentView('inventory')}>
+              <Package className="w-4 h-4" />
+              <span>Manage Inventory</span>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setCurrentView('settings')}>
+              <Settings className="w-4 h-4" />
+              <span>Settings</span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-5 pt-5 border-t border-gray-100">
+          {/* Website URL Display */}
+          {store.websiteUrl ? (
+            <div className="flex items-center space-x-2 bg-gray-50 rounded-xl px-4 py-2 min-w-0">
+              <span className="text-sm text-gray-600 truncate">{store.websiteUrl}</span>
+              <button
+                onClick={copyWebsiteUrl}
+                className="p-1 text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                title="Copy URL"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4 text-green-600" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </button>
+              <a
+                href={store.websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1 text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                title="Visit website"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+          ) : (
+            <span className="text-sm text-gray-400">No website URL assigned yet</span>
+          )}
+
+          {/* Website Toggle */}
+          <div className="flex items-center space-x-3">
+            <span className="text-sm font-medium text-gray-700">Website Status</span>
+            <button
+              onClick={toggleWebsiteStatus}
+              disabled={isTogglingWebsite}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 ${
+                store.website?.status === 'active'
+                  ? 'bg-brand-800'
+                  : 'bg-gray-200'
+              } ${isTogglingWebsite ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  store.website?.status === 'active' ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            {isTogglingWebsite && (
+              <div className="w-4 h-4">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-800"></div>
               </div>
             )}
+          </div>
+        </div>
+      </div>
 
-            {/* Website Toggle */}
-            <div className="flex items-center space-x-3">
-              <span className="text-sm font-medium text-gray-700">Website Status</span>
-              <button
-                onClick={toggleWebsiteStatus}
-                disabled={isTogglingWebsite}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 ${
-                  store.website?.status === 'active'
-                    ? 'bg-teal-600'
-                    : 'bg-gray-200'
-                } ${isTogglingWebsite ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    store.website?.status === 'active' ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-              {isTogglingWebsite && (
-                <div className="w-4 h-4">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600"></div>
-                </div>
-              )}
+      {/* Website Stats Strip */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand-100 text-brand-800">
+                <Eye className="w-4 h-4" />
+              </span>
+              <span className="text-sm text-gray-500">Total Views</span>
             </div>
+            <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {store.website?.metrics?.totalViews || 0}
+            </p>
+          </div>
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-gold-500/15 text-gold-600">
+                <Users className="w-4 h-4" />
+              </span>
+              <span className="text-sm text-gray-500">Monthly Views</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {store.website?.metrics?.monthlyViews || 0}
+            </p>
+          </div>
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand-100 text-brand-800">
+                <BarChart3 className="w-4 h-4" />
+              </span>
+              <span className="text-sm text-gray-500">Total Orders</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {store.website?.metrics?.totalOrders || 0}
+            </p>
+          </div>
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-gold-500/15 text-gold-600">
+                <Clock className="w-4 h-4" />
+              </span>
+              <span className="text-sm text-gray-500">Last Visit</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">
+              {store.website?.metrics?.lastVisit
+                ? new Date(store.website.metrics.lastVisit).toLocaleDateString()
+                : '—'}
+            </p>
           </div>
         </div>
       </div>
@@ -372,20 +438,21 @@ export default function WebsitePage() {
         <div className="lg:col-span-2 space-y-8">
           {/* Website Preview */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Website Preview</h2>
-              {store.websiteUrl && (
+            <SectionHeader
+              icon={Globe}
+              title="Website Preview"
+              right={store.websiteUrl && (
                 <a
                   href={store.websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center space-x-2 text-sm text-teal-600 hover:text-teal-700 transition-colors"
+                  className="flex items-center space-x-2 text-sm text-brand-800 hover:text-brand-900 transition-colors"
                 >
                   <span>View live site</span>
                   <ExternalLink className="w-4 h-4" />
                 </a>
               )}
-            </div>
+            />
             
             {store.website?.status === 'active' ? (
               <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
@@ -410,7 +477,7 @@ export default function WebsitePage() {
                   <div 
                     className="relative px-6 py-8"
                     style={{ 
-                      background: `linear-gradient(135deg, ${store.branding?.primaryColor || '#0D9488'}15 0%, ${store.branding?.primaryColor || '#0D9488'}05 100%)`
+                      background: `linear-gradient(135deg, ${store.branding?.primaryColor || '#0B3B2E'}15 0%, ${store.branding?.primaryColor || '#0B3B2E'}05 100%)`
                     }}
                   >
                     {/* Banner Background */}
@@ -436,7 +503,7 @@ export default function WebsitePage() {
                         ) : (
                           <div 
                             className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-md ring-2 ring-white"
-                            style={{ backgroundColor: store.branding?.primaryColor || '#0D9488' }}
+                            style={{ backgroundColor: store.branding?.primaryColor || '#0B3B2E' }}
                           >
                             <span className="text-white font-bold text-2xl">
                               {store.storeName?.charAt(0) || 'S'}
@@ -564,7 +631,7 @@ export default function WebsitePage() {
                                 {/* Add to Cart Button */}
                                 <button 
                                   className="w-full mt-3 px-3 py-2 text-xs font-medium text-white rounded-lg transition-colors"
-                                  style={{ backgroundColor: store.branding?.primaryColor || '#0D9488' }}
+                                  style={{ backgroundColor: store.branding?.primaryColor || '#0B3B2E' }}
                                 >
                                   Add to Cart
                                 </button>
@@ -595,7 +662,7 @@ export default function WebsitePage() {
                                 </div>
                                 <button 
                                   className="w-full mt-3 px-3 py-2 text-xs font-medium text-white rounded-lg"
-                                  style={{ backgroundColor: store.branding?.primaryColor || '#0D9488' }}
+                                  style={{ backgroundColor: store.branding?.primaryColor || '#0B3B2E' }}
                                 >
                                   Add to Cart
                                 </button>
@@ -649,7 +716,7 @@ export default function WebsitePage() {
                 <button
                   onClick={toggleWebsiteStatus}
                   disabled={isTogglingWebsite}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50"
+                  className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors disabled:opacity-50"
                 >
                   {isTogglingWebsite ? 'Activating...' : 'Activate Website'}
                 </button>
@@ -659,8 +726,8 @@ export default function WebsitePage() {
 
           {/* Store Information Display */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">Store Information</h2>
-            
+            <SectionHeader icon={Store} title="Store Information" tone="gold" />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-medium text-gray-700 mb-3">Basic Details</h3>
@@ -740,268 +807,109 @@ export default function WebsitePage() {
           </div>
         </div>
 
-        {/* Right Column - Stats & Actions */}
+        {/* Right Column - Social & Tips */}
         <div className="space-y-6">
-          {/* Website Stats */}
+          {/* Social Media Links */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Website Statistics</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Eye className="w-4 h-4 mr-2 text-gray-500" />
-                  <span className="text-sm text-gray-600">Total Views</span>
+            <SectionHeader icon={Share2} title="Social Media Links" />
+            {socialMediaLinks.length > 0 ? (
+              <>
+                <div className="space-y-3">
+                  {socialMediaLinks.map((social, index) => {
+                    const IconComponent = social.icon;
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => handleSocialClick(social)}
+                        className={`w-full flex items-center justify-between p-3 ${social.bgColor} rounded-xl hover:opacity-80 transition-all group`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className={`p-2 bg-white rounded-lg ${social.color}`}>
+                            <IconComponent className="w-4 h-4" />
+                          </div>
+                          <div className="text-left">
+                            <p className={`text-sm font-medium ${social.color}`}>
+                              {social.platform}
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              {social.value}
+                            </p>
+                          </div>
+                        </div>
+                        <ExternalLink className={`w-4 h-4 ${social.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                      </button>
+                    );
+                  })}
                 </div>
-                <span className="text-sm font-medium text-gray-900">
-                  {store.website?.metrics?.totalViews || 0}
-                </span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Users className="w-4 h-4 mr-2 text-gray-500" />
-                  <span className="text-sm text-gray-600">Monthly Views</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900">
-                  {store.website?.metrics?.monthlyViews || 0}
-                </span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <BarChart3 className="w-4 h-4 mr-2 text-gray-500" />
-                  <span className="text-sm text-gray-600">Total Orders</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900">
-                  {store.website?.metrics?.totalOrders || 0}
-                </span>
-              </div>
 
-              {/* <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Package className="w-4 h-4 mr-2 text-gray-500" />
-                  <span className="text-sm text-gray-600">Products Listed</span>
+                <div className="mt-4 p-3 bg-gray-50 rounded-xl">
+                  <p className="text-xs text-gray-600 flex items-center">
+                    <Info className="w-3 h-3 mr-1 shrink-0" />
+                    Click any social media link to visit your store's profile on that platform
+                  </p>
                 </div>
-                <span className="text-sm font-medium text-gray-900">
-                  {previewProducts.length}
-                </span>
-              </div> */}
-              
-              {store.website?.metrics?.lastVisit && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Clock className="w-4 h-4 mr-2 text-gray-500" />
-                    <span className="text-sm text-gray-600">Last Visit</span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900">
-                    {new Date(store.website.metrics.lastVisit).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Products info */}
-            {previewProducts.length === 0 && (
-              <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                <p className="text-yellow-800 text-xs">
-                  <strong>No products to display:</strong> Add inventory items to showcase them on your website.
-                </p>
+              </>
+            ) : (
+              <div className="text-center py-6">
+                <Share2 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500 mb-1">No social media linked yet</p>
+                <p className="text-xs text-gray-400 mb-3">Add your Instagram or WhatsApp to help customers find and share your store</p>
+                <a
+                  href="/dashboard/store"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:text-brand-900"
+                >
+                  Add social links
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
               </div>
             )}
           </div>
 
-          {/* Social Media Links */}
-          {socialMediaLinks.length > 0 && (
+          {/* Customization Tips */}
+          <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
+            <h4 className="text-sm font-medium text-blue-900 mb-2 flex items-center">
+              <Info className="w-4 h-4 mr-2" />
+              Customization Tips
+            </h4>
+            <div className="text-xs text-blue-800 space-y-2">
+              <p>
+                <strong>Design & Branding:</strong> Use "Customize Design" above to update your store logo, banner, and brand colors.
+              </p>
+              <p>
+                <strong>Product Display:</strong> Control what products appear on your website using "Manage Inventory".
+              </p>
+              {socialMediaLinks.length > 0 && (
+                <p>
+                  <strong>Social Media:</strong> Share your website on your social media platforms to drive more traffic and sales.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Timeline -- only shown once there's something to report */}
+          {(store.website?.activatedAt || store.website?.lastPublishedAt) && (
             <div className="bg-white rounded-2xl p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Share2 className="w-5 h-5 mr-2" />
-                Social Media Links
-              </h3>
-              <div className="space-y-3">
-                {socialMediaLinks.map((social, index) => {
-                  const IconComponent = social.icon;
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => handleSocialClick(social)}
-                      className={`w-full flex items-center justify-between p-3 ${social.bgColor} rounded-xl hover:opacity-80 transition-all group`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className={`p-2 bg-white rounded-lg ${social.color}`}>
-                          <IconComponent className="w-4 h-4" />
-                        </div>
-                        <div className="text-left">
-                          <p className={`text-sm font-medium ${social.color}`}>
-                            {social.platform}
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            {social.value}
-                          </p>
-                        </div>
-                      </div>
-                      <ExternalLink className={`w-4 h-4 ${social.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
-                    </button>
-                  );
-                })}
-              </div>
-              
-              <div className="mt-4 p-3 bg-gray-50 rounded-xl">
-                <p className="text-xs text-gray-600 flex items-center">
-                  <Info className="w-3 h-3 mr-1" />
-                  Click any social media link to visit your store's profile on that platform
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              <button 
-                onClick={() => setIsBrandingModalOpen(true)}
-                className="w-full flex items-center justify-center px-4 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
-              >
-                <Palette className="w-4 h-4 mr-2" />
-                Customize Design
-              </button>
-              
-              <button 
-                onClick={() => setCurrentView('inventory')}
-                className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
-              >
-                <Package className="w-4 h-4 mr-2" />
-                Manage Website Inventory
-              </button>
-              
-              <button 
-                onClick={() => setCurrentView('settings')}
-                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Website Settings
-              </button>
-              
-              {/* Share & Promote with Social Media dropdown */}
-              {socialMediaLinks.length > 0 ? (
-                <div className="relative">
-                  <button 
-                    onClick={() => setIsShareDropdownOpen(!isShareDropdownOpen)}
-                    className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
-                  >
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share & Promote
-                    <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${isShareDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {isShareDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10">
-                      {socialMediaLinks.map((social, index) => {
-                        const IconComponent = social.icon;
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => {
-                              handleSocialClick(social);
-                              setIsShareDropdownOpen(false);
-                            }}
-                            className={`w-full flex items-center px-4 py-3 hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl ${social.color}`}
-                          >
-                            <IconComponent className="w-4 h-4 mr-3" />
-                            <span className="text-sm">Visit {social.platform}</span>
-                            <ExternalLink className="w-3 h-3 ml-auto" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <button className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors">
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share & Promote
-                </button>
-              )}
-              
-              {store?.website?.url && (
-                <button
-                  onClick={() => window.open(store.website.url, '_blank')}
-                  className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Visit Website
-                </button>
-              )}
-            </div>
-
-            {/* Customization Tips */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <h4 className="text-sm font-medium text-blue-900 mb-2 flex items-center">
-                <Settings className="w-4 h-4 mr-2" />
-                Customization Tips
-              </h4>
-              <div className="text-xs text-blue-800 space-y-2">
-                <p>
-                  <strong>Design & Branding:</strong> Use "Customize Design" to update your store logo, banner, and brand colors.
-                </p>
-                {/* <p>
-                  <strong>Advanced Layout:</strong> Visit <button 
-                    onClick={() => setCurrentView('settings')}
-                    className="underline hover:text-blue-900 font-medium"
-                  >
-                    Website Settings
-                  </button> → "Appearance & Layout" for themes, product layouts, and more customization options.
-                </p> */}
-                <p>
-                  <strong>Product Display:</strong> Control what products appear on your website using "Manage Website Inventory".
-                </p>
-                {socialMediaLinks.length > 0 && (
-                  <p>
-                    <strong>Social Media:</strong> Share your website on your social media platforms to drive more traffic and sales.
-                  </p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h3>
+              <div className="space-y-4">
+                {store.website?.activatedAt && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Activated</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {new Date(store.website.activatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+                {store.website?.lastPublishedAt && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Last Updated</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {new Date(store.website.lastPublishedAt).toLocaleDateString()}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Website Status Info */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Information</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Current Status</span>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full bg-${websiteStatus.color}-100 text-${websiteStatus.color}-800`}>
-                  {websiteStatus.text}
-                </span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Website Path</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {store.websiteFullPath || 'Not assigned'}
-                </span>
-              </div>
-              
-              {store.website?.activatedAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Activated</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {new Date(store.website.activatedAt).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-              
-              {store.website?.lastPublishedAt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Last Updated</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {new Date(store.website.lastPublishedAt).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
