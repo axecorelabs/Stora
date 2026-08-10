@@ -14,6 +14,15 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Cloudflare R2 -- inventory images now upload here (see apps/dashboard/src/lib/r2.js).
+      // Covers the default r2.dev public subdomain; if the bucket is served from a
+      // custom domain instead, that hostname needs to be added here too.
+      {
+        protocol: 'https',
+        hostname: '*.r2.dev',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };

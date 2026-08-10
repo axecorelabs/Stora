@@ -21,10 +21,33 @@ function calculateAvailableQuantity(inventory) {
   // Use actual database column names: stock_quantity (not quantity_in_stock)
   const stockQuantity = inventory.stock_quantity || 0;
   const quantityReserved = inventory.quantity_reserved || 0;
-  
+
   const available = Math.max(0, stockQuantity - quantityReserved);
-  
+
   return available;
+}
+
+// The dashboard never writes to inventory.primary_image -- it's always NULL.
+// The real primary image lives in the images array, so resolve it the same
+// way the dashboard's own API does: the entry flagged isPrimary, else the
+// first entry. Each entry can be an object, or for legacy rows a JSON-encoded
+// string or a bare URL string.
+function getPrimaryImageUrl(images) {
+  if (!Array.isArray(images) || images.length === 0) return null;
+
+  const normalized = images.map(img => {
+    if (typeof img === 'string') {
+      try {
+        return JSON.parse(img);
+      } catch (e) {
+        return { url: img };
+      }
+    }
+    return img;
+  });
+
+  const primary = normalized.find(img => img?.isPrimary);
+  return primary?.url || normalized[0]?.url || null;
 }
 
 function transformInventoryToProduct(inventory) {
@@ -63,7 +86,7 @@ function transformInventoryToProduct(inventory) {
     category: inventory.category,
     brand: inventory.brand,
     description: inventory.description,
-    image: inventory.primary_image,
+    image: inventory.primary_image || getPrimaryImageUrl(inventory.images),
     images: inventory.images,
     sellingPrice: inventory.base_price,
     costPrice: inventory.cost,
