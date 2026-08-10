@@ -176,9 +176,8 @@ export async function PUT(request, { params }) {
       dbUpdate.category_details = updateData.categoryDetails;
     }
     if (updateData.variants) {
-      dbUpdate.variants = updateData.variants;
-      dbUpdate.has_variants = updateData.hasVariants !== undefined 
-        ? updateData.hasVariants 
+      dbUpdate.has_variants = updateData.hasVariants !== undefined
+        ? updateData.hasVariants
         : (updateData.variants && updateData.variants.length > 0);
     }
     if (updateData.hasVariants !== undefined) {
@@ -232,6 +231,36 @@ export async function PUT(request, { params }) {
         { success: false, message: 'Failed to update inventory item' },
         { status: 500 }
       );
+    }
+
+    // Variants live in the normalized inventory_variants table, not as a column on inventory
+    if (updateData.variants) {
+      const { error: deleteVariantsError } = await supabaseAdmin
+        .from('inventory_variants')
+        .delete()
+        .eq('inventory_id', id);
+
+      if (deleteVariantsError) {
+        console.error('Variant deletion error:', deleteVariantsError);
+      } else if (updateData.variants.length > 0) {
+        const variantRows = updateData.variants.map(v => ({
+          inventory_id: id,
+          size: v.size || 'One Size',
+          color: v.color,
+          sku: v.sku || null,
+          quantity_in_stock: v.quantityInStock || 0,
+          reorder_level: v.reorderLevel || 5,
+          images: v.images || []
+        }));
+
+        const { error: variantsError } = await supabaseAdmin
+          .from('inventory_variants')
+          .insert(variantRows);
+
+        if (variantsError) {
+          console.error('Variant creation error:', variantsError);
+        }
+      }
     }
 
     return NextResponse.json({

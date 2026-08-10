@@ -318,7 +318,6 @@ export async function POST(req) {
         description: inventoryData.description || '',
         category: inventoryData.category,
         category_details: categoryDetails,
-        variants: inventoryData.variants || [],
         has_variants: inventoryData.hasVariants || (inventoryData.variants && inventoryData.variants.length > 0),
         base_price: inventoryData.sellingPrice || inventoryData.basePrice || 0,
         cost: inventoryData.costPrice || inventoryData.cost || 0,
@@ -345,6 +344,28 @@ export async function POST(req) {
         { success: false, message: 'Failed to create inventory item' },
         { status: 500 }
       );
+    }
+
+    // Variants live in the normalized inventory_variants table, not as a column on inventory
+    if (Array.isArray(inventoryData.variants) && inventoryData.variants.length > 0) {
+      const variantRows = inventoryData.variants.map(v => ({
+        inventory_id: newItem.id,
+        size: v.size || 'One Size',
+        color: v.color,
+        sku: v.sku || null,
+        quantity_in_stock: v.quantityInStock || 0,
+        reorder_level: v.reorderLevel || 5,
+        images: v.images || []
+      }));
+
+      const { error: variantsError } = await supabaseAdmin
+        .from('inventory_variants')
+        .insert(variantRows);
+
+      if (variantsError) {
+        console.error('Variant creation error:', variantsError);
+        // Don't fail the entire operation if variant creation fails
+      }
     }
 
     // Generate batch code
