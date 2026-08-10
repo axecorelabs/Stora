@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { backfillMissingSkus } from '@/lib/inventorySku';
+import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 
 // Helper to transform inventory data for response
 function transformInventory(item) {
@@ -99,8 +100,9 @@ export async function GET(req, { params }) {
       );
     }
 
-    // Backfill SKU if this item was created before SKU generation existed
+    // Backfill SKU and store_id if this item predates those being set
     await backfillMissingSkus([item]);
+    await backfillMissingStoreIds([item], user.id);
 
     // Fetch variants from the normalized table if has_variants is true
     let variants = [];
