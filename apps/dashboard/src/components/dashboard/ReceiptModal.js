@@ -1,5 +1,5 @@
 "use client";
-import { X, Download, Printer, FileText, Truck, Image as ImageIcon } from "lucide-react";
+import { X, Printer, FileText, Truck, Image as ImageIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import DeliveryScheduleModal from "./DeliveryScheduleModal";
@@ -219,29 +219,6 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
       console.error('Error writing to receipt window:', error);
       receiptWindow.close();
       alert('Printing failed! Please use the download option or enable popups.');
-    }
-  };
-
-  // Download receipt as HTML file
-  const downloadReceipt = () => {
-    try {
-      const receiptHTML = generateReceiptHTML();
-      const blob = new Blob([receiptHTML], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Receipt_${sale.transactionId}_${new Date().toISOString().split('T')[0]}.html`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      // Show success message
-      alert('Receipt downloaded successfully! You can open the HTML file in your browser and print it.');
-    } catch (error) {
-      console.error('Download failed:', error);
-      alert('Download failed! Please try again.');
     }
   };
 
@@ -530,7 +507,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
                       <span className="text-gray-600">{item.productName} x{item.quantity}</span>
                       {/* Variant Information */}
                       {item.variant && item.variant.hasVariant && item.variant.size && item.variant.color && (
-                        <span className="text-teal-600 text-xs ml-1">
+                        <span className="text-brand-800 text-xs ml-1">
                           ({item.variant.color} - {item.variant.size})
                         </span>
                       )}
@@ -565,7 +542,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
                 <span className="text-gray-900">{formatCurrency(sale.total)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Payment (${sale.paymentMethod}):</span>
+                <span className="text-gray-600">Payment ({sale.paymentMethod}):</span>
                 <span className="text-gray-900">{formatCurrency(sale.amountReceived)}</span>
               </div>
               {sale.balance > 0 && (
@@ -577,150 +554,6 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
             </div>
           </div>
 
-          {/* Items List */}
-          {/* <div className="border-t border-b border-gray-200 py-4">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-xs text-gray-600">
-                  <th className="pb-2">Item</th>
-                  <th className="pb-2 text-center">Qty</th>
-                  <th className="pb-2 text-right">Price</th>
-                  <th className="pb-2 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                {sale.items.map((item, index) => (
-                  <tr key={index} className="border-t border-gray-100">
-                    <td className="py-2">
-                      <div>
-                        <div className="font-medium text-gray-900">{item.productName}</div>
-                        
-                        {item.variant && item.variant.hasVariant && (
-                          <div className="text-xs text-teal-600 mt-0.5">
-                            {item.variant.color} - {item.variant.size}
-                            {item.variant.variantSku && (
-                              <span className="text-gray-500 ml-1">
-                                (SKU: {item.variant.variantSku})
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        
-                        {item.categoryDetails && item.categoryDetails.category && (
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            {item.categoryDetails.category}
-                          </div>
-                        )}
-                        <div className="text-xs text-gray-500">SKU: {item.sku}</div>
-                      </div>
-                    </td>
-                    <td className="py-2 text-center text-gray-900">{item.quantity}</td>
-                    <td className="py-2 text-right text-gray-900">{formatCurrency(item.unitPrice)}</td>
-                    <td className="py-2 text-right font-medium text-gray-900">{formatCurrency(item.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          
-          {sale.items.some(item => item.batchesSoldFrom && item.batchesSoldFrom.length > 0) && (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="text-sm font-semibold text-blue-900 mb-2">Batch Information</h4>
-              <div className="space-y-2">
-                {sale.items
-                  .filter(item => item.batchesSoldFrom && item.batchesSoldFrom.length > 0)
-                  .map((item, itemIndex) => (
-                    <div key={itemIndex} className="text-xs">
-                      <div className="font-medium text-blue-900">
-                        {item.productName}
-                        {item.variant && item.variant.hasVariant && (
-                          <span className="text-teal-600 ml-1">
-                            ({item.variant.color} - {item.variant.size})
-                          </span>
-                        )}
-                      </div>
-                      {item.batchesSoldFrom.map((batch, batchIndex) => (
-                        <div key={batchIndex} className="ml-2 text-blue-700">
-                          • Batch {batch.batchCode}: {batch.quantityFromBatch} units
-                          {batch.batchVariant && batch.batchVariant.size && batch.batchVariant.color && (
-                            <span className="text-teal-600 ml-1">
-                              [{batch.batchVariant.color} - {batch.batchVariant.size}]
-                            </span>
-                          )}
-                          {' '}@ {formatCurrency(batch.costPriceFromBatch)} each
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {sale.items.some(item => item.categoryDetails && Object.keys(item.categoryDetails).length > 1) && (
-            <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Product Details</h4>
-              <div className="space-y-3">
-                {sale.items
-                  .filter(item => item.categoryDetails && Object.keys(item.categoryDetails).length > 1)
-                  .map((item, itemIndex) => (
-                    <div key={itemIndex} className="text-xs">
-                      <div className="font-medium text-gray-900 mb-1">
-                        {item.productName}
-                        {item.variant && item.variant.hasVariant && (
-                          <span className="text-teal-600 ml-1">
-                            ({item.variant.color} - {item.variant.size})
-                          </span>
-                        )}
-                      </div>
-                      <div className="ml-2 space-y-0.5 text-gray-600">
-                        {item.categoryDetails.clothingDetails && (
-                          <>
-                            <div>Material: {item.categoryDetails.clothingDetails.material}</div>
-                            {item.categoryDetails.clothingDetails.gender && (
-                              <div>Gender: {item.categoryDetails.clothingDetails.gender}</div>
-                            )}
-                          </>
-                        )}
-                       
-                        {item.categoryDetails.foodDetails && (
-                          <>
-                            {item.categoryDetails.foodDetails.foodType && (
-                              <div>Type: {item.categoryDetails.foodDetails.foodType}</div>
-                            )}
-                            {item.categoryDetails.foodDetails.spiceLevel && (
-                              <div>Spice Level: {item.categoryDetails.foodDetails.spiceLevel}</div>
-                            )}
-                          </>
-                        )}
-                        
-                        {item.categoryDetails.electronicsDetails && (
-                          <>
-                            {item.categoryDetails.electronicsDetails.brand && (
-                              <div>Brand: {item.categoryDetails.electronicsDetails.brand}</div>
-                            )}
-                            {item.categoryDetails.electronicsDetails.model && (
-                              <div>Model: {item.categoryDetails.electronicsDetails.model}</div>
-                            )}
-                          </>
-                        )}
-                        
-                        {item.categoryDetails.perfumeDetails && (
-                          <>
-                            {item.categoryDetails.perfumeDetails.volume && (
-                              <div>Volume: {item.categoryDetails.perfumeDetails.volume}</div>
-                            )}
-                            {item.categoryDetails.perfumeDetails.scentFamily && (
-                              <div>Scent: {item.categoryDetails.perfumeDetails.scentFamily}</div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )} */}
 
           {/* Stora Branding */}
           <div className="text-center mt-6 pt-4 border-t border-gray-200">
@@ -734,7 +567,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={printReceipt}
-              className="flex items-center justify-center px-3 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors"
+              className="flex items-center justify-center px-3 py-2.5 bg-brand-800 text-white rounded-lg text-sm font-medium hover:bg-brand-900 transition-colors"
             >
               <Printer className="w-4 h-4 mr-1.5" />
               Print
@@ -742,7 +575,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
             
             <button
               onClick={() => setIsDeliveryModalOpen(true)}
-              className="flex items-center justify-center px-3 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="flex items-center justify-center px-3 py-2.5 bg-gold-500 text-brand-900 rounded-lg text-sm font-medium hover:bg-gold-400 transition-colors"
             >
               <Truck className="w-4 h-4 mr-1.5" />
               Delivery
@@ -765,15 +598,6 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
               <ImageIcon className="w-4 h-4 mr-1.5" />
               Image
             </button>
-            
-            {/* <button
-              onClick={downloadReceipt}
-              className="flex items-center justify-center px-3 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-              title="Download as HTML"
-            >
-              <Download className="w-4 h-4 mr-1.5" />
-              HTML
-            </button> */}
           </div>
           <p className="text-xs text-gray-500 mt-3 text-center">
             Print for immediate use, or download as PDF/Image for sharing
