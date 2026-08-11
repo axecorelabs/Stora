@@ -36,7 +36,6 @@ export default function OrderDetailsModal({
   const router = useRouter();
   const { secureApiCall } = useAuth();
   const { setProcessingOrder } = useOrderProcessingStore();
-  const [activeTab, setActiveTab] = useState('overview');
   const [copied, setCopied] = useState(false);
   const [isStatusUpdateModalOpen, setIsStatusUpdateModalOpen] = useState(false);
   const [order, setOrder] = useState(initialOrder);
@@ -339,11 +338,21 @@ export default function OrderDetailsModal({
             </div>
             
             <div className="flex items-center space-x-3">
+              {canUpdateStatus() && (
+                <button
+                  onClick={handleOpenStatusUpdate}
+                  className="flex items-center space-x-2 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>Update Status</span>
+                </button>
+              )}
+
               {canConfirmAndProcess() && (
                 <button
                   onClick={handleConfirmAndProcess}
                   disabled={isConfirmingOrder}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm"
                 >
                   {isConfirmingOrder ? (
                     <>
@@ -362,7 +371,7 @@ export default function OrderDetailsModal({
               {canProcessOrder() && !canConfirmAndProcess() && (
                 <button
                   onClick={handleProcessOrder}
-                  className="flex items-center space-x-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium shadow-sm"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors font-medium shadow-sm"
                 >
                   <Package className="w-4 h-4" />
                   <span>Continue Processing</span>
@@ -499,15 +508,13 @@ export default function OrderDetailsModal({
 
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Subtotal</span>
-                          <span className="text-gray-900">{order.itemCount} items</span>
+                          <span className="text-gray-600">Subtotal ({order.itemCount} item{order.itemCount !== 1 ? 's' : ''})</span>
                           <span className="text-gray-900 font-medium">{formatCurrency(order.subtotal)}</span>
                         </div>
-                        
+
                         {order.shippingFee > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Shipping Type</span>
-                            <span className="text-gray-600 text-xs">{order.shippingMethod || 'Standard'}</span>
+                            <span className="text-gray-600">Shipping ({order.shippingMethod || 'Standard'})</span>
                             <span className="text-gray-900 font-medium">{formatCurrency(order.shippingFee)}</span>
                           </div>
                         )}
@@ -541,19 +548,6 @@ export default function OrderDetailsModal({
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Action Buttons - Moved under Payment Details */}
-                    <div className="mt-6 space-y-2">
-                      {canUpdateStatus() && !canConfirmAndProcess() && (
-                        <button
-                          onClick={handleOpenStatusUpdate}
-                          className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
-                        >
-                          <Edit className="w-5 h-5" />
-                          <span>Update Status</span>
-                        </button>
-                      )}
                     </div>
                   </div>
 
