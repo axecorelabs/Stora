@@ -162,9 +162,11 @@ export default function OrderStatusUpdateModal({
   };
 
   // Handle status update
-  const handleStatusUpdate = async () => {
-    if (!selectedStatus) return;
-    
+  const handleStatusUpdate = async (event) => {
+    event?.preventDefault();
+
+    if (!validateForm()) return;
+
     try {
       const updateData = {
         status: selectedStatus,
@@ -181,15 +183,15 @@ export default function OrderStatusUpdateModal({
         };
       }
 
-      const response = await onStatusUpdate(order._id, updateData);
-      
+      const response = await onStatusUpdate(order.id, updateData);
+
       // Show success message with sale information if applicable
       if (response && response.salesCreated) {
         alert(`Order updated successfully! ${response.salesCreated.count} sale(s) created automatically for ₦${response.salesCreated.totalAmount.toLocaleString()}`);
       } else if (response && response.saleCreationError) {
         alert(`Order updated successfully, but there was an issue creating sales: ${response.saleCreationError}`);
       }
-      
+
       onClose();
     } catch (error) {
       setErrors({ submit: error.message || 'Failed to update status' });
@@ -205,8 +207,8 @@ export default function OrderStatusUpdateModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-teal-100 rounded-xl">
-              <selectedStatusInfo.icon className="w-6 h-6 text-teal-600" />
+            <div className="p-2 bg-brand-100 rounded-xl">
+              <selectedStatusInfo.icon className="w-6 h-6 text-brand-800" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Update Order Status</h2>
@@ -269,7 +271,7 @@ export default function OrderStatusUpdateModal({
                   value={trackingInfo.trackingNumber}
                   onChange={(e) => setTrackingInfo(prev => ({ ...prev, trackingNumber: e.target.value }))}
                   placeholder="Enter tracking number"
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm ${
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 focus:border-transparent text-sm ${
                     errors.trackingNumber ? 'border-red-300' : 'border-gray-300'
                   }`}
                 />
@@ -287,7 +289,7 @@ export default function OrderStatusUpdateModal({
                   value={trackingInfo.trackingUrl}
                   onChange={(e) => setTrackingInfo(prev => ({ ...prev, trackingUrl: e.target.value }))}
                   placeholder="https://..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 focus:border-transparent text-sm"
                 />
               </div>
             </div>
@@ -306,7 +308,7 @@ export default function OrderStatusUpdateModal({
               onChange={(e) => setNote(e.target.value)}
               placeholder={`Example: "Order confirmed and items are in stock" or "Package handed to ${trackingInfo.carrier || 'delivery company'}"`}
               rows={3}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm ${
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-800 focus:border-transparent text-sm ${
                 errors.note ? 'border-red-300' : 'border-gray-300'
               }`}
             />
@@ -323,6 +325,12 @@ export default function OrderStatusUpdateModal({
             </div>
           </div>
 
+          {errors.submit && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{errors.submit}</p>
+            </div>
+          )}
+
           {/* Footer */}
           <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
@@ -335,7 +343,7 @@ export default function OrderStatusUpdateModal({
             <button
               type="submit"
               disabled={isUpdating || selectedStatus === order.status}
-              className="px-6 py-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+              className="px-6 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
             >
               {isUpdating ? (
                 <>

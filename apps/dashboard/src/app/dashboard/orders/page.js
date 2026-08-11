@@ -4,25 +4,24 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import OrderDetailsModal from "@/components/dashboard/OrderDetailsModal";
 import OrderStatusUpdateModal from "@/components/dashboard/OrderStatusUpdateModal";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import SectionHeader from "@/components/ui/SectionHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrders } from "@/hooks/useOrders";
-import { 
-  ShoppingBag, 
-  Search, 
-  Filter, 
-  Eye, 
-  Edit, 
+import {
+  ShoppingBag,
+  Search,
+  Eye,
+  Edit,
   Store,
-  Package, 
-  Truck, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+  Package,
+  Truck,
+  CheckCircle,
+  XCircle,
+  Clock,
   DollarSign,
   Phone,
   MapPin,
   Calendar,
-  MoreHorizontal,
   X,
   ExternalLink,
   Download,
@@ -241,32 +240,28 @@ export default function OrdersPage() {
       title: 'Total Orders',
       value: orderStats.totalOrders.toString(),
       icon: ShoppingBag,
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
+      tone: 'brand',
       description: 'All time orders'
     },
     {
       title: 'Pending Orders',
       value: orderStats.pendingOrders.toString(),
       icon: Clock,
-      iconBg: 'bg-yellow-100',
-      iconColor: 'text-yellow-600',
+      tone: 'gold',
       description: 'Awaiting processing'
     },
     {
       title: 'Completed Orders',
       value: orderStats.completedOrders.toString(),
       icon: CheckCircle,
-      iconBg: 'bg-green-100',
-      iconColor: 'text-green-600',
+      tone: 'brand',
       description: 'Successfully delivered'
     },
     {
       title: 'Total Revenue',
       value: formatCurrency(orderStats.totalRevenue || 0),
       icon: DollarSign,
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600',
+      tone: 'gold',
       description: 'From all orders'
     }
   ] : [];
@@ -277,7 +272,7 @@ export default function OrdersPage() {
       <DashboardLayout title="Order Management" subtitle="Manage customer orders and fulfillment">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-800 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading orders...</p>
           </div>
         </div>
@@ -293,7 +288,7 @@ export default function OrdersPage() {
             <p className="text-red-600 mb-4">Failed to load orders</p>
             <button
               onClick={() => refetch()}
-              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+              className="px-4 py-2 bg-brand-800 text-white rounded-lg hover:bg-brand-900"
             >
               Retry
             </button>
@@ -308,44 +303,51 @@ export default function OrdersPage() {
       {/* Live Update Indicator */}
       {isFetching && !isLoading && (
         <div className="fixed top-4 right-4 z-50">
-          <div className="bg-teal-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2">
+          <div className="bg-brand-800 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
             <span className="text-sm font-medium">Checking for updates...</span>
           </div>
         </div>
       )}
 
-      {/* Stats Cards - Show cached data while loading */}
+      {/* Stats Strip - Show cached data while loading */}
       {orderStats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
           {statsCards.map((stat, index) => {
             const IconComponent = stat.icon;
             return (
-              <div key={index} className="bg-white rounded-2xl p-6 border border-gray-100">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-3">
-                      <div className={`p-2 ${stat.iconBg} rounded-xl mr-3`}>
-                        <IconComponent className={`w-5 h-5 ${stat.iconColor}`} />
-                      </div>
-                      <h3 className="text-sm font-medium text-gray-900">{stat.title}</h3>
-                    </div>
-                    <p className="text-xs text-gray-500 mb-3">{stat.description}</p>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  </div>
+              <div key={index} className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${
+                    stat.tone === 'gold' ? 'bg-gold-500/15 text-gold-600' : 'bg-brand-100 text-brand-800'
+                  }`}>
+                    <IconComponent className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm text-gray-500">{stat.title}</span>
                 </div>
+                <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {stat.value}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">{stat.description}</p>
               </div>
             );
           })}
+          </div>
         </div>
       )}
 
       {/* Orders Table */}
       <div className="bg-white rounded-2xl border border-gray-100">
         <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Customer Orders</h2>
-            <div className="flex items-center space-x-3">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-3">
+              <span className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 bg-brand-100 text-brand-800">
+                <ShoppingBag className="w-4.5 h-4.5" />
+              </span>
+              Customer Orders
+            </h2>
+            <div className="flex items-center flex-wrap gap-3">
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -354,7 +356,7 @@ export default function OrdersPage() {
                   placeholder="Search orders..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2.5 w-80 bg-gray-50 border-0 rounded-xl focus:outline-none text-gray-900 focus:ring-2 focus:ring-teal-500 focus:bg-white text-sm transition-all duration-200"
+                  className="pl-10 pr-4 py-2.5 w-80 bg-gray-50 border-0 rounded-xl focus:outline-none text-gray-900 focus:ring-2 focus:ring-brand-800 focus:bg-white text-sm transition-all duration-200"
                 />
               </div>
 
@@ -411,12 +413,12 @@ export default function OrdersPage() {
             <div className="mt-4 flex items-center space-x-2">
               <span className="text-sm text-gray-500">Active filters:</span>
               <div className="flex items-center space-x-2">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand-100 text-brand-800">
                   {filterBy === 'status' && `Status: ${statusOptions.find(opt => opt.value === filterValue)?.label}`}
                   {filterBy === 'paymentStatus' && `Payment: ${paymentStatusOptions.find(opt => opt.value === filterValue)?.label}`}
                   <button
                     onClick={() => setFilterValue('')}
-                    className="ml-2 text-teal-600 hover:text-teal-800"
+                    className="ml-2 text-brand-800 hover:text-brand-900"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -429,8 +431,8 @@ export default function OrdersPage() {
         {/* Orders Table */}
         <div className="overflow-x-auto relative">
           {isFetching && !isLoading && (
-            <div className="absolute top-0 left-0 right-0 h-1 bg-teal-100 z-10">
-              <div className="h-full bg-teal-600 animate-pulse transition-all" style={{ width: '60%' }}></div>
+            <div className="absolute top-0 left-0 right-0 h-1 bg-brand-100 z-10">
+              <div className="h-full bg-brand-800 animate-pulse transition-all" style={{ width: '60%' }}></div>
             </div>
           )}
 
@@ -505,7 +507,7 @@ export default function OrdersPage() {
                               return (
                                 <div key={idx} className="mb-1">
                                   <span className="font-medium">{itemName}</span>
-                                  <span className="text-teal-600 text-xs ml-1">
+                                  <span className="text-brand-800 text-xs ml-1">
                                     ({item.variant.color} - {item.variant.size})
                                   </span>
                                 </div>
@@ -550,39 +552,51 @@ export default function OrdersPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-1">
-                          <button 
-                            onClick={() => viewOrderDetails(order)}
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
-                            title="View details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          
-                          {/* Status Update Button */}
-                          {/* <button 
-                            onClick={() => handleStatusUpdateClick(order)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                            title="Update status"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button> */}
-                          
+                          {/* Actionable orders (pending/confirmed) get a prominent Process
+                              action, since that's what this page is for -- fulfilling orders,
+                              not just viewing them */}
+                          {['pending', 'confirmed'].includes(order.status) ? (
+                            <button
+                              onClick={() => viewOrderDetails(order)}
+                              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium bg-brand-800 text-white rounded-lg hover:bg-brand-900 transition-all"
+                              title="Process this order"
+                            >
+                              <Package className="w-3.5 h-3.5" />
+                              <span>Process</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => viewOrderDetails(order)}
+                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                              title="View details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {/* Status Update Button -- hidden for orders already in a final state */}
+                          {!['delivered', 'cancelled', 'refunded'].includes(order.status) && (
+                            <button
+                              onClick={() => handleStatusUpdateClick(order)}
+                              className="p-1.5 text-gray-400 hover:text-brand-800 hover:bg-brand-50 rounded-lg transition-all"
+                              title="Update status"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+
                           {/* Tracking button for shipped orders */}
                           {order.status === 'shipped' && order.tracking.trackingUrl && (
-                            <a 
+                            <a
                               href={order.tracking.trackingUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              className="p-1.5 text-gray-400 hover:text-brand-800 hover:bg-brand-50 rounded-lg transition-all"
                               title="Track package"
                             >
                               <ExternalLink className="w-4 h-4" />
                             </a>
                           )}
-                          
-                          <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -594,8 +608,8 @@ export default function OrdersPage() {
 
           {/* Show loading indicator without blocking UI */}
           {isFetching && !isLoading && (
-            <div className="absolute top-0 left-0 right-0 h-1 bg-teal-100 z-10">
-              <div className="h-full bg-teal-600 animate-pulse transition-all" style={{ width: '60%' }}></div>
+            <div className="absolute top-0 left-0 right-0 h-1 bg-brand-100 z-10">
+              <div className="h-full bg-brand-800 animate-pulse transition-all" style={{ width: '60%' }}></div>
             </div>
           )}
         </div>
@@ -643,7 +657,7 @@ export default function OrdersPage() {
                           onClick={() => handlePageChange(pageNumber)}
                           className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                             pagination.current === pageNumber
-                              ? 'bg-teal-600 text-white'
+                              ? 'bg-brand-800 text-white'
                               : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
                           }`}
                         >

@@ -15,7 +15,6 @@ import {
   Clock,
   XCircle,
   DollarSign,
-  ExternalLink,
   Copy,
   FileText,
   ShoppingBag,
@@ -305,8 +304,8 @@ export default function OrderDetailsModal({
           {/* Header */}
           <div className="flex items-center justify-between px-8 py-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
             <div className="flex items-center space-x-4">
-              <div className="p-3 bg-teal-100 rounded-xl">
-                <ShoppingBag className="w-6 h-6 text-teal-600" />
+              <div className="p-3 bg-brand-100 rounded-xl">
+                <ShoppingBag className="w-6 h-6 text-brand-800" />
               </div>
               <div>
                 <div className="flex items-center space-x-3">
@@ -546,10 +545,6 @@ export default function OrderDetailsModal({
 
                     {/* Action Buttons - Moved under Payment Details */}
                     <div className="mt-6 space-y-2">
-                      
-
-                      
-
                       {canUpdateStatus() && !canConfirmAndProcess() && (
                         <button
                           onClick={handleOpenStatusUpdate}
@@ -559,14 +554,6 @@ export default function OrderDetailsModal({
                           <span>Update Status</span>
                         </button>
                       )}
-
-                      <button
-                        onClick={() => {/* Add share order functionality */}}
-                        className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
-                      >
-                        <ExternalLink className="w-5 h-5" />
-                        <span>Share Order</span>
-                      </button>
                     </div>
                   </div>
 
@@ -588,31 +575,27 @@ export default function OrderDetailsModal({
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer</h3>
                     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
                       <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <User className="w-5 h-5 text-teal-600" />
+                        <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-brand-800" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900">
                             {order.customerSnapshot.firstName} {order.customerSnapshot.lastName}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">Total: 2 order</p>
                         </div>
-                        <button className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-                          <ExternalLink className="w-4 h-4" />
-                        </button>
                       </div>
 
                       <div className="pt-3 border-t border-gray-200 space-y-2">
                         <div className="flex items-center space-x-2 text-sm">
                           <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          <a href={`mailto:${order.customerSnapshot.email}`} className="text-teal-600 hover:text-teal-700 hover:underline truncate">
+                          <a href={`mailto:${order.customerSnapshot.email}`} className="text-brand-800 hover:text-brand-900 hover:underline truncate">
                             {order.customerSnapshot.email}
                           </a>
                         </div>
                         {order.customerSnapshot.phone && (
                           <div className="flex items-center space-x-2 text-sm">
                             <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                            <a href={`tel:${order.customerSnapshot.phone}`} className="text-teal-600 hover:text-teal-700 hover:underline">
+                            <a href={`tel:${order.customerSnapshot.phone}`} className="text-brand-800 hover:text-brand-900 hover:underline">
                               {order.customerSnapshot.phone}
                             </a>
                           </div>
@@ -634,7 +617,7 @@ export default function OrderDetailsModal({
                             {order.shippingAddress.firstName} {order.shippingAddress.lastName}
                           </p>
                           <button
-                            onClick={async () => {
+                            onClick={() => {
                               const fullAddress = [
                                 order.shippingAddress.street,
                                 order.shippingAddress.landmark,
@@ -643,19 +626,17 @@ export default function OrderDetailsModal({
                                 order.shippingAddress.postalCode,
                                 order.shippingAddress.country
                               ].filter(Boolean).join(', ');
-                              
-                              try {
-                                await navigator.clipboard.writeText(fullAddress);
-                                setCopied(true);
-                                setTimeout(() => setCopied(false), 2000);
-                              } catch (error) {
-                                console.error('Failed to copy:', error);
-                              }
+
+                              window.open(
+                                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`,
+                                '_blank',
+                                'noopener,noreferrer'
+                              );
                             }}
-                            className="text-xs text-teal-600 hover:text-teal-700 mt-1 flex items-center space-x-1"
+                            className="text-xs text-brand-800 hover:text-brand-900 mt-1 flex items-center space-x-1"
                           >
-                            <Copy className="w-3 h-3" />
-                            <span>{copied ? 'Copied!' : 'View on Map'}</span>
+                            <MapPin className="w-3 h-3" />
+                            <span>View on Map</span>
                           </button>
                         </div>
                       </div>
@@ -677,7 +658,7 @@ export default function OrderDetailsModal({
                         <div className="mt-3 pt-3 border-t border-gray-200">
                           <div className="flex items-center space-x-2 text-sm">
                             <Phone className="w-4 h-4 text-gray-400" />
-                            <a href={`tel:${order.shippingAddress.phone}`} className="text-teal-600 hover:text-teal-700">
+                            <a href={`tel:${order.shippingAddress.phone}`} className="text-brand-800 hover:text-brand-900">
                               {order.shippingAddress.phone}
                             </a>
                           </div>
@@ -692,14 +673,14 @@ export default function OrderDetailsModal({
                     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
                       <div className="flex items-center space-x-2 text-sm">
                         <Mail className="w-4 h-4 text-gray-400" />
-                        <a href={`mailto:${order.customerSnapshot.email}`} className="text-teal-600 hover:text-teal-700 hover:underline">
+                        <a href={`mailto:${order.customerSnapshot.email}`} className="text-brand-800 hover:text-brand-900 hover:underline">
                           {order.customerSnapshot.email}
                         </a>
                       </div>
                       {order.shippingAddress.phone && (
                         <div className="flex items-center space-x-2 text-sm">
                           <Phone className="w-4 h-4 text-gray-400" />
-                          <a href={`tel:${order.shippingAddress.phone}`} className="text-teal-600 hover:text-teal-700 hover:underline">
+                          <a href={`tel:${order.shippingAddress.phone}`} className="text-brand-800 hover:text-brand-900 hover:underline">
                             +{order.shippingAddress.phone.replace(/[^0-9]/g, '')}
                           </a>
                         </div>
@@ -767,7 +748,7 @@ export default function OrderDetailsModal({
               {/* Main Button */}
               <button
                 onClick={() => setShowContactDropdown(!showContactDropdown)}
-                className="flex items-center space-x-2 px-6 py-4 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl group"
+                className="flex items-center space-x-2 px-6 py-4 bg-brand-800 text-white rounded-full hover:bg-brand-900 transition-all shadow-lg hover:shadow-xl group"
               >
                 <MessageCircle className="w-5 h-5" />
                 <span className="font-medium">Contact Client</span>
@@ -834,7 +815,7 @@ export default function OrderDetailsModal({
 
               <button
                 onClick={() => setShowContactDropdown(!showContactDropdown)}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors font-medium"
+                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors font-medium"
               >
                 <MessageCircle className="w-5 h-5" />
                 <span>Contact Client</span>
