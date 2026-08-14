@@ -302,86 +302,113 @@ export default function DeliveriesPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar Section - Minimalistic */}
+        {/* Calendar Section */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             {/* Calendar Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">Select a date to view deliveries</p>
+            <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-r from-brand-50 to-white border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center justify-center w-10 h-10 rounded-xl shrink-0 bg-brand-100 text-brand-800">
+                  <Calendar className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Select a date to view deliveries</p>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
                 <button
                   onClick={() => navigateMonth(-1)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Previous month"
                 >
-                  <ChevronLeft className="w-5 h-5 text-gray-600" />
-                </button>
-                <button
-                  onClick={() => navigateMonth(1)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
+                  <ChevronLeft className="w-4 h-4 text-gray-600" />
                 </button>
                 <button
                   onClick={() => setCurrentDate(new Date())}
-                  className="px-4 py-2 text-xs font-medium bg-brand-800 text-white rounded-lg hover:bg-brand-900 transition-colors"
+                  className="px-3 py-1.5 text-xs font-semibold bg-brand-800 text-white rounded-lg hover:bg-brand-900 transition-colors"
                 >
                   Today
+                </button>
+                <button
+                  onClick={() => navigateMonth(1)}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Next month"
+                >
+                  <ChevronRight className="w-4 h-4 text-gray-600" />
                 </button>
               </div>
             </div>
 
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-2 mb-2">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-                <div key={idx} className="p-2 text-center text-xs font-medium text-gray-500">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-2">
-              {calendarDays.map((day, index) => {
-                if (!day) {
-                  return <div key={index} className="aspect-square"></div>;
-                }
-
-                const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-                const deliveriesCount = getDeliveriesCountForDate(cellDate);
-                const isSelected = isSameDay(cellDate, selectedDate);
-                const isTodayDate = isToday(cellDate);
-
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleDateSelect(day)}
-                    className={`aspect-square p-2 text-sm font-medium rounded-lg transition-all relative flex items-center justify-center ${
-                      isSelected
-                        ? 'bg-brand-800 text-white'
-                        : isTodayDate
-                        ? 'bg-brand-100 text-brand-900 border border-brand-300'
-                        : deliveriesCount > 0
-                        ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
+            <div className="p-6">
+              {/* Weekday labels */}
+              <div className="grid grid-cols-7 gap-1.5 mb-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
+                  <div key={idx} className="py-2 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
                     {day}
-                    {deliveriesCount > 0 && (
-                      <div className={`absolute -top-1 -right-1 w-4 h-4 text-xs font-bold rounded-full flex items-center justify-center ${
-                        isSelected 
-                          ? 'bg-white text-brand-800' 
-                          : 'bg-brand-800 text-white'
-                      }`}>
-                        {deliveriesCount}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar Grid */}
+              <div className="grid grid-cols-7 gap-1.5">
+                {calendarDays.map((day, index) => {
+                  if (!day) {
+                    return <div key={index} className="aspect-square"></div>;
+                  }
+
+                  const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                  const deliveriesCount = getDeliveriesCountForDate(cellDate);
+                  const isSelected = isSameDay(cellDate, selectedDate);
+                  const isTodayDate = isToday(cellDate);
+                  const isWeekend = index % 7 === 0 || index % 7 === 6;
+
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleDateSelect(day)}
+                      className={`aspect-square flex flex-col items-center justify-center gap-0.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                        isSelected
+                          ? 'bg-brand-800 text-white shadow-md shadow-brand-800/25'
+                          : isTodayDate
+                          ? 'bg-white text-brand-900 font-bold ring-2 ring-inset ring-brand-800'
+                          : deliveriesCount > 0
+                          ? 'bg-brand-50 text-gray-900 hover:bg-brand-100'
+                          : isWeekend
+                          ? 'text-gray-400 hover:bg-gray-50'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>{day}</span>
+                      {deliveriesCount > 0 && (
+                        <span className={`text-[10px] leading-none px-1.5 py-0.5 rounded-full font-semibold ${
+                          isSelected ? 'bg-white/25 text-white' : 'bg-brand-800 text-white'
+                        }`}>
+                          {deliveriesCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center flex-wrap gap-x-5 gap-y-2 mt-5 pt-4 border-t border-gray-100">
+                <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-3 h-3 rounded-md ring-2 ring-inset ring-brand-800 bg-white"></span>
+                  Today
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-3 h-3 rounded-md bg-brand-50"></span>
+                  Has deliveries
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-3 h-3 rounded-md bg-brand-800"></span>
+                  Selected
+                </span>
+              </div>
             </div>
           </div>
         </div>
