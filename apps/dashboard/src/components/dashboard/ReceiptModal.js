@@ -60,6 +60,8 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
     const storeAddress = store?.storeType === 'physical' && store?.fullAddress ? store.fullAddress : '';
     const storePhone = store?.storePhone || '';
     const storeEmail = store?.storeEmail || '';
+    const storeLogo = store?.branding?.logo || null;
+    const brandColor = store?.branding?.primaryColor || '#0B3B2E';
 
     return `
       <!DOCTYPE html>
@@ -67,44 +69,55 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
       <head>
         <title>Receipt - ${sale.transactionId}</title>
         <style>
-          body { 
-            font-family: 'Courier New', monospace; 
-            margin: 20px; 
-            max-width: 300px; 
-            font-size: 12px; 
+          body {
+            font-family: 'Courier New', monospace;
+            margin: 20px;
+            max-width: 300px;
+            font-size: 12px;
             line-height: 1.4;
           }
-          .header { 
-            text-align: center; 
-            border-bottom: 1px dashed #000; 
-            padding-bottom: 10px; 
+          .header {
+            text-align: center;
+            border-bottom: 2px dashed ${brandColor};
+            padding-bottom: 10px;
             margin-bottom: 10px;
+          }
+          .store-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            margin: 0 auto 8px;
+            display: block;
           }
           .store-name {
             font-size: 16px;
             font-weight: bold;
+            color: ${brandColor};
             margin-bottom: 5px;
           }
           .store-info {
             font-size: 10px;
             margin-bottom: 2px;
           }
-          .item { 
-            display: flex; 
-            justify-content: space-between; 
-            margin: 3px 0; 
+          .item {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
           }
-          .total { 
-            border-top: 1px dashed #000; 
-            padding-top: 10px; 
-            font-weight: bold; 
+          .total {
+            border-top: 2px dashed ${brandColor};
+            padding-top: 10px;
+            font-weight: bold;
             margin-top: 10px;
           }
-          .footer { 
-            text-align: center; 
-            margin-top: 20px; 
-            border-top: 1px dashed #000; 
-            padding-top: 10px; 
+          .total-line {
+            color: ${brandColor};
+          }
+          .footer {
+            text-align: center;
+            margin-top: 20px;
+            border-top: 2px dashed ${brandColor};
+            padding-top: 10px;
           }
           .powered-by {
             font-size: 8px;
@@ -118,6 +131,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
       </head>
       <body>
         <div class="header">
+          ${storeLogo ? `<img class="store-logo" src="${storeLogo}" alt="${storeName}" />` : ''}
           <div class="store-name">${storeName}</div>
           ${storeAddress ? `<div class="store-info">${storeAddress}</div>` : ''}
           ${storePhone ? `<div class="store-info">Tel: ${storePhone}</div>` : ''}
@@ -125,7 +139,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
           <p style="margin-top: 10px;">Receipt #${sale.transactionId}</p>
           <p>${formatDate(sale.saleDate)}</p>
         </div>
-        
+
         <div style="margin: 10px 0;">
           ${sale.customer.name ? `<p>Customer: ${sale.customer.name}</p>` : ''}
           ${sale.customer.phone ? `<p>Phone: ${sale.customer.phone}</p>` : ''}
@@ -157,7 +171,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
               <span>${formatCurrency(sale.tax)}</span>
             </div>
           ` : ''}
-          <div class="item" style="font-size: 14px; margin-top: 5px;">
+          <div class="item total-line" style="font-size: 14px; margin-top: 5px;">
             <span>TOTAL:</span>
             <span>${formatCurrency(sale.total)}</span>
           </div>
@@ -243,10 +257,13 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
       const storeAddress = store?.storeType === 'physical' && store?.fullAddress ? store.fullAddress : '';
       const storePhone = store?.storePhone || '';
       const storeEmail = store?.storeEmail || '';
-      
+      const storeLogo = store?.branding?.logo || null;
+      const brandColor = store?.branding?.primaryColor || '#0B3B2E';
+
       receiptDiv.innerHTML = `
-        <div style="text-align: center; border-bottom: 2px dashed #000; padding-bottom: 15px; margin-bottom: 15px;">
-          <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">${storeName}</div>
+        <div style="text-align: center; border-bottom: 2px dashed ${brandColor}; padding-bottom: 15px; margin-bottom: 15px;">
+          ${storeLogo ? `<img src="${storeLogo}" alt="${storeName}" crossorigin="anonymous" style="width: 56px; height: 56px; object-fit: contain; margin: 0 auto 10px; display: block;" />` : ''}
+          <div style="font-size: 20px; font-weight: bold; color: ${brandColor}; margin-bottom: 8px;">${storeName}</div>
           ${storeAddress ? `<div style="font-size: 11px; margin-bottom: 3px;">${storeAddress}</div>` : ''}
           ${storePhone ? `<div style="font-size: 11px; margin-bottom: 3px;">Tel: ${storePhone}</div>` : ''}
           ${storeEmail ? `<div style="font-size: 11px; margin-bottom: 3px;">Email: ${storeEmail}</div>` : ''}
@@ -274,7 +291,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
           `).join('')}
         </div>
 
-        <div style="border-top: 2px dashed #000; padding-top: 15px; margin-top: 15px;">
+        <div style="border-top: 2px dashed ${brandColor}; padding-top: 15px; margin-top: 15px;">
           <div style="display: flex; justify-content: space-between; margin: 6px 0;">
             <span>Subtotal:</span>
             <span style="font-weight: 500;">${formatCurrency(sale.subtotal)}</span>
@@ -291,7 +308,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
               <span style="font-weight: 500;">${formatCurrency(sale.tax)}</span>
             </div>
           ` : ''}
-          <div style="display: flex; justify-content: space-between; margin: 10px 0 6px 0; padding-top: 10px; border-top: 1px solid #000; font-size: 16px; font-weight: bold;">
+          <div style="display: flex; justify-content: space-between; margin: 10px 0 6px 0; padding-top: 10px; border-top: 1px solid ${brandColor}; color: ${brandColor}; font-size: 16px; font-weight: bold;">
             <span>TOTAL:</span>
             <span>${formatCurrency(sale.total)}</span>
           </div>
@@ -307,7 +324,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
           ` : ''}
         </div>
 
-        <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px dashed #000;">
+        <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px dashed ${brandColor};">
           <div style="font-size: 13px; margin-bottom: 5px;">${store?.settings?.receiptFooter || 'Thank you for your business!'}</div>
           <div style="font-size: 12px; color: #666;">Please come again</div>
           <div style="margin-top: 15px; font-size: 10px; color: #999;">
@@ -324,6 +341,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
         backgroundColor: '#ffffff',
         scale: 2, // Higher quality
         logging: false,
+        useCORS: true, // Needed so the store logo (hosted remotely) can be rasterized
         windowWidth: 350,
         windowHeight: receiptDiv.scrollHeight
       });
