@@ -3,6 +3,7 @@ import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import NotificationPanel from "./NotificationPanel";
 
 export default function DashboardHeader({ title = "Inventory Management", subtitle = "Today, August 16th 2024", isSidebarCollapsed = false }) {
@@ -10,27 +11,21 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
 
-  // Fetch unread notification count
-  const fetchUnreadCount = async () => {
-    try {
+  // Unread notification count -- on TanStack Query (not a local
+  // setInterval poll) so the realtime hook's invalidateQueries(['notifications'])
+  // actually reaches this badge. refetchInterval is now just a fallback for
+  // missed/dropped realtime events, not the primary update mechanism.
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['notifications', 'unreadCount'],
+    queryFn: async () => {
       const response = await secureApiCall('/api/notifications?unreadOnly=true&limit=1');
-      if (response.success) {
-        setUnreadCount(response.data.unreadCount || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchUnreadCount();
-    // Fetch unread count every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
+      return response.success ? (response.data.unreadCount || 0) : 0;
+    },
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
 
   // Close dropdown when clicking outside
   useEffect(() => {

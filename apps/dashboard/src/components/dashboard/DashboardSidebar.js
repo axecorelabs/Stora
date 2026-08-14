@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Package,
@@ -21,7 +22,23 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   const router = useRouter();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState('');
-  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
+  // Pending-orders badge -- shares the ['orders-stats'] query key already
+  // used by useReportsData.js, so both consumers share one cache entry, and
+  // the realtime hook's invalidateQueries(['orders-stats']) reaches this
+  // badge instead of only a local setInterval poll nothing else can trigger.
+  const { data: orderStats } = useQuery({
+    queryKey: ['orders-stats'],
+    queryFn: async () => {
+      const response = await fetch('/api/orders/stats');
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.success ? data.stats : null;
+    },
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+  const pendingOrdersCount = orderStats?.pendingOrders || 0;
 
   const menuItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/overview' },
@@ -50,28 +67,6 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
       setActiveTab(currentItem.name);
     }
   }, [pathname]);
-
-  // Fetch pending orders count
-  useEffect(() => {
-    const fetchPendingOrders = async () => {
-      try {
-        const response = await fetch('/api/orders/stats');
-        if (response.ok) {
-          const data = await response.json();
-          setPendingOrdersCount(data.stats?.pendingOrders || 0);
-        }
-      } catch (error) {
-        console.error('Error fetching pending orders:', error);
-      }
-    };
-
-    fetchPendingOrders();
-    
-    // Refresh count every 30 seconds
-    const interval = setInterval(fetchPendingOrders, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
 
   const handleNavigation = (item) => {
     // Immediately update the active state to prevent flicker

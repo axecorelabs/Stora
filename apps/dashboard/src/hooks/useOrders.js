@@ -37,7 +37,10 @@ export function useOrders({ page = 1, filterBy = 'all', filterValue = '', search
     },
     staleTime: 30 * 1000, // 30 seconds
     cacheTime: 5 * 60 * 1000, // 5 minutes
-    refetchInterval: 60 * 1000, // Auto-refetch every 60 seconds (background polling)
+    // Realtime (useRealtimeNotifications) is now the primary signal for new
+    // orders -- this interval is just a fallback for a missed/dropped SSE
+    // event, not the main update mechanism, hence the much longer period.
+    refetchInterval: 5 * 60 * 1000,
     refetchIntervalInBackground: false, // Don't poll when tab is not visible
     keepPreviousData: true, // Keep old data while fetching new (smooth pagination)
   });
