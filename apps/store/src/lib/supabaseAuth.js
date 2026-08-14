@@ -1,6 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from './supabase';
 import crypto from 'crypto';
+import { redis, sessionKey, withTimeout } from './redis';
+
+const SESSION_CACHE_TTL_SECONDS = 5 * 60;
 
 // Hash password
 export async function hashPassword(password) {
@@ -91,6 +94,16 @@ export async function verifyCustomerSession(req) {
     return null;
   }
 
+  // Cache-aside: skip Postgres entirely on a cache hit.
+  try {
+    const cached = await withTimeout(redis.get(sessionKey(sessionId)));
+    if (cached) {
+      return cached;
+    }
+  } catch (error) {
+    console.error('Session cache read failed, falling back to Postgres:', error.message);
+  }
+
   // Find valid session
   const { data: session, error } = await supabaseAdmin
     .from('customer_sessions')
@@ -115,13 +128,23 @@ export async function verifyCustomerSession(req) {
     return null;
   }
 
+  const customerId = session.customers.id;
+
+  // Populate the cache; only touch last_activity_at on a miss (a cache hit
+  // skips this write entirely, which is the point of caching).
+  try {
+    await withTimeout(redis.set(sessionKey(sessionId), customerId, { ex: SESSION_CACHE_TTL_SECONDS }));
+  } catch (error) {
+    console.error('Session cache write failed, skipping:', error.message);
+  }
+
   // Update last activity
   try {
     await supabaseAdmin
       .from('customer_sessions')
-      .update({ 
+      .update({
         last_activity_at: new Date().toISOString(),
-        updated_at: new Date().toISOString() 
+        updated_at: new Date().toISOString()
       })
       .eq('session_id', sessionId);
   } catch (error) {
@@ -130,14 +153,14 @@ export async function verifyCustomerSession(req) {
 
   console.log('Customer session verified:', session.customers.email);
 
-  return session.customers.id;
+  return customerId;
 }
 
 // Delete customer session
 export async function deleteSession(sessionId) {
   const { error } = await supabaseAdmin
     .from('customer_sessions')
-    .update({ 
+    .update({
       is_active: false,
       logout_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -147,6 +170,13 @@ export async function deleteSession(sessionId) {
   if (error) {
     console.error('Error deleting session:', error);
     throw new Error('Failed to delete session');
+  }
+
+  try {
+    await withTimeout(redis.del(sessionKey(sessionId)));
+  } catch (error) {
+    // Self-heals via the cache entry's own TTL -- not a new hole.
+    console.error('Session cache invalidation failed, skipping:', error.message);
   }
 }
 

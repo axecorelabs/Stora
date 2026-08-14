@@ -1,6 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from './supabase';
 import crypto from 'crypto';
+import { redis, sessionKey, withTimeout } from './redis';
+
+const SESSION_CACHE_TTL_SECONDS = 5 * 60;
 
 // Hash password
 export async function hashPassword(password) {
@@ -67,6 +70,16 @@ export async function verifySession(req) {
     return null;
   }
 
+  // Cache-aside: skip Postgres entirely on a cache hit.
+  try {
+    const cached = await withTimeout(redis.get(sessionKey(sessionId)));
+    if (cached) {
+      return cached;
+    }
+  } catch (error) {
+    console.error('Session cache read failed, falling back to Postgres:', error);
+  }
+
   try {
     // Get session
     const { data: session, error: sessionError } = await supabaseAdmin
@@ -92,14 +105,7 @@ export async function verifySession(req) {
       return null;
     }
 
-    // Update last activity (non-blocking)
-    supabaseAdmin
-      .from('sessions')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('session_id', sessionId)
-      .then(() => {});
-
-    return {
+    const result = {
       id: user.id,
       firstName: user.first_name,
       lastName: user.last_name,
@@ -107,6 +113,22 @@ export async function verifySession(req) {
       role: user.role,
       isActive: user.is_active
     };
+
+    // Populate the cache; only touch updated_at on a miss (a cache hit
+    // skips this write entirely, which is the point of caching).
+    try {
+      await withTimeout(redis.set(sessionKey(sessionId), result, { ex: SESSION_CACHE_TTL_SECONDS }));
+    } catch (error) {
+      console.error('Session cache write failed, skipping:', error);
+    }
+
+    supabaseAdmin
+      .from('sessions')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('session_id', sessionId)
+      .then(() => {});
+
+    return result;
   } catch (error) {
     console.error('Session verification error:', error);
     return null;
@@ -123,6 +145,13 @@ export async function deleteSession(sessionId) {
   } catch (error) {
     console.error('Session deletion error:', error);
     // Don't throw error for session deletion failures
+  }
+
+  try {
+    await withTimeout(redis.del(sessionKey(sessionId)));
+  } catch (error) {
+    // Self-heals via the cache entry's own TTL -- not a new hole.
+    console.error('Session cache invalidation failed, skipping:', error);
   }
 }
 

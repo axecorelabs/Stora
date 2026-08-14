@@ -1,6 +1,41 @@
 import { NextResponse } from 'next/server';
 import { verifyPassword, createSession, isValidEmail } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
+import { redis, failedKey, lockoutKey, withTimeout } from '@/lib/redis';
+
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_WINDOW_SECONDS = 15 * 60;
+
+async function isLockedOut(email) {
+  try {
+    return Boolean(await withTimeout(redis.get(lockoutKey(email))));
+  } catch (error) {
+    console.error('Lockout check failed, allowing request:', error);
+    return false;
+  }
+}
+
+async function recordFailedAttempt(email) {
+  try {
+    const attempts = await withTimeout(redis.incr(failedKey(email)));
+    if (attempts === 1) {
+      await withTimeout(redis.expire(failedKey(email), LOCKOUT_WINDOW_SECONDS));
+    }
+    if (attempts >= LOCKOUT_THRESHOLD) {
+      await withTimeout(redis.set(lockoutKey(email), '1', { ex: LOCKOUT_WINDOW_SECONDS }));
+    }
+  } catch (error) {
+    console.error('Failed-attempt tracking failed, skipping:', error);
+  }
+}
+
+async function clearFailedAttempts(email) {
+  try {
+    await withTimeout(redis.del(failedKey(email), lockoutKey(email)));
+  } catch (error) {
+    console.error('Failed-attempt cleanup failed, skipping:', error);
+  }
+}
 
 export async function POST(req) {
   try {
@@ -50,14 +85,25 @@ export async function POST(req) {
       );
     }
 
+    // Account lockout: too many recent failed attempts for this email
+    if (await isLockedOut(normalizedEmail)) {
+      return NextResponse.json(
+        { success: false, message: 'Too many failed attempts. Please try again in 15 minutes.' },
+        { status: 423 }
+      );
+    }
+
     // Verify password
     const isValidPassword = await verifyPassword(password, user.password_hash);
     if (!isValidPassword) {
+      await recordFailedAttempt(normalizedEmail);
       return NextResponse.json(
         { success: false, message: 'Invalid password' },
         { status: 401 }
       );
     }
+
+    await clearFailedAttempts(normalizedEmail);
 
     // Update last login (non-blocking)
     supabaseAdmin

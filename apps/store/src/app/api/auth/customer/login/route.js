@@ -1,6 +1,53 @@
 import { NextResponse } from "next/server";
 import { verifyPassword, createSession, findCustomerByEmail, updateCustomer, generateVerificationCode, sanitizeCustomer } from "@/lib/supabaseAuth";
 import { sendVerificationEmail } from "@/lib/email";
+import { redis, failedKey, lockoutKey, withTimeout } from "@/lib/redis";
+
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_WINDOW_SECONDS = 15 * 60;
+
+async function isLockedOut(email) {
+  try {
+    return Boolean(await withTimeout(redis.get(lockoutKey(email))));
+  } catch (error) {
+    console.error('Lockout check failed, allowing request:', error);
+    return false;
+  }
+}
+
+async function recordFailedAttempt(email) {
+  try {
+    const attempts = await withTimeout(redis.incr(failedKey(email)));
+    if (attempts === 1) {
+      await withTimeout(redis.expire(failedKey(email), LOCKOUT_WINDOW_SECONDS));
+    }
+    if (attempts >= LOCKOUT_THRESHOLD) {
+      await withTimeout(redis.set(lockoutKey(email), '1', { ex: LOCKOUT_WINDOW_SECONDS }));
+    }
+  } catch (error) {
+    console.error('Failed-attempt tracking failed, skipping:', error);
+  }
+}
+
+async function clearFailedAttempts(email) {
+  try {
+    await withTimeout(redis.del(failedKey(email), lockoutKey(email)));
+  } catch (error) {
+    console.error('Failed-attempt cleanup failed, skipping:', error);
+  }
+}
+
+// Store login is deliberately non-enumerating: this exact message + status
+// is also returned for "no such customer" and "wrong password", so a
+// locked-out account must not be distinguishable from either of those.
+// A fresh NextResponse is built each call since a Response body can only
+// be consumed once.
+function genericInvalidCredentials() {
+  return NextResponse.json(
+    { success: false, message: "Invalid email or password" },
+    { status: 401 }
+  );
+}
 
 export async function POST(request) {
   try {
@@ -22,26 +69,34 @@ export async function POST(request) {
 
     if (!customer) {
       console.log('Customer not found:', email);
-      return NextResponse.json(
-        { success: false, message: "Invalid email or password" },
-        { status: 401 }
-      );
+      return genericInvalidCredentials();
     }
 
     console.log('Customer found:', customer.id);
+
+    const normalizedEmail = customer.email.toLowerCase().trim();
+
+    // Account lockout: too many recent failed attempts for this email.
+    // Response is byte-identical to the generic invalid-credentials
+    // response above -- locking must not create a new enumeration channel.
+    if (await isLockedOut(normalizedEmail)) {
+      return genericInvalidCredentials();
+    }
 
     // Verify password
     const isPasswordValid = await verifyPassword(password, customer.password_hash);
 
     if (!isPasswordValid) {
       console.log('Invalid password for:', email);
-      return NextResponse.json(
-        { success: false, message: "Invalid email or password" },
-        { status: 401 }
-      );
+      await recordFailedAttempt(normalizedEmail);
+      return genericInvalidCredentials();
     }
 
     console.log('Password verified for:', email);
+
+    // Proving password ownership clears the counter even though the
+    // is_verified check below may still turn this attempt away.
+    await clearFailedAttempts(normalizedEmail);
 
     // Check if email is verified
     if (!customer.is_verified) {
