@@ -3,16 +3,12 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { 
-  TrendingUp, 
-  Package, 
-  DollarSign, 
+import {
+  TrendingUp,
+  Package,
+  DollarSign,
   ArrowUpRight,
   ArrowDownRight,
-  ChevronDown,
-  Calendar,
-  Filter,
-  Download,
   ArrowLeft
 } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
@@ -30,7 +26,6 @@ function AnalyticsContent() {
   const [itemBatches, setItemBatches] = useState([]);
   const [batchSalesData, setBatchSalesData] = useState([]);
   const [selectedBatchFilter, setSelectedBatchFilter] = useState('all');
-  const [dateRange, setDateRange] = useState('all');
 
   useEffect(() => {
     fetchInventoryItems();
@@ -55,7 +50,10 @@ function AnalyticsContent() {
 
   const fetchInventoryItems = async () => {
     try {
-      const response = await secureApiCall('/api/inventory');
+      // Explicit high limit -- /api/inventory defaults to 100 items per page,
+      // which would silently drop products from this selector for any store
+      // with a larger catalog
+      const response = await secureApiCall('/api/inventory?limit=1000');
       if (response.success) {
         setInventoryItems(response.data);
         
@@ -101,10 +99,13 @@ function AnalyticsContent() {
     }).format(amount);
   };
 
+  // FIFO: the "current" batch is the oldest active one with stock remaining --
+  // that's the batch the system actually sells from and prices against next,
+  // matching /api/inventory's own "First In, First Out" methodology
   const getCurrentBatch = () => {
     const activeBatches = itemBatches.filter(b => b.status === 'active');
     if (activeBatches.length > 0) {
-      return activeBatches.sort((a, b) => new Date(b.dateReceived) - new Date(a.dateReceived))[0];
+      return activeBatches.sort((a, b) => new Date(a.dateReceived) - new Date(b.dateReceived))[0];
     }
     return itemBatches.length > 0 ? itemBatches[0] : null;
   };
@@ -168,7 +169,7 @@ function AnalyticsContent() {
       <DashboardLayout title="Analytics" subtitle="Inventory Performance Analysis">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-800 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading analytics...</p>
           </div>
         </div>
@@ -189,7 +190,7 @@ function AnalyticsContent() {
             <span className="text-sm font-medium">Back</span>
           </button>
 
-          <div className="flex-1 mx-6">
+          <div className="flex-1 mx-6 max-w-md">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Select Product to Analyze
             </label>
@@ -208,17 +209,6 @@ function AnalyticsContent() {
               placeholder="Select a product"
             />
           </div>
-
-          <div className="flex items-center space-x-3">
-            <button className="flex items-center space-x-2 px-4 py-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">
-              <Calendar className="w-4 h-4 text-gray-600" />
-              <span className="text-sm text-gray-700">Date Range</span>
-            </button>
-            <button className="flex items-center space-x-2 px-4 py-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">
-              <Download className="w-4 h-4 text-gray-600" />
-              <span className="text-sm text-gray-700">Export</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -230,58 +220,65 @@ function AnalyticsContent() {
       ) : (
         <>
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-2 bg-green-100 rounded-xl">
-                  <DollarSign className="w-5 h-5 text-green-600" />
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand-100 text-brand-800">
+                    <DollarSign className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm text-gray-500">Total Revenue</span>
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-green-600" />
+                <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {formatCurrency(analytics.totalRevenue)}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">From {analytics.unitsSold} units sold</p>
               </div>
-              <h3 className="text-sm text-gray-600 mb-1">Total Revenue</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(analytics.totalRevenue)}</p>
-              <p className="text-xs text-gray-500 mt-1">From {analytics.unitsSold} units sold</p>
-            </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-2 bg-blue-100 rounded-xl">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-gold-500/15 text-gold-600">
+                    <TrendingUp className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm text-gray-500">Total Profit</span>
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-blue-600" />
+                <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {formatCurrency(analytics.totalProfit)}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Profit from all batches</p>
               </div>
-              <h3 className="text-sm text-gray-600 mb-1">Total Profit</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(analytics.totalProfit)}</p>
-              <p className="text-xs text-gray-500 mt-1">Profit from all batches</p>
-            </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-2 bg-purple-100 rounded-xl">
-                  <Package className="w-5 h-5 text-purple-600" />
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand-100 text-brand-800">
+                    <Package className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm text-gray-500">Expected Revenue</span>
                 </div>
+                <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {formatCurrency(analytics.expectedRevenue)}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Current stock at {analytics.currentBatch ? formatCurrency(analytics.currentBatch.sellingPrice) : '₦0'} per unit
+                </p>
               </div>
-              <h3 className="text-sm text-gray-600 mb-1">Expected Revenue</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(analytics.expectedRevenue)}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Current stock at {analytics.currentBatch ? formatCurrency(analytics.currentBatch.sellingPrice) : '₦0'} per unit
-              </p>
-            </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-2 bg-amber-100 rounded-xl">
-                  <DollarSign className="w-5 h-5 text-amber-600" />
+              <div className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-gold-500/15 text-gold-600">
+                    {analytics.roi >= 0 ? (
+                      <ArrowUpRight className="w-4 h-4" />
+                    ) : (
+                      <ArrowDownRight className="w-4 h-4" />
+                    )}
+                  </span>
+                  <span className="text-sm text-gray-500">ROI</span>
                 </div>
-                {analytics.roi > 0 ? (
-                  <ArrowUpRight className="w-4 h-4 text-green-600" />
-                ) : (
-                  <ArrowDownRight className="w-4 h-4 text-red-600" />
-                )}
+                <p className={`text-2xl font-bold ${analytics.roi >= 0 ? 'text-gray-900' : 'text-red-600'}`} style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {analytics.roi.toFixed(1)}%
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Return on investment</p>
               </div>
-              <h3 className="text-sm text-gray-600 mb-1">ROI</h3>
-              <p className="text-2xl font-bold text-gray-900">{analytics.roi.toFixed(1)}%</p>
-              <p className="text-xs text-gray-500 mt-1">Return on investment</p>
             </div>
           </div>
 
@@ -330,7 +327,7 @@ function AnalyticsContent() {
                           <div className="mb-3">
                             <div className="w-full bg-gray-200 rounded-full h-2">
                               <div 
-                                className="bg-teal-600 h-2 rounded-full transition-all duration-300"
+                                className="bg-brand-800 h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${soldPercentage}%` }}
                               />
                             </div>
@@ -386,7 +383,7 @@ function AnalyticsContent() {
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
-                        className="bg-blue-600 h-2 rounded-full"
+                        className="bg-brand-700 h-2 rounded-full"
                         style={{ 
                           width: `${analytics.totalStocked > 0 ? (analytics.inStock / analytics.totalStocked) * 100 : 0}%` 
                         }}
@@ -426,12 +423,12 @@ function AnalyticsContent() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Total Profit</p>
-                    <p className="text-2xl font-bold text-blue-600">{formatCurrency(analytics.totalProfit)}</p>
+                    <p className="text-2xl font-bold text-brand-800">{formatCurrency(analytics.totalProfit)}</p>
                     <p className="text-xs text-gray-500 mt-1">Net profit</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">ROI</p>
-                    <p className="text-2xl font-bold text-purple-600">{analytics.roi.toFixed(1)}%</p>
+                    <p className="text-2xl font-bold text-gold-600">{analytics.roi.toFixed(1)}%</p>
                     <p className="text-xs text-gray-500 mt-1">Return on investment</p>
                   </div>
                 </div>
@@ -467,21 +464,21 @@ function AnalyticsContent() {
                       </div>
                     </>
                   )}
-                  <div className="flex items-center justify-between p-3 bg-teal-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-brand-50 rounded-lg">
                     <div>
-                      <p className="text-sm text-teal-900">Average Cost (All Batches)</p>
-                      <p className="text-xs text-teal-700 mt-1">Weighted average</p>
+                      <p className="text-sm text-brand-900">Average Cost (All Batches)</p>
+                      <p className="text-xs text-brand-800 mt-1">Weighted average</p>
                     </div>
-                    <p className="text-lg font-bold text-teal-900">
+                    <p className="text-lg font-bold text-brand-900">
                       {formatCurrency(analytics.averageCostPrice)}
                     </p>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-teal-50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-brand-50 rounded-lg">
                     <div>
-                      <p className="text-sm text-teal-900">Average Selling (All Batches)</p>
-                      <p className="text-xs text-teal-700 mt-1">Weighted average</p>
+                      <p className="text-sm text-brand-900">Average Selling (All Batches)</p>
+                      <p className="text-xs text-brand-800 mt-1">Weighted average</p>
                     </div>
-                    <p className="text-lg font-bold text-teal-900">
+                    <p className="text-lg font-bold text-brand-900">
                       {formatCurrency(analytics.averageSellingPrice)}
                     </p>
                   </div>
@@ -543,7 +540,7 @@ function AnalyticsContent() {
                             <td className="px-6 py-4 text-sm font-medium text-green-600">
                               {formatCurrency(sale.totalRevenue || 0)}
                             </td>
-                            <td className="px-6 py-4 text-sm font-medium text-blue-600">
+                            <td className="px-6 py-4 text-sm font-medium text-brand-800">
                               {formatCurrency(sale.totalProfit || 0)}
                             </td>
                           </tr>
@@ -567,7 +564,7 @@ export default function AnalyticsPage() {
       <DashboardLayout title="Analytics" subtitle="Inventory Performance Analysis">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-800 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading analytics...</p>
           </div>
         </div>
