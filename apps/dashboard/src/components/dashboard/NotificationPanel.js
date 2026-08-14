@@ -1,18 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { 
-  X, 
-  Bell, 
-  CheckCircle, 
-  AlertTriangle, 
-  Info, 
+import {
+  X,
+  Bell,
+  CheckCircle,
+  AlertTriangle,
+  Info,
   XCircle,
-  Clock,
   Package,
-  ShoppingBag,
-  TrendingUp,
-  MoreHorizontal
+  Settings
 } from "lucide-react";
 
 export default function NotificationPanel({ isOpen, onClose }) {
@@ -50,12 +47,12 @@ export default function NotificationPanel({ isOpen, onClose }) {
         method: 'PUT',
         body: JSON.stringify({ action: 'read' })
       });
-      
+
       // Update local state
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification._id === notificationId 
-            ? { ...notification, isRead: true, readAt: new Date() }
+      setNotifications(prev =>
+        prev.map(notification =>
+          notification._id === notificationId
+            ? { ...notification, isRead: true, readAt: new Date().toISOString() }
             : notification
         )
       );
@@ -70,17 +67,30 @@ export default function NotificationPanel({ isOpen, onClose }) {
       await secureApiCall('/api/notifications', {
         method: 'PUT'
       });
-      
+
       // Update local state
-      setNotifications(prev => 
-        prev.map(notification => ({ 
-          ...notification, 
-          isRead: true, 
-          readAt: new Date() 
+      setNotifications(prev =>
+        prev.map(notification => ({
+          ...notification,
+          isRead: true,
+          readAt: new Date().toISOString()
         }))
       );
     } catch (error) {
       console.error('Error marking all as read:', error);
+    }
+  };
+
+  // Dismiss (delete) a single notification
+  const dismissNotification = async (notificationId) => {
+    try {
+      await secureApiCall(`/api/notifications/${notificationId}`, {
+        method: 'DELETE'
+      });
+
+      setNotifications(prev => prev.filter(n => n._id !== notificationId));
+    } catch (error) {
+      console.error('Error dismissing notification:', error);
     }
   };
 
@@ -152,7 +162,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
             onClick={() => setFilter('all')}
             className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
               filter === 'all'
-                ? 'text-teal-600 border-b-2 border-teal-600'
+                ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -162,7 +172,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
             onClick={() => setFilter('unread')}
             className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
               filter === 'unread'
-                ? 'text-teal-600 border-b-2 border-teal-600'
+                ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -175,7 +185,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
           <div className="p-4 border-b border-gray-200">
             <button
               onClick={markAllAsRead}
-              className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+              className="text-sm text-brand-800 hover:text-brand-900 font-medium"
             >
               Mark all as read
             </button>
@@ -186,7 +196,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-800"></div>
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex items-center justify-center py-12">
@@ -202,8 +212,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
               {notifications.map((notification) => (
                 <div
                   key={notification._id}
-                  className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
-                    !notification.isRead ? 'bg-blue-50' : ''
+                  className={`group relative p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+                    !notification.isRead ? 'bg-brand-50' : ''
                   }`}
                   onClick={() => !notification.isRead && markAsRead(notification._id)}
                 >
@@ -212,29 +222,31 @@ export default function NotificationPanel({ isOpen, onClose }) {
                       {getNotificationIcon(notification.type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between pr-5">
                         <p className="text-sm font-medium text-gray-900 mb-1">
                           {notification.title}
                         </p>
                         {!notification.isRead && (
-                          <div className="w-2 h-2 bg-teal-600 rounded-full flex-shrink-0 mt-2"></div>
+                          <div className="w-2 h-2 bg-brand-800 rounded-full flex-shrink-0 mt-2"></div>
                         )}
                       </div>
                       <p className="text-sm text-gray-600 mb-2 line-clamp-2">
                         {notification.message}
                       </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">
-                          {formatTime(notification.createdAt)}
-                        </span>
-                        {notification.data && (
-                          <button className="text-xs text-teal-600 hover:text-teal-700">
-                            View Details
-                          </button>
-                        )}
-                      </div>
+                      <span className="text-xs text-gray-500">
+                        {formatTime(notification.createdAt)}
+                      </span>
                     </div>
                   </div>
+
+                  {/* Dismiss */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); dismissNotification(notification._id); }}
+                    className="absolute top-4 right-4 p-1 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Dismiss"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))}
             </div>
