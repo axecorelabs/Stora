@@ -1,11 +1,13 @@
 "use client";
-import { Search, Bell, ChevronDown, LogOut, User, Settings } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import NotificationPanel from "./NotificationPanel";
 
 export default function DashboardHeader({ title = "Inventory Management", subtitle = "Today, August 16th 2024", isSidebarCollapsed = false }) {
   const { user, signOut, secureApiCall } = useAuth();
+  const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -59,16 +61,6 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Search */}
-            {/* <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search"
-                className="pl-10 pr-4 py-2.5 w-80 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white text-sm transition-all duration-200"
-              />
-            </div> */}
-            
             {/* Notifications */}
             <button 
               onClick={() => setIsNotificationPanelOpen(true)}
@@ -88,7 +80,7 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center space-x-3 bg-gray-50 rounded-xl px-3 py-2 hover:bg-gray-100 transition-all duration-200"
               >
-                <div className="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-brand-800 rounded-lg flex items-center justify-center">
                   <span className="text-sm font-medium text-white">
                     {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                   </span>
@@ -107,7 +99,7 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                      <div className="w-10 h-10 bg-brand-800 rounded-lg flex items-center justify-center">
                         <span className="text-sm font-medium text-white">
                           {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                         </span>
@@ -123,11 +115,13 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
 
                   {/* Menu Items */}
                   <div className="py-2">
-                    <button className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <User className="w-4 h-4 mr-3" />
-                      Profile Settings
-                    </button>
-                    <button className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        router.push('/dashboard/settings');
+                      }}
+                      className="w-full flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
                       <Settings className="w-4 h-4 mr-3" />
                       Account Settings
                     </button>
