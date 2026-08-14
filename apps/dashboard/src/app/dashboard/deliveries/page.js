@@ -3,21 +3,28 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import DeliveryDetailsPanel from "@/components/dashboard/DeliveryDetailsPanel";
 import { useAuth } from "@/contexts/AuthContext";
-import { 
-  Calendar, 
-  Truck, 
-  Clock, 
-  MapPin, 
-  Phone, 
-  Package,
+import {
+  Calendar,
+  Truck,
+  Clock,
   ChevronLeft,
   ChevronRight,
   CheckCircle,
   AlertTriangle,
   XCircle,
-  User,
+  DollarSign,
   Eye
 } from "lucide-react";
+
+// The DB only allows these five status values (delivery_schedules & delivery_status_history
+// CHECK constraints) -- "in_progress" is shown to merchants as "In Transit".
+const STATUS_LABELS = {
+  scheduled: 'Scheduled',
+  in_progress: 'In Transit',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  failed: 'Failed'
+};
 
 export default function DeliveriesPage() {
   const { secureApiCall } = useAuth();
@@ -87,6 +94,28 @@ export default function DeliveriesPage() {
     loadData();
   }, [selectedDate, currentDate]);
 
+  // Update a delivery's status, then refresh the list/stats and keep the
+  // details panel (if open) in sync with the new state
+  const updateDeliveryStatus = async (deliveryId, status, notes) => {
+    const response = await secureApiCall(`/api/deliveries/${deliveryId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, notes })
+    });
+
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to update delivery status');
+    }
+
+    setSelectedDelivery(response.data);
+    await Promise.all([
+      fetchDeliveriesForDate(selectedDate),
+      fetchMonthDeliveries(currentDate),
+      fetchStats()
+    ]);
+
+    return response.data;
+  };
+
   // Calendar helper functions
   const getDaysInMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -138,7 +167,7 @@ export default function DeliveriesPage() {
     switch (status) {
       case 'delivered': return 'text-green-600 bg-green-100';
       case 'scheduled': return 'text-blue-600 bg-blue-100';
-      case 'in_transit': return 'text-orange-600 bg-orange-100';
+      case 'in_progress': return 'text-gold-700 bg-gold-500/15';
       case 'failed': return 'text-red-600 bg-red-100';
       case 'cancelled': return 'text-gray-600 bg-gray-100';
       default: return 'text-gray-600 bg-gray-100';
@@ -150,7 +179,7 @@ export default function DeliveriesPage() {
     switch (status) {
       case 'delivered': return CheckCircle;
       case 'scheduled': return Clock;
-      case 'in_transit': return Truck;
+      case 'in_progress': return Truck;
       case 'failed': return XCircle;
       case 'cancelled': return XCircle;
       default: return Clock;
@@ -212,7 +241,7 @@ export default function DeliveriesPage() {
       <DashboardLayout title="Delivery Calendar" subtitle="Manage your delivery schedule">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-800 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading delivery calendar...</p>
           </div>
         </div>
@@ -220,49 +249,40 @@ export default function DeliveriesPage() {
     );
   }
 
+  const statsCards = stats ? [
+    { title: 'Today', value: stats.todayDeliveries.toString(), icon: Truck, tone: 'brand', description: "Deliveries scheduled today" },
+    { title: 'Scheduled', value: stats.scheduledDeliveries.toString(), icon: Clock, tone: 'gold', description: 'Awaiting dispatch' },
+    { title: 'Completed', value: stats.completedDeliveries.toString(), icon: CheckCircle, tone: 'brand', description: 'Delivered this month' },
+    { title: 'Overdue', value: stats.overdueDeliveries.toString(), icon: AlertTriangle, tone: 'danger', description: 'Past scheduled date' },
+    { title: 'Revenue', value: formatCurrency(stats.totalRevenue || 0), icon: DollarSign, tone: 'gold', description: 'From completed deliveries' }
+  ] : [];
+
   return (
     <DashboardLayout title="Delivery Calendar" subtitle="Manage your delivery schedule">
-      {/* Stats Cards - Minimalistic */}
+      {/* Stats Strip */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-5 border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Today</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.todayDeliveries}</p>
-              </div>
-              <Truck className="w-5 h-5 text-blue-600" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-5 border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Scheduled</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.scheduledDeliveries}</p>
-              </div>
-              <Clock className="w-5 h-5 text-orange-600" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-5 border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Completed</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.completedDeliveries}</p>
-              </div>
-              <CheckCircle className="w-5 h-5 text-green-600" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-5 border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Overdue</p>
-                <p className="text-2xl font-bold text-red-600">{stats.overdueDeliveries}</p>
-              </div>
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-            </div>
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
+            {statsCards.map((stat, index) => {
+              const IconComponent = stat.icon;
+              return (
+                <div key={index} className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${
+                      stat.tone === 'danger' ? 'bg-red-100 text-red-600' :
+                      stat.tone === 'gold' ? 'bg-gold-500/15 text-gold-600' : 'bg-brand-100 text-brand-800'
+                    }`}>
+                      <IconComponent className="w-4 h-4" />
+                    </span>
+                    <span className="text-sm text-gray-500">{stat.title}</span>
+                  </div>
+                  <p className={`text-2xl font-bold ${stat.tone === 'danger' ? 'text-red-600' : 'text-gray-900'}`} style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {stat.value}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">{stat.description}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -294,7 +314,7 @@ export default function DeliveriesPage() {
                 </button>
                 <button
                   onClick={() => setCurrentDate(new Date())}
-                  className="px-4 py-2 text-xs font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                  className="px-4 py-2 text-xs font-medium bg-brand-800 text-white rounded-lg hover:bg-brand-900 transition-colors"
                 >
                   Today
                 </button>
@@ -327,9 +347,9 @@ export default function DeliveriesPage() {
                     onClick={() => handleDateSelect(day)}
                     className={`aspect-square p-2 text-sm font-medium rounded-lg transition-all relative flex items-center justify-center ${
                       isSelected
-                        ? 'bg-teal-600 text-white'
+                        ? 'bg-brand-800 text-white'
                         : isTodayDate
-                        ? 'bg-teal-100 text-teal-800 border border-teal-300'
+                        ? 'bg-brand-100 text-brand-900 border border-brand-300'
                         : deliveriesCount > 0
                         ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                         : 'text-gray-600 hover:bg-gray-50'
@@ -339,8 +359,8 @@ export default function DeliveriesPage() {
                     {deliveriesCount > 0 && (
                       <div className={`absolute -top-1 -right-1 w-4 h-4 text-xs font-bold rounded-full flex items-center justify-center ${
                         isSelected 
-                          ? 'bg-white text-teal-600' 
-                          : 'bg-teal-600 text-white'
+                          ? 'bg-white text-brand-800' 
+                          : 'bg-brand-800 text-white'
                       }`}>
                         {deliveriesCount}
                       </div>
@@ -368,7 +388,7 @@ export default function DeliveriesPage() {
                   {deliveries.length} {deliveries.length === 1 ? 'delivery' : 'deliveries'}
                 </p>
               </div>
-              <span className="px-3 py-1.5 bg-teal-100 text-teal-700 text-sm font-bold rounded-lg">
+              <span className="px-3 py-1.5 bg-brand-100 text-brand-900 text-sm font-bold rounded-lg">
                 {deliveries.length}
               </span>
             </div>
@@ -385,13 +405,13 @@ export default function DeliveriesPage() {
                   const StatusIcon = getStatusIcon(delivery.status);
                   return (
                     <div 
-                      key={delivery._id} 
-                      className="border border-gray-100 rounded-xl p-3 hover:border-teal-200 hover:bg-teal-50/30 transition-all cursor-pointer"
+                      key={delivery._id}
+                      className="border border-gray-100 rounded-xl p-3 hover:border-brand-200 hover:bg-brand-50/30 transition-all cursor-pointer"
                       onClick={() => handleViewDetails(delivery)}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <span className={`px-2 py-0.5 text-xs font-semibold rounded-md ${getStatusColor(delivery.status)}`}>
-                          {delivery.status.replace('_', ' ')}
+                          {STATUS_LABELS[delivery.status] || delivery.status}
                         </span>
                         <Eye className="w-4 h-4 text-gray-400" />
                       </div>
@@ -422,6 +442,7 @@ export default function DeliveriesPage() {
         isOpen={isDetailsPanelOpen}
         onClose={closeDetailsPanel}
         delivery={selectedDelivery}
+        onStatusUpdate={updateDeliveryStatus}
       />
 
       <style jsx global>{`

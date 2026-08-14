@@ -217,8 +217,8 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-teal-100 rounded-xl">
-              <Truck className="w-6 h-6 text-teal-600" />
+            <div className="p-2 bg-brand-100 rounded-xl">
+              <Truck className="w-6 h-6 text-brand-800" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Schedule Delivery</h2>
@@ -289,7 +289,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
                     name="customerName"
                     value={formData.customerName}
                     onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.customerName ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -307,7 +307,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
                     name="customerPhone"
                     value={formData.customerPhone}
                     onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.customerPhone ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -325,7 +325,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
                     name="customerEmail"
                     value={formData.customerEmail}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
               </div>
@@ -344,7 +344,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
                     value={formData.address.fullAddress}
                     onChange={handleChange}
                     rows={2}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors['address.fullAddress'] ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="Enter complete delivery address"
@@ -363,7 +363,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
                     name="address.city"
                     value={formData.address.city}
                     onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors['address.city'] ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -381,7 +381,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
                     name="address.state"
                     value={formData.address.state}
                     onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors['address.state'] ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -406,7 +406,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
                     value={formData.scheduledDate}
                     onChange={handleChange}
                     min={new Date().toISOString().split('T')[0]}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.scheduledDate ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -468,7 +468,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
                     onChange={handleChange}
                     min="0"
                     step="0.01"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.deliveryFee ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -498,7 +498,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
                     value={formData.notes}
                     onChange={handleChange}
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     placeholder="Special instructions or notes for delivery"
                   />
                 </div>
@@ -547,7 +547,7 @@ export default function DeliveryScheduleModal({ isOpen, onClose, onSubmit, sale 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+              className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
             >
               {isSubmitting ? (
                 <>

@@ -1,26 +1,48 @@
 "use client";
 import React, { useState } from "react";
-import { 
-  X, 
-  MapPin, 
-  Phone, 
-  User, 
-  Package, 
-  Calendar, 
-  Clock, 
-  Truck, 
-  CheckCircle, 
-  AlertTriangle, 
+import {
+  X,
+  MapPin,
+  Phone,
+  User,
+  Package,
+  Calendar,
+  Clock,
+  Truck,
+  CheckCircle,
   XCircle,
-  DollarSign,
   FileText,
   Navigation
 } from "lucide-react";
 
-export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
+// The DB only allows these five status values -- "in_progress" is shown to merchants as "In Transit".
+const STATUS_LABELS = {
+  scheduled: 'Scheduled',
+  in_progress: 'In Transit',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  failed: 'Failed'
+};
+
+export default function DeliveryDetailsPanel({ isOpen, onClose, delivery, onStatusUpdate }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState('');
 
   if (!delivery) return null;
+
+  const handleStatusChange = async (status) => {
+    if (!onStatusUpdate) return;
+    setIsUpdatingStatus(true);
+    setStatusError('');
+    try {
+      await onStatusUpdate(delivery._id, status);
+    } catch (error) {
+      setStatusError(error.message || 'Failed to update status');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -48,7 +70,7 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
     switch (status) {
       case 'delivered': return 'text-green-600 bg-green-100 border-green-200';
       case 'scheduled': return 'text-blue-600 bg-blue-100 border-blue-200';
-      case 'in_transit': return 'text-orange-600 bg-orange-100 border-orange-200';
+      case 'in_progress': return 'text-gold-700 bg-gold-500/15 border-gold-500/30';
       case 'failed': return 'text-red-600 bg-red-100 border-red-200';
       case 'cancelled': return 'text-gray-600 bg-gray-100 border-gray-200';
       default: return 'text-gray-600 bg-gray-100 border-gray-200';
@@ -60,7 +82,7 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
     switch (status) {
       case 'delivered': return CheckCircle;
       case 'scheduled': return Clock;
-      case 'in_transit': return Truck;
+      case 'in_progress': return Truck;
       case 'failed': return XCircle;
       case 'cancelled': return XCircle;
       default: return Clock;
@@ -98,8 +120,8 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-teal-100 rounded-xl">
-                <Truck className="w-5 h-5 text-teal-600" />
+              <div className="p-2 bg-brand-100 rounded-xl">
+                <Truck className="w-5 h-5 text-brand-800" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Delivery Details</h3>
@@ -119,7 +141,7 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
             <div className="flex items-center justify-between mb-4">
               <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg border ${getStatusColor(delivery.status)}`}>
                 <StatusIcon className="w-4 h-4" />
-                <span className="text-sm font-medium capitalize">{delivery.status}</span>
+                <span className="text-sm font-medium">{STATUS_LABELS[delivery.status] || delivery.status}</span>
               </div>
               <div className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(delivery.priority)}`}>
                 {delivery.priority} priority
@@ -145,7 +167,7 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
                 onClick={() => setActiveTab('overview')}
                 className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'overview'
-                    ? 'border-teal-500 text-teal-600 bg-teal-50'
+                    ? 'border-brand-500 text-brand-800 bg-brand-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -155,7 +177,7 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
                 onClick={() => setActiveTab('items')}
                 className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'items'
-                    ? 'border-teal-500 text-teal-600 bg-teal-50'
+                    ? 'border-brand-500 text-brand-800 bg-brand-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -165,7 +187,7 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
                 onClick={() => setActiveTab('history')}
                 className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'history'
-                    ? 'border-teal-500 text-teal-600 bg-teal-50'
+                    ? 'border-brand-500 text-brand-800 bg-brand-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -233,7 +255,7 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
                         const address = encodeURIComponent(delivery.deliveryAddress.fullAddress);
                         window.open(`https://maps.google.com/maps?q=${address}`, '_blank');
                       }}
-                      className="mt-3 flex items-center space-x-2 text-xs text-teal-600 hover:text-teal-700"
+                      className="mt-3 flex items-center space-x-2 text-xs text-brand-800 hover:text-brand-900"
                     >
                       <Navigation className="w-3 h-3" />
                       <span>Open in Google Maps</span>
@@ -378,15 +400,15 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
                         <div key={index} className="flex space-x-3">
                           <div className="flex-shrink-0">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              index === 0 ? 'bg-teal-100' : 'bg-gray-100'
+                              index === 0 ? 'bg-brand-100' : 'bg-gray-100'
                             }`}>
-                              <HistoryIcon className={`w-4 h-4 ${index === 0 ? 'text-teal-600' : 'text-gray-500'}`} />
+                              <HistoryIcon className={`w-4 h-4 ${index === 0 ? 'text-brand-800' : 'text-gray-500'}`} />
                             </div>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <p className="text-sm font-medium text-gray-900 capitalize">
-                                {history.status.replace('_', ' ')}
+                              <p className="text-sm font-medium text-gray-900">
+                                {STATUS_LABELS[history.status] || history.status}
                               </p>
                               <p className="text-xs text-gray-500">
                                 {new Date(history.timestamp).toLocaleDateString('en-GB', {
@@ -399,11 +421,6 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
                             </div>
                             {history.notes && (
                               <p className="text-sm text-gray-600 mt-1">{history.notes}</p>
-                            )}
-                            {history.updatedBy && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Updated by: {history.updatedBy.firstName} {history.updatedBy.lastName}
-                              </p>
                             )}
                           </div>
                         </div>
@@ -421,9 +438,54 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
           </div>
 
           {/* Footer Actions */}
-          <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="p-6 border-t border-gray-200 bg-gray-50 space-y-3">
+            {statusError && (
+              <p className="text-xs text-red-600">{statusError}</p>
+            )}
+
+            {/* Status update -- the delivery's actual next step, contextual to its current state */}
+            {delivery.status === 'scheduled' && (
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => handleStatusChange('in_progress')}
+                  disabled={isUpdatingStatus}
+                  className="flex-1 flex items-center justify-center px-4 py-2 bg-gold-500 text-brand-900 rounded-lg hover:bg-gold-400 disabled:opacity-50 transition-colors text-sm font-medium"
+                >
+                  <Truck className="w-4 h-4 mr-2" />
+                  Mark In Transit
+                </button>
+                <button
+                  onClick={() => handleStatusChange('cancelled')}
+                  disabled={isUpdatingStatus}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {delivery.status === 'in_progress' && (
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => handleStatusChange('delivered')}
+                  disabled={isUpdatingStatus}
+                  className="flex-1 flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Mark Delivered
+                </button>
+                <button
+                  onClick={() => handleStatusChange('failed')}
+                  disabled={isUpdatingStatus}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors text-sm"
+                >
+                  Mark Failed
+                </button>
+              </div>
+            )}
+
             <div className="flex space-x-3">
-              <button 
+              <button
                 onClick={() => {
                   const address = encodeURIComponent(delivery.deliveryAddress.fullAddress);
                   window.open(`https://maps.google.com/maps?q=${address}`, '_blank');
@@ -433,9 +495,9 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery }) {
                 <Navigation className="w-4 h-4 mr-2" />
                 Directions
               </button>
-              <button 
+              <button
                 onClick={() => window.open(`tel:${delivery.customer.phone}`, '_self')}
-                className="flex-1 flex items-center justify-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
+                className="flex-1 flex items-center justify-center px-4 py-2 bg-brand-800 text-white rounded-lg hover:bg-brand-900 transition-colors text-sm"
               >
                 <Phone className="w-4 h-4 mr-2" />
                 Call Customer
