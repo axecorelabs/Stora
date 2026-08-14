@@ -27,6 +27,7 @@
   --color-gold-400: #D8BC85;
   --color-gold-500: #C6A15B;
   --color-gold-600: #AD874A;
+  --color-gold-700: #8A6A36; /* dark enough for text on light gold tints -- mirrors brand-800's role */
 }
 
 @media (prefers-color-scheme: dark) {

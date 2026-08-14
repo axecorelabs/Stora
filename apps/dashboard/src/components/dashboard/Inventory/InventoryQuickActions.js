@@ -30,7 +30,7 @@ export default function InventoryQuickActions({
 
         <button
           onClick={onUpdateStock}
-          className="w-full flex items-center space-x-3 px-4 py-3 text-gold-700 bg-gold-500/10 rounded-xl hover:bg-gold-500/20 transition-colors"
+          className="w-full flex items-center space-x-3 px-4 py-3 text-gold-700 bg-gold-500/15 rounded-xl hover:bg-gold-500/25 transition-colors"
         >
           <RefreshCw className="w-5 h-5" />
           <span className="font-medium">Update Stock</span>

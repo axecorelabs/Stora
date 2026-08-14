@@ -1,13 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, Activity, Clock, User, Package, TrendingUp, TrendingDown, Edit, Image, Trash2 } from "lucide-react";
+import { X, Activity, Clock, Package, TrendingUp, TrendingDown, Edit, Image, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CustomDropdown from "../ui/CustomDropdown";
 
 export default function InventoryActivityPanel({ isOpen, onClose, item }) {
   const { secureApiCall } = useAuth();
   const [activities, setActivities] = useState([]);
-  const [stats, setStats] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all');
 
@@ -107,8 +107,8 @@ export default function InventoryActivityPanel({ isOpen, onClose, item }) {
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-xl">
-                <Activity className="w-5 h-5 text-blue-600" />
+              <div className="p-2 bg-brand-100 rounded-xl">
+                <Activity className="w-5 h-5 text-brand-800" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Activity History</h3>
@@ -124,21 +124,46 @@ export default function InventoryActivityPanel({ isOpen, onClose, item }) {
           </div>
 
           {/* Stats Overview */}
-          {stats.length > 0 && (
+          {stats && stats.totalActivities > 0 && (
             <div className="p-6 bg-gray-50 border-b border-gray-200">
               <h4 className="text-sm font-medium text-gray-700 mb-3">Activity Summary</h4>
               <div className="grid grid-cols-2 gap-3">
-                {stats.slice(0, 4).map((stat) => (
-                  <div key={stat._id} className="bg-white rounded-lg p-3">
-                    <div className="flex items-center space-x-2">
-                      {getActivityIcon(stat._id)}
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{stat.count}</p>
-                        <p className="text-xs text-gray-500 capitalize">{stat._id.replace('_', ' ')}</p>
-                      </div>
+                <div className="bg-white rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <Activity className="w-4 h-4 text-brand-800" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{stats.totalActivities}</p>
+                      <p className="text-xs text-gray-500">Total activities</p>
                     </div>
                   </div>
-                ))}
+                </div>
+                <div className="bg-white rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="w-4 h-4 text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{stats.stockAdded}</p>
+                      <p className="text-xs text-gray-500">Stock added</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <TrendingDown className="w-4 h-4 text-red-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{stats.stockRemoved}</p>
+                      <p className="text-xs text-gray-500">Stock removed</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <Package className="w-4 h-4 text-brand-800" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{stats.sales}</p>
+                      <p className="text-xs text-gray-500">Sales</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -158,7 +183,7 @@ export default function InventoryActivityPanel({ isOpen, onClose, item }) {
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-800"></div>
               </div>
             ) : activities.length === 0 ? (
               <div className="flex items-center justify-center py-12">
@@ -221,12 +246,6 @@ export default function InventoryActivityPanel({ isOpen, onClose, item }) {
                             <Clock className="w-3 h-3" />
                             <span>{formatActivityTime(activity.createdAt)}</span>
                           </div>
-                          {activity.userId && (
-                            <div className="flex items-center space-x-1 text-xs text-gray-500">
-                              <User className="w-3 h-3" />
-                              <span>{activity.userId.firstName} {activity.userId.lastName}</span>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
