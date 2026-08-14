@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import DeliveryDetailsPanel from "@/components/dashboard/DeliveryDetailsPanel";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +34,8 @@ export default function DeliveriesPage() {
   const [monthDeliveries, setMonthDeliveries] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const hasLoadedOnce = useRef(false);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(false);
 
@@ -83,13 +85,25 @@ export default function DeliveriesPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
+      // Only blank out the whole page for the very first load. Every later
+      // date/month change (e.g. clicking a calendar day) just refetches in
+      // the background -- swapping the whole page for a spinner on every
+      // click reads as the page reloading, which it isn't.
+      if (!hasLoadedOnce.current) {
+        setLoading(true);
+      } else {
+        setIsRefetching(true);
+      }
+
       await Promise.all([
         fetchDeliveriesForDate(selectedDate),
         fetchMonthDeliveries(currentDate),
         fetchStats()
       ]);
+
+      hasLoadedOnce.current = true;
       setLoading(false);
+      setIsRefetching(false);
     };
     loadData();
   }, [selectedDate, currentDate]);
@@ -377,12 +391,15 @@ export default function DeliveriesPage() {
           <div className="bg-white rounded-2xl p-6 border border-gray-100 sticky top-6">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
               <div>
-                <h3 className="text-base font-semibold text-gray-900">
+                <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
                   {selectedDate.toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric'
                   })}
+                  {isRefetching && (
+                    <span className="w-3.5 h-3.5 border-2 border-brand-800 border-t-transparent rounded-full animate-spin" />
+                  )}
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {deliveries.length} {deliveries.length === 1 ? 'delivery' : 'deliveries'}
@@ -393,7 +410,7 @@ export default function DeliveriesPage() {
               </span>
             </div>
 
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className={`space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar transition-opacity ${isRefetching ? 'opacity-50' : ''}`}>
               {deliveries.length === 0 ? (
                 <div className="text-center py-12">
                   <Calendar className="w-12 h-12 text-gray-200 mx-auto mb-2" />
