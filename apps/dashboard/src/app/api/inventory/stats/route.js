@@ -2,6 +2,36 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 
+const LIST_LIMIT = 50;
+
+function toLowStockItem(item) {
+  return {
+    id: item.id,
+    _id: item.id,
+    productName: item.name,
+    name: item.name,
+    sku: item.sku,
+    category: item.category,
+    quantityInStock: item.stockQuantity,
+    stockQuantity: item.stockQuantity,
+    minimumStock: item.minimumStock,
+    reorderLevel: item.minimumStock
+  };
+}
+
+function toOutOfStockItem(item) {
+  return {
+    id: item.id,
+    _id: item.id,
+    productName: item.name,
+    name: item.name,
+    sku: item.sku,
+    category: item.category,
+    quantityInStock: item.stockQuantity,
+    stockQuantity: item.stockQuantity
+  };
+}
+
 export async function GET(req) {
   try {
     const user = await verifySession(req);
@@ -12,96 +42,54 @@ export async function GET(req) {
       );
     }
 
-    // Get all inventory items for this user
-    const { data: inventory, error: invError } = await supabaseAdmin
-      .from('inventory')
-      .select('*')
-      .eq('user_id', user.id);
+    // Single round-trip aggregate (totals, category breakdown, low/out-of-
+    // stock lists) instead of fetching the whole inventory table and
+    // reducing/filtering it in JS -- see
+    // apps/dashboard/supabase/migrations/20260814000004_inventory_stats_function.sql
+    const { data, error: statsError } = await supabaseAdmin.rpc('fn_inventory_stats', {
+      p_user_id: user.id,
+      p_list_limit: LIST_LIMIT
+    });
 
-    if (invError) {
-      console.error('Inventory fetch error:', invError);
+    if (statsError) {
+      console.error('Inventory stats error:', statsError);
       return NextResponse.json(
         { success: false, message: 'Failed to fetch inventory' },
         { status: 500 }
       );
     }
 
-    const items = inventory || [];
-
-    // Calculate overview stats
-    const totalItems = items.length;
-    const totalStock = items.reduce((sum, item) => sum + (item.stock_quantity || 0), 0);
-    const totalStockValue = items.reduce((sum, item) => sum + ((item.stock_quantity || 0) * (item.cost || 0)), 0);
-    const totalSellingValue = items.reduce((sum, item) => sum + ((item.stock_quantity || 0) * (item.base_price || 0)), 0);
-    const activeItems = items.filter(item => item.is_active).length;
-
-    // Calculate low stock and out of stock
-    const lowStockItems = items.filter(item => 
-      item.stock_quantity > 0 && 
-      item.stock_quantity <= (item.minimum_stock || 5)
-    ).map(item => ({
-      id: item.id,
-      _id: item.id,
-      productName: item.name,
-      name: item.name,
-      sku: item.sku,
-      category: item.category,
-      quantityInStock: item.stock_quantity,
-      stockQuantity: item.stock_quantity,
-      minimumStock: item.minimum_stock,
-      reorderLevel: item.minimum_stock
-    }));
-
-    const outOfStockItems = items.filter(item => 
-      (item.stock_quantity || 0) <= 0
-    ).map(item => ({
-      id: item.id,
-      _id: item.id,
-      productName: item.name,
-      name: item.name,
-      sku: item.sku,
-      category: item.category,
-      quantityInStock: item.stock_quantity,
-      stockQuantity: item.stock_quantity
-    }));
-
-    // Calculate category stats
-    const categoryMap = {};
-    items.forEach(item => {
-      const cat = item.category || 'Uncategorized';
-      if (!categoryMap[cat]) {
-        categoryMap[cat] = {
-          category: cat,
-          count: 0,
-          totalStock: 0,
-          totalValue: 0
-        };
-      }
-      categoryMap[cat].count += 1;
-      categoryMap[cat].totalStock += item.stock_quantity || 0;
-      categoryMap[cat].totalValue += (item.stock_quantity || 0) * (item.cost || 0);
-    });
-
-    const categoryStats = Object.values(categoryMap);
+    const stats = data?.[0] || {
+      total_items: 0,
+      total_stock_units: 0,
+      total_stock_value: 0,
+      total_selling_value: 0,
+      active_items: 0,
+      low_stock_count: 0,
+      out_of_stock_count: 0,
+      category_stats: [],
+      low_stock_items: [],
+      out_of_stock_items: []
+    };
 
     return NextResponse.json({
       success: true,
       data: {
         overview: {
-          totalItems,
-          totalStock,
-          totalValue: totalStockValue,
-          totalStockValue,
-          totalSellingValue,
-          activeItems,
-          lowStockItems: lowStockItems.length,
-          lowStockCount: lowStockItems.length,
-          outOfStockItems: outOfStockItems.length,
-          outOfStockCount: outOfStockItems.length
+          totalItems: stats.total_items,
+          totalStock: stats.total_stock_units,
+          totalValue: stats.total_stock_value,
+          totalStockValue: stats.total_stock_value,
+          totalSellingValue: stats.total_selling_value,
+          activeItems: stats.active_items,
+          lowStockItems: stats.low_stock_count,
+          lowStockCount: stats.low_stock_count,
+          outOfStockItems: stats.out_of_stock_count,
+          outOfStockCount: stats.out_of_stock_count
         },
-        categories: categoryStats,
-        lowStock: lowStockItems,
-        outOfStock: outOfStockItems
+        categories: stats.category_stats || [],
+        lowStock: (stats.low_stock_items || []).map(toLowStockItem),
+        outOfStock: (stats.out_of_stock_items || []).map(toOutOfStockItem)
       }
     });
 

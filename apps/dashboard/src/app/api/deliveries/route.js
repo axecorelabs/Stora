@@ -81,7 +81,12 @@ export async function GET(req) {
         .lte('scheduled_date', sevenDaysOut.toISOString());
     }
 
-    const { data: deliveries, error } = await query.order('scheduled_date', { ascending: true });
+    // Defensive cap -- a per-vendor, per-day/month/upcoming-week view is
+    // very unlikely to legitimately need more than this without real
+    // pagination UI, which isn't built here.
+    const { data: deliveries, error } = await query
+      .order('scheduled_date', { ascending: true })
+      .limit(500);
 
     if (error) {
       console.error('Delivery fetch error:', error);

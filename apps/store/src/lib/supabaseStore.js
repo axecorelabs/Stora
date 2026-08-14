@@ -244,6 +244,14 @@ export async function updateStoreMetrics(storeId, updates) {
 
 // ============ INVENTORY/PRODUCT OPERATIONS ============
 
+// Defensive cap, not real pagination UI -- a typical Nigerian SME catalog on
+// this platform runs tens to low hundreds of active SKUs. Comfortably above
+// any realistic size while still bounding worst-case payload and the fan-out
+// of the variants/batches IN() queries downstream. If a store ever hits
+// this, the console.warn below surfaces it before it becomes a customer
+// complaint -- real pagination UI would be a separate product decision.
+const STORE_CATALOG_LIMIT = 500;
+
 export async function findInventoryByStoreId(storeId, filters = {}) {
   try {
     let query = supabaseAdmin
@@ -265,7 +273,9 @@ export async function findInventoryByStoreId(storeId, filters = {}) {
       query = query.eq('web_visibility', filters.webVisibility);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(STORE_CATALOG_LIMIT);
 
     if (error) {
       console.error('Error finding inventory:', error);
@@ -273,23 +283,39 @@ export async function findInventoryByStoreId(storeId, filters = {}) {
       throw new Error('Failed to find inventory');
     }
 
-    // Fetch variants for products that have them
-    const productsWithVariants = await Promise.all(
-      (data || []).map(async (item) => {
-        if (item.has_variants) {
-          const { data: variantsData } = await supabaseAdmin
-            .from('inventory_variants')
-            .select('*')
-            .eq('inventory_id', item.id)
-            .eq('is_active', true);
-          
-          if (variantsData && variantsData.length > 0) {
-            item.variantsData = variantsData;
-          }
-        }
-        return item;
-      })
-    );
+    const items = data || [];
+    if (items.length === STORE_CATALOG_LIMIT) {
+      console.warn('Store catalog fetch hit STORE_CATALOG_LIMIT', { storeId });
+    }
+
+    // Fetch variants for every product that has them in one batched query
+    // instead of one query per product.
+    const idsWithVariants = items.filter(item => item.has_variants).map(item => item.id);
+    let variantsByInventoryId = {};
+    if (idsWithVariants.length > 0) {
+      const { data: allVariants, error: variantsError } = await supabaseAdmin
+        .from('inventory_variants')
+        .select('*')
+        .in('inventory_id', idsWithVariants)
+        .eq('is_active', true);
+
+      if (variantsError) {
+        console.error('Error finding inventory variants:', variantsError);
+      } else {
+        variantsByInventoryId = (allVariants || []).reduce((acc, v) => {
+          (acc[v.inventory_id] ||= []).push(v);
+          return acc;
+        }, {});
+      }
+    }
+
+    const productsWithVariants = items.map((item) => {
+      const variantsData = variantsByInventoryId[item.id];
+      if (variantsData && variantsData.length > 0) {
+        item.variantsData = variantsData;
+      }
+      return item;
+    });
 
     // Transform all inventory items to product format
     return productsWithVariants.map(transformInventoryToProduct);
@@ -330,6 +356,52 @@ export async function findInventoryById(inventoryId) {
   return transformInventoryToProduct(data);
 }
 
+// Batched sibling of findInventoryById -- one query for a whole list of
+// product ids instead of one query per id (used by checkout validation,
+// which previously called findInventoryById once per cart item).
+export async function findInventoryByIds(inventoryIds) {
+  if (!inventoryIds || inventoryIds.length === 0) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from('inventory')
+    .select('*')
+    .in('id', inventoryIds);
+
+  if (error) {
+    console.error('Error finding inventory items by ids:', error);
+    throw new Error('Failed to find inventory items');
+  }
+
+  const items = data || [];
+  const idsWithVariants = items.filter(item => item.has_variants).map(item => item.id);
+
+  let variantsByInventoryId = {};
+  if (idsWithVariants.length > 0) {
+    const { data: allVariants, error: variantsError } = await supabaseAdmin
+      .from('inventory_variants')
+      .select('*')
+      .in('inventory_id', idsWithVariants)
+      .eq('is_active', true);
+
+    if (variantsError) {
+      console.error('Error finding inventory variants by ids:', variantsError);
+    } else {
+      variantsByInventoryId = (allVariants || []).reduce((acc, v) => {
+        (acc[v.inventory_id] ||= []).push(v);
+        return acc;
+      }, {});
+    }
+  }
+
+  return items.map((item) => {
+    const variantsData = variantsByInventoryId[item.id];
+    if (variantsData && variantsData.length > 0) {
+      item.variantsData = variantsData;
+    }
+    return transformInventoryToProduct(item);
+  });
+}
+
 // ============ INVENTORY BATCH OPERATIONS ============
 
 export async function findActiveBatchesByInventoryId(inventoryId) {
@@ -346,6 +418,32 @@ export async function findActiveBatchesByInventoryId(inventoryId) {
   }
 
   return data || [];
+}
+
+// Batched sibling of findActiveBatchesByInventoryId -- one query for a whole
+// product list instead of one query per product. Returns batches grouped by
+// inventory_id; each group is still date_received-ascending (FIFO) since
+// Postgres returns the single query's rows in that order and grouping via
+// reduce preserves it.
+export async function findActiveBatchesByInventoryIds(inventoryIds) {
+  if (!inventoryIds || inventoryIds.length === 0) return {};
+
+  const { data, error } = await supabaseAdmin
+    .from('inventory_batches')
+    .select('*')
+    .in('inventory_id', inventoryIds)
+    .eq('status', 'active')
+    .order('date_received', { ascending: true }); // FIFO
+
+  if (error) {
+    console.error('Error finding batches:', error);
+    throw new Error('Failed to find batches');
+  }
+
+  return (data || []).reduce((acc, batch) => {
+    (acc[batch.inventory_id] ||= []).push(batch);
+    return acc;
+  }, {});
 }
 
 export async function calculateBatchQuantities(batches) {
@@ -365,15 +463,25 @@ export async function calculateBatchQuantities(batches) {
 // ============ PRODUCT ENRICHMENT ============
 
 export async function enrichProductsWithBatches(products) {
+  let batchesByProduct = {};
+  try {
+    batchesByProduct = await findActiveBatchesByInventoryIds(products.map(p => p.id));
+  } catch (batchError) {
+    console.error('Error batch-fetching inventory batches:', batchError);
+    // batchesByProduct stays {} -- every product falls through to "return
+    // product as-is" below, same as today's per-item catch behavior.
+  }
+
   const enrichedProducts = await Promise.all(
     products.map(async (product) => {
       try {
-        // Get active batches for this product
-        const batches = await findActiveBatchesByInventoryId(product.id);
-        
+        // Batches for this product, pre-fetched in one query above instead
+        // of one query per product.
+        const batches = batchesByProduct[product.id] || [];
+
         // Calculate actual quantities
         const batchesWithQuantities = await calculateBatchQuantities(batches);
-        
+
         // Filter to only batches with stock
         const activeBatches = batchesWithQuantities.filter(
           batch => batch.actualQuantityRemaining > 0
@@ -389,7 +497,7 @@ export async function enrichProductsWithBatches(products) {
             (sum, batch) => sum + batch.actualQuantityRemaining,
             0
           );
-          
+
           return {
             ...product,
             sellingPrice: currentActiveBatch.selling_price,

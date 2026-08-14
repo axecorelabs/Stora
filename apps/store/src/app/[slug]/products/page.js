@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import ProductsPageClient from '@/components/product/ProductsPageClient';
-import { findStoreBySlug, findInventoryByStoreId } from '@/lib/supabaseStore';
+import { findStoreBySlug, findInventoryByStoreId, enrichProductsWithBatches } from '@/lib/supabaseStore';
 
 // Generate metadata
 export async function generateMetadata({ params }) {
@@ -36,10 +36,15 @@ export default async function ProductsPage({ params }) {
     notFound();
   }
 
-  // Fetch all active products for this store (already returns camelCase)
-  const products = await findInventoryByStoreId(store.id, {
+  // Fetch all active products for this store (already returns camelCase),
+  // then apply the same batch-price/stock enrichment the client-side fetch
+  // (useProducts -> /api/stores/[storeId]/products) already applies -- SSR
+  // and client must render identical data, since useProducts is now seeded
+  // with this SSR result as its initialData (see ProductsPageClient.js).
+  const rawProducts = await findInventoryByStoreId(store.id, {
     webVisibility: true
   });
+  const products = await enrichProductsWithBatches(rawProducts);
 
   const storeData = JSON.parse(JSON.stringify(store));
   const productsData = JSON.parse(JSON.stringify(products));

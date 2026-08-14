@@ -17,8 +17,10 @@ export default function ProductsPageClient({ store, products: initialProducts, s
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Use TanStack Query with initial data from server
-  const { data: products = initialProducts, isLoading, error } = useProducts(store.id);
+  // Use TanStack Query, seeded with the SSR-fetched (already-enriched)
+  // products so this doesn't immediately re-fetch the whole catalog again
+  // on mount -- see useProducts.js.
+  const { data: products = initialProducts, isLoading, error } = useProducts(store.id, initialProducts);
   
   const [isMobile, setIsMobile] = useState(false);
   const [sortBy, setSortBy] = useState("default");
