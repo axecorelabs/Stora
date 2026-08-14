@@ -1,5 +1,4 @@
 import { supabaseAdmin } from './supabase';
-import { findInventoryById, findActiveBatchesByInventoryId, calculateBatchQuantities } from './supabaseStore';
 import { findCustomerById } from './supabaseAuth';
 
 // ============ ORDER HELPER FUNCTIONS ============
@@ -328,7 +327,8 @@ export async function createOrder(orderData) {
     totalAmount,
     customerNotes = '',
     paymentMethod = 'cash_to_vendor',
-    orderSource = 'web'
+    orderSource = 'web',
+    idempotencyKey = null
   } = orderData;
 
   // Generate order number
@@ -353,6 +353,7 @@ export async function createOrder(orderData) {
       fulfillment_status: 'pending',
       customer_notes: customerNotes,
       order_source: orderSource,
+      idempotency_key: idempotencyKey,
       created_at: now,
       updated_at: now
     })
@@ -360,6 +361,21 @@ export async function createOrder(orderData) {
     .single();
 
   if (orderError) {
+    // Unique violation on idempotency_key means a concurrent/retried request
+    // already created this order -- return the winner instead of erroring.
+    if (orderError.code === '23505' && idempotencyKey) {
+      const { data: existing } = await supabaseAdmin
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('idempotency_key', idempotencyKey)
+        .single();
+      if (existing) {
+        // Signal to the caller that this request lost the race and did not
+        // create the returned order -- it must release any stock it already
+        // reserved itself before returning this order to the client.
+        return { ...existing, _wasExistingOrder: true };
+      }
+    }
     console.error('Error creating order:', orderError);
     throw new Error('Failed to create order');
   }
@@ -445,11 +461,14 @@ export async function createOrder(orderData) {
         product_image: item.productSnapshot?.primary_image || item.productSnapshot?.image,
         product_category: item.productSnapshot?.category,
         product_brand: item.productSnapshot?.brand,
-        // Variant fields if present
-        variant_color: item.variant?.color || null,
-        variant_size: item.variant?.size || null,
-        variant_sku: item.variant?.sku || null,
-        variant_image: item.variant?.image || null,
+        // Variant fields -- sourced from the real variant identity the
+        // caller resolved (item.variantId etc.), not a nonexistent
+        // cartItem.variant column (see orders/create/route.js)
+        variant_id: item.variantId || null,
+        variant_color: item.variantColor || null,
+        variant_size: item.variantSize || null,
+        variant_sku: item.variantSku || null,
+        variant_image: item.variantImage || null,
         created_at: now,
         updated_at: now
       };
@@ -616,235 +635,78 @@ export async function updateOrderItemStatus(orderItemId, status) {
   return data;
 }
 
-// ============ STOCK RESERVATION WITH FIFO ============
+// ============ ATOMIC STOCK RESERVATION (via Postgres RPC) ============
+//
+// Every reservation/release/fulfillment mutation goes through
+// fn_reserve_stock / fn_release_stock_reservation / fn_fulfill_stock_reservation
+// (apps/dashboard/supabase/migrations/20260814000001_stock_reservation_functions.sql).
+// Each call is a single locked Postgres transaction -- the batch FIFO walk
+// and the parent inventory/variant row update happen atomically, so
+// concurrent reservations against the same product/variant can't oversell
+// it. Nothing here re-implements FIFO math or reads-then-writes quantities
+// in JS anymore; apps/dashboard/src/lib/batchInventory.js (POS) calls the
+// same functions.
 
-export async function reserveStockFIFO(inventoryId, quantityToReserve, variantData = null) {
-  if (variantData) {
-    // Handle variant stock reservation
-    return await reserveVariantStockFIFO(inventoryId, variantData, quantityToReserve);
+export async function reserveStock(inventoryId, quantity, variantId = null) {
+  const { data, error } = await supabaseAdmin.rpc('fn_reserve_stock', {
+    p_inventory_id: inventoryId,
+    p_variant_id: variantId || null,
+    p_quantity: quantity
+  });
+
+  if (error) {
+    console.error('Error reserving stock:', error);
+    throw new Error('Failed to reserve stock');
   }
 
-  // Get active batches for simple products
-  const batches = await findActiveBatchesByInventoryId(inventoryId);
-  const batchesWithQuantities = await calculateBatchQuantities(batches);
-  const activeBatches = batchesWithQuantities
-    .filter(b => b.actualQuantityRemaining > 0)
-    .sort((a, b) => new Date(a.date_received) - new Date(b.date_received)); // FIFO
-
-  let remaining = quantityToReserve;
-  const batchUpdates = [];
-
-  for (const batch of activeBatches) {
-    if (remaining <= 0) break;
-
-    const quantityFromBatch = Math.min(remaining, batch.actualQuantityRemaining);
-    
-    batchUpdates.push({
-      id: batch.id,
-      quantityReserved: (batch.quantity_reserved || 0) + quantityFromBatch
-    });
-
-    remaining -= quantityFromBatch;
+  const result = data?.[0];
+  if (!result?.success) {
+    throw new Error(`Insufficient stock. Need ${result?.shortfall ?? quantity} more units.`);
   }
 
-  if (remaining > 0) {
-    throw new Error(`Insufficient stock. Need ${remaining} more units.`);
-  }
-
-  // Update batches with reserved quantities
-  for (const update of batchUpdates) {
-    const { error } = await supabaseAdmin
-      .from('inventory_batches')
-      .update({ quantity_reserved: update.quantityReserved })
-      .eq('id', update.id);
-
-    if (error) {
-      console.error('Error updating batch reservation:', error);
-      throw new Error('Failed to update inventory batch reservation');
-    }
-  }
-
-  // Update main inventory reserved quantity (doesn't change quantity_in_stock yet)
-  const product = await findInventoryById(inventoryId);
-
-  const { error: inventoryError } = await supabaseAdmin
-    .from('inventory')
-    .update({ 
-      quantity_reserved: (product.quantityReserved || 0) + quantityToReserve,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', inventoryId);
-
-  if (inventoryError) {
-    console.error('Error updating inventory reservation:', inventoryError);
-    throw new Error('Failed to update inventory reservation');
-  }
-
-  return { success: true, batchesUsed: batchUpdates.length };
+  return { success: true, reservedQuantity: result.reserved_qty, batches: result.batches || [] };
 }
 
-async function reserveVariantStockFIFO(inventoryId, variantData, quantityToReserve) {
-  const { size, color } = variantData;
+export async function releaseStockReservation(inventoryId, quantity, variantId = null) {
+  const { data, error } = await supabaseAdmin.rpc('fn_release_stock_reservation', {
+    p_inventory_id: inventoryId,
+    p_variant_id: variantId || null,
+    p_quantity: quantity
+  });
 
-  // Get the variant record
-  const { data: variants, error: variantError } = await supabaseAdmin
-    .from('inventory_variants')
-    .select('*')
-    .eq('inventory_id', inventoryId)
-    .eq('size', size)
-    .eq('color', color)
-    .single();
-
-  if (variantError || !variants) {
-    throw new Error(`Variant ${color} - ${size} not found`);
+  if (error) {
+    console.error('Error releasing stock reservation:', error);
+    throw new Error('Failed to release stock reservation');
   }
 
-  const variant = variants;
-
-  // Check if variant has enough available stock (accounting for already reserved)
-  const availableStock = (variant.quantity_in_stock || 0) - (variant.reserved_quantity || 0);
-  if (availableStock < quantityToReserve) {
-    throw new Error(`Insufficient variant stock. Only ${availableStock} available.`);
-  }
-
-  // Get batches for this variant (batches can be variant-specific)
-  const { data: variantBatches, error: batchError } = await supabaseAdmin
-    .from('inventory_batches')
-    .select('*')
-    .eq('inventory_id', inventoryId)
-    .eq('status', 'active')
-    .order('date_received', { ascending: true }); // FIFO
-
-  if (batchError) {
-    console.error('Error fetching variant batches:', batchError);
-    throw new Error('Failed to fetch variant batches');
-  }
-
-  let remaining = quantityToReserve;
-  const batchUpdates = [];
-
-  // Process batches in FIFO order
-  for (const batch of variantBatches) {
-    if (remaining <= 0) break;
-
-    const batchAvailable = (batch.quantity_in || 0) - (batch.quantity_sold || 0) - (batch.quantity_reserved || 0);
-    if (batchAvailable <= 0) continue;
-
-    const quantityFromBatch = Math.min(remaining, batchAvailable);
-    
-    batchUpdates.push({
-      id: batch.id,
-      quantityReserved: (batch.quantity_reserved || 0) + quantityFromBatch
-    });
-
-    remaining -= quantityFromBatch;
-  }
-
-  if (remaining > 0) {
-    throw new Error(`Insufficient stock in batches. Need ${remaining} more units.`);
-  }
-
-  // Update batches with reserved quantities
-  for (const update of batchUpdates) {
-    await supabaseAdmin
-      .from('inventory_batches')
-      .update({ quantity_reserved: update.quantityReserved })
-      .eq('id', update.id);
-  }
-
-  // Update variant reserved quantity (doesn't change quantity_in_stock yet)
-  await supabaseAdmin
-    .from('inventory_variants')
-    .update({
-      reserved_quantity: (variant.reserved_quantity || 0) + quantityToReserve,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', variant.id);
-
-  // Update main inventory reserved quantity (sum of all variant reservations)
-  const { data: allVariants } = await supabaseAdmin
-    .from('inventory_variants')
-    .select('reserved_quantity')
-    .eq('inventory_id', inventoryId);
-
-  const totalReservedStock = allVariants?.reduce((sum, v) => sum + (v.reserved_quantity || 0), 0) || 0;
-
-  await supabaseAdmin
-    .from('inventory')
-    .update({ 
-      quantity_reserved: totalReservedStock,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', inventoryId);
-
-  return { success: true, batchesUsed: batchUpdates.length };
+  return { success: true, releasedQuantity: data?.[0]?.released_quantity ?? 0 };
 }
 
-// ============ ORDER TRANSFORMATION ============
+export async function fulfillStockReservation(inventoryId, quantity, variantId = null, userId = null, reason = null, orderId = null) {
+  const { data, error } = await supabaseAdmin.rpc('fn_fulfill_stock_reservation', {
+    p_inventory_id: inventoryId,
+    p_variant_id: variantId || null,
+    p_quantity: quantity,
+    p_user_id: userId,
+    p_reason: reason,
+    p_related_order_id: orderId
+  });
 
-export function transformOrderFields(order) {
-  if (!order) return null;
+  if (error) {
+    console.error('Error fulfilling stock reservation:', error);
+    throw new Error('Failed to fulfill stock reservation');
+  }
 
-  return {
-    id: order.id,
-    orderNumber: order.order_number,
-    customerId: order.customer_id,
-    subtotal: order.subtotal,
-    tax: order.tax,
-    shippingFee: order.shipping_fee,
-    discount: order.discount,
-    couponDiscount: order.coupon_discount,
-    totalAmount: order.total_amount,
-    status: order.status,
-    fulfillmentStatus: order.fulfillment_status,
-    customerNotes: order.customer_notes,
-    adminNotes: order.admin_notes,
-    orderSource: order.order_source,
-    referralSource: order.referral_source,
-    couponCode: order.coupon_code,
-    shippingAddress: order.shipping_address,
-    paymentMethod: order.payment_method,
-    paymentStatus: order.payment_status,
-    confirmedAt: order.confirmed_at,
-    shippedAt: order.shipped_at,
-    deliveredAt: order.delivered_at,
-    cancelledAt: order.cancelled_at,
-    createdAt: order.created_at,
-    updatedAt: order.updated_at,
-    items: order.order_items?.map(transformOrderItemFields) || []
-  };
+  return { success: true, fulfilledQuantity: data?.[0]?.fulfilled_quantity ?? 0 };
 }
-
-export function transformOrderItemFields(item) {
-  if (!item) return null;
-
-  return {
-    id: item.id,
-    orderId: item.order_id,
-    inventoryId: item.inventory_id,
-    storeId: item.store_id,
-    quantity: item.quantity,
-    price: item.price,
-    subtotal: item.subtotal,
-    productSnapshot: item.product_snapshot,
-    storeSnapshot: item.store_snapshot,
-    variant: item.variant,
-    itemStatus: item.item_status,
-    batchId: item.batch_id,
-    batchCode: item.batch_code,
-    createdAt: item.created_at,
-    updatedAt: item.updated_at
-  };
-}
-
-// ============ STOCK FULFILLMENT & RELEASE ============
 
 /**
- * Release reserved stock when an order is cancelled
- * Decreases quantity_reserved without affecting quantity_in_stock
+ * Release all reserved stock for every item on a cancelled order.
+ * order_items carries product_id (not inventory_id) and variant_id
+ * (not a nested `variant` object) -- reading the wrong column names here
+ * used to make this silently no-op for every order.
  */
 export async function releaseOrderReservations(orderId) {
-  // Get all order items
   const { data: orderItems, error: itemsError } = await supabaseAdmin
     .from('order_items')
     .select('*')
@@ -857,13 +719,7 @@ export async function releaseOrderReservations(orderId) {
 
   for (const item of orderItems) {
     try {
-      if (item.variant) {
-        // Handle variant stock release
-        await releaseVariantReservation(item.inventory_id, item.variant, item.quantity);
-      } else {
-        // Handle simple product stock release
-        await releaseProductReservation(item.inventory_id, item.quantity);
-      }
+      await releaseStockReservation(item.product_id, item.quantity, item.variant_id);
     } catch (error) {
       console.error(`Error releasing reservation for item ${item.id}:`, error);
       // Continue with other items even if one fails
@@ -874,11 +730,10 @@ export async function releaseOrderReservations(orderId) {
 }
 
 /**
- * Fulfill reserved stock when an order is delivered
- * Decreases quantity_reserved, decreases quantity_in_stock, increases quantity_sold
+ * Fulfill reserved stock for every item on a delivered order (moves
+ * reserved -> sold). Same product_id/variant_id fix as releaseOrderReservations.
  */
 export async function fulfillOrderReservations(orderId) {
-  // Get all order items
   const { data: orderItems, error: itemsError } = await supabaseAdmin
     .from('order_items')
     .select('*')
@@ -891,13 +746,7 @@ export async function fulfillOrderReservations(orderId) {
 
   for (const item of orderItems) {
     try {
-      if (item.variant) {
-        // Handle variant stock fulfillment
-        await fulfillVariantReservation(item.inventory_id, item.variant, item.quantity);
-      } else {
-        // Handle simple product stock fulfillment
-        await fulfillProductReservation(item.inventory_id, item.quantity);
-      }
+      await fulfillStockReservation(item.product_id, item.quantity, item.variant_id, null, 'Order delivered', orderId);
     } catch (error) {
       console.error(`Error fulfilling reservation for item ${item.id}:`, error);
       // Continue with other items even if one fails
@@ -905,178 +754,4 @@ export async function fulfillOrderReservations(orderId) {
   }
 
   return { success: true };
-}
-
-async function releaseProductReservation(inventoryId, quantity) {
-  // Get product current state
-  const product = await findInventoryById(inventoryId);
-  if (!product) {
-    throw new Error('Product not found');
-  }
-
-  // Update inventory: decrease quantity_reserved
-  await supabaseAdmin
-    .from('inventory')
-    .update({
-      quantity_reserved: Math.max(0, (product.quantityReserved || 0) - quantity),
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', inventoryId);
-
-  // Release from batches (FIFO)
-  const batches = await findActiveBatchesByInventoryId(inventoryId);
-  const sortedBatches = batches.sort((a, b) => new Date(a.date_received) - new Date(b.date_received));
-
-  let remaining = quantity;
-  for (const batch of sortedBatches) {
-    if (remaining <= 0) break;
-    if ((batch.quantity_reserved || 0) <= 0) continue;
-
-    const releaseFromBatch = Math.min(remaining, batch.quantity_reserved);
-    
-    await supabaseAdmin
-      .from('inventory_batches')
-      .update({
-        quantity_reserved: (batch.quantity_reserved || 0) - releaseFromBatch
-      })
-      .eq('id', batch.id);
-
-    remaining -= releaseFromBatch;
-  }
-}
-
-async function fulfillProductReservation(inventoryId, quantity) {
-  // Get product current state
-  const product = await findInventoryById(inventoryId);
-  if (!product) {
-    throw new Error('Product not found');
-  }
-
-  // Update inventory: decrease quantity_reserved, decrease quantity_in_stock, increase sold_quantity
-  await supabaseAdmin
-    .from('inventory')
-    .update({
-      quantity_reserved: Math.max(0, (product.quantityReserved || 0) - quantity),
-      quantity_in_stock: Math.max(0, (product.quantityInStock || 0) - quantity),
-      sold_quantity: (product.soldQuantity || 0) + quantity,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', inventoryId);
-
-  // Fulfill from batches (FIFO)
-  const batches = await findActiveBatchesByInventoryId(inventoryId);
-  const sortedBatches = batches.sort((a, b) => new Date(a.date_received) - new Date(b.date_received));
-
-  let remaining = quantity;
-  for (const batch of sortedBatches) {
-    if (remaining <= 0) break;
-    if ((batch.quantity_reserved || 0) <= 0) continue;
-
-    const fulfillFromBatch = Math.min(remaining, batch.quantity_reserved);
-    
-    const newQuantityRemaining = Math.max(0, (batch.quantity_in || 0) - (batch.quantity_sold || 0) - fulfillFromBatch);
-    const newStatus = newQuantityRemaining <= 0 ? 'depleted' : batch.status;
-
-    await supabaseAdmin
-      .from('inventory_batches')
-      .update({
-        quantity_reserved: (batch.quantity_reserved || 0) - fulfillFromBatch,
-        quantity_sold: (batch.quantity_sold || 0) + fulfillFromBatch,
-        quantity_remaining: newQuantityRemaining,
-        status: newStatus
-      })
-      .eq('id', batch.id);
-
-    remaining -= fulfillFromBatch;
-  }
-}
-
-async function releaseVariantReservation(inventoryId, variantData, quantity) {
-  const { size, color } = variantData;
-
-  // Get variant
-  const { data: variant } = await supabaseAdmin
-    .from('inventory_variants')
-    .select('*')
-    .eq('inventory_id', inventoryId)
-    .eq('size', size)
-    .eq('color', color)
-    .single();
-
-  if (!variant) {
-    throw new Error(`Variant ${color} - ${size} not found`);
-  }
-
-  // Update variant: decrease reserved_quantity
-  await supabaseAdmin
-    .from('inventory_variants')
-    .update({
-      reserved_quantity: Math.max(0, (variant.reserved_quantity || 0) - quantity),
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', variant.id);
-
-  // Recalculate total inventory reserved from all variants
-  const { data: allVariants } = await supabaseAdmin
-    .from('inventory_variants')
-    .select('reserved_quantity')
-    .eq('inventory_id', inventoryId);
-
-  const totalReserved = allVariants?.reduce((sum, v) => sum + (v.reserved_quantity || 0), 0) || 0;
-
-  await supabaseAdmin
-    .from('inventory')
-    .update({
-      quantity_reserved: totalReserved,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', inventoryId);
-}
-
-async function fulfillVariantReservation(inventoryId, variantData, quantity) {
-  const { size, color } = variantData;
-
-  // Get variant
-  const { data: variant } = await supabaseAdmin
-    .from('inventory_variants')
-    .select('*')
-    .eq('inventory_id', inventoryId)
-    .eq('size', size)
-    .eq('color', color)
-    .single();
-
-  if (!variant) {
-    throw new Error(`Variant ${color} - ${size} not found`);
-  }
-
-  // Update variant: decrease reserved_quantity, decrease quantity_in_stock, increase sold_quantity
-  await supabaseAdmin
-    .from('inventory_variants')
-    .update({
-      reserved_quantity: Math.max(0, (variant.reserved_quantity || 0) - quantity),
-      quantity_in_stock: Math.max(0, (variant.quantity_in_stock || 0) - quantity),
-      sold_quantity: (variant.sold_quantity || 0) + quantity,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', variant.id);
-
-  // Recalculate total inventory metrics from all variants
-  const { data: allVariants } = await supabaseAdmin
-    .from('inventory_variants')
-    .select('reserved_quantity, quantity_in_stock, sold_quantity')
-    .eq('inventory_id', inventoryId);
-
-  const totalReserved = allVariants?.reduce((sum, v) => sum + (v.reserved_quantity || 0), 0) || 0;
-  const totalInStock = allVariants?.reduce((sum, v) => sum + (v.quantity_in_stock || 0), 0) || 0;
-  const totalSold = allVariants?.reduce((sum, v) => sum + (v.sold_quantity || 0), 0) || 0;
-
-  await supabaseAdmin
-    .from('inventory')
-    .update({
-      quantity_reserved: totalReserved,
-      quantity_in_stock: totalInStock,
-      sold_quantity: totalSold,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', inventoryId);
 }

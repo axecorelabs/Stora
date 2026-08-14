@@ -1,12 +1,34 @@
 import crypto from 'crypto';
 import { supabaseAdmin } from './supabase';
 
-// Process one line item against inventory/variant/batch records using FIFO.
-// isOrderProcessing=true means stock was already reserved earlier (at order
-// creation) and this call is *fulfilling* that reservation: skip the
-// available-stock check, release the reservation, and deduct real stock.
-// isOrderProcessing=false is a regular POS sale: check stock, deduct directly
-// (no reservation involved).
+// Resolve a {size, color} pair to the real inventory_variants row. This is
+// identity resolution (which row are we talking about), not a quantity
+// read, so it isn't part of the stock-mutation race and doesn't need to go
+// through the atomic RPCs below.
+async function resolveVariant(inventoryId, variant) {
+  if (!variant || !variant.size || !variant.color) return null;
+
+  const { data } = await supabaseAdmin
+    .from('inventory_variants')
+    .select('id, sku, images')
+    .eq('inventory_id', inventoryId)
+    .eq('size', variant.size)
+    .eq('color', variant.color)
+    .eq('is_active', true)
+    .single();
+
+  return data || null;
+}
+
+// Process one line item against inventory/variant/batch records. All actual
+// quantity mutation happens atomically in Postgres via fn_fulfill_stock_reservation
+// (isOrderProcessing=true: converts a reservation made at checkout into a
+// real sale) or fn_sell_stock_direct (isOrderProcessing=false: a POS sale
+// with no prior reservation) -- see
+// apps/dashboard/supabase/migrations/20260814000001_stock_reservation_functions.sql.
+// This function's job is just to resolve variant identity, call the right
+// RPC, and shape the result into what callers (sale_items rows, receipts,
+// cost/profit reporting) expect -- the same shape it always returned.
 export async function processItemWithBatchTracking(saleItem, userId, isOrderProcessing = false) {
   const { data: inventoryItem, error: invError } = await supabaseAdmin
     .from('inventory')
@@ -18,245 +40,85 @@ export async function processItemWithBatchTracking(saleItem, userId, isOrderProc
     throw new Error(`Inventory item not found: ${saleItem.inventoryId}`);
   }
 
-  let variantInfo = null;
-  let selectedVariant = null;
+  const requestedVariant = saleItem.variant && saleItem.variant.size && saleItem.variant.color ? saleItem.variant : null;
+  const resolvedVariant = await resolveVariant(saleItem.inventoryId, requestedVariant);
 
-  if (saleItem.variant && saleItem.variant.size && saleItem.variant.color) {
-    const { data: variant } = await supabaseAdmin
-      .from('inventory_variants')
-      .select('*')
-      .eq('inventory_id', saleItem.inventoryId)
-      .eq('size', saleItem.variant.size)
-      .eq('color', saleItem.variant.color)
-      .eq('is_active', true)
-      .single();
-
-    if (!variant) {
-      throw new Error(`Variant ${saleItem.variant.color} - ${saleItem.variant.size} not found for ${inventoryItem.name}`);
-    }
-
-    selectedVariant = variant;
-
-    if (!isOrderProcessing && variant.quantity_in_stock < saleItem.quantity) {
-      throw new Error(`Insufficient stock for variant ${saleItem.variant.color} - ${saleItem.variant.size}. Available: ${variant.quantity_in_stock}, Requested: ${saleItem.quantity}`);
-    }
-
-    variantInfo = {
-      hasVariant: true,
-      size: saleItem.variant.size,
-      color: saleItem.variant.color,
-      variantSku: variant.sku,
-      variantId: variant.id,
-      images: variant.images || []
-    };
-  } else {
-    if (!isOrderProcessing && inventoryItem.stock_quantity < saleItem.quantity) {
-      throw new Error(`Insufficient stock for ${inventoryItem.name}. Available: ${inventoryItem.stock_quantity}, Requested: ${saleItem.quantity}`);
-    }
-
-    variantInfo = {
-      hasVariant: false,
-      size: null,
-      color: null,
-      variantSku: null,
-      variantId: null,
-      images: []
-    };
+  if (requestedVariant && !resolvedVariant) {
+    throw new Error(`Variant ${requestedVariant.color} - ${requestedVariant.size} not found for ${inventoryItem.name}`);
   }
 
-  // Get available batches - FIFO order
-  let batchQuery = supabaseAdmin
-    .from('inventory_batches')
-    .select('*')
-    .eq('inventory_id', saleItem.inventoryId)
-    .gt('quantity_remaining', 0)
-    .order('created_at', { ascending: true }); // FIFO
-
-  if (variantInfo.hasVariant) {
-    batchQuery = batchQuery.eq('variant_id', variantInfo.variantId);
-  }
-
-  const { data: availableBatches } = await batchQuery;
-
-  let totalCost = 0;
-  let totalProfit = 0;
-  let batchesUsed = 0;
-  const batchesSoldFrom = [];
-
-  if (availableBatches && availableBatches.length > 0) {
-    let remainingQuantity = saleItem.quantity;
-
-    for (const batch of availableBatches) {
-      if (remainingQuantity <= 0) break;
-
-      const quantityFromThisBatch = Math.min(remainingQuantity, batch.quantity_remaining);
-      const costPriceFromBatch = parseFloat(batch.cost_price || inventoryItem.cost || 0);
-
-      const newQuantitySold = (batch.quantity_sold || 0) + quantityFromThisBatch;
-      const newQuantityRemaining = batch.quantity_remaining - quantityFromThisBatch;
-      const newQuantityReserved = isOrderProcessing
-        ? Math.max(0, (batch.quantity_reserved || 0) - quantityFromThisBatch)
-        : (batch.quantity_reserved || 0);
-
-      let newStatus = batch.status;
-      if (newQuantityRemaining <= 0) {
-        newStatus = 'depleted';
-      } else if (batch.expiry_date && new Date(batch.expiry_date) < new Date()) {
-        newStatus = 'expired';
+  const variantInfo = resolvedVariant
+    ? {
+        hasVariant: true,
+        size: requestedVariant.size,
+        color: requestedVariant.color,
+        variantSku: resolvedVariant.sku,
+        variantId: resolvedVariant.id,
+        images: resolvedVariant.images || []
       }
+    : { hasVariant: false, size: null, color: null, variantSku: null, variantId: null, images: [] };
 
-      const { error: batchUpdateError } = await supabaseAdmin
-        .from('inventory_batches')
-        .update({
-          quantity_sold: newQuantitySold,
-          quantity_remaining: newQuantityRemaining,
-          quantity_reserved: newQuantityReserved,
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', batch.id);
+  const reasonSuffix = variantInfo.hasVariant
+    ? `(${variantInfo.color} - ${variantInfo.size}) via ${isOrderProcessing ? 'order fulfillment' : 'POS'}`
+    : `via ${isOrderProcessing ? 'order fulfillment' : 'POS'}`;
+  const reason = `Sold: ${saleItem.quantity} ${inventoryItem.unit_of_measure || 'unit'} ${reasonSuffix}`;
 
-      if (batchUpdateError) {
-        throw new Error(`Failed to update batch ${batch.batch_code}: ${batchUpdateError.message}`);
-      }
-
-      batchesSoldFrom.push({
-        batchId: batch.id,
-        batchCode: batch.batch_code,
-        quantityFromBatch: quantityFromThisBatch,
-        costPriceFromBatch: costPriceFromBatch,
-        batchVariant: variantInfo.hasVariant ? {
-          size: variantInfo.size,
-          color: variantInfo.color,
-          variantSku: variantInfo.variantSku
-        } : null
+  const { data, error } = isOrderProcessing
+    ? await supabaseAdmin.rpc('fn_fulfill_stock_reservation', {
+        p_inventory_id: saleItem.inventoryId,
+        p_variant_id: variantInfo.variantId,
+        p_quantity: saleItem.quantity,
+        p_user_id: userId,
+        p_reason: reason,
+        p_related_order_id: null
+      })
+    : await supabaseAdmin.rpc('fn_sell_stock_direct', {
+        p_inventory_id: saleItem.inventoryId,
+        p_variant_id: variantInfo.variantId,
+        p_quantity: saleItem.quantity,
+        p_user_id: userId,
+        p_reason: reason,
+        p_related_sale_id: null
       });
 
-      const costFromThisBatch = quantityFromThisBatch * costPriceFromBatch;
-      const profitFromThisBatch = quantityFromThisBatch * (saleItem.unitPrice - costPriceFromBatch);
-
-      totalCost += costFromThisBatch;
-      totalProfit += profitFromThisBatch;
-      batchesUsed++;
-      remainingQuantity -= quantityFromThisBatch;
-    }
-
-    if (remainingQuantity > 0) {
-      const fallbackCostPrice = parseFloat(inventoryItem.cost || 0);
-      const fallbackCost = remainingQuantity * fallbackCostPrice;
-      const fallbackProfit = remainingQuantity * (saleItem.unitPrice - fallbackCostPrice);
-      totalCost += fallbackCost;
-      totalProfit += fallbackProfit;
-      console.warn(`Used fallback pricing for ${remainingQuantity} units of ${inventoryItem.name}`);
-    }
-  } else {
-    const costPrice = parseFloat(inventoryItem.cost || 0);
-    totalCost = saleItem.quantity * costPrice;
-    totalProfit = saleItem.quantity * (saleItem.unitPrice - costPrice);
-    console.warn(`No batches found for ${inventoryItem.name}, using inventory cost price`);
+  if (error) {
+    throw new Error(`Failed to process stock for ${inventoryItem.name}: ${error.message}`);
   }
 
-  // Update inventory quantities
-  let stockUpdateError;
-  let previousStock;
-  let newStockLevel;
-  if (variantInfo.hasVariant && selectedVariant) {
-    const newSoldQuantity = (selectedVariant.sold_quantity || 0) + saleItem.quantity;
-    previousStock = selectedVariant.quantity_in_stock;
-
-    if (isOrderProcessing) {
-      const newReservedQuantity = Math.max(0, (selectedVariant.reserved_quantity || 0) - saleItem.quantity);
-      newStockLevel = selectedVariant.quantity_in_stock - saleItem.quantity;
-
-      ({ error: stockUpdateError } = await supabaseAdmin
-        .from('inventory_variants')
-        .update({
-          quantity_in_stock: newStockLevel,
-          reserved_quantity: newReservedQuantity,
-          sold_quantity: newSoldQuantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedVariant.id));
-    } else {
-      newStockLevel = selectedVariant.quantity_in_stock - saleItem.quantity;
-
-      ({ error: stockUpdateError } = await supabaseAdmin
-        .from('inventory_variants')
-        .update({
-          quantity_in_stock: newStockLevel,
-          sold_quantity: newSoldQuantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedVariant.id));
-    }
-  } else {
-    const newSoldQuantity = (inventoryItem.sold_quantity || 0) + saleItem.quantity;
-    previousStock = inventoryItem.stock_quantity;
-
-    if (isOrderProcessing) {
-      const newReservedQuantity = Math.max(0, (inventoryItem.quantity_reserved || 0) - saleItem.quantity);
-      newStockLevel = inventoryItem.stock_quantity - saleItem.quantity;
-
-      ({ error: stockUpdateError } = await supabaseAdmin
-        .from('inventory')
-        .update({
-          stock_quantity: newStockLevel,
-          quantity_reserved: newReservedQuantity,
-          sold_quantity: newSoldQuantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', inventoryItem.id));
-    } else {
-      newStockLevel = inventoryItem.stock_quantity - saleItem.quantity;
-
-      ({ error: stockUpdateError } = await supabaseAdmin
-        .from('inventory')
-        .update({
-          stock_quantity: newStockLevel,
-          sold_quantity: newSoldQuantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', inventoryItem.id));
-    }
+  const result = data?.[0];
+  if (!result?.success) {
+    throw new Error(`Insufficient stock for ${inventoryItem.name}. Requested: ${saleItem.quantity}`);
   }
 
-  if (stockUpdateError) {
-    throw new Error(`Failed to update stock for ${inventoryItem.name}: ${stockUpdateError.message}`);
-  }
+  const rpcBatches = result.batches || [];
+  let totalCost = 0;
+  let totalProfit = 0;
 
-  // Create inventory activity record (non-fatal if it fails)
-  const { error: activityError } = await supabaseAdmin
-    .from('inventory_activities')
-    .insert({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      inventory_id: saleItem.inventoryId,
-      activity_type: 'stock_removed',
-      quantity_before: previousStock,
-      quantity_changed: saleItem.quantity,
-      quantity_after: newStockLevel,
-      reason: variantInfo.hasVariant
-        ? `Sold: ${saleItem.quantity} ${inventoryItem.unit_of_measure || 'unit'} (${variantInfo.color} - ${variantInfo.size}) via ${isOrderProcessing ? 'order fulfillment' : 'POS'}`
-        : `Sold: ${saleItem.quantity} ${inventoryItem.unit_of_measure || 'unit'} via ${isOrderProcessing ? 'order fulfillment' : 'POS'}`,
-      metadata: {
-        saleType: isOrderProcessing ? 'order' : 'pos',
-        hasVariant: variantInfo.hasVariant,
-        variant: variantInfo.hasVariant ? {
-          size: variantInfo.size,
-          color: variantInfo.color,
-          sku: variantInfo.variantSku
-        } : null,
-        batchesUsed: batchesSoldFrom.map(b => ({
-          batchCode: b.batchCode,
-          quantity: b.quantityFromBatch
-        }))
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
+  const batchesSoldFrom = rpcBatches.map(b => {
+    const costPriceFromBatch = parseFloat(b.cost_price ?? inventoryItem.cost ?? 0);
+    totalCost += b.quantity * costPriceFromBatch;
+    totalProfit += b.quantity * (saleItem.unitPrice - costPriceFromBatch);
+    return {
+      batchId: b.batch_id,
+      batchCode: b.batch_code,
+      quantityFromBatch: b.quantity,
+      costPriceFromBatch,
+      batchVariant: variantInfo.hasVariant
+        ? { size: variantInfo.size, color: variantInfo.color, variantSku: variantInfo.variantSku }
+        : null
+    };
+  });
 
-  if (activityError) {
-    console.error('Inventory activity log error (non-fatal):', activityError);
+  // Batches may under-cover the requested quantity (e.g. a legacy item with
+  // no batch records) -- fall back to the inventory-level cost price for
+  // whatever wasn't traceable to a specific batch, same as before.
+  const coveredQuantity = rpcBatches.reduce((sum, b) => sum + b.quantity, 0);
+  const uncovered = saleItem.quantity - coveredQuantity;
+  if (uncovered > 0) {
+    const fallbackCostPrice = parseFloat(inventoryItem.cost || 0);
+    totalCost += uncovered * fallbackCostPrice;
+    totalProfit += uncovered * (saleItem.unitPrice - fallbackCostPrice);
+    console.warn(`No batch coverage for ${uncovered} units of ${inventoryItem.name}, using inventory cost price`);
   }
 
   const processedItem = {
@@ -267,9 +129,9 @@ export async function processItemWithBatchTracking(saleItem, userId, isOrderProc
     unitPrice: saleItem.unitPrice,
     total: saleItem.total,
     variant: variantInfo,
-    batchesSoldFrom: batchesSoldFrom,
+    batchesSoldFrom,
     costBreakdown: {
-      totalCost: totalCost,
+      totalCost,
       weightedAverageCost: saleItem.quantity > 0 ? totalCost / saleItem.quantity : 0,
       profit: totalProfit
     }
@@ -295,75 +157,29 @@ export async function processItemWithBatchTracking(saleItem, userId, isOrderProc
   return {
     processedItem,
     saleItemData,
-    batchesUsed,
+    batchesUsed: rpcBatches.length,
     totalCost,
     totalProfit
   };
 }
 
 // Release a previously-reserved quantity (e.g. order cancelled before
-// fulfillment) without deducting stock or recording a sale -- FIFO across
-// batches' quantity_reserved, mirroring how the reservation was made.
+// fulfillment) without deducting stock or recording a sale.
 export async function releaseItemReservation(inventoryId, quantity, variant = null) {
-  if (variant && variant.size && variant.color) {
-    const { data: variantRow } = await supabaseAdmin
-      .from('inventory_variants')
-      .select('*')
-      .eq('inventory_id', inventoryId)
-      .eq('size', variant.size)
-      .eq('color', variant.color)
-      .single();
+  let variantId = variant?.variantId || null;
 
-    if (variantRow) {
-      await supabaseAdmin
-        .from('inventory_variants')
-        .update({
-          reserved_quantity: Math.max(0, (variantRow.reserved_quantity || 0) - quantity),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', variantRow.id);
-    }
-  } else {
-    const { data: inventoryItem } = await supabaseAdmin
-      .from('inventory')
-      .select('quantity_reserved')
-      .eq('id', inventoryId)
-      .single();
-
-    if (inventoryItem) {
-      await supabaseAdmin
-        .from('inventory')
-        .update({
-          quantity_reserved: Math.max(0, (inventoryItem.quantity_reserved || 0) - quantity),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', inventoryId);
-    }
+  if (!variantId && variant?.size && variant?.color) {
+    const resolved = await resolveVariant(inventoryId, variant);
+    variantId = resolved?.id || null;
   }
 
-  // Release from batches, FIFO, oldest reservation first
-  const batchFilter = variant?.variantId ? { variant_id: variant.variantId } : {};
-  const { data: batches } = await supabaseAdmin
-    .from('inventory_batches')
-    .select('*')
-    .eq('inventory_id', inventoryId)
-    .match(batchFilter)
-    .gt('quantity_reserved', 0)
-    .order('created_at', { ascending: true });
+  const { error } = await supabaseAdmin.rpc('fn_release_stock_reservation', {
+    p_inventory_id: inventoryId,
+    p_variant_id: variantId,
+    p_quantity: quantity
+  });
 
-  let remaining = quantity;
-  for (const batch of batches || []) {
-    if (remaining <= 0) break;
-    const releaseFromBatch = Math.min(remaining, batch.quantity_reserved);
-
-    await supabaseAdmin
-      .from('inventory_batches')
-      .update({
-        quantity_reserved: (batch.quantity_reserved || 0) - releaseFromBatch,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', batch.id);
-
-    remaining -= releaseFromBatch;
+  if (error) {
+    throw new Error(`Failed to release reservation: ${error.message}`);
   }
 }

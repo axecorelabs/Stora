@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { verifyCustomerSession } from "@/lib/auth";
 import { sendNewOrderNotification } from "@/lib/email";
-import { createOrder, reserveStockFIFO } from "@/lib/supabaseOrders";
+import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supabaseOrders";
 import { getOrCreateCart, clearCart } from "@/lib/supabaseCart";
-import { findInventoryById } from "@/lib/supabaseStore";
+import { findInventoryByIds } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
 
 async function fetchStoreData(storeId) {
@@ -12,12 +12,12 @@ async function fetchStoreData(storeId) {
     .select('*')
     .eq('id', storeId)
     .single();
-  
+
   if (error) {
     console.error('Error fetching store data:', error);
     return null;
   }
-  
+
   console.log('Fetched store data for order:', {
     id: store.id,
     name: store.store_name,
@@ -26,11 +26,38 @@ async function fetchStoreData(storeId) {
     online_store_info: store.online_store_info,
     has_online_info: !!store.online_store_info
   });
-  
+
   return store;
 }
 
+function orderSummary(order) {
+  return {
+    id: order.id,
+    orderNumber: order.order_number,
+    totalAmount: order.total_amount,
+    status: order.status
+  };
+}
+
 export async function POST(request) {
+  // Reservations made so far in this request -- released on any failure past
+  // that point so a partial cart never leaves stock reserved with no order,
+  // or an order with only some of its items actually backed by stock. Once
+  // the order is successfully created, these reservations legitimately
+  // belong to it and must NOT be released just because something later
+  // (email, cart-clearing) throws.
+  let orderCreated = false;
+  const reservations = [];
+  const releaseAll = async () => {
+    for (const r of reservations) {
+      try {
+        await releaseStockReservation(r.inventoryId, r.quantity, r.variantId);
+      } catch (releaseError) {
+        console.error('Error releasing reservation during rollback:', releaseError);
+      }
+    }
+  };
+
   try {
     const customerId = await verifyCustomerSession(request);
     if (!customerId) {
@@ -40,7 +67,8 @@ export async function POST(request) {
       );
     }
 
-    const { cartId, shippingAddress, customerNotes, paymentMethod = 'cash_to_vendor' } = await request.json();
+    const { shippingAddress, customerNotes, paymentMethod = 'cash_to_vendor' } = await request.json();
+    const idempotencyKey = request.headers.get('Idempotency-Key') || null;
 
     // Validate shipping address
     if (!shippingAddress || !shippingAddress.firstName || !shippingAddress.phone || !shippingAddress.city || !shippingAddress.state) {
@@ -48,6 +76,24 @@ export async function POST(request) {
         { success: false, message: "Complete shipping address is required" },
         { status: 400 }
       );
+    }
+
+    // Idempotency short-circuit: a retried/double-clicked request with the
+    // same key returns the order already created for it instead of
+    // re-running reservation/creation (which would double-charge stock).
+    if (idempotencyKey) {
+      const { data: existingOrder } = await supabaseAdmin
+        .from('orders')
+        .select('id, order_number, total_amount, status')
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle();
+      if (existingOrder) {
+        return NextResponse.json({
+          success: true,
+          message: "Order already created",
+          order: orderSummary(existingOrder)
+        });
+      }
     }
 
     // Get cart with items
@@ -60,15 +106,23 @@ export async function POST(request) {
       );
     }
 
-    // Validate stock and prepare order items
-    const orderItems = [];
-    const stockUpdates = [];
+    // Phase 1: validate + atomically reserve stock for every item. Any
+    // failure releases everything reserved so far and returns -- no order
+    // is created until every item has cleared this phase.
+    const orderItemsInput = [];
     const storeDataCache = new Map();
 
+    // One batched lookup for every cart item's product instead of a query
+    // per item -- the loop below reads from this map.
+    const productIds = [...new Set(cart.items.map(item => item.product_id))];
+    const products = await findInventoryByIds(productIds);
+    const productById = new Map(products.map(p => [p.id, p]));
+
     for (const cartItem of cart.items) {
-      const product = await findInventoryById(cartItem.product_id);
-      
+      const product = productById.get(cartItem.product_id);
+
       if (!product) {
+        await releaseAll();
         return NextResponse.json(
           { success: false, message: `Product not found` },
           { status: 404 }
@@ -76,23 +130,33 @@ export async function POST(request) {
       }
 
       if (!product.isActive) {
+        await releaseAll();
         return NextResponse.json(
           { success: false, message: `Product ${product.productName} is not available` },
           { status: 400 }
         );
       }
 
-      // Check stock availability (use availableQuantity which accounts for reservations)
-      const availableStock = product.availableQuantity || 0;
-      if (availableStock < cartItem.quantity) {
+      // The real variant identity lives at product_snapshot.variant (set
+      // when the item was added to cart) -- cart_items has no top-level
+      // `variant`/`batch_id` columns, so reading those directly (as this
+      // route used to) always resolved to null and silently reserved
+      // stock against the parent product instead of the chosen variant.
+      const variant = cartItem.product_snapshot?.variant || null;
+      const variantId = variant?.variant_id || null;
+
+      let reserveResult;
+      try {
+        reserveResult = await reserveStock(cartItem.product_id, cartItem.quantity, variantId);
+      } catch (stockError) {
+        await releaseAll();
         return NextResponse.json(
-          { 
-            success: false, 
-            message: `Insufficient stock for ${product.productName}. Available: ${availableStock}` 
-          },
+          { success: false, message: `Insufficient stock for ${product.productName}: ${stockError.message}` },
           { status: 400 }
         );
       }
+
+      reservations.push({ inventoryId: cartItem.product_id, variantId, quantity: cartItem.quantity });
 
       // Fetch complete store data if not cached
       if (!storeDataCache.has(cartItem.store_id)) {
@@ -100,9 +164,9 @@ export async function POST(request) {
         storeDataCache.set(cartItem.store_id, storeData);
       }
       const completeStoreData = storeDataCache.get(cartItem.store_id);
+      const firstBatch = reserveResult.batches?.[0];
 
-      // Prepare order item with complete store snapshot
-      orderItems.push({
+      orderItemsInput.push({
         productId: cartItem.product_id,
         storeId: cartItem.store_id,
         quantity: cartItem.quantity,
@@ -123,16 +187,14 @@ export async function POST(request) {
           onlineStoreInfo: completeStoreData.online_store_info,
           branding: completeStoreData.branding
         } : cartItem.store_snapshot,
-        variant: cartItem.variant || null,
-        batchId: cartItem.batch_id || null,
-        batchCode: cartItem.batch_code || null
-      });
-
-      // Track stock updates
-      stockUpdates.push({
-        inventoryId: cartItem.product_id,
-        quantityToReserve: cartItem.quantity,
-        variantData: cartItem.variant || null
+        variantId,
+        variantColor: variant?.color || null,
+        variantSize: variant?.size || null,
+        variantSku: variant?.sku || null,
+        variantImage: variant?.image || null,
+        batchId: firstBatch?.batch_id || null,
+        batchCode: firstBatch?.batch_code || null,
+        reservedBatches: reserveResult.batches || []
       });
     }
 
@@ -140,33 +202,69 @@ export async function POST(request) {
     const subtotal = cart.subtotal;
     const totalAmount = cart.total;
 
-    // Create order using Supabase
-    const order = await createOrder({
-      customerId,
-      items: orderItems,
-      shippingAddress,
-      subtotal,
-      tax: cart.tax || 0,
-      shippingFee: cart.shipping || 0,
-      discount: cart.discount || 0,
-      couponDiscount: cart.coupon_discount || 0,
-      totalAmount,
-      customerNotes,
-      paymentMethod,
-      orderSource: 'web'
-    });
-
-    // Reserve stock using FIFO
+    // Phase 2: every item reserved successfully -- create the order.
+    let order;
     try {
-      for (const update of stockUpdates) {
-        await reserveStockFIFO(update.inventoryId, update.quantityToReserve, update.variantData);
-      }
-    } catch (stockError) {
-      console.error("Error reserving stock:", stockError);
+      order = await createOrder({
+        customerId,
+        items: orderItemsInput,
+        shippingAddress,
+        subtotal,
+        tax: cart.tax || 0,
+        shippingFee: cart.shipping || 0,
+        discount: cart.discount || 0,
+        couponDiscount: cart.coupon_discount || 0,
+        totalAmount,
+        customerNotes,
+        paymentMethod,
+        orderSource: 'web',
+        idempotencyKey
+      });
+    } catch (createError) {
+      await releaseAll();
+      console.error("Error creating order:", createError);
       return NextResponse.json(
-        { success: false, message: `Stock reservation failed: ${stockError.message}` },
+        { success: false, message: "Failed to create order" },
         { status: 500 }
       );
+    }
+
+    // Lost an idempotency race: a concurrent request with the same key won
+    // and already created the order. Our reservations are redundant.
+    if (order._wasExistingOrder) {
+      await releaseAll();
+      return NextResponse.json({
+        success: true,
+        message: "Order already created",
+        order: orderSummary(order)
+      });
+    }
+
+    // The order now legitimately owns these reservations -- from here on,
+    // failures must not release them (the outer catch checks this flag).
+    orderCreated = true;
+
+    // Record which batch(es) actually backed each order line, so
+    // release/fulfillment later can target them precisely instead of
+    // re-walking FIFO from scratch.
+    try {
+      const batchRows = [];
+      order.order_items.forEach((insertedItem, idx) => {
+        for (const b of orderItemsInput[idx].reservedBatches) {
+          batchRows.push({
+            order_item_id: insertedItem.id,
+            batch_id: b.batch_id,
+            batch_code: b.batch_code,
+            quantity_reserved: b.quantity
+          });
+        }
+      });
+      if (batchRows.length > 0) {
+        const { error: batchLogError } = await supabaseAdmin.from('order_item_batches').insert(batchRows);
+        if (batchLogError) console.error('Error recording order_item_batches:', batchLogError);
+      }
+    } catch (batchLogError) {
+      console.error('Error recording order_item_batches (non-fatal):', batchLogError);
     }
 
     // Clear cart
@@ -190,7 +288,7 @@ export async function POST(request) {
 
       // Group items by store
       const storeGroupedItems = {};
-      
+
       for (const item of order.order_items) {
         const storeId = item.store_id;
         if (!storeGroupedItems[storeId]) {
@@ -204,10 +302,52 @@ export async function POST(request) {
         storeGroupedItems[storeId].total += parseFloat(item.subtotal);
       }
 
+      // Create an in-app notification for each store owner -- this is what
+      // the dashboard's Realtime SSE relay (apps/dashboard/src/app/api/notifications/stream/route.js)
+      // picks up live. Isolated in its own try/catch so a failure here never
+      // blocks the email loop below (or order creation, per the outer catch).
+      try {
+        const storeIds = Object.keys(storeGroupedItems);
+        const { data: storeOwners } = await supabaseAdmin
+          .from('stores')
+          .select('id, owner_id')
+          .in('id', storeIds);
+        const ownerByStoreId = new Map((storeOwners || []).map(s => [s.id, s.owner_id]));
+
+        const notificationRows = [];
+        for (const [storeId, storeData] of Object.entries(storeGroupedItems)) {
+          const ownerId = ownerByStoreId.get(storeId);
+          if (!ownerId) continue;
+
+          const itemCount = storeData.items.reduce((sum, item) => sum + item.quantity, 0);
+          notificationRows.push({
+            user_id: ownerId,
+            title: 'New order received',
+            message: `Order ${order.order_number} - ${itemCount} item${itemCount === 1 ? '' : 's'}, ₦${Number(storeData.total).toLocaleString('en-NG')}`,
+            type: 'order',
+            related_entity_type: 'order',
+            related_entity_id: order.id,
+            data: {
+              orderId: order.id,
+              orderNumber: order.order_number,
+              storeTotal: storeData.total,
+              itemCount
+            }
+          });
+        }
+
+        if (notificationRows.length > 0) {
+          const { error: notifyError } = await supabaseAdmin.from('notifications').insert(notificationRows);
+          if (notifyError) console.error('Error inserting order notifications:', notifyError);
+        }
+      } catch (notifyError) {
+        console.error('Error creating order notifications (non-fatal):', notifyError);
+      }
+
       // Send email to each store
       for (const [storeId, storeData] of Object.entries(storeGroupedItems)) {
         const storeEmail = storeData.store?.store_email;
-        
+
         if (storeEmail) {
           const emailData = {
             _id: order.id,
@@ -229,7 +369,7 @@ export async function POST(request) {
             storeData.store.store_name,
             emailData
           );
-          
+
           console.log(`Order notification email sent to ${storeData.store.store_name} (${storeEmail})`);
         }
       }
@@ -240,15 +380,16 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       message: "Order created successfully",
-      order: {
-        id: order.id,
-        orderNumber: order.order_number,
-        totalAmount: order.total_amount,
-        status: order.status
-      }
+      order: orderSummary(order)
     });
 
   } catch (error) {
+    // Only release reservations if the order itself was never created --
+    // once it exists, these reservations legitimately belong to it, and a
+    // later failure (email, cart-clearing) must not undo them.
+    if (!orderCreated) {
+      await releaseAll();
+    }
     console.error("Error creating order:", error);
     return NextResponse.json(
       { success: false, message: "Failed to create order", error: error.message },
