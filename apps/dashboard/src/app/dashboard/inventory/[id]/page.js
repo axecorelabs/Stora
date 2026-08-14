@@ -26,10 +26,8 @@ export default function InventoryDetailPage() {
   const router = useRouter();
   const { secureApiCall } = useAuth();
   const [item, setItem] = useState(null);
-  const [itemSalesData, setItemSalesData] = useState(null);
   const [activeBatches, setActiveBatches] = useState([]);
   const [allBatches, setAllBatches] = useState([]);
-  const [batchSalesData, setBatchSalesData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -74,42 +72,12 @@ export default function InventoryDetailPage() {
     }
   };
 
-  // Fetch batch-based sales analytics
-  const fetchBatchSalesData = async () => {
-    try {
-      const response = await secureApiCall(`/api/inventory/${id}/batch-sales-analytics`);
-      if (response.success) {
-        setBatchSalesData(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching batch sales data:', error);
-    }
-  };
-
-  // Fetch item sales analytics
-  const fetchItemSalesData = async () => {
-    try {
-      const response = await secureApiCall(`/api/inventory/${id}/sales-analytics`);
-      if (response.success) {
-        setItemSalesData(response.data);
-      } else {
-        console.log('Sales analytics not available:', response.message);
-        setItemSalesData(null);
-      }
-    } catch (error) {
-      console.error('Error fetching item sales data:', error);
-      setItemSalesData(null);
-    }
-  };
-
   useEffect(() => {
     if (id) {
       const loadData = async () => {
         await Promise.all([
-          fetchItemDetails(), 
-          fetchItemSalesData(),
-          fetchItemBatches(),
-          fetchBatchSalesData()
+          fetchItemDetails(),
+          fetchItemBatches()
         ]);
         setLoading(false);
       };
@@ -263,13 +231,15 @@ export default function InventoryDetailPage() {
     }
   };
 
-  // Get current active batch (most recent active batch or latest batch)
+  // Get current active batch (FIFO: oldest active batch with stock remaining --
+  // that's the batch the system actually sells from and prices against next,
+  // matching /api/inventory's own "First In, First Out" methodology)
   const getCurrentBatch = () => {
     if (activeBatches.length > 0) {
-      return activeBatches.sort((a, b) => new Date(b.dateReceived) - new Date(a.dateReceived))[0];
+      return activeBatches.sort((a, b) => new Date(a.dateReceived) - new Date(b.dateReceived))[0];
     }
     if (allBatches.length > 0) {
-      return allBatches.sort((a, b) => new Date(b.dateReceived) - new Date(a.dateReceived))[0];
+      return allBatches.sort((a, b) => new Date(a.dateReceived) - new Date(b.dateReceived))[0];
     }
     return null;
   };
@@ -306,121 +276,6 @@ export default function InventoryDetailPage() {
     };
   };
 
-  // Enhanced calculations using batch data
-  const getEnhancedBatchMetrics = () => {
-    console.log('Debug - All batches data:', allBatches); // Debug log
-    
-    // Always use batch data for calculations, regardless of sales records
-    const totalSold = allBatches.reduce((sum, batch) => {
-      const sold = Number(batch.quantitySold) || 0;
-      console.log(`Batch ${batch.batchCode}: quantitySold = ${sold}`); // Debug log
-      return sum + sold;
-    }, 0);
-    
-    const totalStocked = allBatches.reduce((sum, batch) => sum + (Number(batch.quantityIn) || 0), 0);
-    const pricing = getBatchBasedPricing();
-    
-    // Calculate revenue and profit from batches
-    const totalRevenue = allBatches.reduce((sum, batch) => {
-      const sold = Number(batch.quantitySold) || 0;
-      const price = Number(batch.sellingPrice) || 0;
-      return sum + (sold * price);
-    }, 0);
-    
-    const totalProfit = allBatches.reduce((sum, batch) => {
-      const sold = Number(batch.quantitySold) || 0;
-      const profit = (Number(batch.sellingPrice) || 0) - (Number(batch.costPrice) || 0);
-      return sum + (sold * profit);
-    }, 0);
-    
-    const totalInvestment = allBatches.reduce((sum, batch) => {
-      const stocked = Number(batch.quantityIn) || 0;
-      const cost = Number(batch.costPrice) || 0;
-      return sum + (stocked * cost);
-    }, 0);
-
-    console.log('Debug - Calculated totals:', { totalSold, totalRevenue, totalProfit }); // Debug log
-
-    // Check if we have sales data from the API
-    const hasSalesData = batchSalesData && batchSalesData.length > 0;
-    
-    if (hasSalesData) {
-      console.log('Debug - Using API sales data:', batchSalesData); // Debug log
-      
-      // Use actual sales data if available
-      const apiTotalRevenue = batchSalesData.reduce((sum, sale) => sum + (Number(sale.totalRevenue) || 0), 0);
-      const apiTotalProfit = batchSalesData.reduce((sum, sale) => sum + (Number(sale.totalProfit) || 0), 0);
-      const apiTotalSales = batchSalesData.reduce((sum, sale) => sum + (Number(sale.totalQuantitySold) || 0), 0);
-      const salesCount = batchSalesData.reduce((sum, sale) => sum + (Number(sale.salesCount) || 0), 0);
-      
-      // Get most recent sale date
-      const lastSaleDate = batchSalesData.reduce((latest, sale) => {
-        if (!sale.lastSaleDate) return latest;
-        return !latest || new Date(sale.lastSaleDate) > new Date(latest) ? sale.lastSaleDate : latest;
-      }, null);
-
-      // Use API data if it's greater than batch calculation (more accurate)
-      const finalRevenue = Math.max(apiTotalRevenue, totalRevenue);
-      const finalProfit = Math.max(apiTotalProfit, totalProfit);
-      const finalSales = Math.max(apiTotalSales, totalSold);
-
-      return {
-        totalRevenue: finalRevenue,
-        totalProfit: finalProfit,
-        totalInvestment,
-        averageSellingPrice: finalSales > 0 ? finalRevenue / finalSales : pricing.averageSellingPrice,
-        totalSales: finalSales,
-        turnoverRate: totalStocked > 0 ? (finalSales / totalStocked) * 100 : 0,
-        salesCount,
-        lastSaleDate,
-        batchBreakdown: batchSalesData.map(sale => ({
-          batchCode: sale.batchCode || 'Unknown',
-          quantityIn: Number(sale.quantityIn) || 0,
-          quantitySold: Number(sale.totalQuantitySold) || Number(sale.quantitySold) || 0,
-          revenue: Number(sale.totalRevenue) || (Number(sale.quantitySold) * Number(sale.sellingPrice)) || 0,
-          profit: Number(sale.totalProfit) || (Number(sale.quantitySold) * (Number(sale.sellingPrice) - Number(sale.costPrice))) || 0,
-          status: sale.status || 'unknown'
-        }))
-      };
-    } else {
-      console.log('Debug - Using fallback batch calculations'); // Debug log
-      
-      // Fallback to batch calculations when no sales API data
-      // Create breakdown directly from allBatches data
-      const batchBreakdown = allBatches.map(batch => {
-        const sold = Number(batch.quantitySold) || 0;
-        const quantityIn = Number(batch.quantityIn) || 0;
-        const sellingPrice = Number(batch.sellingPrice) || 0;
-        const costPrice = Number(batch.costPrice) || 0;
-        const revenue = sold * sellingPrice;
-        const profit = sold * (sellingPrice - costPrice);
-        
-        console.log(`Debug - Batch ${batch.batchCode}: sold=${sold}, quantityIn=${quantityIn}, revenue=${revenue}`); // Debug log
-        
-        return {
-          batchCode: batch.batchCode || 'Unknown',
-          quantityIn: quantityIn,
-          quantitySold: sold,
-          revenue: revenue,
-          profit: profit,
-          status: batch.status || 'unknown'
-        };
-      });
-      
-      return {
-        totalRevenue,
-        totalProfit,
-        totalInvestment,
-        averageSellingPrice: pricing.averageSellingPrice,
-        totalSales: totalSold,
-        turnoverRate: totalStocked > 0 ? (totalSold / totalStocked) * 100 : 0,
-        salesCount: 0,
-        lastSaleDate: null,
-        batchBreakdown: batchBreakdown
-      };
-    }
-  };
-
   if (loading) {
     return (
       <DashboardLayout title="Loading..." subtitle="Please wait">
@@ -455,7 +310,6 @@ export default function InventoryDetailPage() {
   }
 
   const batchPricing = getBatchBasedPricing();
-  const enhancedMetrics = getEnhancedBatchMetrics();
   const currentBatch = getCurrentBatch();
 
   return (
