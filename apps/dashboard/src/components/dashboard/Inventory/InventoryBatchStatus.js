@@ -57,9 +57,9 @@ export default function InventoryBatchStatus({
       ) : (
         <div className="text-center py-4">
           <p className="text-gray-500 text-sm">No active batches</p>
-          <button 
+          <button
             onClick={onAddBatch}
-            className="mt-2 text-teal-600 text-sm hover:text-teal-700"
+            className="mt-2 text-brand-800 text-sm hover:text-brand-900"
           >
             Add New Batch
           </button>
@@ -79,7 +79,7 @@ export default function InventoryBatchStatus({
           <span>Last Updated</span>
           <div className="flex items-center">
             <Calendar className="w-4 h-4 mr-1" />
-            {new Date(item.lastUpdated).toLocaleDateString()}
+            {new Date(item.updatedAt).toLocaleDateString()}
           </div>
         </div>
       </div>

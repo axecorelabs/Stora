@@ -780,8 +780,8 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-teal-100 rounded-xl">
-              <Package className="w-6 h-6 text-teal-600" />
+            <div className="p-2 bg-brand-100 rounded-xl">
+              <Package className="w-6 h-6 text-brand-800" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Edit Product</h2>
@@ -808,7 +808,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center space-x-2 px-6 py-3 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
                     activeTab === tab.id
-                      ? 'border-teal-600 text-teal-600 bg-white'
+                      ? 'border-brand-800 text-brand-800 bg-white'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                   }`}
                 >
@@ -847,7 +847,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                     value={formData.productName}
                     onChange={handleChange}
                     placeholder="e.g., Red T-Shirt"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.productName ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -874,7 +874,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                     value={formData.brand}
                     onChange={handleChange}
                     placeholder="e.g., Nike"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
 
@@ -886,7 +886,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                     onChange={handleChange}
                     rows={3}
                     placeholder="Describe your product"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
               </div>
@@ -968,7 +968,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                     placeholder="0"
                     disabled={detectedColorVariants.length >= 2}
                     readOnly={detectedColorVariants.length >= 2}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.quantityInStock ? 'border-red-300' : 'border-gray-300'
                     } ${detectedColorVariants.length >= 2 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   />
@@ -994,7 +994,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                     min="0"
                     step="1"
                     placeholder="5"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.reorderLevel ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -1089,7 +1089,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                     min="0"
                     step="0.01"
                     placeholder="0.00"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.costPrice ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -1108,7 +1108,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                     min="0"
                     step="0.01"
                     placeholder="0.00"
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.sellingPrice ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -1169,7 +1169,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                       onClick={() => toggleTag(tag.value)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                         formData.tags.includes(tag.value)
-                          ? 'bg-teal-600 text-white'
+                          ? 'bg-brand-800 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >
@@ -1195,7 +1195,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                       value={formData.supplier}
                       onChange={handleChange}
                       placeholder="e.g., ABC Distributors"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     />
                   </div>
 
@@ -1209,7 +1209,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                       value={formData.location}
                       onChange={handleChange}
                       placeholder="e.g., Main Store"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     />
                   </div>
 
@@ -1223,7 +1223,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                       onChange={handleChange}
                       rows={3}
                       placeholder="Additional notes about this product"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     />
                   </div>
                 </div>
@@ -1246,7 +1246,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
               type="submit"
               form="edit-inventory-form"
               disabled={isSubmitting || isUploadingImage}
-              className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+              className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
             >
               {isSubmitting ? 'Updating...' : 'Update Product'}
             </button>

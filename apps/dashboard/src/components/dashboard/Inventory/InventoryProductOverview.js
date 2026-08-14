@@ -1,13 +1,14 @@
 "use client";
 import { Edit, Delete, Package } from "lucide-react";
 
-export default function InventoryProductOverview({ 
-  item, 
-  currentBatch, 
-  activeBatches, 
-  allBatches, 
-  batchPricing, 
-  onEdit 
+export default function InventoryProductOverview({
+  item,
+  currentBatch,
+  activeBatches,
+  allBatches,
+  batchPricing,
+  onEdit,
+  onDelete
 }) {
   const getStatusColor = (item) => {
     if (!item) return 'bg-gray-100 text-gray-800';
@@ -23,21 +24,26 @@ export default function InventoryProductOverview({
     return 'In Stock';
   };
 
+  const hasImage = item.image || (item.images && item.images.length > 0);
+
   return (
     <div className="bg-white rounded-2xl p-6 border border-gray-100">
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-start space-x-4">
-          {item.image ? (
+          {hasImage ? (
             <img
-              src={item.image}
+              src={item.image || item.images[0].url}
               alt={item.productName}
               className="w-20 h-20 object-cover rounded-xl border border-gray-200"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'flex';
+              }}
             />
-          ) : (
-            <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center">
-              <Package className="w-8 h-8 text-gray-400" />
-            </div>
-          )}
+          ) : null}
+          <div className={`w-20 h-20 bg-gradient-to-br from-brand-50 to-brand-100 rounded-xl items-center justify-center ${hasImage ? 'hidden' : 'flex'}`}>
+            <Package className="w-8 h-8 text-brand-800" />
+          </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">{item.productName}</h1>
             <div className="flex items-center space-x-4 text-sm text-gray-500">
@@ -78,7 +84,10 @@ export default function InventoryProductOverview({
           >
             <Edit className="w-5 h-5" />
           </button>
-          <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+          <button
+            onClick={onDelete}
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+          >
             <Delete className="w-5 h-5" />
           </button>
         </div>
@@ -94,30 +103,30 @@ export default function InventoryProductOverview({
       {/* Enhanced Key Metrics using batch data */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="text-center p-4 bg-gray-50 rounded-xl">
-          <div className="text-2xl font-bold text-gray-900">{item.quantityInStock}</div>
+          <div className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>{item.quantityInStock}</div>
           <div className="text-xs text-gray-500 mt-1">Current Stock</div>
           {activeBatches.length > 0 && (
-            <div className="text-xs text-blue-600 mt-1">
+            <div className="text-xs text-brand-800 mt-1">
               {activeBatches.length} active batch{activeBatches.length !== 1 ? 'es' : ''}
             </div>
           )}
         </div>
         <div className="text-center p-4 bg-gray-50 rounded-xl">
-          <div className="text-2xl font-bold text-purple-600">
+          <div className="text-2xl font-bold text-brand-800" style={{ fontVariantNumeric: "tabular-nums" }}>
             {allBatches.reduce((sum, batch) => sum + batch.quantityIn, 0)}
           </div>
           <div className="text-xs text-gray-500 mt-1">Total Stocked</div>
           <div className="text-xs text-gray-600 mt-1">{allBatches.length} total batches</div>
         </div>
         <div className="text-center p-4 bg-gray-50 rounded-xl">
-          <div className="text-2xl font-bold text-blue-600">
+          <div className="text-2xl font-bold text-gold-600" style={{ fontVariantNumeric: "tabular-nums" }}>
             {allBatches.reduce((sum, batch) => sum + batch.quantitySold, 0)}
           </div>
           <div className="text-xs text-gray-500 mt-1">Total Sold</div>
           <div className="text-xs text-gray-600 mt-1">Across all batches</div>
         </div>
         <div className="text-center p-4 bg-gray-50 rounded-xl">
-          <div className="text-2xl font-bold text-green-600">{batchPricing.profitMargin}%</div>
+          <div className="text-2xl font-bold text-green-600" style={{ fontVariantNumeric: "tabular-nums" }}>{batchPricing.profitMargin}%</div>
           <div className="text-xs text-gray-500 mt-1">Current Margin</div>
           {currentBatch && (
             <div className="text-xs text-gray-600 mt-1">Batch {currentBatch.batchCode.split('-')[2]}</div>
@@ -127,8 +136,8 @@ export default function InventoryProductOverview({
 
       {/* Batch Status Overview */}
       {allBatches.length > 0 && (
-        <div className="mt-6 p-4 bg-blue-50 rounded-xl">
-          <h4 className="text-sm font-medium text-blue-900 mb-3">Batch Overview</h4>
+        <div className="mt-6 p-4 bg-brand-50 rounded-xl">
+          <h4 className="text-sm font-medium text-brand-900 mb-3">Batch Overview</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div className="text-center">
               <div className="text-lg font-bold text-green-600">
