@@ -16,7 +16,7 @@ import {
 
 export default function SettingsPage() {
   const { user, secureApiCall } = useAuth();
-  const [activeTab, setActiveTab] = useState('security');
+  const [activeTab, setActiveTab] = useState('account');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -173,7 +173,7 @@ export default function SettingsPage() {
             onClick={() => setActiveTab('account')}
             className={`px-6 py-4 text-sm font-medium transition-colors ${
               activeTab === 'account'
-                ? 'text-teal-600 border-b-2 border-teal-600'
+                ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -184,7 +184,7 @@ export default function SettingsPage() {
             onClick={() => setActiveTab('security')}
             className={`px-6 py-4 text-sm font-medium transition-colors ${
               activeTab === 'security'
-                ? 'text-teal-600 border-b-2 border-teal-600'
+                ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -241,7 +241,7 @@ export default function SettingsPage() {
 
                 <div className="pt-4 border-t border-gray-200">
                   <p className="text-sm text-gray-500 mb-4">
-                    To update your account information, please contact support at <a href="mailto:support@app.stora.com.ng" className="text-teal-600 hover:text-teal-700">support@app.stora.com.ng</a>
+                    To update your account information, please contact support at <a href="mailto:support@app.stora.com.ng" className="text-brand-800 hover:text-brand-900">support@app.stora.com.ng</a>
                   </p>
                 </div>
               </div>
@@ -314,7 +314,7 @@ export default function SettingsPage() {
                       name="currentPassword"
                       value={passwordData.currentPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent pr-12 text-gray-900 ${
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent pr-12 text-gray-900 ${
                         passwordErrors.currentPassword ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="Enter your current password"
@@ -343,7 +343,7 @@ export default function SettingsPage() {
                       name="newPassword"
                       value={passwordData.newPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent pr-12 text-gray-900 ${
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent pr-12 text-gray-900 ${
                         passwordErrors.newPassword ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="Enter your new password"
@@ -395,7 +395,7 @@ export default function SettingsPage() {
                       name="confirmPassword"
                       value={passwordData.confirmPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent pr-12 text-gray-900 ${
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent pr-12 text-gray-900 ${
                         passwordErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="Confirm your new password"
@@ -416,7 +416,7 @@ export default function SettingsPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="w-full flex items-center justify-center px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {isSubmitting ? (
                     <>
