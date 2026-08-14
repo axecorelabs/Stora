@@ -581,24 +581,19 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
         </div>
 
         {/* Action Buttons */}
-        <div className="p-6 border-t border-gray-200">
+        <div className="p-6 border-t border-gray-200 space-y-3">
+          {/* Primary: the action taken after nearly every sale */}
+          <button
+            onClick={printReceipt}
+            autoFocus
+            className="w-full flex items-center justify-center px-4 py-3 bg-brand-800 text-white rounded-xl text-sm font-semibold hover:bg-brand-900 transition-colors shadow-sm"
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            Print Receipt
+          </button>
+
+          {/* Secondary: digital copies for sharing later */}
           <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={printReceipt}
-              className="flex items-center justify-center px-3 py-2.5 bg-brand-800 text-white rounded-lg text-sm font-medium hover:bg-brand-900 transition-colors"
-            >
-              <Printer className="w-4 h-4 mr-1.5" />
-              Print
-            </button>
-            
-            <button
-              onClick={() => setIsDeliveryModalOpen(true)}
-              className="flex items-center justify-center px-3 py-2.5 bg-gold-500 text-brand-900 rounded-lg text-sm font-medium hover:bg-gold-400 transition-colors"
-            >
-              <Truck className="w-4 h-4 mr-1.5" />
-              Delivery
-            </button>
-            
             <button
               onClick={downloadReceiptAsPDF}
               className="flex items-center justify-center px-3 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
@@ -607,7 +602,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
               <FileText className="w-4 h-4 mr-1.5" />
               PDF
             </button>
-            
+
             <button
               onClick={downloadReceiptAsImage}
               className="flex items-center justify-center px-3 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
@@ -615,6 +610,18 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
             >
               <ImageIcon className="w-4 h-4 mr-1.5" />
               Image
+            </button>
+          </div>
+
+          {/* A distinct business action, not a receipt format -- separated so it doesn't
+              read as a fifth way to output the same receipt */}
+          <div className="pt-1 border-t border-gray-100">
+            <button
+              onClick={() => setIsDeliveryModalOpen(true)}
+              className="w-full flex items-center justify-center px-4 py-2.5 mt-3 bg-gold-500 text-brand-900 rounded-lg text-sm font-medium hover:bg-gold-400 transition-colors"
+            >
+              <Truck className="w-4 h-4 mr-1.5" />
+              Schedule Delivery
             </button>
           </div>
           <p className="text-xs text-gray-500 mt-3 text-center">

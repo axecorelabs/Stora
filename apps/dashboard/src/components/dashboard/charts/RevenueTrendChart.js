@@ -17,7 +17,7 @@ function formatDayTick(dateStr) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-export default function RevenueTrendChart({ data = [], growth = 0, onViewMore }) {
+export default function RevenueTrendChart({ data = [], growth = 0, onViewMore, rangeLabel = "last 14 days" }) {
   const total = data.reduce((sum, d) => sum + (d.revenue || 0), 0);
   const isUp = growth >= 0;
 
@@ -33,7 +33,7 @@ export default function RevenueTrendChart({ data = [], growth = 0, onViewMore })
             {Math.abs(growth)}%
           </span>
         )}
-        <span className="text-xs text-gray-400">last 14 days</span>
+        <span className="text-xs text-gray-400">{rangeLabel}</span>
       </div>
 
       <div className="flex-1 min-h-56 mt-4 -ml-2">

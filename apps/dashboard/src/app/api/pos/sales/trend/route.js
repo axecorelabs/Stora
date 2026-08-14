@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 
-const DAYS = 14;
+const DEFAULT_DAYS = 14;
+const MAX_DAYS = 90;
 
 function dayKey(date) {
   return date.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-// GET - Daily revenue + order count for the last 14 days (for trend charts)
+// GET - Daily revenue + order count for the trailing N days (for trend charts).
+// Accepts an optional ?days= param (default 14, capped at 90) so callers like
+// the Reports page can request a longer window than the dashboard overview.
 export async function GET(req) {
   try {
     const user = await verifySession(req);
@@ -18,6 +21,12 @@ export async function GET(req) {
         { status: 401 }
       );
     }
+
+    const { searchParams } = new URL(req.url);
+    const requestedDays = parseInt(searchParams.get('days'));
+    const DAYS = Number.isFinite(requestedDays) && requestedDays > 0
+      ? Math.min(requestedDays, MAX_DAYS)
+      : DEFAULT_DAYS;
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
