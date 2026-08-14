@@ -7,7 +7,7 @@ import { sendDeliveryScheduledEmail } from '@/lib/email';
 // Reshape a delivery_schedules row (+ its items) back into the nested
 // { customer, deliveryAddress, items, ... } shape the dashboard UI expects,
 // so this rewrite doesn't require frontend changes.
-function toDeliveryResponse(delivery, items) {
+export function toDeliveryResponse(delivery, items, statusHistory) {
   return {
     ...delivery,
     _id: delivery.id,
@@ -38,7 +38,12 @@ function toDeliveryResponse(delivery, items) {
     totalAmount: delivery.total_amount,
     paymentStatus: delivery.payment_status,
     transactionId: delivery.transaction_id,
-    deliveryType: delivery.delivery_type
+    deliveryType: delivery.delivery_type,
+    statusHistory: (statusHistory || []).map(h => ({
+      status: h.status,
+      timestamp: h.timestamp,
+      notes: h.notes
+    }))
   };
 }
 
@@ -85,20 +90,25 @@ export async function GET(req) {
 
     const deliveryIds = (deliveries || []).map(d => d.id);
     let itemsByDelivery = {};
+    let historyByDelivery = {};
     if (deliveryIds.length > 0) {
-      const { data: items } = await supabaseAdmin
-        .from('delivery_schedule_items')
-        .select('*')
-        .in('delivery_schedule_id', deliveryIds);
+      const [{ data: items }, { data: history }] = await Promise.all([
+        supabaseAdmin.from('delivery_schedule_items').select('*').in('delivery_schedule_id', deliveryIds),
+        supabaseAdmin.from('delivery_status_history').select('*').in('delivery_schedule_id', deliveryIds).order('timestamp', { ascending: true })
+      ]);
       (items || []).forEach(i => {
         if (!itemsByDelivery[i.delivery_schedule_id]) itemsByDelivery[i.delivery_schedule_id] = [];
         itemsByDelivery[i.delivery_schedule_id].push(i);
+      });
+      (history || []).forEach(h => {
+        if (!historyByDelivery[h.delivery_schedule_id]) historyByDelivery[h.delivery_schedule_id] = [];
+        historyByDelivery[h.delivery_schedule_id].push(h);
       });
     }
 
     return NextResponse.json({
       success: true,
-      data: (deliveries || []).map(d => toDeliveryResponse(d, itemsByDelivery[d.id]))
+      data: (deliveries || []).map(d => toDeliveryResponse(d, itemsByDelivery[d.id], historyByDelivery[d.id]))
     });
 
   } catch (error) {
