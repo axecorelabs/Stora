@@ -119,8 +119,8 @@ export default function ScheduleCard({ deliveries = [] }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-teal-100 rounded-xl">
-              <Calendar className="w-5 h-5 text-teal-600" />
+            <div className="p-2 bg-brand-100 rounded-xl">
+              <Calendar className="w-5 h-5 text-brand-800" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Delivery Schedule</h3>
@@ -129,7 +129,7 @@ export default function ScheduleCard({ deliveries = [] }) {
           </div>
           <button
             onClick={handleViewAllDeliveries}
-            className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+            className="text-sm text-brand-800 hover:text-brand-900 font-medium"
           >
             View All
           </button>
@@ -183,20 +183,20 @@ export default function ScheduleCard({ deliveries = [] }) {
                   onClick={() => handleDateSelect(day)}
                   className={`aspect-square text-xs font-medium rounded-lg transition-all relative flex items-center justify-center ${
                     isSelected
-                      ? 'bg-teal-600 text-white shadow-md'
+                      ? 'bg-brand-800 text-white shadow-md shadow-brand-800/25'
                       : isTodayDate
-                      ? 'bg-teal-100 text-teal-800 border-2 border-teal-300'
+                      ? 'bg-white text-brand-900 font-bold ring-2 ring-inset ring-brand-800'
                       : deliveriesCount > 0
-                      ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                      ? 'bg-brand-50 text-gray-900 hover:bg-brand-100'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   {day}
                   {deliveriesCount > 0 && (
                     <div className={`absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] text-[9px] font-bold rounded-full flex items-center justify-center ${
-                      isSelected 
-                        ? 'bg-white text-teal-600' 
-                        : 'bg-teal-600 text-white'
+                      isSelected
+                        ? 'bg-white text-brand-800'
+                        : 'bg-brand-800 text-white'
                     }`}>
                       {deliveriesCount}
                     </div>
@@ -228,13 +228,13 @@ export default function ScheduleCard({ deliveries = [] }) {
               selectedDateDeliveries.map((delivery) => (
                 <div 
                   key={delivery._id}
-                  className="border border-gray-100 rounded-xl p-3 hover:border-teal-200 hover:bg-teal-50/30 transition-all cursor-pointer"
+                  className="border border-gray-100 rounded-xl p-3 hover:border-brand-200 hover:bg-brand-50/30 transition-all cursor-pointer"
                   onClick={handleViewAllDeliveries}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className="p-1.5 bg-teal-100 rounded-lg">
-                        <Truck className="w-3.5 h-3.5 text-teal-600" />
+                      <div className="p-1.5 bg-brand-100 rounded-lg">
+                        <Truck className="w-3.5 h-3.5 text-brand-800" />
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-gray-900">
