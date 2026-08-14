@@ -9,8 +9,8 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
   const bannerInputRef = useRef(null);
   
   const [formData, setFormData] = useState({
-    primaryColor: '#0D9488',
-    secondaryColor: '#F3F4F6'
+    primaryColor: '#0B3B2E',
+    secondaryColor: '#EAF1EE'
   });
   const [logoFile, setLogoFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
@@ -24,8 +24,8 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
   useEffect(() => {
     if (store?.branding) {
       setFormData({
-        primaryColor: store.branding.primaryColor || '#0D9488',
-        secondaryColor: store.branding.secondaryColor || '#F3F4F6'
+        primaryColor: store.branding.primaryColor || '#0B3B2E',
+        secondaryColor: store.branding.secondaryColor || '#EAF1EE'
       });
       setLogoPreview(store.branding.logo);
       setBannerPreview(store.branding.banner);
@@ -141,8 +141,8 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
   const resetForm = () => {
     if (store?.branding) {
       setFormData({
-        primaryColor: store.branding.primaryColor || '#0D9488',
-        secondaryColor: store.branding.secondaryColor || '#F3F4F6'
+        primaryColor: store.branding.primaryColor || '#0B3B2E',
+        secondaryColor: store.branding.secondaryColor || '#EAF1EE'
       });
       setLogoPreview(store.branding.logo);
       setBannerPreview(store.branding.banner);

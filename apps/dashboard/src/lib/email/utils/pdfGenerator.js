@@ -16,10 +16,9 @@ export const generateReceiptPDF = async (orderData, saleData, storeName = 'Stora
     const margin = 4;
     const contentMargin = 6;
     
-    // Extract branding colors (default to teal if not provided)
-    const primaryColor = brandingColors?.primaryColor || '#0D9488';
-    const secondaryColor = brandingColors?.secondaryColor || '#F3F4F6';
-    
+    // Extract branding colors (default to the Stora brand green if the store hasn't set one)
+    const primaryColor = brandingColors?.primaryColor || '#0B3B2E';
+
     // Convert hex to RGB for PDF
     const hexToRgb = (hex) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -27,12 +26,50 @@ export const generateReceiptPDF = async (orderData, saleData, storeName = 'Stora
         r: parseInt(result[1], 16),
         g: parseInt(result[2], 16),
         b: parseInt(result[3], 16)
-      } : { r: 13, g: 148, b: 136 }; // Default teal
+      } : { r: 11, g: 59, b: 46 }; // Default brand green
     };
-    
+
     const primaryRgb = hexToRgb(primaryColor);
-    const secondaryRgb = hexToRgb(secondaryColor);
-    
+
+    // Fetch the store logo and convert it to a data URL jsPDF can embed directly --
+    // this function runs both in the browser (receipt download) and on the server
+    // (email attachments), so it can't rely on DOM/Canvas APIs, only fetch + base64
+    const bufferToBase64 = (buffer) => {
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(buffer).toString('base64');
+      }
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    };
+
+    const fetchLogoAsDataUrl = async (url) => {
+      if (!url) return null;
+      try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+
+        const contentType = response.headers.get('content-type') || '';
+        const format = contentType.includes('png') ? 'PNG'
+          : contentType.includes('jpeg') || contentType.includes('jpg') ? 'JPEG'
+          : contentType.includes('webp') ? 'WEBP'
+          : null;
+        if (!format) return null; // jsPDF only reliably embeds these formats
+
+        const arrayBuffer = await response.arrayBuffer();
+        const base64 = bufferToBase64(arrayBuffer);
+        return { dataUrl: `data:${contentType};base64,${base64}`, format };
+      } catch (error) {
+        console.error('Failed to load store logo for receipt:', error);
+        return null;
+      }
+    };
+
+    const logo = await fetchLogoAsDataUrl(storeLogoUrl);
+
     // Add watermark background with brand color
     const addWatermark = () => {
       doc.setGState(new doc.GState({ opacity: 0.05 })); // Very light
@@ -178,7 +215,18 @@ export const generateReceiptPDF = async (orderData, saleData, storeName = 'Stora
       });
     };
 
-    // Remove store logo - causes signature errors
+    // Store logo, if the store has one set and it loaded successfully
+    if (logo) {
+      const logoSize = 14;
+      const logoX = (pageWidth - logoSize) / 2;
+      try {
+        doc.addImage(logo.dataUrl, logo.format, logoX, yPosition, logoSize, logoSize);
+        yPosition += logoSize + 2;
+      } catch (imgError) {
+        console.error('Failed to embed store logo in receipt PDF:', imgError);
+      }
+    }
+
     // Store Header with brand color
     addCenteredText(storeName, 11, true, primaryColor);
     yPosition += 1;
