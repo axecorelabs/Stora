@@ -284,26 +284,26 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
                   onClick={() => setUpdateType('add')}
                   className={`p-4 border rounded-xl text-center transition-all ${
                     updateType === 'add'
-                      ? 'border-green-500 bg-green-50 text-green-700'
+                      ? 'border-green-500 bg-green-50'
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  <Plus className="w-6 h-6 mx-auto mb-2 text-gray-600" />
-                  <div className="text-sm font-medium text-gray-600">Add Stock</div>
+                  <Plus className={`w-6 h-6 mx-auto mb-2 ${updateType === 'add' ? 'text-green-600' : 'text-gray-400'}`} />
+                  <div className={`text-sm font-medium ${updateType === 'add' ? 'text-green-700' : 'text-gray-700'}`}>Add Stock</div>
                   <div className="text-xs text-gray-500">New delivery, returns</div>
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={() => setUpdateType('subtract')}
                   className={`p-4 border rounded-xl text-center transition-all ${
                     updateType === 'subtract'
-                      ? 'border-red-500 bg-red-50 text-red-700'
+                      ? 'border-red-500 bg-red-50'
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  <Minus className="w-6 h-6 mx-auto mb-2 text-gray-600" />
-                  <div className="text-sm font-medium text-gray-600">Remove Stock</div>
+                  <Minus className={`w-6 h-6 mx-auto mb-2 ${updateType === 'subtract' ? 'text-red-600' : 'text-gray-400'}`} />
+                  <div className={`text-sm font-medium ${updateType === 'subtract' ? 'text-red-700' : 'text-gray-700'}`}>Remove Stock</div>
                   <div className="text-xs text-gray-500">Sales, damage, loss</div>
                 </button>
               </div>
@@ -333,7 +333,7 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
               
               {/* Batch Info Display */}
               {selectedBatchInfo && (
-                <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="mt-2 p-3 bg-brand-50 rounded-lg border border-brand-200">
                   <div className="text-xs space-y-1">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Batch:</span>

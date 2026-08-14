@@ -26,7 +26,8 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
   // Bulk operations state
   const [bulkQuantity, setBulkQuantity] = useState('');
   const [bulkReorderLevel, setBulkReorderLevel] = useState('');
-  
+  const [bulkFillError, setBulkFillError] = useState('');
+
   // New variant creation state
   const [showNewVariantForm, setShowNewVariantForm] = useState(false);
   const [newVariant, setNewVariant] = useState({
@@ -35,6 +36,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
     quantityIn: '',
     reorderLevel: '5'
   });
+  const [newVariantError, setNewVariantError] = useState('');
   
   // UI state
   const [expandedSections, setExpandedSections] = useState({
@@ -107,8 +109,10 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
       setVariantQuantities(initialVariantQty);
       setBulkQuantity('');
       setBulkReorderLevel('');
+      setBulkFillError('');
       setShowNewVariantForm(false);
       setNewVariant({ size: '', color: '', quantityIn: '', reorderLevel: '5' });
+      setNewVariantError('');
       setErrors({});
     }
   }, [isOpen, item]);
@@ -155,9 +159,10 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
   // Bulk operations
   const applySameQuantityToAll = () => {
     if (!bulkQuantity || parseFloat(bulkQuantity) < 0) {
-      alert('Please enter a valid quantity');
+      setBulkFillError('Please enter a valid quantity');
       return;
     }
+    setBulkFillError('');
 
     const updatedQuantities = { ...variantQuantities };
     Object.keys(updatedQuantities).forEach(key => {
@@ -168,9 +173,10 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
 
   const applySameReorderLevelToAll = () => {
     if (!bulkReorderLevel || parseFloat(bulkReorderLevel) < 0) {
-      alert('Please enter a valid reorder level');
+      setBulkFillError('Please enter a valid reorder level');
       return;
     }
+    setBulkFillError('');
 
     const updatedQuantities = { ...variantQuantities };
     Object.keys(updatedQuantities).forEach(key => {
@@ -182,15 +188,15 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
   // Add new variant
   const handleAddNewVariant = async () => {
     if (!newVariant.size || !newVariant.color || !newVariant.quantityIn) {
-      alert('Please fill in size, color, and quantity for the new variant');
+      setNewVariantError('Please fill in size, color, and quantity for the new variant');
       return;
     }
 
     const variantKey = `${newVariant.color}-${newVariant.size}`;
-    
+
     // Check if variant already exists
     if (variantQuantities[variantKey]) {
-      alert('This variant already exists');
+      setNewVariantError('This variant already exists');
       return;
     }
 
@@ -219,9 +225,10 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
       // Reset new variant form
       setNewVariant({ size: '', color: '', quantityIn: '', reorderLevel: '5' });
       removeNewVariantImage();
+      setNewVariantError('');
       setShowNewVariantForm(false);
     } catch (error) {
-      alert('Failed to upload variant image. Please try again.');
+      setNewVariantError('Failed to upload variant image. Please try again.');
       console.error('Error adding new variant:', error);
     }
   };
@@ -239,15 +246,16 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
       const maxSize = 5 * 1024 * 1024; // 5MB
 
       if (!allowedTypes.includes(file.type)) {
-        alert('Only JPEG, PNG, and WebP images are allowed');
+        setNewVariantError('Only JPEG, PNG, and WebP images are allowed');
         return;
       }
 
       if (file.size > maxSize) {
-        alert('Image size must be less than 5MB');
+        setNewVariantError('Image size must be less than 5MB');
         return;
       }
 
+      setNewVariantError('');
       setNewVariantImage(file);
 
       // Create preview
@@ -472,105 +480,6 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
     return item.variants.filter(v => v.color === color).map(v => v.size);
   };
 
-  // Add state for adding new sizes to existing colors
-  const [showAddSizeForm, setShowAddSizeForm] = useState(false);
-  const [selectedColorForNewSize, setSelectedColorForNewSize] = useState('');
-  const [newSizeForColor, setNewSizeForColor] = useState({
-    size: '',
-    quantityIn: '',
-    reorderLevel: '5',
-    image: null,
-    imagePreview: null
-  });
-  const newSizeImageInputRef = useRef(null);
-
-  // Handle new size image selection
-  const handleNewSizeImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      const maxSize = 5 * 1024 * 1024;
-
-      if (!allowedTypes.includes(file.type)) {
-        alert('Only JPEG, PNG, and WebP images are allowed');
-        return;
-      }
-
-      if (file.size > maxSize) {
-        alert('Image size must be less than 5MB');
-        return;
-      }
-
-      setNewSizeForColor(prev => ({ ...prev, image: file }));
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setNewSizeForColor(prev => ({ ...prev, imagePreview: e.target.result }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Remove new size image
-  const removeNewSizeImage = () => {
-    setNewSizeForColor(prev => ({ ...prev, image: null, imagePreview: null }));
-    if (newSizeImageInputRef.current) {
-      newSizeImageInputRef.current.value = '';
-    }
-  };
-
-  // Handle adding new size to existing color
-  const handleAddNewSizeToColor = async () => {
-    if (!selectedColorForNewSize || !newSizeForColor.size || !newSizeForColor.quantityIn) {
-      alert('Please select a color and fill in size and quantity');
-      return;
-    }
-
-    const variantKey = `${selectedColorForNewSize}-${newSizeForColor.size}`;
-    
-    // Check if this size already exists for the selected color
-    if (variantQuantities[variantKey]) {
-      alert(`Size ${newSizeForColor.size} already exists for ${selectedColorForNewSize}`);
-      return;
-    }
-
-    try {
-      // Upload image if provided
-      let variantImageUrl = null;
-      if (newSizeForColor.image) {
-        const imageFormData = new FormData();
-        imageFormData.append('image', newSizeForColor.image);
-        const result = await secureFormDataCall('/api/inventory/upload-image', imageFormData);
-        variantImageUrl = result.imageUrl;
-      }
-
-      // Add to variant quantities
-      setVariantQuantities(prev => ({
-        ...prev,
-        [variantKey]: {
-          size: newSizeForColor.size,
-          color: selectedColorForNewSize,
-          variantId: null, // New size - no ID yet
-          variantSku: '', // Will be generated by backend
-          quantityIn: newSizeForColor.quantityIn,
-          reorderLevel: newSizeForColor.reorderLevel || 5,
-          isNew: true, // Flag to indicate this is a new size
-          image: variantImageUrl
-        }
-      }));
-
-      // Reset form
-      setNewSizeForColor({ size: '', quantityIn: '', reorderLevel: '5', image: null, imagePreview: null });
-      setSelectedColorForNewSize('');
-      setShowAddSizeForm(false);
-      
-      alert(`Successfully added new size ${newSizeForColor.size} for ${selectedColorForNewSize}`);
-    } catch (error) {
-      alert('Failed to upload variant image. Please try again.');
-      console.error('Error adding new size:', error);
-    }
-  };
-
   // Add state for quick size addition modal
   const [isQuickSizeModalOpen, setIsQuickSizeModalOpen] = useState(false);
   const [selectedColorForQuickSize, setSelectedColorForQuickSize] = useState('');
@@ -579,26 +488,28 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
     quantityIn: '',
     reorderLevel: '5'
   });
+  const [quickSizeError, setQuickSizeError] = useState('');
 
   // Handle opening quick size modal
   const openQuickSizeModal = (color) => {
     setSelectedColorForQuickSize(color);
     setQuickSizeData({ size: '', quantityIn: '', reorderLevel: '5' });
+    setQuickSizeError('');
     setIsQuickSizeModalOpen(true);
   };
 
   // Handle adding size through quick modal
   const handleQuickAddSize = () => {
     if (!quickSizeData.size || !quickSizeData.quantityIn) {
-      alert('Please fill in size and quantity');
+      setQuickSizeError('Please fill in size and quantity');
       return;
     }
 
     const variantKey = `${selectedColorForQuickSize}-${quickSizeData.size}`;
-    
+
     // Check if this size already exists for the color
     if (variantQuantities[variantKey]) {
-      alert(`Size ${quickSizeData.size} already exists for ${selectedColorForQuickSize}`);
+      setQuickSizeError(`Size ${quickSizeData.size} already exists for ${selectedColorForQuickSize}`);
       return;
     }
 
@@ -620,6 +531,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
     setIsQuickSizeModalOpen(false);
     setSelectedColorForQuickSize('');
     setQuickSizeData({ size: '', quantityIn: '', reorderLevel: '5' });
+    setQuickSizeError('');
   };
 
   // Get existing sizes for a specific color
@@ -647,15 +559,15 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-xl">
-                <Package className="w-6 h-6 text-blue-600" />
+              <div className="p-2 bg-brand-100 rounded-xl">
+                <Package className="w-6 h-6 text-brand-800" />
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Add New Batch</h2>
                 <p className="text-sm text-gray-500">
                   {item.productName}
                   {formData.hasVariants && (
-                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-900">
                       Has Variants
                     </span>
                   )}
@@ -705,7 +617,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                         min="0"
                         step="1"
                         placeholder="Enter quantity"
-                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-400 ${
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black placeholder-gray-400 ${
                           errors.quantityIn ? 'border-red-300' : 'border-gray-300'
                         }`}
                       />
@@ -734,30 +646,34 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
 
               {/* Variants Section */}
               {formData.hasVariants && (
-                <div className="border border-purple-200 rounded-xl overflow-hidden">
+                <div className="border border-brand-200 rounded-xl overflow-hidden">
                   <button
                     type="button"
                     onClick={() => toggleSection('variants')}
-                    className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 transition-colors"
+                    className="w-full flex items-center justify-between p-4 bg-brand-50 hover:bg-brand-100 transition-colors"
                   >
                     <div className="flex items-center space-x-2">
-                      <Package className="w-5 h-5 text-purple-600" />
-                      <h3 className="text-base font-semibold text-purple-900">
+                      <Package className="w-5 h-5 text-brand-800" />
+                      <h3 className="text-base font-semibold text-brand-900">
                         Variant Quantities ({Object.keys(variantQuantities).length} variants)
                       </h3>
                     </div>
-                    {expandedSections.variants ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
+                    {expandedSections.variants ? <ChevronUp className="w-5 h-5 text-brand-800" /> : <ChevronDown className="w-5 h-5 text-brand-800" />}
                   </button>
                   
                   {expandedSections.variants && (
                     <div className="p-4 space-y-4">
                       {/* Bulk Operations */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                        <h4 className="text-sm font-semibold text-blue-900 mb-3">Quick Fill Options</h4>
-                        
+                      <div className="bg-brand-50 border border-brand-200 rounded-xl p-4">
+                        <h4 className="text-sm font-semibold text-brand-900 mb-3">Quick Fill Options</h4>
+
+                        {bulkFillError && (
+                          <p className="text-red-600 text-xs mb-3">{bulkFillError}</p>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-blue-900 mb-1">Same Quantity for All</label>
+                            <label className="block text-xs font-medium text-brand-900 mb-1">Same Quantity for All</label>
                             <div className="flex items-center space-x-2">
                               <input
                                 type="number"
@@ -766,12 +682,12 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                 min="0"
                                 step="1"
                                 placeholder="Quantity"
-                                className="flex-1 px-3 py-2 border border-blue-300 rounded-lg text-sm text-black placeholder-gray-400"
+                                className="flex-1 px-3 py-2 border border-brand-300 rounded-lg text-sm text-black placeholder-gray-400"
                               />
                               <button
                                 type="button"
                                 onClick={applySameQuantityToAll}
-                                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                                className="px-3 py-2 bg-brand-800 text-white rounded-lg hover:bg-brand-900 text-sm font-medium"
                               >
                                 <Copy className="w-4 h-4" />
                               </button>
@@ -779,7 +695,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-blue-900 mb-1">Same Reorder Level</label>
+                            <label className="block text-xs font-medium text-brand-900 mb-1">Same Reorder Level</label>
                             <div className="flex items-center space-x-2">
                               <input
                                 type="number"
@@ -788,12 +704,12 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                 min="0"
                                 step="1"
                                 placeholder="Level"
-                                className="flex-1 px-3 py-2 border border-blue-300 rounded-lg text-sm text-black placeholder-gray-400"
+                                className="flex-1 px-3 py-2 border border-brand-300 rounded-lg text-sm text-black placeholder-gray-400"
                               />
                               <button
                                 type="button"
                                 onClick={applySameReorderLevelToAll}
-                                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                                className="px-3 py-2 bg-brand-800 text-white rounded-lg hover:bg-brand-900 text-sm font-medium"
                               >
                                 <Copy className="w-4 h-4" />
                               </button>
@@ -845,7 +761,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                     e.stopPropagation();
                                     openQuickSizeModal(color);
                                   }}
-                                  className="ml-3 flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
+                                  className="ml-3 flex items-center space-x-1 px-3 py-1.5 bg-brand-800 text-white rounded-lg hover:bg-brand-900 transition-colors text-xs font-medium"
                                 >
                                   <Plus className="w-3 h-3" />
                                   <span>Add Size</span>
@@ -881,7 +797,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                               min="0"
                                               step="1"
                                               placeholder="0"
-                                              className={`w-24 px-3 py-1.5 border rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                                              className={`w-24 px-3 py-1.5 border rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent ${
                                                 errors[`variant_${variant.key}`] ? 'border-red-300' : 'border-gray-300'
                                               }`}
                                             />
@@ -897,7 +813,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                               min="0"
                                               step="1"
                                               placeholder="5"
-                                              className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                              className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent"
                                             />
                                           </td>
                                         </tr>
@@ -918,7 +834,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                         <button
                           type="button"
                           onClick={() => setShowNewVariantForm(true)}
-                          className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-gray-300 text-gray-600 rounded-lg hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          className="w-full flex items-center justify-center space-x-2 px-4 py-3 border-2 border-dashed border-gray-300 text-gray-600 rounded-lg hover:border-brand-800 hover:text-brand-800 hover:bg-brand-50 transition-colors"
                         >
                           <Plus className="w-5 h-5" />
                           <span className="font-medium">Add New Variant</span>
@@ -927,10 +843,10 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
 
                       {/* New Variant Form */}
                       {showNewVariantForm && (
-                        <div className="border-2 border-blue-300 rounded-xl p-5 bg-white shadow-sm">
+                        <div className="border-2 border-brand-300 rounded-xl p-5 bg-white shadow-sm">
                           <div className="flex items-center justify-between mb-4">
                             <h4 className="text-base font-semibold text-gray-900 flex items-center">
-                              <Plus className="w-5 h-5 text-blue-600 mr-2" />
+                              <Plus className="w-5 h-5 text-brand-800 mr-2" />
                               Create New Variant
                             </h4>
                             <button
@@ -938,12 +854,19 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                               onClick={() => {
                                 setShowNewVariantForm(false);
                                 removeNewVariantImage();
+                                setNewVariantError('');
                               }}
                               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                               <X className="w-4 h-4" />
                             </button>
                           </div>
+
+                          {newVariantError && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                              <p className="text-red-600 text-sm">{newVariantError}</p>
+                            </div>
+                          )}
 
                           <div className="space-y-4">
                             {/* Variant Image Upload */}
@@ -970,7 +893,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                               ) : (
                                 <div
                                   onClick={() => newVariantImageInputRef.current?.click()}
-                                  className="w-full h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors"
+                                  className="w-full h-32 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-brand-800 transition-colors"
                                 >
                                   <Upload className="w-8 h-8 text-gray-400 mb-2" />
                                   <p className="text-sm text-gray-500">Click to upload variant image</p>
@@ -997,7 +920,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                 value={newVariant.color}
                                 onChange={(e) => setNewVariant(prev => ({ ...prev, color: e.target.value }))}
                                 placeholder="Enter or select color"
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent"
                               />
                               <div className="mt-2 max-h-32 overflow-y-auto">
                                 <div className="grid grid-cols-4 gap-1.5">
@@ -1008,7 +931,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                       onClick={() => setNewVariant(prev => ({ ...prev, color }))}
                                       className={`text-xs px-2 py-1.5 rounded transition-colors ${
                                         newVariant.color === color
-                                          ? 'bg-blue-600 text-white font-medium'
+                                          ? 'bg-brand-800 text-white font-medium'
                                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                       }`}
                                     >
@@ -1029,7 +952,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                 value={newVariant.size}
                                 onChange={(e) => setNewVariant(prev => ({ ...prev, size: e.target.value }))}
                                 placeholder="Enter or select size"
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent"
                               />
                               <div className="mt-2">
                                 <div className="grid grid-cols-4 gap-1.5">
@@ -1040,7 +963,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                       onClick={() => setNewVariant(prev => ({ ...prev, size }))}
                                       className={`text-xs px-2 py-1.5 rounded transition-colors ${
                                         newVariant.size === size
-                                          ? 'bg-blue-600 text-white font-medium'
+                                          ? 'bg-brand-800 text-white font-medium'
                                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                       }`}
                                     >
@@ -1064,7 +987,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                   min="0"
                                   step="1"
                                   placeholder="0"
-                                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent"
                                 />
                               </div>
 
@@ -1079,7 +1002,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                   min="0"
                                   step="1"
                                   placeholder="5"
-                                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent"
                                 />
                               </div>
                             </div>
@@ -1088,7 +1011,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                             <button
                               type="button"
                               onClick={handleAddNewVariant}
-                              className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition-colors shadow-sm"
+                              className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-brand-800 text-white rounded-lg hover:bg-brand-900 font-medium text-sm transition-colors shadow-sm"
                             >
                               <Plus className="w-4 h-4" />
                               <span>Add Variant</span>
@@ -1098,10 +1021,10 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                       )}
 
                       {/* Total Summary */}
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="p-4 bg-brand-50 border border-brand-200 rounded-lg">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-blue-900">Total Batch Quantity:</span>
-                          <span className="text-lg font-bold text-blue-900">
+                          <span className="text-sm font-medium text-brand-900">Total Batch Quantity:</span>
+                          <span className="text-lg font-bold text-brand-900">
                             {calculateTotalVariantQuantity()} {item.unitOfMeasure}
                           </span>
                         </div>
@@ -1271,7 +1194,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
               >
                 {isSubmitting ? (
                   <>
@@ -1304,7 +1227,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                 <p className="text-sm text-gray-500 mt-1">Quickly add a new size variant</p>
               </div>
               <button
-                onClick={() => setIsQuickSizeModalOpen(false)}
+                onClick={() => { setIsQuickSizeModalOpen(false); setQuickSizeError(''); }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5 text-gray-500" />
@@ -1313,6 +1236,12 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
 
             {/* Modal Content */}
             <div className="p-6 space-y-4">
+              {quickSizeError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm">{quickSizeError}</p>
+                </div>
+              )}
+
               {/* Color Display */}
               <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                 <div 
@@ -1327,11 +1256,11 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
 
               {/* Existing Sizes Info */}
               {getExistingSizesForColor(selectedColorForQuickSize).length > 0 && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs font-medium text-blue-900 mb-1">Existing sizes:</p>
+                <div className="p-3 bg-brand-50 border border-brand-200 rounded-lg">
+                  <p className="text-xs font-medium text-brand-900 mb-1">Existing sizes:</p>
                   <div className="flex flex-wrap gap-1">
                     {getExistingSizesForColor(selectedColorForQuickSize).map(size => (
-                      <span key={size} className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+                      <span key={size} className="text-xs px-2 py-0.5 bg-brand-100 text-brand-800 rounded">
                         {size}
                       </span>
                     ))}
@@ -1352,7 +1281,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                   onChange={(e) => setQuickSizeData(prev => ({ ...prev, size: e.target.value }))}
                   placeholder={getAvailableSizesForColor(selectedColorForQuickSize).length === 0 ? "No available sizes" : "Enter or select size"}
                   disabled={getAvailableSizesForColor(selectedColorForQuickSize).length === 0}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
                 
                 {getAvailableSizesForColor(selectedColorForQuickSize).length > 0 ? (
@@ -1364,7 +1293,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                         onClick={() => setQuickSizeData(prev => ({ ...prev, size }))}
                         className={`text-xs px-2 py-1.5 rounded transition-colors ${
                           quickSizeData.size === size
-                            ? 'bg-blue-600 text-white font-medium'
+                            ? 'bg-brand-800 text-white font-medium'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
@@ -1392,7 +1321,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                     min="0"
                     step="1"
                     placeholder="0"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent"
                   />
                 </div>
 
@@ -1407,7 +1336,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                     min="0"
                     step="1"
                     placeholder="5"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -1417,7 +1346,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
               <button
                 type="button"
-                onClick={() => setIsQuickSizeModalOpen(false)}
+                onClick={() => { setIsQuickSizeModalOpen(false); setQuickSizeError(''); }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
               >
                 Cancel
@@ -1425,7 +1354,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
               <button
                 type="button"
                 onClick={handleQuickAddSize}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center space-x-2"
+                className="px-4 py-2 bg-brand-800 text-white rounded-lg hover:bg-brand-900 transition-colors font-medium flex items-center space-x-2"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Size</span>
