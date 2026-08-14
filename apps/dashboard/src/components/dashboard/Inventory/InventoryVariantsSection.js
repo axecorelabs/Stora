@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Package, Eye, ChevronDown, ChevronUp, Image as ImageIcon, AlertCircle } from "lucide-react";
+import { Package, ChevronDown, ChevronUp, Image as ImageIcon, AlertCircle } from "lucide-react";
 
 export default function InventoryVariantsSection({ item, formatCurrency }) {
   const [expandedVariants, setExpandedVariants] = useState({});
@@ -34,8 +34,8 @@ export default function InventoryVariantsSection({ item, formatCurrency }) {
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-xl">
-              <Package className="w-5 h-5 text-purple-600" />
+            <div className="p-2 bg-brand-100 rounded-xl">
+              <Package className="w-5 h-5 text-brand-800" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Product Variants</h3>

@@ -22,7 +22,7 @@ export default function InventoryQuickActions({
 
         <button
           onClick={onAddBatch}
-          className="w-full flex items-center space-x-3 px-4 py-3 text-teal-700 bg-teal-50 rounded-xl hover:bg-teal-100 transition-colors"
+          className="w-full flex items-center space-x-3 px-4 py-3 text-brand-800 bg-brand-50 rounded-xl hover:bg-brand-100 transition-colors"
         >
           <Package className="w-5 h-5" />
           <span className="font-medium">New Batch</span>
@@ -30,7 +30,7 @@ export default function InventoryQuickActions({
 
         <button
           onClick={onUpdateStock}
-          className="w-full flex items-center space-x-3 px-4 py-3 text-blue-700 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
+          className="w-full flex items-center space-x-3 px-4 py-3 text-gold-700 bg-gold-500/10 rounded-xl hover:bg-gold-500/20 transition-colors"
         >
           <RefreshCw className="w-5 h-5" />
           <span className="font-medium">Update Stock</span>
@@ -46,7 +46,7 @@ export default function InventoryQuickActions({
 
         <button
           onClick={onViewAnalytics}
-          className="w-full flex items-center space-x-3 px-4 py-3 text-purple-700 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors"
+          className="w-full flex items-center space-x-3 px-4 py-3 text-brand-800 bg-brand-50 rounded-xl hover:bg-brand-100 transition-colors"
         >
           <BarChart3 className="w-5 h-5" />
           <span className="font-medium">View Analytics</span>

@@ -26,9 +26,11 @@ function transformInventory(item) {
     images = [];
   }
   
-  // Get primary image URL
-  let primaryImage = null;
-  if (images.length > 0) {
+  // Get primary image URL - prefer database field, fallback to images array
+  let primaryImage = item.primary_image || null;
+
+  // Fallback: if no primary_image in DB, try to find from images array
+  if (!primaryImage && images.length > 0) {
     const primaryImg = images.find(img => img && img.isPrimary);
     primaryImage = (primaryImg?.url) || (images[0]?.url) || null;
   }

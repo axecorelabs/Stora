@@ -229,8 +229,8 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-teal-100 rounded-xl">
-              <Package className="w-6 h-6 text-teal-600" />
+            <div className="p-2 bg-brand-100 rounded-xl">
+              <Package className="w-6 h-6 text-brand-800" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Update Stock by Batch</h2>
@@ -257,7 +257,7 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
             </div>
             <div>
               <p className="text-sm text-gray-600 mb-1">Active Batches</p>
-              <div className="text-2xl font-bold text-teal-600">
+              <div className="text-2xl font-bold text-brand-800">
                 {loading ? '...' : activeBatches.length}
               </div>
             </div>
@@ -394,7 +394,7 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
                 min="0"
                 step="0.01"
                 placeholder="Enter quantity"
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black text-center text-lg font-semibold ${
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black text-center text-lg font-semibold ${
                   errors.quantity ? 'border-red-300' : 'border-gray-300'
                 }`}
               />

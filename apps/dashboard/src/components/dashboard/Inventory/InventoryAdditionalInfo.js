@@ -1,7 +1,16 @@
 "use client";
 import { MapPin, QrCode } from "lucide-react";
 
+// Turns a camelCase categoryDetails key into a readable label, e.g. formFactor -> Form Factor
+function prettifyKey(key) {
+  return key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase());
+}
+
 export default function InventoryAdditionalInfo({ item }) {
+  const categoryDetailEntries = item.categoryDetails && typeof item.categoryDetails === 'object'
+    ? Object.entries(item.categoryDetails).filter(([, v]) => v !== null && v !== undefined && v !== '')
+    : [];
+
   return (
     <div className="bg-white rounded-2xl p-6 border border-gray-100">
       <h2 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h2>
@@ -32,6 +41,12 @@ export default function InventoryAdditionalInfo({ item }) {
             </div>
           </div>
         )}
+        {categoryDetailEntries.map(([key, value]) => (
+          <div key={key}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{prettifyKey(key)}</label>
+            <p className="text-gray-900">{String(value)}</p>
+          </div>
+        ))}
         {item.notes && (
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>

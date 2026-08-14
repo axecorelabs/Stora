@@ -19,6 +19,7 @@ import EditInventoryModal from "@/components/dashboard/EditInventoryModal";
 import StockUpdateModal from "@/components/dashboard/StockUpdateModal";
 import InventoryActivityPanel from "@/components/dashboard/InventoryActivityPanel";
 import AddBatchModal from "@/components/dashboard/AddBatchModal";
+import DeleteConfirmationModal from "@/components/dashboard/DeleteConfirmationModal";
 
 export default function InventoryDetailPage() {
   const { id } = useParams();
@@ -35,6 +36,8 @@ export default function InventoryDetailPage() {
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [isActivityPanelOpen, setIsActivityPanelOpen] = useState(false);
   const [isAddBatchModalOpen, setIsAddBatchModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
 
   // Fetch inventory item details
   const fetchItemDetails = async () => {
@@ -142,7 +145,7 @@ export default function InventoryDetailPage() {
         setItem(prev => ({
           ...prev,
           ...itemData,
-          lastUpdated: new Date().toISOString()
+          updatedAt: new Date().toISOString()
         }));
         
         // If price, supplier, or location changed, update the active batch state too
@@ -236,6 +239,27 @@ export default function InventoryDetailPage() {
     } catch (error) {
       console.error('Error adding batch:', error);
       throw error;
+    }
+  };
+
+  // Handle deleting this item
+  const handleDeleteItem = async (reason) => {
+    setIsDeletingItem(true);
+    try {
+      const response = await secureApiCall(`/api/inventory/${id}/delete?reason=${encodeURIComponent(reason)}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to delete item');
+      }
+
+      router.push('/dashboard/inventory');
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      throw error;
+    } finally {
+      setIsDeletingItem(false);
     }
   };
 
@@ -448,13 +472,10 @@ export default function InventoryDetailPage() {
             allBatches={allBatches}
             batchPricing={batchPricing}
             onEdit={() => setIsEditModalOpen(true)}
+            onDelete={() => setIsDeleteModalOpen(true)}
           />
 
           <InventoryAdditionalInfo item={item} />
-
-          
-
-          
         </div>
 
         {/* Sidebar */}
@@ -512,6 +533,14 @@ export default function InventoryDetailPage() {
         onClose={() => setIsAddBatchModalOpen(false)}
         onSubmit={handleAddBatch}
         item={item}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteItem}
+        item={item}
+        isDeleting={isDeletingItem}
       />
     </DashboardLayout>
   );
