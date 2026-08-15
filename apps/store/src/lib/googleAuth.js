@@ -1,13 +1,17 @@
 import { OAuth2Client } from 'google-auth-library';
 
-// Prefers X-Forwarded-Host/-Proto (set correctly by Vercel's edge, and
-// required if an external proxy/CDN like Cloudflare ever sits in front of
-// it) over req.nextUrl.origin, which only reflects the true public host
-// when there's no such proxy in the path. Self-correcting across dev,
-// prod, and Vercel preview URLs -- no env var to keep in sync.
+// X-Forwarded-Host is client-controllable in general, so it's only trusted
+// here when it matches one of this app's own known hosts -- Google itself
+// also rejects any redirect_uri outside what's registered in Cloud
+// Console, but there's no reason to rely on that alone when a fixed
+// allowlist closes the gap directly. Not a moving target: Google requires
+// an exact-match registered redirect URI anyway, so a Vercel preview
+// deployment's random URL was never going to work regardless.
+const ALLOWED_HOSTS = ['stora.com.ng', 'localhost:3001'];
+
 export function getRequestOrigin(req) {
   const forwardedHost = req.headers.get('x-forwarded-host');
-  if (forwardedHost) {
+  if (forwardedHost && ALLOWED_HOSTS.includes(forwardedHost)) {
     const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
     return `${forwardedProto}://${forwardedHost}`;
   }
