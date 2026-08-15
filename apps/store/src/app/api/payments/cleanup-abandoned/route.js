@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyTransaction } from "@/lib/paystack";
-import { releaseOrderReservations, updateOrderStatus } from "@/lib/supabaseOrders";
+import { updateOrderStatus } from "@/lib/supabaseOrders";
 
 const ABANDONED_WINDOW_MINUTES = 30;
 
@@ -51,13 +51,16 @@ export async function GET(request) {
         }
       }
 
-      await releaseOrderReservations(payment.order_id);
-
       await supabaseAdmin
         .from('order_payments')
         .update({ status: 'failed', updated_at: new Date().toISOString() })
         .eq('id', payment.id);
 
+      // updateOrderStatus(..., 'cancelled') already releases the order's
+      // reservations itself (apps/store/src/lib/supabaseOrders.js) -- an
+      // earlier version of this route also called releaseOrderReservations
+      // directly first, double-releasing every item and pushing
+      // quantity_reserved below its real value (caught via testing).
       await updateOrderStatus(payment.order_id, 'cancelled');
 
       released++;
