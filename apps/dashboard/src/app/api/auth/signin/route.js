@@ -93,6 +93,17 @@ export async function POST(req) {
       );
     }
 
+    // Google-only account (password_hash is null) -- dashboard already
+    // enumerates account existence via the 404/401 split above, so naming
+    // the auth method here costs nothing new and avoids a dead-end "wrong
+    // password" loop for a user who never had a password.
+    if (!user.password_hash) {
+      return NextResponse.json(
+        { success: false, message: 'This account uses Google Sign-In. Please continue with Google.', errorType: 'GOOGLE_ONLY_ACCOUNT' },
+        { status: 401 }
+      );
+    }
+
     // Verify password
     const isValidPassword = await verifyPassword(password, user.password_hash);
     if (!isValidPassword) {

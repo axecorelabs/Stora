@@ -1,21 +1,43 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import ForgotPassword from "./ForgotPassword";
 
-export default function SignIn({ onToggleMode }) {
+const GOOGLE_ERROR_MESSAGES = {
+  google_cancelled: "Google sign-in was cancelled.",
+  state_mismatch: "Sign-in failed, please try again.",
+  google_failed: "Google sign-in failed, please try again.",
+  google_email_unverified: "Your Google account's email isn't verified. Please verify it with Google and try again.",
+  account_deactivated: "Account is deactivated",
+  server_error: "Something went wrong, please try again."
+};
+
+function SignInInner({ onToggleMode }) {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
-  const [errors, setErrors] = useState({});
+  const searchParams = useSearchParams();
+  const [errors, setErrors] = useState(() => {
+    const code = searchParams.get("error");
+    return code ? { submit: GOOGLE_ERROR_MESSAGES[code] || GOOGLE_ERROR_MESSAGES.server_error } : {};
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const { signIn } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (searchParams.get("error")) {
+      router.replace("/");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -231,6 +253,25 @@ export default function SignIn({ onToggleMode }) {
               </button>
             </form>
 
+            <div className="flex items-center gap-3 my-6">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-400">or continue with</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
+            <a
+              href="/api/auth/google/start"
+              className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 text-[15px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 01-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82z" />
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.11 0-5.75-2.1-6.69-4.92H1.3v3.1A12 12 0 0012 24z" />
+                <path fill="#FBBC05" d="M5.31 14.32A7.2 7.2 0 014.91 12c0-.8.14-1.58.4-2.32v-3.1H1.3A12 12 0 000 12c0 1.94.46 3.77 1.3 5.42l4.01-3.1z" />
+                <path fill="#EA4335" d="M12 4.75c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.69 1.3 6.58l4.01 3.1C6.25 6.85 8.89 4.75 12 4.75z" />
+              </svg>
+              Continue with Google
+            </a>
+
             <p className="text-center text-sm text-gray-600 mt-6">
               Don't have an account?{" "}
               <button
@@ -243,5 +284,13 @@ export default function SignIn({ onToggleMode }) {
           </div>
       </div>
     </div>
+  );
+}
+
+export default function SignIn(props) {
+  return (
+    <Suspense fallback={null}>
+      <SignInInner {...props} />
+    </Suspense>
   );
 }

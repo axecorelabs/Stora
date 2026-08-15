@@ -1,11 +1,14 @@
 "use client";
 import { useState } from "react";
 import { Eye, EyeOff, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import VerifyEmailModal from "./VerifyEmailModal";
 
 export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgotPassword }) {
   const { login, setRedirectAfterLogin } = useAuth();
+  const pathname = usePathname();
+  const googleStartUrl = `/api/auth/google/start?returnTo=${encodeURIComponent(pathname || "/")}`;
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -280,7 +283,7 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
           </form>
 
           {/* Social Login */}
-          {/* <div className="mt-6">
+          <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200"></div>
@@ -290,7 +293,10 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
               </div>
             </div>
 
-            <button className="mt-4 flex items-center justify-center gap-3 w-full px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <a
+              href={googleStartUrl}
+              className="mt-4 flex items-center justify-center gap-3 w-full px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -312,8 +318,8 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
               <span className="text-gray-700 font-medium text-sm">
                 Sign in with Google
               </span>
-            </button>
-          </div> */}
+            </a>
+          </div>
 
           {/* Sign Up Link */}
           <div className="text-center mt-4 pt-4 border-t">

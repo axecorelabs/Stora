@@ -12,6 +12,8 @@ const authLimiters = {
   '/api/auth/customer/reset-password': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '15 m'), prefix: 'store:rl:reset-password' }),
   '/api/auth/customer/verify-email': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m'), prefix: 'store:rl:verify-email' }),
   '/api/auth/customer/resend-verification': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m'), prefix: 'store:rl:resend-verification' }),
+  '/api/auth/google/start': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '5 m'), prefix: 'store:rl:google-start' }),
+  '/api/auth/google/callback': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '5 m'), prefix: 'store:rl:google-callback' }),
 };
 
 // Generous catch-all for everything else matched below (public storefront
@@ -56,6 +58,7 @@ export async function proxy(req) {
 export const config = {
   matcher: [
     '/api/auth/customer/:path*',
+    '/api/auth/google/:path*',
     '/api/store/:path*',
     '/api/stores/:path*',
     '/api/products/:path*',

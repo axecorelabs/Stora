@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import QueryProvider from "@/providers/QueryProvider";
+import GoogleAuthErrorBanner from "@/components/auth/GoogleAuthErrorBanner";
 import Head from "next/head";
 
 const geistSans = Geist({
@@ -83,7 +84,10 @@ export default function RootLayout({ children }) {
       <body className="bg-gray-50 text-gray-900">
         <QueryProvider>
           <AuthProvider>
-            <CartProvider>{children}</CartProvider>
+            <CartProvider>
+              <GoogleAuthErrorBanner />
+              {children}
+            </CartProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

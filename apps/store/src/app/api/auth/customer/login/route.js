@@ -83,6 +83,16 @@ export async function POST(request) {
       return genericInvalidCredentials();
     }
 
+    // Google-only account (password_hash is null). Store's login is
+    // deliberately non-enumerating (see genericInvalidCredentials above),
+    // so unlike the dashboard this must NOT reveal "this account uses
+    // Google" -- that would be a new enumeration channel. Same response,
+    // same recordFailedAttempt side effect as a genuine wrong password.
+    if (!customer.password_hash) {
+      await recordFailedAttempt(normalizedEmail);
+      return genericInvalidCredentials();
+    }
+
     // Verify password
     const isPasswordValid = await verifyPassword(password, customer.password_hash);
 

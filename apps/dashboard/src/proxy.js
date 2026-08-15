@@ -13,6 +13,8 @@ const limiters = {
   '/api/auth/verify-email': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m'), prefix: 'dashboard:rl:verify-email' }),
   '/api/auth/resend-verification': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m'), prefix: 'dashboard:rl:resend-verification' }),
   '/api/auth/change-password': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '15 m'), prefix: 'dashboard:rl:change-password' }),
+  '/api/auth/google/start': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '5 m'), prefix: 'dashboard:rl:google-start' }),
+  '/api/auth/google/callback': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '5 m'), prefix: 'dashboard:rl:google-callback' }),
 };
 
 function getClientIp(req) {
