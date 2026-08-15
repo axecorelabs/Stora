@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
-import { refundTransaction } from '@/lib/paystack';
 
-// POST - Refund a vendor's own share of a (possibly multi-vendor) paid
-// order. Vendor-scoped, not platform-admin-only -- consistent with how
-// order management is already store-scoped everywhere else in this app
-// (see the sibling status route). Always allowed once paid; there is no
-// settlement-status gate (see apps/dashboard/src/lib/paystack.js for why:
-// Paystack refunds a split transaction from Stora's own balance
-// regardless of subaccount settlement state, so there's nothing this
-// route could safely block on).
+// POST - Record a refund for a vendor's own share of a (possibly
+// multi-vendor) paid order. This is deliberately bookkeeping-only: it
+// does NOT call Paystack's refund API. Disputes are now handled offline
+// by customer service, who arrange the actual money movement themselves
+// (which may or may not go through Paystack) -- this action exists so
+// that once that's settled, someone can mark it here and have the order,
+// its payment record, and every dashboard view that reads order status
+// (orders list, order detail) reflect it accurately for accounting.
+// Vendor-scoped, not platform-admin-only -- consistent with how order
+// management is already store-scoped everywhere else in this app (see
+// the sibling status route). A live-Paystack-refund capability still
+// exists (apps/dashboard/src/lib/paystack.js's refundTransaction) for
+// whatever internal tooling customer service actually uses -- it's just
+// not called from this vendor-facing action anymore.
 export async function POST(req, { params }) {
   try {
     const user = await verifySession(req);
@@ -20,6 +25,10 @@ export async function POST(req, { params }) {
 
     const { id } = await params;
     const { amount, note } = await req.json().catch(() => ({}));
+
+    if (!note || !note.trim()) {
+      return NextResponse.json({ success: false, message: 'A reason is required to record a refund' }, { status: 400 });
+    }
 
     const { data: store } = await supabaseAdmin
       .from('stores')
@@ -81,18 +90,6 @@ export async function POST(req, { params }) {
       return NextResponse.json({ success: false, message: 'Invalid refund amount' }, { status: 400 });
     }
     const isFullRefund = refundAmount >= grossAmount;
-
-    try {
-      await refundTransaction({
-        reference: orderPayment.reference,
-        amountKobo: Math.round(refundAmount * 100),
-        note: note || `Refund for ${store.store_name} items on order ${id}`
-      });
-    } catch (error) {
-      console.error('Paystack refund error:', error);
-      return NextResponse.json({ success: false, message: error.message || 'Refund failed at Paystack' }, { status: 502 });
-    }
-
     const now = new Date().toISOString();
 
     await supabaseAdmin
@@ -129,9 +126,21 @@ export async function POST(req, { params }) {
         .eq('id', id);
     }
 
+    // Audit trail -- same order_timeline table/shape the status route
+    // already writes to, so this shows up alongside every other order
+    // event in one place, with who recorded it and why.
+    await supabaseAdmin.from('order_timeline').insert({
+      order_id: id,
+      status: allReversed ? 'refunded' : 'partially_refunded',
+      from_status: orderPayment.status,
+      note: `${isFullRefund ? 'Full' : 'Partial'} refund of ₦${refundAmount.toLocaleString('en-NG')} recorded for ${store.store_name}: ${note.trim()}`,
+      updated_by: user.id,
+      timestamp: now
+    });
+
     return NextResponse.json({
       success: true,
-      message: isFullRefund ? 'Refund completed' : 'Partial refund completed',
+      message: isFullRefund ? 'Refund recorded' : 'Partial refund recorded',
       refundAmount,
       orderPaymentStatus: newPaymentStatus
     });
