@@ -18,6 +18,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
     "bcryptjs": "^3.0.2",
+    "google-auth-library": "^11.0.2",
     "gsap": "^3.13.0",
     "jsonwebtoken": "^9.0.2",
     "lucide": "^0.548.0",
