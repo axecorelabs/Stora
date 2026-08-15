@@ -1,10 +1,118 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { verifyCustomerSession } from "@/lib/auth";
 import { sendNewOrderNotification } from "@/lib/email";
 import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supabaseOrders";
 import { getOrCreateCart, clearCart } from "@/lib/supabaseCart";
 import { findInventoryByIds } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
+
+const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.1');
+
+// Groups an order's items by store, matching each item up with its
+// order_stores snapshot -- the single source of truth both the payment
+// split (payable vs WhatsApp-contact-only vendors) and the vendor email/
+// notification loop key off, so the two can never drift apart.
+async function groupOrderItemsByStore(order) {
+  const { data: orderStores } = await supabaseAdmin
+    .from('order_stores')
+    .select('*')
+    .in('order_item_id', order.order_items.map(item => item.id));
+
+  const storeMap = new Map();
+  for (const store of orderStores || []) {
+    storeMap.set(store.store_id, store);
+  }
+
+  const storeGroupedItems = {};
+  for (const item of order.order_items) {
+    const storeId = item.store_id;
+    if (!storeGroupedItems[storeId]) {
+      storeGroupedItems[storeId] = { store: storeMap.get(storeId), items: [], total: 0 };
+    }
+    storeGroupedItems[storeId].items.push(item);
+    storeGroupedItems[storeId].total += parseFloat(item.subtotal);
+  }
+
+  return storeGroupedItems;
+}
+
+// Computes and persists the per-vendor payment-split breakdown for a
+// Paystack order. Only ever covers payable (paystack_ready) stores --
+// non-ready stores' items stay on the existing WhatsApp-contact path
+// (see apps/store/src/app/[slug]/cart/page.js), never enter a split.
+// Deliberately isolated from the email/notification block: a failure
+// here must not silently disappear the way a failed notification email
+// can, since a missing split record breaks payment initiation later --
+// callers check the returned paymentSplitError instead.
+async function computePaymentSplit(order, storeGroupedItems) {
+  const storeIds = Object.keys(storeGroupedItems);
+  const { data: stores, error: storesError } = await supabaseAdmin
+    .from('stores')
+    .select('id, paystack_ready, bank_details')
+    .in('id', storeIds);
+
+  if (storesError) throw storesError;
+
+  const readyStoreIds = new Set((stores || []).filter(s => s.paystack_ready).map(s => s.id));
+  const subaccountByStoreId = new Map(
+    (stores || []).map(s => [s.id, s.bank_details?.paystack_subaccount_code])
+  );
+
+  const payableStoreIds = storeIds.filter(id => readyStoreIds.has(id));
+  const contactOnlyStoreIds = storeIds.filter(id => !readyStoreIds.has(id));
+
+  if (payableStoreIds.length === 0) {
+    return { payableStoreIds, contactOnlyStoreIds, payableSubtotal: 0 };
+  }
+
+  const { data: orderPayment, error: paymentFetchError } = await supabaseAdmin
+    .from('order_payments')
+    .select('id')
+    .eq('order_id', order.id)
+    .single();
+
+  if (paymentFetchError || !orderPayment) {
+    throw paymentFetchError || new Error('order_payments row not found');
+  }
+
+  const splitRows = [];
+  let payableSubtotal = 0;
+
+  for (const storeId of payableStoreIds) {
+    const grossAmount = storeGroupedItems[storeId].total;
+    const commissionAmount = Math.round(grossAmount * PLATFORM_COMMISSION_RATE * 100) / 100;
+    const netAmount = grossAmount - commissionAmount;
+    payableSubtotal += grossAmount;
+
+    splitRows.push({
+      id: crypto.randomUUID(),
+      order_id: order.id,
+      order_payment_id: orderPayment.id,
+      store_id: storeId,
+      subaccount_code: subaccountByStoreId.get(storeId),
+      gross_amount: grossAmount,
+      platform_commission_rate: PLATFORM_COMMISSION_RATE,
+      platform_commission_amount: commissionAmount,
+      net_amount_to_vendor: netAmount
+    });
+  }
+
+  const { error: splitInsertError } = await supabaseAdmin.from('order_payment_splits').insert(splitRows);
+  if (splitInsertError) throw splitInsertError;
+
+  // order_payments.amount only ever covers the payable portion -- never
+  // the full order total on a mixed cart, since Paystack is only ever
+  // asked to collect what it's actually splitting to a subaccount.
+  const { error: paymentUpdateError } = await supabaseAdmin
+    .from('order_payments')
+    .update({ amount: payableSubtotal, provider: 'paystack', method: 'paystack', updated_at: new Date().toISOString() })
+    .eq('id', orderPayment.id);
+
+  if (paymentUpdateError) throw paymentUpdateError;
+
+  return { payableStoreIds, contactOnlyStoreIds, payableSubtotal };
+}
 
 async function fetchStoreData(storeId) {
   const { data: store, error } = await supabaseAdmin
@@ -74,6 +182,15 @@ export async function POST(request) {
     if (!shippingAddress || !shippingAddress.firstName || !shippingAddress.phone || !shippingAddress.city || !shippingAddress.state) {
       return NextResponse.json(
         { success: false, message: "Complete shipping address is required" },
+        { status: 400 }
+      );
+    }
+
+    // Paystack requires an email to initialize a transaction -- not
+    // otherwise a required field on this form for cash_to_vendor orders.
+    if (paymentMethod === 'paystack' && !shippingAddress.email) {
+      return NextResponse.json(
+        { success: false, message: "Email address is required for online payment" },
         { status: 400 }
       );
     }
@@ -270,38 +387,24 @@ export async function POST(request) {
     // Clear cart
     await clearCart(cart);
 
+    // Single source of truth for per-store subtotals -- feeds both the
+    // payment split below and the notification/email loop, so they can
+    // never disagree about what each vendor is owed.
+    const storeGroupedItems = await groupOrderItemsByStore(order);
+
+    let paymentSplitResult = null;
+    let paymentSplitError = null;
+    if (paymentMethod === 'paystack') {
+      try {
+        paymentSplitResult = await computePaymentSplit(order, storeGroupedItems);
+      } catch (splitError) {
+        console.error('Error computing payment split:', splitError);
+        paymentSplitError = 'Failed to set up payment for this order. Please try again.';
+      }
+    }
+
     // Send email notifications to store owners
     try {
-      // Fetch store snapshots from order_stores table
-      const { data: orderStores } = await supabaseAdmin
-        .from('order_stores')
-        .select('*')
-        .in('order_item_id', order.order_items.map(item => item.id));
-
-      // Create store lookup map
-      const storeMap = new Map();
-      if (orderStores) {
-        for (const store of orderStores) {
-          storeMap.set(store.store_id, store);
-        }
-      }
-
-      // Group items by store
-      const storeGroupedItems = {};
-
-      for (const item of order.order_items) {
-        const storeId = item.store_id;
-        if (!storeGroupedItems[storeId]) {
-          storeGroupedItems[storeId] = {
-            store: storeMap.get(storeId),
-            items: [],
-            total: 0
-          };
-        }
-        storeGroupedItems[storeId].items.push(item);
-        storeGroupedItems[storeId].total += parseFloat(item.subtotal);
-      }
-
       // Create an in-app notification for each store owner -- this is what
       // the dashboard's Realtime SSE relay (apps/dashboard/src/app/api/notifications/stream/route.js)
       // picks up live. Isolated in its own try/catch so a failure here never
@@ -377,10 +480,27 @@ export async function POST(request) {
       console.error("Error sending order notification emails:", emailError);
     }
 
+    // contactOnlyStores carries what the frontend needs to show the
+    // existing WhatsApp-contact fallback, scoped to just these vendors
+    // (see apps/store/src/app/[slug]/cart/page.js) -- stores with no
+    // Paystack subaccount configured yet, or the whole cart when
+    // paymentMethod isn't 'paystack' at all.
+    const contactOnlyStoreIds = paymentSplitResult?.contactOnlyStoreIds
+      ?? (paymentMethod === 'paystack' ? [] : Object.keys(storeGroupedItems));
+    const contactOnlyStores = contactOnlyStoreIds.map(storeId => ({
+      storeId,
+      storeName: storeGroupedItems[storeId]?.store?.store_name,
+      storePhone: storeGroupedItems[storeId]?.store?.store_phone,
+      total: storeGroupedItems[storeId]?.total
+    }));
+
     return NextResponse.json({
       success: true,
       message: "Order created successfully",
-      order: orderSummary(order)
+      order: orderSummary(order),
+      paymentRequired: Boolean(paymentSplitResult?.payableStoreIds?.length),
+      paymentSplitError,
+      contactOnlyStores
     });
 
   } catch (error) {
