@@ -21,7 +21,8 @@ import {
   Palette,
   Save,
   X,
-  AlertCircle
+  AlertCircle,
+  Landmark
 } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import Button from "@/components/ui/Button";
@@ -29,6 +30,7 @@ import SectionHeader from "@/components/ui/SectionHeader";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
 import AddPhysicalStoreModal from "@/components/dashboard/AddPhysicalStoreModal";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
+import PayoutSettingsModal from "@/components/dashboard/PayoutSettingsModal";
 import { useRouter } from "next/navigation";
 
 export default function StorePage() {
@@ -44,6 +46,7 @@ export default function StorePage() {
   const [isCreateStoreModalOpen, setIsCreateStoreModalOpen] = useState(false);
   const [isAddPhysicalStoreModalOpen, setIsAddPhysicalStoreModalOpen] = useState(false);
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
+  const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
 
   // Nigerian states for dropdown
   const nigerianStates = [
@@ -149,6 +152,12 @@ export default function StorePage() {
   const handleBrandingUpdated = (updatedStore) => {
     setStore(updatedStore);
     setIsBrandingModalOpen(false);
+  };
+
+  // Handle payout settings update
+  const handlePayoutUpdated = (updatedStore) => {
+    setStore(updatedStore);
+    setIsPayoutModalOpen(false);
   };
 
   const startEditing = () => {
@@ -787,12 +796,19 @@ export default function StorePage() {
                   Add Physical Location
                 </button>
               )}
-              <button 
+              <button
                 onClick={() => setIsBrandingModalOpen(true)}
                 className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
               >
                 <Palette className="w-4 h-4 mr-2" />
                 Customize Branding
+              </button>
+              <button
+                onClick={() => setIsPayoutModalOpen(true)}
+                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                <Landmark className="w-4 h-4 mr-2" />
+                {store.bankDetails?.paystack_subaccount_code ? 'Payout Settings' : 'Set Up Payouts'}
               </button>
             </div>
           </div>
@@ -818,6 +834,14 @@ export default function StorePage() {
         isOpen={isBrandingModalOpen}
         onClose={() => setIsBrandingModalOpen(false)}
         onBrandingUpdated={handleBrandingUpdated}
+        store={store}
+      />
+
+      {/* Payout Settings Modal */}
+      <PayoutSettingsModal
+        isOpen={isPayoutModalOpen}
+        onClose={() => setIsPayoutModalOpen(false)}
+        onPayoutUpdated={handlePayoutUpdated}
         store={store}
       />
     </DashboardLayout>
