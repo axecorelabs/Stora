@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getGoogleClient, isSafeReturnTo } from '@/lib/googleAuth';
+import { getGoogleClient, getRequestOrigin, isSafeReturnTo } from '@/lib/googleAuth';
 
 const STATE_COOKIE = 'google_oauth_state';
 const RETURN_TO_COOKIE = 'google_oauth_return_to';
@@ -11,7 +11,7 @@ export async function GET(req) {
   const returnTo = searchParams.get('returnTo');
 
   const state = crypto.randomUUID();
-  const client = getGoogleClient();
+  const client = getGoogleClient(getRequestOrigin(req));
 
   const authUrl = client.generateAuthUrl({
     access_type: 'online',

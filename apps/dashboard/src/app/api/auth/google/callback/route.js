@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createSession } from '@/lib/auth';
 import { sendWelcomeEmail } from '@/lib/email';
-import { getGoogleClient } from '@/lib/googleAuth';
+import { getGoogleClient, getRequestOrigin } from '@/lib/googleAuth';
 
 const STATE_COOKIE = 'google_oauth_state';
 
@@ -124,7 +124,7 @@ export async function GET(req) {
 
   let payload;
   try {
-    const client = getGoogleClient();
+    const client = getGoogleClient(getRequestOrigin(req));
     const { tokens } = await client.getToken(code);
     const ticket = await client.verifyIdToken({
       idToken: tokens.id_token,

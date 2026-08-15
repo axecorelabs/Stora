@@ -1,7 +1,22 @@
 import { OAuth2Client } from 'google-auth-library';
 
-export function getGoogleClient() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+// Prefers X-Forwarded-Host/-Proto (set correctly by Vercel's edge, and
+// required if an external proxy/CDN like Cloudflare ever sits in front of
+// it) over req.nextUrl.origin, which only reflects the true public host
+// when there's no such proxy in the path. Self-correcting across dev,
+// prod, and Vercel preview URLs -- no env var to keep in sync.
+export function getRequestOrigin(req) {
+  const forwardedHost = req.headers.get('x-forwarded-host');
+  if (forwardedHost) {
+    const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+  return req.nextUrl.origin;
+}
+
+// The start/callback routes must derive the same baseUrl since Google's
+// token endpoint requires the exact same redirect_uri in both steps.
+export function getGoogleClient(baseUrl) {
   return new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
