@@ -635,6 +635,74 @@ export async function updateOrderItemStatus(orderItemId, status) {
   return data;
 }
 
+// ============ ORDER TRANSFORMATION ============
+//
+// order_items carries product_id/variant_color/variant_size/variant_sku
+// (not the old inventory_id/variant columns) and store info now lives in
+// the separate order_stores table -- see findOrderById's inline transform,
+// which this mirrors.
+
+export function transformOrderFields(order) {
+  if (!order) return null;
+
+  return {
+    id: order.id,
+    orderNumber: order.order_number,
+    customerId: order.customer_id,
+    subtotal: order.subtotal,
+    tax: order.tax,
+    shippingFee: order.shipping_fee,
+    discount: order.discount,
+    couponDiscount: order.coupon_discount,
+    totalAmount: order.total_amount,
+    status: order.status,
+    fulfillmentStatus: order.fulfillment_status,
+    customerNotes: order.customer_notes,
+    adminNotes: order.admin_notes,
+    orderSource: order.order_source,
+    confirmedAt: order.confirmed_at,
+    shippedAt: order.shipped_at,
+    deliveredAt: order.delivered_at,
+    cancelledAt: order.cancelled_at,
+    createdAt: order.created_at,
+    updatedAt: order.updated_at,
+    items: order.order_items?.map(transformOrderItemFields) || []
+  };
+}
+
+export function transformOrderItemFields(item) {
+  if (!item) return null;
+
+  return {
+    id: item.id,
+    orderId: item.order_id,
+    productId: item.product_id,
+    storeId: item.store_id,
+    quantity: item.quantity,
+    price: parseFloat(item.unit_price || 0),
+    unitPrice: parseFloat(item.unit_price || 0),
+    subtotal: parseFloat(item.subtotal || 0),
+    itemStatus: item.item_status,
+    productSnapshot: {
+      productName: item.product_name,
+      sku: item.product_sku,
+      image: item.product_image,
+      category: item.product_category,
+      brand: item.product_brand
+    },
+    variant: item.variant_color || item.variant_size || item.variant_sku ? {
+      color: item.variant_color,
+      size: item.variant_size,
+      sku: item.variant_sku,
+      image: item.variant_image
+    } : null,
+    batchId: item.batch_id,
+    batchCode: item.batch_code,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at
+  };
+}
+
 // ============ ATOMIC STOCK RESERVATION (via Postgres RPC) ============
 //
 // Every reservation/release/fulfillment mutation goes through
