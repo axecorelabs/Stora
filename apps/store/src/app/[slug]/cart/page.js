@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 import {
   ArrowLeft,
   Trash2,
@@ -48,6 +49,7 @@ export default function StoreCartPage({ params }) {
   const [updatingItemId, setUpdatingItemId] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
   const [orderError, setOrderError] = useState(null);
   const [shippingAddress, setShippingAddress] = useState({
     phone: "",
@@ -378,6 +380,71 @@ export default function StoreCartPage({ params }) {
     window.open(whatsappUrl, "_blank");
   };
 
+  // Shared by both checkout flows below. Never trusts the popup's own
+  // onSuccess callback as proof of payment -- that's just a UI event, so
+  // it always follows up with a server-side /api/payments/verify call
+  // (same idempotent core the webhook uses) before resolving success.
+  const triggerPaystackPayment = (orderId) => {
+    return new Promise((resolve) => {
+      (async () => {
+        try {
+          setIsConfirmingPayment(true);
+          const initRes = await fetch("/api/payments/initiate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ orderId }),
+          });
+          const initData = await initRes.json();
+
+          if (!initRes.ok || !initData.success) {
+            setOrderError(initData.message || "Could not start payment");
+            resolve({ success: false });
+            return;
+          }
+
+          if (typeof window === "undefined" || !window.PaystackPop) {
+            setOrderError("Payment isn't ready yet -- please try again in a moment");
+            resolve({ success: false });
+            return;
+          }
+
+          const popup = new window.PaystackPop();
+          popup.resumeTransaction(initData.accessCode, {
+            onSuccess: async () => {
+              try {
+                const verifyRes = await fetch(
+                  `/api/payments/verify?reference=${encodeURIComponent(initData.reference)}`,
+                  { credentials: "include" }
+                );
+                const verifyData = await verifyRes.json();
+                if (!verifyData.success) {
+                  setOrderError(verifyData.message || "Payment could not be confirmed");
+                }
+                resolve({ success: Boolean(verifyData.success) });
+              } catch (error) {
+                console.error("Error verifying payment:", error);
+                setOrderError("Payment could not be confirmed. Please contact support.");
+                resolve({ success: false });
+              } finally {
+                setIsConfirmingPayment(false);
+              }
+            },
+            onCancel: () => {
+              setIsConfirmingPayment(false);
+              resolve({ success: false, cancelled: true });
+            },
+          });
+        } catch (error) {
+          console.error("Error starting payment:", error);
+          setOrderError("Could not start payment. Please try again.");
+          setIsConfirmingPayment(false);
+          resolve({ success: false });
+        }
+      })();
+    });
+  };
+
   const handleConfirmOrder = async () => {
     // Validate all required fields
     if (
@@ -412,6 +479,7 @@ export default function StoreCartPage({ params }) {
           shippingAddress: {
             firstName: customer.firstName,
             lastName: customer.lastName,
+            email: customer.email,
             phone: shippingAddress.phone,
             street: shippingAddress.street,
             city: shippingAddress.city,
@@ -420,6 +488,7 @@ export default function StoreCartPage({ params }) {
             landmark: shippingAddress.landmark || "", // Optional landmark
           },
           customerNotes: "",
+          paymentMethod: "paystack",
         }),
       });
 
@@ -429,30 +498,35 @@ export default function StoreCartPage({ params }) {
         await clearCart();
         setShowOrderModal(false);
 
-        // Set order data for WhatsApp contact
-        setOrderNumber(data.order.orderNumber);
-        setOrderStores(data.order.stores || []);
+        if (data.paymentSplitError) {
+          setOrderError(data.paymentSplitError);
+        }
 
-        // Check if single store or multiple stores
-        const stores = data.order.stores || [];
-
-        if (stores.length === 1) {
-          // Single store - auto-redirect
-          const store = stores[0];
-          if (store.storeSnapshot?.storePhone) {
-            setTimeout(() => {
-              router.push(`/${resolvedParams.slug}/orders/${data.order._id}`);
-            }, 2000);
-          } else {
-            // No phone number, go directly to order details
-            router.push(`/${resolvedParams.slug}/orders/${data.order._id}`);
+        // Real Paystack payment for whichever vendors in this cart have a
+        // subaccount configured -- if none do (or paymentMethod wasn't
+        // paystack at all), paymentRequired is false and this is a no-op.
+        // A cancelled or failed payment stops here rather than falling
+        // through to the WhatsApp-contact step below: the order and its
+        // reservation still exist either way, so the customer can retry
+        // paying from the order page rather than this juggling both a
+        // half-completed payment and a WhatsApp handoff in one flow.
+        if (data.paymentRequired) {
+          const paymentResult = await triggerPaystackPayment(data.order.id);
+          if (!paymentResult.success) {
+            return;
           }
-        } else if (stores.length > 1) {
-          // Multiple stores - show WhatsApp contact modal
+        }
+
+        const contactOnlyStores = data.contactOnlyStores || [];
+        if (contactOnlyStores.length > 0) {
+          // Vendors with no Paystack subaccount yet -- same WhatsApp-contact
+          // fallback as before, just scoped to only these stores instead
+          // of the whole cart.
+          setOrderNumber(data.order.orderNumber);
+          setOrderStores(contactOnlyStores);
           setShowWhatsAppModal(true);
         } else {
-          // No stores (shouldn't happen), go to order details
-          router.push(`/${resolvedParams.slug}/orders/${data.order._id}`);
+          router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
         }
       } else {
         setOrderError(data.message || "Failed to place order");
@@ -523,6 +597,7 @@ export default function StoreCartPage({ params }) {
             landmark: formData.landmark || "",
           },
           customerNotes: "",
+          paymentMethod: "paystack",
         }),
       });
       const data = await response.json();
@@ -530,7 +605,26 @@ export default function StoreCartPage({ params }) {
         await clearCart();
         setShowStoreOrderModal(false);
         setSelectedStoreGroup(null);
-        router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
+
+        // A cancelled/failed payment leaves the order exactly as created
+        // (unpaid, reservation intact) -- close this modal and stop here
+        // rather than throw, since OrderModal's error UI is meant for
+        // checkout-creation failures, not a user backing out of paying.
+        if (data.paymentRequired) {
+          const paymentResult = await triggerPaystackPayment(data.order.id);
+          if (!paymentResult.success) {
+            return;
+          }
+        }
+
+        const contactOnlyStores = data.contactOnlyStores || [];
+        if (contactOnlyStores.length > 0) {
+          setOrderNumber(data.order.orderNumber);
+          setOrderStores(contactOnlyStores);
+          setShowWhatsAppModal(true);
+        } else {
+          router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
+        }
       } else {
         throw new Error(data.message || "Failed to place order");
       }
@@ -542,6 +636,17 @@ export default function StoreCartPage({ params }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
+
+      {isConfirmingPayment && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl px-6 py-5 flex items-center gap-3 shadow-lg">
+            <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+            <span className="text-sm font-medium text-gray-900">Confirming payment...</span>
+          </div>
+        </div>
+      )}
+
       {/* Header - Mobile Optimized */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4">

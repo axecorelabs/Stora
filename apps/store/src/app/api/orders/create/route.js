@@ -487,12 +487,20 @@ export async function POST(request) {
     // paymentMethod isn't 'paystack' at all.
     const contactOnlyStoreIds = paymentSplitResult?.contactOnlyStoreIds
       ?? (paymentMethod === 'paystack' ? [] : Object.keys(storeGroupedItems));
-    const contactOnlyStores = contactOnlyStoreIds.map(storeId => ({
-      storeId,
-      storeName: storeGroupedItems[storeId]?.store?.store_name,
-      storePhone: storeGroupedItems[storeId]?.store?.store_phone,
-      total: storeGroupedItems[storeId]?.total
-    }));
+    const contactOnlyStores = contactOnlyStoreIds.map(storeId => {
+      const groupData = storeGroupedItems[storeId];
+      return {
+        storeId,
+        // storeSnapshot is the raw order_stores row -- WhatsAppContactModal's
+        // getAvailableSocialMedia() reads store.storeSnapshot?.whatsapp etc.
+        // directly from it (flat fields on order_stores, not nested).
+        storeSnapshot: groupData?.store,
+        storeName: groupData?.store?.store_name,
+        storePhone: groupData?.store?.store_phone,
+        itemCount: groupData?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
+        total: groupData?.total
+      };
+    });
 
     return NextResponse.json({
       success: true,
