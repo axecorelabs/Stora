@@ -97,17 +97,16 @@ export async function POST(req, { params }) {
       .update({ status: 'reversed', updated_at: now })
       .eq('id', split.id);
 
-    // Only mark the whole payment 'refunded' once every vendor's split on
-    // this order has been reversed -- a partial refund on a multi-vendor
-    // order must not look like the whole order was refunded.
-    const { data: allSplits } = await supabaseAdmin
-      .from('order_payment_splits')
-      .select('status')
-      .eq('order_payment_id', orderPayment.id);
-
-    const allReversed = (allSplits || []).every(s => s.status === 'reversed');
-    const newPaymentStatus = allReversed ? 'refunded' : 'partially_refunded';
+    // order_payments.status must reflect how much money has actually been
+    // refunded, not how many vendor splits have had their (single, v1)
+    // refund action used -- a split marked 'reversed' by a partial refund
+    // isn't the same thing as the order being fully refunded. Comparing
+    // cumulative refund_amount against the order's total collected amount
+    // is what's actually accurate for accounting.
     const newRefundAmount = parseFloat(orderPayment.refund_amount || 0) + refundAmount;
+    const totalCollected = parseFloat(orderPayment.amount);
+    const isOrderFullyRefunded = newRefundAmount >= totalCollected;
+    const newPaymentStatus = isOrderFullyRefunded ? 'refunded' : 'partially_refunded';
 
     await supabaseAdmin
       .from('order_payments')
@@ -119,7 +118,7 @@ export async function POST(req, { params }) {
       })
       .eq('id', orderPayment.id);
 
-    if (allReversed) {
+    if (isOrderFullyRefunded) {
       await supabaseAdmin
         .from('orders')
         .update({ status: 'refunded', updated_at: now })
@@ -128,15 +127,21 @@ export async function POST(req, { params }) {
 
     // Audit trail -- same order_timeline table/shape the status route
     // already writes to, so this shows up alongside every other order
-    // event in one place, with who recorded it and why.
-    await supabaseAdmin.from('order_timeline').insert({
+    // event in one place, with who recorded it and why. updated_by is a
+    // role label (CHECK constraint: system/customer/admin/seller), not an
+    // identity column -- the actual user goes in changed_by (a real FK).
+    const { error: timelineError } = await supabaseAdmin.from('order_timeline').insert({
       order_id: id,
-      status: allReversed ? 'refunded' : 'partially_refunded',
+      status: newPaymentStatus,
       from_status: orderPayment.status,
       note: `${isFullRefund ? 'Full' : 'Partial'} refund of ₦${refundAmount.toLocaleString('en-NG')} recorded for ${store.store_name}: ${note.trim()}`,
-      updated_by: user.id,
+      updated_by: 'seller',
+      changed_by: user.id,
       timestamp: now
     });
+    if (timelineError) {
+      console.error('Error recording refund timeline entry (non-fatal):', timelineError);
+    }
 
     return NextResponse.json({
       success: true,
