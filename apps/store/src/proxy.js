@@ -4,7 +4,9 @@ import { redis, withTimeout } from '@/lib/redis';
 
 // Sliding-window per-route limiters, keyed by client IP. Each is a
 // standalone Ratelimit instance (Upstash's recommended pattern) so
-// different routes don't share a budget.
+// different routes don't share a budget. Despite the name, also covers
+// the exact-path payment routes below -- same "explicit map keyed by
+// exact pathname" mechanism as the auth routes, just not auth itself.
 const authLimiters = {
   '/api/auth/customer/login': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '5 m'), prefix: 'store:rl:login' }),
   '/api/auth/customer/register': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 h'), prefix: 'store:rl:register' }),
@@ -14,6 +16,13 @@ const authLimiters = {
   '/api/auth/customer/resend-verification': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m'), prefix: 'store:rl:resend-verification' }),
   '/api/auth/google/start': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '5 m'), prefix: 'store:rl:google-start' }),
   '/api/auth/google/callback': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '5 m'), prefix: 'store:rl:google-callback' }),
+  '/api/payments/initiate': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '5 m'), prefix: 'store:rl:payments-initiate' }),
+  '/api/payments/verify': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(15, '5 m'), prefix: 'store:rl:payments-verify' }),
+  // Paystack's own servers call the webhook (retries on non-2xx), and
+  // Vercel Cron calls the cleanup job -- neither is a real end user, both
+  // just need a generous bound so they're never starved by browseLimiter.
+  '/api/payments/webhook': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(120, '1 m'), prefix: 'store:rl:payments-webhook' }),
+  '/api/payments/cleanup-abandoned': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m'), prefix: 'store:rl:payments-cleanup' }),
 };
 
 // Generous catch-all for everything else matched below (public storefront
@@ -59,6 +68,7 @@ export const config = {
   matcher: [
     '/api/auth/customer/:path*',
     '/api/auth/google/:path*',
+    '/api/payments/:path*',
     '/api/store/:path*',
     '/api/stores/:path*',
     '/api/products/:path*',

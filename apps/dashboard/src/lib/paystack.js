@@ -34,11 +34,17 @@ export function resolveAccountNumber(accountNumber, bankCode) {
   return paystackRequest(`/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`);
 }
 
-// POST /subaccount -- settlement_schedule: 'manual' is load-bearing, not
-// a default left as-is. It's what makes a refund safe: funds sit in the
-// vendor's own subaccount, not yet paid to their bank, until the
-// settlement-trigger cron job (apps/store) explicitly releases them 24h
-// after payment. See apps/dashboard/supabase/migrations/20260816000000_paystack_payment_splits.sql.
+// POST /subaccount -- settlement_schedule intentionally left as Paystack's
+// default ('auto', T+1). An earlier version of this design set it to
+// 'manual' to hold funds back as a refund-safety window, but triggering a
+// manual settlement turns out to require a human clicking a button in the
+// Paystack dashboard, not an API call -- there's no way to automate
+// releasing it, so 'manual' would have left vendor funds stuck
+// indefinitely. Vendors get paid fast instead; a refund on an
+// already-settled transaction is refunded from Stora's own Paystack
+// balance (Paystack's behavior for any split transaction refund) and is
+// an accepted, understood risk rather than one this code tries to
+// engineer around.
 export function createSubaccount({ businessName, bankCode, accountNumber, commissionRate, contactEmail, contactName }) {
   return paystackRequest('/subaccount', {
     method: 'POST',
@@ -48,15 +54,15 @@ export function createSubaccount({ businessName, bankCode, accountNumber, commis
       account_number: accountNumber,
       percentage_charge: commissionRate * 100,
       primary_contact_email: contactEmail,
-      primary_contact_name: contactName,
-      settlement_schedule: 'manual'
+      primary_contact_name: contactName
     }
   });
 }
 
-// POST /refund -- only ever called for a split still in 'pending'
-// settlement status (apps/dashboard/src/app/api/orders/[id]/refund/route.js
-// enforces this before calling it). amountKobo omitted means a full refund.
+// POST /refund -- always allowed, no settlement-status gate (see the
+// createSubaccount note above for why). Refunding an already-settled
+// transaction still succeeds -- Paystack pulls it from Stora's main
+// balance -- it's just an accepted cost, not a blocked action.
 export function refundTransaction({ reference, amountKobo, note }) {
   return paystackRequest('/refund', {
     method: 'POST',

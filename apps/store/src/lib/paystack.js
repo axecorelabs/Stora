@@ -49,15 +49,6 @@ export function verifyTransaction(reference) {
   return paystackRequest(`/transaction/verify/${encodeURIComponent(reference)}`);
 }
 
-// POST /subaccount/:code (settlement trigger) -- called only by the
-// settlement-trigger cron job, 24h after payment, per subaccount with
-// still-pending order_payment_splits rows.
-export function triggerSettlement(subaccountCode) {
-  return paystackRequest(`/subaccount/${encodeURIComponent(subaccountCode)}/settle`, {
-    method: 'POST'
-  });
-}
-
 // Verifies the x-paystack-signature header: HMAC-SHA512 of the raw
 // request body using the secret key, timing-safe compare. Must be called
 // with the RAW body string (before any JSON.parse) -- the signature is
