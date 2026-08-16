@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/payments/cleanup-abandoned",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

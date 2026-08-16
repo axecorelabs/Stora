@@ -29,6 +29,7 @@ export default function OrderModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidatingWhatsApp, setIsValidatingWhatsApp] = useState(false);
   const [whatsAppValidated, setWhatsAppValidated] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const nigerianStates = [
     "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno",
@@ -60,8 +61,8 @@ export default function OrderModal({
   // Initialize form data from customer
   useEffect(() => {
     if (isOpen && customer) {
-      setFormData(prev => ({ 
-        ...prev, 
+      setFormData(prev => ({
+        ...prev,
         phone: customer.phone || '',
         email: customer.email || '',
         // Support both camelCase and snake_case field names
@@ -70,6 +71,14 @@ export default function OrderModal({
       }));
     }
   }, [isOpen, customer]);
+
+  // A stale error from a previous attempt must not persist into the next
+  // time this modal opens.
+  useEffect(() => {
+    if (isOpen) {
+      setSubmitError(null);
+    }
+  }, [isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -141,11 +150,19 @@ export default function OrderModal({
     e.preventDefault();
     if (!validateForm()) return;
 
+    setSubmitError(null);
     setIsSubmitting(true);
     try {
       await onConfirm(formData);
     } catch (error) {
       console.error("Order submission error:", error);
+      // onConfirm (handleStoreConfirmOrder in [slug]/cart/page.js) throws on
+      // every failure path -- payment-readiness timeout, insufficient
+      // stock, network errors -- and this was the only place any of that
+      // reached the customer. Silently logging it made every one of those
+      // failures look identical: the button spins, then goes back to
+      // normal, with no indication anything went wrong or why.
+      setSubmitError(error.message || "Failed to place order. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -416,6 +433,12 @@ export default function OrderModal({
 
         {/* Fixed Footer */}
         <div className="border-t border-gray-200 p-4 sm:p-6 bg-gray-50 sm:rounded-b-2xl flex-shrink-0">
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-red-600 text-sm">{submitError}</p>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
