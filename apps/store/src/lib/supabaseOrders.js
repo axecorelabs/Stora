@@ -38,7 +38,27 @@ export async function findOrdersByCustomerId(customerId, options = {}) {
     throw new Error('Failed to find orders');
   }
 
-  return { orders: data || [], totalCount: count || 0 };
+  const orders = data || [];
+
+  // One batched query for this page's payment rows instead of one query
+  // per order -- attached as order.order_payments[0] so transformOrderFields
+  // can shape it the same way findOrderById's single-order payment object
+  // already is (this list endpoint never fetched payment data at all
+  // before, which is what let OrderDetailsPanel.js read a field that
+  // was always undefined).
+  if (orders.length > 0) {
+    const { data: payments } = await supabaseAdmin
+      .from('order_payments')
+      .select('*')
+      .in('order_id', orders.map(o => o.id));
+
+    const paymentByOrderId = new Map((payments || []).map(p => [p.order_id, p]));
+    for (const order of orders) {
+      order.order_payments = paymentByOrderId.has(order.id) ? [paymentByOrderId.get(order.id)] : [];
+    }
+  }
+
+  return { orders, totalCount: count || 0 };
 }
 
 export async function findOrderById(orderId, customerId = null) {
@@ -664,7 +684,20 @@ export function transformOrderFields(order) {
     cancelledAt: order.cancelled_at,
     createdAt: order.created_at,
     updatedAt: order.updated_at,
-    items: order.order_items?.map(transformOrderItemFields) || []
+    items: order.order_items?.map(transformOrderItemFields) || [],
+    // order.order_payments[0] is attached by findOrdersByCustomerId's
+    // batched payment lookup -- same shape as findOrderById's `payment`
+    // field, so both order-detail surfaces (this list panel and the
+    // single-order page) read a consistently-named field.
+    payment: order.order_payments?.[0] ? {
+      method: order.order_payments[0].method,
+      provider: order.order_payments[0].provider,
+      status: order.order_payments[0].status,
+      amount: order.order_payments[0].amount,
+      reference: order.order_payments[0].reference,
+      transactionId: order.order_payments[0].transaction_id,
+      paidAt: order.order_payments[0].paid_at
+    } : null
   };
 }
 
