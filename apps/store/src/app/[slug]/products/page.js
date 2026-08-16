@@ -1,6 +1,19 @@
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import ProductsPageClient from '@/components/product/ProductsPageClient';
 import { findStoreBySlug, findInventoryByStoreId, enrichProductsWithBatches } from '@/lib/supabaseStore';
+
+// ISR: a 1-minute window for the listing itself. ProductsPageClient already
+// re-syncs live via useProducts() (TanStack Query, 5-min staleTime) on top
+// of this SSR/ISR snapshot, so actual staleness is bounded well under this
+// either way -- this just controls how fresh the very first paint is.
+export const revalidate = 60;
+
+// Required for revalidate to take effect on this dynamic segment -- see
+// the matching comment in ../page.js.
+export async function generateStaticParams() {
+  return [];
+}
 
 // Generate metadata
 export async function generateMetadata({ params }) {
@@ -49,5 +62,16 @@ export default async function ProductsPage({ params }) {
   const storeData = JSON.parse(JSON.stringify(store));
   const productsData = JSON.parse(JSON.stringify(products));
 
-  return <ProductsPageClient store={storeData} products={productsData} slug={slug} />;
+  // ProductsPageClient reads useSearchParams() (for ?category=) with no
+  // Suspense boundary of its own -- pre-existing, but harmless under pure
+  // dynamic SSR. It becomes a hard error once this route is ISR-eligible
+  // (generateStaticParams above): Next can't produce a cacheable shell
+  // around a client subtree that needs searchParams without a fallback to
+  // render statically first. The Suspense boundary has to live here, in
+  // the server parent, not inside the client component itself.
+  return (
+    <Suspense fallback={null}>
+      <ProductsPageClient store={storeData} products={productsData} slug={slug} />
+    </Suspense>
+  );
 }

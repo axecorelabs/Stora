@@ -2,6 +2,22 @@ import { notFound } from 'next/navigation';
 import ProductDetailsClient from '@/components/product/ProductDetailsClient';
 import { findStoreBySlug, findInventoryById, findActiveBatchesByInventoryId, calculateBatchQuantities } from '@/lib/supabaseStore';
 
+// ISR: this page's price/stock display (FIFO batch pricing) is the most
+// change-sensitive of the three storefront pages and has no client-side
+// refresh on top of it (unlike the listing page's useProducts hook), so it
+// gets the shortest window. A short-lived stale "in stock"/price here is a
+// display-only risk, not a money-loss one -- checkout still re-validates
+// real availability atomically at reservation time
+// (apps/store/src/lib/supabaseOrders.js reserveStock ->
+// fn_reserve_stock), which is what actually prevents overselling.
+export const revalidate = 30;
+
+// Required for revalidate to take effect on this dynamic segment -- see
+// the matching comment in [slug]/page.js.
+export async function generateStaticParams() {
+  return [];
+}
+
 // Generate metadata for SEO and social sharing
 export async function generateMetadata({ params }) {
   try {

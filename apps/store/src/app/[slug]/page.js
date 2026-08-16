@@ -2,6 +2,25 @@ import { notFound } from 'next/navigation';
 import StoreWebsite from "@/components/StoreWebsite";
 import { findStoreByWebsitePath } from '@/lib/supabaseStore';
 
+// ISR: this Server Component's data fetch (a plain Supabase query, not
+// Next's fetch()) is otherwise invisible to Next's cache -- without this,
+// every visit re-hits Postgres. Store branding/description changes rarely,
+// so a 5-minute window is a safe default; vendor edits show up within that
+// window rather than instantly (on-demand revalidation via revalidatePath()
+// from the dashboard's store-settings update route would close that gap --
+// not wired up yet).
+export const revalidate = 300;
+
+// Required for revalidate to actually take effect on a dynamic segment: an
+// empty array means "prerender nothing at build time" (the catalog of
+// store slugs isn't known/fixed at build time), but it's what tells Next
+// to treat requests as ISR (cache + background-regenerate) instead of
+// plain per-request SSR. Without this, `revalidate` above is silently a
+// no-op -- confirmed by testing (every request re-ran the page function).
+export async function generateStaticParams() {
+  return [];
+}
+
 // Generate metadata for SEO and social sharing
 export async function generateMetadata({ params }) {
   try {
@@ -52,7 +71,7 @@ export async function generateMetadata({ params }) {
 // Make this a Server Component
 export default async function StorePage({ params }) {
   const { slug } = await params;
-  
+
   // Fetch store using Supabase
   const store = await findStoreByWebsitePath(slug);
 
