@@ -78,13 +78,23 @@ export async function GET(req) {
       }
     }
 
+    // A split row is created the instant an order is placed against a
+    // paystack_ready store (see computePaymentSplit in orders/create),
+    // before the customer has actually paid anything -- split.status only
+    // ever tracks settlement/refund state (see the order_payment_splits
+    // migration), it says nothing about whether the charge itself
+    // succeeded. order_payments.status is the only field that does, so it
+    // must gate this ledger: an order whose payment never completed
+    // (popup never opened, cancelled, declined) is not "money Stora
+    // collected on your behalf" and has no business appearing here.
     let query = supabaseAdmin
       .from('order_payment_splits')
       .select(
         '*, orders!inner(order_number, status, created_at), order_payments!inner(status, method, provider, reference, paid_at, refunded_at, refund_amount)',
         { count: 'exact' }
       )
-      .eq('store_id', store.id);
+      .eq('store_id', store.id)
+      .eq('order_payments.status', 'completed');
 
     if (status === 'paid') {
       query = query.eq('status', 'pending');
@@ -126,7 +136,9 @@ export async function GET(req) {
       // THIS order was placed, not this vendor's current setting.
       commissionBearer: split.commission_bearer === 'customer' ? 'customer' : 'vendor',
       customerAmount: parseFloat(split.customer_amount ?? split.gross_amount),
-      // 'pending' here just means "not reversed" -- Paystack settles
+      // Every row reaching this point already passed the
+      // order_payments.status = 'completed' filter above, so 'pending'
+      // here can only mean "paid, not yet reversed" -- Paystack settles
       // automatically (T+1) straight to the vendor's bank account, this
       // app has no visibility into or control over that leg, so 'pending'
       // is NOT "we haven't paid you yet". Surfaced to the UI as "Paid".
@@ -141,11 +153,14 @@ export async function GET(req) {
     }));
 
     // Stats cover this store's full history, not just the current page --
-    // a second, unpaginated, lightweight query scoped the same way.
+    // a second, unpaginated, lightweight query scoped the same way. Same
+    // completed-payments-only gate as the main query above, for the same
+    // reason: an unpaid order's split must not inflate these totals.
     const { data: allSplits } = await supabaseAdmin
       .from('order_payment_splits')
-      .select('gross_amount, platform_commission_amount, net_amount_to_vendor, status')
-      .eq('store_id', store.id);
+      .select('gross_amount, platform_commission_amount, net_amount_to_vendor, status, order_payments!inner(status)')
+      .eq('store_id', store.id)
+      .eq('order_payments.status', 'completed');
 
     const nonReversed = (allSplits || []).filter(s => s.status !== 'reversed');
     const reversed = (allSplits || []).filter(s => s.status === 'reversed');
