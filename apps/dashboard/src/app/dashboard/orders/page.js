@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import OrderDetailsModal from "@/components/dashboard/OrderDetailsModal";
@@ -29,7 +29,19 @@ import {
   ChevronDown
 } from "lucide-react";
 
+// useSearchParams() requires a Suspense boundary above it or Next's build
+// fails prerendering this page ("should be wrapped in a suspense
+// boundary") -- default export below is just that boundary, real content
+// (and the useSearchParams() call) lives in OrdersPageContent.
 export default function OrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <OrdersPageContent />
+    </Suspense>
+  );
+}
+
+function OrdersPageContent() {
   const { secureApiCall } = useAuth();
   const searchParams = useSearchParams();
   // Seeds from ?search= (e.g. the Payments page's "View order" link) --
