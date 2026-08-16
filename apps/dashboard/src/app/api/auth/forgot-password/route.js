@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { isValidEmail } from '@/lib/auth';
@@ -45,7 +45,10 @@ export async function POST(req) {
       })
       .eq('id', user.id);
 
-    await sendPasswordResetEmail(user.email, resetToken, user.first_name);
+    // Deferred -- sendPasswordResetEmail never throws (returns
+    // {success:false}), so waiting here bought no delivery guarantee,
+    // only latency on a high-frequency auth route.
+    after(() => sendPasswordResetEmail(user.email, resetToken, user.first_name));
 
     return NextResponse.json(genericResponse);
 

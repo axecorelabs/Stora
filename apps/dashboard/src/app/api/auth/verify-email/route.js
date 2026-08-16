@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createSession } from '@/lib/auth';
@@ -114,8 +114,9 @@ export async function POST(req) {
     // Clean up temp user
     await supabaseAdmin.from('temp_users').delete().eq('id', tempUser.id);
 
-    // Send welcome email
-    await sendWelcomeEmail(updatedUser.email, updatedUser.first_name);
+    // Deferred -- sendWelcomeEmail never throws (returns {success:false}),
+    // so waiting here bought no delivery guarantee, only verify latency.
+    after(() => sendWelcomeEmail(updatedUser.email, updatedUser.first_name));
 
     // Create session
     const response = NextResponse.json({

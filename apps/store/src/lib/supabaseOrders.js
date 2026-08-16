@@ -485,18 +485,15 @@ export async function createOrder(orderData) {
       throw new Error('Failed to create order items');
     }
 
-    // Create order stores snapshots
+    // Create order stores snapshots -- one bulk insert instead of one
+    // round trip per item (mirrors the order_items insert above, which
+    // already did this correctly).
     console.log('Creating order stores for', items.length, 'items');
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+    const orderStoresData = items.map((item, i) => {
       const orderItem = orderItems[i];
-      
-      console.log('Processing item', i, '- storeId:', item.storeId, 'orderItemId:', orderItem.id);
-      console.log('Item storeSnapshot:', JSON.stringify(item.storeSnapshot, null, 2));
-      
       const storeSnapshot = item.storeSnapshot;
-      
-      const storeData = {
+
+      return {
         id: crypto.randomUUID(),
         order_item_id: orderItem.id,
         store_id: item.storeId,
@@ -524,20 +521,18 @@ export async function createOrder(orderData) {
         created_at: now,
         updated_at: now
       };
-      
-      console.log('Inserting order_store:', storeData.store_name, storeData.store_phone);
-      
-      const { data: insertedStore, error: storeError } = await supabaseAdmin
-        .from('order_stores')
-        .insert(storeData)
-        .select();
-      
-      if (storeError) {
-        console.error('ERROR inserting order_store:', storeError);
-        console.error('Failed store data:', storeData);
-      } else {
-        console.log('Successfully inserted order_store:', insertedStore);
-      }
+    });
+
+    const { data: insertedStores, error: storesError } = await supabaseAdmin
+      .from('order_stores')
+      .insert(orderStoresData)
+      .select();
+
+    if (storesError) {
+      console.error('ERROR inserting order_stores:', storesError);
+      console.error('Failed store data:', orderStoresData);
+    } else {
+      console.log('Successfully inserted order_stores:', insertedStores.length);
     }
 
     // Create initial timeline entry
@@ -750,26 +745,12 @@ export async function releaseStockReservation(inventoryId, quantity, variantId =
   return { success: true, releasedQuantity: data?.[0]?.released_quantity ?? 0 };
 }
 
-export async function fulfillStockReservation(inventoryId, quantity, variantId = null, userId = null, reason = null, orderId = null) {
-  const { data, error } = await supabaseAdmin.rpc('fn_fulfill_stock_reservation', {
-    p_inventory_id: inventoryId,
-    p_variant_id: variantId || null,
-    p_quantity: quantity,
-    p_user_id: userId,
-    p_reason: reason,
-    p_related_order_id: orderId
-  });
-
-  if (error) {
-    console.error('Error fulfilling stock reservation:', error);
-    throw new Error('Failed to fulfill stock reservation');
-  }
-
-  return { success: true, fulfilledQuantity: data?.[0]?.fulfilled_quantity ?? 0 };
-}
-
 /**
- * Release all reserved stock for every item on a cancelled order.
+ * Release all reserved stock for every item on a cancelled order, in one
+ * round trip via fn_release_stock_reservations_bulk (20260815000000
+ * migration) instead of one RPC call per item -- on a multi-item order
+ * that used to be N sequential round trips blocking the caller (the
+ * abandoned-payment cleanup job, or a customer/vendor cancelling).
  * order_items carries product_id (not inventory_id) and variant_id
  * (not a nested `variant` object) -- reading the wrong column names here
  * used to make this silently no-op for every order.
@@ -785,13 +766,21 @@ export async function releaseOrderReservations(orderId) {
     throw new Error('Failed to fetch order items');
   }
 
-  for (const item of orderItems) {
-    try {
-      await releaseStockReservation(item.product_id, item.quantity, item.variant_id);
-    } catch (error) {
-      console.error(`Error releasing reservation for item ${item.id}:`, error);
-      // Continue with other items even if one fails
-    }
+  if (!orderItems || orderItems.length === 0) return { success: true };
+
+  const items = orderItems.map(item => ({
+    inventory_id: item.product_id,
+    variant_id: item.variant_id || null,
+    quantity: item.quantity
+  }));
+
+  const { error } = await supabaseAdmin.rpc('fn_release_stock_reservations_bulk', {
+    p_items: items
+  });
+
+  if (error) {
+    console.error('Error releasing order reservations:', error);
+    throw new Error('Failed to release order reservations');
   }
 
   return { success: true };
@@ -799,7 +788,9 @@ export async function releaseOrderReservations(orderId) {
 
 /**
  * Fulfill reserved stock for every item on a delivered order (moves
- * reserved -> sold). Same product_id/variant_id fix as releaseOrderReservations.
+ * reserved -> sold), in one round trip via fn_fulfill_stock_reservations_bulk
+ * instead of one RPC call per item. Same product_id/variant_id fix as
+ * releaseOrderReservations.
  */
 export async function fulfillOrderReservations(orderId) {
   const { data: orderItems, error: itemsError } = await supabaseAdmin
@@ -812,13 +803,24 @@ export async function fulfillOrderReservations(orderId) {
     throw new Error('Failed to fetch order items');
   }
 
-  for (const item of orderItems) {
-    try {
-      await fulfillStockReservation(item.product_id, item.quantity, item.variant_id, null, 'Order delivered', orderId);
-    } catch (error) {
-      console.error(`Error fulfilling reservation for item ${item.id}:`, error);
-      // Continue with other items even if one fails
-    }
+  if (!orderItems || orderItems.length === 0) return { success: true };
+
+  const items = orderItems.map(item => ({
+    inventory_id: item.product_id,
+    variant_id: item.variant_id || null,
+    quantity: item.quantity,
+    reason: 'Order delivered'
+  }));
+
+  const { error } = await supabaseAdmin.rpc('fn_fulfill_stock_reservations_bulk', {
+    p_items: items,
+    p_user_id: null,
+    p_related_order_id: orderId
+  });
+
+  if (error) {
+    console.error('Error fulfilling order reservations:', error);
+    throw new Error('Failed to fulfill order reservations');
   }
 
   return { success: true };

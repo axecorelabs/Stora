@@ -338,6 +338,17 @@ export async function updateItemQuantity(cart, productId, quantity, variantId = 
   return await findCartByCustomerId(cart.customer_id, true);
 }
 
+// Removes just the given cart_items rows (e.g. one store's items after a
+// scoped/per-store checkout), leaving the rest of the cart intact --
+// unlike clearCart, which wipes everything and is only correct for a
+// whole-cart checkout.
+export async function removeItemsFromCart(cart, itemIds) {
+  for (const itemId of itemIds) {
+    await deleteCartItem(itemId);
+  }
+  return await recalculateCartTotals(cart.id);
+}
+
 export async function clearCart(cart) {
   // Delete all cart items
   await deleteAllCartItems(cart.id);

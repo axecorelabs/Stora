@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateVerificationCode } from "@/lib/supabaseAuth";
 import { sendVerificationEmail } from "@/lib/email";
@@ -41,8 +41,9 @@ export async function POST(request) {
       })
       .eq('id', customer.id);
 
-    // Send verification email
-    await sendVerificationEmail(email, customer.first_name, verificationCode);
+    // Deferred -- sendVerificationEmail already swallows its own errors, so
+    // waiting here bought no delivery guarantee, only latency on resend.
+    after(() => sendVerificationEmail(email, customer.first_name, verificationCode));
 
     return NextResponse.json(
       {

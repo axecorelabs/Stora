@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
-import { processItemWithBatchTracking } from '@/lib/batchInventory';
+import { processItemsWithBatchTracking } from '@/lib/batchInventory';
 
 // Generate unique transaction ID
 function generateTransactionId() {
@@ -34,15 +34,16 @@ export async function POST(req) {
     const isOrderProcessing = saleData.isOrderProcessing || saleData.isFromOrder || false;
     
     try {
-      // Process each item with batch tracking
+      // Process every item in one round trip instead of one per item
+      // (see batchInventory.js).
       const processedItems = [];
       const saleItemsToInsert = [];
       let totalBatchesUsed = 0;
       let totalCostFromBatches = 0;
       let totalProfitFromBatches = 0;
 
-      for (const item of saleData.items) {
-        const result = await processItemWithBatchTracking(item, user.id, isOrderProcessing);
+      const results = await processItemsWithBatchTracking(saleData.items, user.id, isOrderProcessing);
+      for (const result of results) {
         processedItems.push(result.processedItem);
         if (result.saleItemData) {
           saleItemsToInsert.push(result.saleItemData);

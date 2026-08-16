@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createSession } from '@/lib/auth';
@@ -101,7 +101,10 @@ async function createUserFromGoogle(payload) {
 
   if (updateError) throw updateError;
 
-  await sendWelcomeEmail(updatedUser.email, updatedUser.first_name);
+  // Deferred -- sendWelcomeEmail never throws (returns {success:false}),
+  // so waiting here bought no delivery guarantee, only latency on the
+  // OAuth redirect.
+  after(() => sendWelcomeEmail(updatedUser.email, updatedUser.first_name));
 
   return updatedUser;
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { hashPassword, validatePassword } from '@/lib/auth';
@@ -67,8 +67,10 @@ export async function POST(req) {
 
     if (error) throw error;
 
-    // Send verification email
-    await sendVerificationEmail(tempUser.email, tempUser.verification_code, tempUser.first_name);
+    // Deferred -- sendVerificationEmail already swallows its own errors
+    // (returns {success:false}, never throws), so waiting here bought no
+    // delivery guarantee, only signup latency.
+    after(() => sendVerificationEmail(tempUser.email, tempUser.verification_code, tempUser.first_name));
 
     return NextResponse.json({
       success: true,

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { verifyPassword, createSession, findCustomerByEmail, updateCustomer, generateVerificationCode, sanitizeCustomer } from "@/lib/supabaseAuth";
 import { sendVerificationEmail } from "@/lib/email";
 import { redis, failedKey, lockoutKey, withTimeout } from "@/lib/redis";
@@ -117,13 +117,16 @@ export async function POST(request) {
         verification_token_expiry: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       });
       
-      // Send verification email
-      try {
-        await sendVerificationEmail(customer.email, customer.first_name, verificationCode );
-        console.log('Verification email sent to:', customer.email);
-      } catch (emailError) {
-        console.error('Failed to send verification email:', emailError);
-      }
+      // Deferred -- low-traffic path (only unverified users), but no
+      // reason to make them wait on it either.
+      after(async () => {
+        try {
+          await sendVerificationEmail(customer.email, customer.first_name, verificationCode);
+          console.log('Verification email sent to:', customer.email);
+        } catch (emailError) {
+          console.error('Failed to send verification email:', emailError);
+        }
+      });
       
       return NextResponse.json(
         { 

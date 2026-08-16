@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { sendOrderProcessedEmail } from '@/lib/email';
-import { processItemWithBatchTracking, releaseItemReservation } from '@/lib/batchInventory';
+import { processItemsWithBatchTracking, releaseItemsReservation } from '@/lib/batchInventory';
 
 // PUT - Update order status
 export async function PUT(req, { params }) {
@@ -147,23 +147,25 @@ export async function PUT(req, { params }) {
         const saleItemRows = [];
         const saleItemBatchRows = [];
 
-        for (const item of storeItems) {
-          const { saleItemData, batchesUsed, totalCost, totalProfit } = await processItemWithBatchTracking(
-            {
-              inventoryId: item.product_id,
-              quantity: item.quantity,
-              unitPrice: item.unit_price,
-              total: item.subtotal,
-              productName: item.product_name,
-              sku: item.product_sku,
-              variant: (item.variant_size || item.variant_color)
-                ? { size: item.variant_size, color: item.variant_color }
-                : null
-            },
-            user.id,
-            true // isOrderProcessing: releases the reservation made at checkout, deducts real stock
-          );
+        // One round trip for every item on this store's part of the order,
+        // instead of up to 3 per item (see batchInventory.js).
+        const processedResults = await processItemsWithBatchTracking(
+          storeItems.map(item => ({
+            inventoryId: item.product_id,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            total: item.subtotal,
+            productName: item.product_name,
+            sku: item.product_sku,
+            variant: (item.variant_size || item.variant_color)
+              ? { size: item.variant_size, color: item.variant_color }
+              : null
+          })),
+          user.id,
+          true // isOrderProcessing: releases the reservation made at checkout, deducts real stock
+        );
 
+        for (const { saleItemData, batchesUsed, totalCost, totalProfit } of processedResults) {
           const { batches_sold_from, ...saleItemFields } = saleItemData;
           saleItemRows.push({ ...saleItemFields, sale_id: saleId });
           if (batches_sold_from) {
@@ -261,19 +263,19 @@ export async function PUT(req, { params }) {
     // availability -- it was never actually deducted, only earmarked.
     if (isBeingCancelled) {
       console.log('Order cancelled, releasing reserved stock...');
-      for (const item of storeItems) {
-        try {
-          await releaseItemReservation(
-            item.product_id,
-            item.quantity,
-            (item.variant_size || item.variant_color)
+      try {
+        await releaseItemsReservation(
+          storeItems.map(item => ({
+            inventoryId: item.product_id,
+            quantity: item.quantity,
+            variant: (item.variant_size || item.variant_color)
               ? { size: item.variant_size, color: item.variant_color, variantId: item.variant_id }
               : null
-          );
-        } catch (releaseError) {
-          console.error(`Failed to release reservation for item ${item.id}:`, releaseError);
-          // Don't fail the status update if release fails on one item
-        }
+          }))
+        );
+      } catch (releaseError) {
+        console.error(`Failed to release reservations for order ${id}:`, releaseError);
+        // Don't fail the status update if release fails
       }
     }
 
@@ -284,16 +286,17 @@ export async function PUT(req, { params }) {
       .eq('order_id', id)
       .maybeSingle();
 
-    if (orderCustomer?.email) {
-      console.log('Attempting to send order processed email to customer...', orderCustomer.email);
-
-      try {
-        if (saleResults && saleResults.sales.length > 0) {
-          // store was already fetched above via owner_id, reuse its name
-          const storeName = store?.store_name || 'Stora Store';
-
-          // Use sale data for the email
-          const sale = saleResults.sales[0];
+    if (orderCustomer?.email && saleResults && saleResults.sales.length > 0) {
+      // Deferred -- this is PDF receipt generation (logo fetch, jsPDF
+      // render, QR code) *then* an SMTP send with up to 3 retries, on the
+      // single most common vendor action (marking an order delivered).
+      // The try/catch below already discards failures (console.error, no
+      // rethrow), so waiting on it bought zero benefit, only latency.
+      const storeName = store?.store_name || 'Stora Store';
+      const sale = saleResults.sales[0];
+      after(async () => {
+        console.log('Attempting to send order processed email to customer...', orderCustomer.email);
+        try {
           await sendOrderProcessedEmail(
             orderCustomer.email,
             {
@@ -316,13 +319,11 @@ export async function PUT(req, { params }) {
             },
             storeName
           );
-          
           console.log('Order processed email sent successfully');
+        } catch (emailError) {
+          console.error('Failed to send order processed email:', emailError);
         }
-      } catch (emailError) {
-        console.error('Failed to send order processed email:', emailError);
-        // Don't fail the order processing if email fails
-      }
+      });
     }
 
     const response = {

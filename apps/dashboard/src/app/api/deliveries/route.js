@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
@@ -223,27 +223,30 @@ export async function POST(req) {
     const storeName = store?.store_name || 'Stora Store';
 
     if (deliveryData.customerEmail) {
-      try {
-        await sendDeliveryScheduledEmail(
-          deliveryData.customerEmail,
-          deliveryData,
-          {
-            transactionId: sale.transaction_id,
-            items: (saleItems || []).map(i => ({
-              productName: i.product_name,
-              quantity: i.quantity,
-              unitPrice: i.unit_price,
-              total: i.total
-            })),
-            total: sale.total,
-            subtotal: sale.subtotal || sale.total
-          },
-          storeName
-        );
-      } catch (emailError) {
-        console.error('Failed to send delivery notification email:', emailError);
-        // Don't fail the delivery creation if email fails
-      }
+      // Deferred -- already fail-tolerant (caught, non-fatal), so waiting
+      // on the SMTP round-trip here bought no benefit, only latency.
+      after(async () => {
+        try {
+          await sendDeliveryScheduledEmail(
+            deliveryData.customerEmail,
+            deliveryData,
+            {
+              transactionId: sale.transaction_id,
+              items: (saleItems || []).map(i => ({
+                productName: i.product_name,
+                quantity: i.quantity,
+                unitPrice: i.unit_price,
+                total: i.total
+              })),
+              total: sale.total,
+              subtotal: sale.subtotal || sale.total
+            },
+            storeName
+          );
+        } catch (emailError) {
+          console.error('Failed to send delivery notification email:', emailError);
+        }
+      });
     }
 
     return NextResponse.json({

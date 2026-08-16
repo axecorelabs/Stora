@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { findCustomerByEmail, updateCustomer } from "@/lib/supabaseAuth";
@@ -42,13 +42,17 @@ export async function POST(request) {
     // Create reset URL
     const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://stora.com.ng'}/reset-password?token=${resetToken}`;
 
-    // Send email
-    await sendPasswordResetEmail(
-      customer.email,
-      customer.first_name,
-      resetUrl,
-      15 // minutes
-    );
+    // Deferred -- unlike the other email helpers here, sendPasswordResetEmail
+    // doesn't catch its own errors, so the try/catch stays in the deferred
+    // callback (after() logs an uncaught rejection but this keeps the
+    // logging explicit/consistent with the rest of this file).
+    after(async () => {
+      try {
+        await sendPasswordResetEmail(customer.email, customer.first_name, resetUrl, 15);
+      } catch (emailError) {
+        console.error('Error sending password reset email:', emailError);
+      }
+    });
 
     return NextResponse.json(
       { 

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createSession, sanitizeCustomer } from "@/lib/supabaseAuth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendWelcomeEmail } from "@/lib/email";
@@ -40,8 +40,9 @@ export async function POST(request) {
       })
       .eq('id', customer.id);
 
-    // Send welcome email
-    await sendWelcomeEmail(customer.email, customer.first_name);
+    // Deferred -- sendWelcomeEmail already swallows its own errors, so
+    // waiting here bought no delivery guarantee, only latency on verify.
+    after(() => sendWelcomeEmail(customer.email, customer.first_name));
 
     // Create session
     const response = NextResponse.json(
