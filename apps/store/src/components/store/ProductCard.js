@@ -26,9 +26,11 @@ export default function ProductCard({ product, primaryColor, currency, secondary
         const data = await response.json();
         
         if (response.ok && data.success && data.wishlist?.items) {
-          const isInWishlist = data.wishlist.items.some(item => 
-            (item.product.id || item.product) === product.id
-          );
+          // Wishlist items are raw wishlist_items rows plus an enrichment
+          // pass (supabaseWishlist.js's enrichWishlistWithProductData) --
+          // there's no nested `item.product` object in this shape, only
+          // `item.product_id` and (after enrichment) `item.product_data`.
+          const isInWishlist = data.wishlist.items.some(item => item.product_id === product.id);
           setLiked(isInWishlist);
         }
       } catch (error) {

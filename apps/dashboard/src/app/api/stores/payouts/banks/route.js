@@ -23,7 +23,18 @@ export async function GET(req) {
     }
 
     const banks = await listBanks();
-    const simplified = banks.map(b => ({ name: b.name, code: b.code }));
+    // Paystack's bank list sometimes has more than one entry sharing the
+    // same settlement code (e.g. an old and new name for the same bank) --
+    // harmless for resolving an account number, but a duplicate React key
+    // when rendered as dropdown options, so dedupe by code here (once,
+    // cached) rather than in every consumer of this endpoint.
+    const seenCodes = new Set();
+    const simplified = [];
+    for (const b of banks) {
+      if (seenCodes.has(b.code)) continue;
+      seenCodes.add(b.code);
+      simplified.push({ name: b.name, code: b.code });
+    }
 
     try {
       await withTimeout(redis.set(BANKS_CACHE_KEY, simplified, { ex: BANKS_CACHE_TTL_SECONDS }));

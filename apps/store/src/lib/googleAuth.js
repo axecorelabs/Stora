@@ -7,7 +7,7 @@ import { OAuth2Client } from 'google-auth-library';
 // allowlist closes the gap directly. Not a moving target: Google requires
 // an exact-match registered redirect URI anyway, so a Vercel preview
 // deployment's random URL was never going to work regardless.
-const ALLOWED_HOSTS = ['stora.com.ng', 'localhost:3001'];
+const ALLOWED_HOSTS = ['stora.com.ng', 'www.stora.com.ng', 'localhost:3001'];
 
 export function getRequestOrigin(req) {
   const forwardedHost = req.headers.get('x-forwarded-host');

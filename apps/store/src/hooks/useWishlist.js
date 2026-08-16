@@ -78,7 +78,7 @@ export const useIsInWishlist = (productId) => {
   
   if (!wishlist?.items) return false;
   
-  return wishlist.items.some(item => 
-    (item.product.id || item.product) === productId
-  );
+  // Wishlist items are raw wishlist_items rows -- product_id, not a
+  // nested product object (see supabaseWishlist.js).
+  return wishlist.items.some(item => item.product_id === productId);
 };

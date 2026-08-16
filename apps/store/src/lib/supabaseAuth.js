@@ -301,13 +301,24 @@ export function validatePassword(password) {
 // Remove sensitive fields from customer object
 export function sanitizeCustomer(customer) {
   if (!customer) return null;
-  
+
   const {
     password_hash,
     verification_token,
     password_reset_token,
     ...sanitized
   } = customer;
-  
-  return sanitized;
+
+  return {
+    ...sanitized,
+    // Frontend (StoreHeader.js etc.) reads camelCase; the DB row is
+    // snake_case -- alias here so every route through sanitizeCustomer
+    // (login, /me, verify-email) is consistent, rather than fixing it
+    // per-consumer (OrderModal.js already worked around this with its own
+    // firstName || first_name fallback, which is the tell this was
+    // already silently biting call sites that didn't hedge for it).
+    firstName: customer.first_name,
+    lastName: customer.last_name,
+    fullName: [customer.first_name, customer.last_name].filter(Boolean).join(' ').trim() || null
+  };
 }
