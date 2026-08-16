@@ -1,7 +1,7 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { verifyCustomerSession } from "@/lib/auth";
-import { sendNewOrderNotification } from "@/lib/email";
+import { sendStoreOrderNotifications } from "@/lib/orderNotifications";
 import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supabaseOrders";
 import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseCart";
 import { findInventoryByIds } from "@/lib/supabaseStore";
@@ -461,88 +461,6 @@ export async function POST(request) {
       }
     }
 
-    // Send email notifications to store owners
-    try {
-      // Create an in-app notification for each store owner -- this is what
-      // the dashboard's Realtime SSE relay (apps/dashboard/src/app/api/notifications/stream/route.js)
-      // picks up live. Isolated in its own try/catch so a failure here never
-      // blocks the email loop below (or order creation, per the outer catch).
-      try {
-        const storeIds = Object.keys(storeGroupedItems);
-        const { data: storeOwners } = await supabaseAdmin
-          .from('stores')
-          .select('id, owner_id')
-          .in('id', storeIds);
-        const ownerByStoreId = new Map((storeOwners || []).map(s => [s.id, s.owner_id]));
-
-        const notificationRows = [];
-        for (const [storeId, storeData] of Object.entries(storeGroupedItems)) {
-          const ownerId = ownerByStoreId.get(storeId);
-          if (!ownerId) continue;
-
-          const itemCount = storeData.items.reduce((sum, item) => sum + item.quantity, 0);
-          notificationRows.push({
-            user_id: ownerId,
-            title: 'New order received',
-            message: `Order ${order.order_number} - ${itemCount} item${itemCount === 1 ? '' : 's'}, ₦${Number(storeData.total).toLocaleString('en-NG')}`,
-            type: 'order',
-            related_entity_type: 'order',
-            related_entity_id: order.id,
-            data: {
-              orderId: order.id,
-              orderNumber: order.order_number,
-              storeTotal: storeData.total,
-              itemCount
-            }
-          });
-        }
-
-        if (notificationRows.length > 0) {
-          const { error: notifyError } = await supabaseAdmin.from('notifications').insert(notificationRows);
-          if (notifyError) console.error('Error inserting order notifications:', notifyError);
-        }
-      } catch (notifyError) {
-        console.error('Error creating order notifications (non-fatal):', notifyError);
-      }
-
-      // Deferred -- on a multi-vendor cart this is N sequential SMTP
-      // round-trips (one per store on the order), and sendNewOrderNotification
-      // already swallows its own errors, so waiting on it here bought no
-      // delivery guarantee, only checkout latency at exactly the busiest
-      // moment (rush hour, multi-vendor carts).
-      after(async () => {
-        for (const [storeId, storeData] of Object.entries(storeGroupedItems)) {
-          const storeEmail = storeData.store?.store_email;
-
-          if (storeEmail) {
-            const emailData = {
-              _id: order.id,
-              orderNumber: order.order_number,
-              customerSnapshot: {
-                firstName: shippingAddress.firstName,
-                lastName: shippingAddress.lastName,
-                phone: shippingAddress.phone
-              },
-              shippingAddress,
-              customerNotes,
-              storeItems: storeData.items,
-              storeTotal: storeData.total,
-              storeItemCount: storeData.items.reduce((sum, item) => sum + item.quantity, 0)
-            };
-
-            try {
-              await sendNewOrderNotification(storeEmail, storeData.store.store_name, emailData);
-              console.log(`Order notification email sent to ${storeData.store.store_name} (${storeEmail})`);
-            } catch (emailError) {
-              console.error(`Error sending order notification to ${storeData.store.store_name}:`, emailError);
-            }
-          }
-        }
-      });
-    } catch (emailError) {
-      console.error("Error sending order notification emails:", emailError);
-    }
-
     // contactOnlyStores carries what the frontend needs to show the
     // existing WhatsApp-contact fallback, scoped to just these vendors
     // (see apps/store/src/app/[slug]/cart/page.js) -- stores with no
@@ -555,6 +473,25 @@ export async function POST(request) {
     const contactOnlyStoreIds = paymentSplitError
       ? Object.keys(storeGroupedItems)
       : (paymentSplitResult?.contactOnlyStoreIds ?? (paymentMethod === 'paystack' ? [] : Object.keys(storeGroupedItems)));
+
+    // Notify only the contact-only stores now -- no online payment gates
+    // them, so this is the same immediate notification the cash_to_vendor
+    // flow has always had. Stores actually covered by a pending Paystack
+    // charge are deliberately NOT notified here: they're notified only
+    // once confirmOrderPayment() confirms the charge actually went through
+    // (see apps/store/src/lib/supabasePayments.js) -- a vendor told about
+    // an order before the customer has paid for it is being told about an
+    // order that might never really happen.
+    try {
+      await sendStoreOrderNotifications(
+        { orderId: order.id, orderNumber: order.order_number, shippingAddress, customerNotes },
+        storeGroupedItems,
+        contactOnlyStoreIds
+      );
+    } catch (notifyError) {
+      console.error("Error sending order notifications:", notifyError);
+    }
+
     const contactOnlyStores = contactOnlyStoreIds.map(storeId => {
       const groupData = storeGroupedItems[storeId];
       return {
