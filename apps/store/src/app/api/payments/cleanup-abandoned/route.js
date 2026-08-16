@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyTransaction } from "@/lib/paystack";
 import { updateOrderStatus } from "@/lib/supabaseOrders";
 
 const ABANDONED_WINDOW_MINUTES = 30;
 
+// Timing-safe compare -- a plain === here would leak how many leading
+// bytes of CRON_SECRET a guess got right via response-time differences,
+// same class of issue the webhook signature check already guards against
+// (apps/store/src/lib/paystack.js's verifyWebhookSignature).
 function isAuthorized(request) {
-  const auth = request.headers.get('authorization');
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
+  const auth = request.headers.get('authorization') || '';
+  const expected = `Bearer ${process.env.CRON_SECRET}`;
+  const authBuf = Buffer.from(auth, 'utf8');
+  const expectedBuf = Buffer.from(expected, 'utf8');
+  if (authBuf.length !== expectedBuf.length) return false;
+  return crypto.timingSafeEqual(authBuf, expectedBuf);
 }
 
 // Vercel Cron, hourly-or-more-often: releases stock reserved for orders

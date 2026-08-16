@@ -39,6 +39,44 @@ export async function confirmOrderPayment(reference, { transactionId, amountKobo
     return { success: false, message: 'Failed to record payment' };
   }
 
+  // Guard against the order having been auto-cancelled (by the abandoned-
+  // payment cleanup job, 30 min of inactivity) in the window between the
+  // customer opening the Paystack popup and actually paying. Cancellation
+  // already released this order's stock reservation back to general
+  // availability -- money has genuinely moved, but silently flipping the
+  // order to 'confirmed' here would claim stock that may no longer exist
+  // (already sold to someone else). Record the payment truthfully and
+  // flag it for manual reconciliation instead of pretending it's fine.
+  const { data: currentOrder } = await supabaseAdmin
+    .from('orders')
+    .select('status, admin_notes')
+    .eq('id', orderPayment.order_id)
+    .single();
+
+  if (currentOrder?.status === 'cancelled') {
+    console.error('CRITICAL: payment completed for an already-cancelled order -- needs manual reconciliation', {
+      orderId: orderPayment.order_id,
+      reference
+    });
+    const flaggedNote = `[NEEDS RECONCILIATION] Payment of ₦${(expectedAmountKobo / 100).toLocaleString('en-NG')} was received after this order was auto-cancelled for inactivity. Its stock reservation was already released and may no longer be available -- contact customer service before treating this as a normal confirmed order.`;
+    await supabaseAdmin
+      .from('orders')
+      .update({
+        admin_notes: currentOrder.admin_notes ? `${currentOrder.admin_notes}\n${flaggedNote}` : flaggedNote,
+        updated_at: now
+      })
+      .eq('id', orderPayment.order_id);
+    await supabaseAdmin.from('order_timeline').insert({
+      order_id: orderPayment.order_id,
+      status: currentOrder.status,
+      from_status: currentOrder.status,
+      note: flaggedNote,
+      updated_by: 'system',
+      timestamp: now
+    });
+    return { success: true, orderId: orderPayment.order_id, alreadyConfirmed: false, needsReconciliation: true };
+  }
+
   // Payment confirmation and stock fulfillment are separate lifecycle
   // events -- this only moves the order to 'confirmed', stock stays
   // reserved (not sold) until real delivery, same as every other order.

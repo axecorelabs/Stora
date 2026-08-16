@@ -53,6 +53,18 @@ export async function GET(request) {
       return NextResponse.json({ success: false, message: result.message }, { status: 400 });
     }
 
+    if (result.needsReconciliation) {
+      // Money moved but the order was auto-cancelled before it landed --
+      // don't tell the customer their order is confirmed when the stock
+      // that reserved it may already be gone.
+      return NextResponse.json({
+        success: true,
+        orderId: result.orderId,
+        needsReconciliation: true,
+        message: "We've received your payment, but this order needs a quick check by our team before it's confirmed. We'll be in touch shortly."
+      });
+    }
+
     return NextResponse.json({ success: true, orderId: result.orderId });
   } catch (error) {
     console.error('Payment verify error:', error);
