@@ -81,15 +81,18 @@ export async function POST(req, { params }) {
       return NextResponse.json({ success: false, message: 'This has already been refunded' }, { status: 400 });
     }
 
-    // amount is what the customer paid for this vendor's items (gross,
-    // before commission), not net_amount_to_vendor -- a refund returns
-    // the customer's money, it isn't priced off what the vendor keeps.
-    const grossAmount = parseFloat(split.gross_amount);
-    const refundAmount = amount != null ? Math.min(parseFloat(amount), grossAmount) : grossAmount;
+    // Policy: the platform commission is non-refundable -- retained
+    // regardless of whether this is a partial or full refund. So the
+    // actual refundable ceiling for this vendor's split is
+    // net_amount_to_vendor (what the customer's payment becomes once the
+    // commission is set aside), not the full gross_amount they paid.
+    const netAmount = parseFloat(split.net_amount_to_vendor);
+    const commissionAmount = parseFloat(split.platform_commission_amount);
+    const refundAmount = amount != null ? Math.min(parseFloat(amount), netAmount) : netAmount;
     if (!(refundAmount > 0)) {
       return NextResponse.json({ success: false, message: 'Invalid refund amount' }, { status: 400 });
     }
-    const isFullRefund = refundAmount >= grossAmount;
+    const isFullRefund = refundAmount >= netAmount;
     const now = new Date().toISOString();
 
     await supabaseAdmin
@@ -102,10 +105,20 @@ export async function POST(req, { params }) {
     // refund action used -- a split marked 'reversed' by a partial refund
     // isn't the same thing as the order being fully refunded. Comparing
     // cumulative refund_amount against the order's total collected amount
-    // is what's actually accurate for accounting.
+    // is what's actually accurate for accounting -- except that ceiling
+    // now has to exclude every vendor's non-refundable commission too, or
+    // an order could never reach 'refunded' (every split's refund is
+    // capped below its gross_amount, so the cumulative sum would never
+    // reach a gross-amount-based total on a commission-bearing order).
+    const { data: allSplitsForPayment } = await supabaseAdmin
+      .from('order_payment_splits')
+      .select('net_amount_to_vendor')
+      .eq('order_payment_id', orderPayment.id);
+    const maxRefundableForOrder = (allSplitsForPayment || [])
+      .reduce((sum, s) => sum + parseFloat(s.net_amount_to_vendor), 0);
+
     const newRefundAmount = parseFloat(orderPayment.refund_amount || 0) + refundAmount;
-    const totalCollected = parseFloat(orderPayment.amount);
-    const isOrderFullyRefunded = newRefundAmount >= totalCollected;
+    const isOrderFullyRefunded = newRefundAmount >= maxRefundableForOrder;
     const newPaymentStatus = isOrderFullyRefunded ? 'refunded' : 'partially_refunded';
 
     await supabaseAdmin
@@ -134,7 +147,7 @@ export async function POST(req, { params }) {
       order_id: id,
       status: newPaymentStatus,
       from_status: orderPayment.status,
-      note: `${isFullRefund ? 'Full' : 'Partial'} refund of ₦${refundAmount.toLocaleString('en-NG')} recorded for ${store.store_name}: ${note.trim()}`,
+      note: `${isFullRefund ? 'Full' : 'Partial'} refund of ₦${refundAmount.toLocaleString('en-NG')} recorded for ${store.store_name} (₦${commissionAmount.toLocaleString('en-NG')} platform fee retained, non-refundable): ${note.trim()}`,
       updated_by: 'seller',
       changed_by: user.id,
       timestamp: now

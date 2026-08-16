@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { resolveAccountNumber, createSubaccount } from '@/lib/paystack';
 
-const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.1');
+const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
 
 // Mirrors the transformStore() in apps/dashboard/src/app/api/stores/branding/route.js
 // and apps/dashboard/src/app/api/store/route.js -- same shape, so the

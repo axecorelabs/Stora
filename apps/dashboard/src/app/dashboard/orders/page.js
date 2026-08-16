@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, Fragment } from "react";
+import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import OrderDetailsModal from "@/components/dashboard/OrderDetailsModal";
 import OrderStatusUpdateModal from "@/components/dashboard/OrderStatusUpdateModal";
@@ -30,7 +31,10 @@ import {
 
 export default function OrdersPage() {
   const { secureApiCall } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
+  const searchParams = useSearchParams();
+  // Seeds from ?search= (e.g. the Payments page's "View order" link) --
+  // read once on mount, not synced back to the URL as the user types.
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('search') || '');
   const [filterBy, setFilterBy] = useState('all');
   const [filterValue, setFilterValue] = useState('');
   const [currentPage, setCurrentPage] = useState(1);

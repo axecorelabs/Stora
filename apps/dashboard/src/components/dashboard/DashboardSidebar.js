@@ -14,6 +14,7 @@ import {
   Settings,
   Truck,
   Wrench,  // Add Wrench icon for services
+  Wallet,
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
@@ -49,6 +50,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
     { name: 'Website', icon: Globe, path: '/dashboard/website' },
     { name: 'Orders', icon: ShoppingBag, path: '/dashboard/orders' },
     { name: 'Sales', icon: Receipt, path: '/dashboard/sales' },
+    { name: 'Payments', icon: Wallet, path: '/dashboard/payments' },
     { name: 'Deliveries', icon: Truck, path: '/dashboard/deliveries' },
     // { name: 'Reports & Analysis', icon: BarChart3, path: '/dashboard/reports' }, // Temporarily removed
     { name: 'Settings', icon: Settings, path: '/dashboard/settings' },

@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { verifyCustomerSession } from "@/lib/auth";
 import { sendNewOrderNotification } from "@/lib/email";
 import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supabaseOrders";
-import { getOrCreateCart, clearCart } from "@/lib/supabaseCart";
+import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseCart";
 import { findInventoryByIds } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
 
-const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.1');
+const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
 
 // Groups an order's items by store, matching each item up with its
 // order_stores snapshot -- the single source of truth both the payment
@@ -49,7 +49,7 @@ async function computePaymentSplit(order, storeGroupedItems) {
   const storeIds = Object.keys(storeGroupedItems);
   const { data: stores, error: storesError } = await supabaseAdmin
     .from('stores')
-    .select('id, paystack_ready, bank_details')
+    .select('id, paystack_ready, bank_details, commission_bearer')
     .in('id', storeIds);
 
   if (storesError) throw storesError;
@@ -57,6 +57,9 @@ async function computePaymentSplit(order, storeGroupedItems) {
   const readyStoreIds = new Set((stores || []).filter(s => s.paystack_ready).map(s => s.id));
   const subaccountByStoreId = new Map(
     (stores || []).map(s => [s.id, s.bank_details?.paystack_subaccount_code])
+  );
+  const commissionBearerByStoreId = new Map(
+    (stores || []).map(s => [s.id, s.commission_bearer === 'customer' ? 'customer' : 'vendor'])
   );
 
   const payableStoreIds = storeIds.filter(id => readyStoreIds.has(id));
@@ -77,13 +80,29 @@ async function computePaymentSplit(order, storeGroupedItems) {
   }
 
   const splitRows = [];
+  // Sum of what's actually charged to the customer across every payable
+  // store -- NOT a sum of gross amounts, since a 'customer'-bearer store
+  // adds its commission on top (see below). This is what Paystack is
+  // actually asked to collect (order_payments.amount, further down).
   let payableSubtotal = 0;
 
   for (const storeId of payableStoreIds) {
     const grossAmount = storeGroupedItems[storeId].total;
     const commissionAmount = Math.round(grossAmount * PLATFORM_COMMISSION_RATE * 100) / 100;
-    const netAmount = grossAmount - commissionAmount;
-    payableSubtotal += grossAmount;
+    const bearer = commissionBearerByStoreId.get(storeId);
+
+    // Snapshotted per split at checkout time -- a vendor flipping their
+    // toggle later must not retroactively change an already-placed order.
+    // netAmount is "what the vendor keeps" either way: gross minus
+    // commission when the vendor bears it, the full gross when the
+    // customer does (since the customer's extra payment covers it
+    // instead). It's also -- by the "commission is never refunded to
+    // anyone" policy applied consistently in both directions -- exactly
+    // the correct refundable ceiling in both modes too, which is why the
+    // refund route needs no changes for this feature.
+    const netAmount = bearer === 'customer' ? grossAmount : grossAmount - commissionAmount;
+    const customerAmount = bearer === 'customer' ? grossAmount + commissionAmount : grossAmount;
+    payableSubtotal += customerAmount;
 
     splitRows.push({
       id: crypto.randomUUID(),
@@ -94,7 +113,9 @@ async function computePaymentSplit(order, storeGroupedItems) {
       gross_amount: grossAmount,
       platform_commission_rate: PLATFORM_COMMISSION_RATE,
       platform_commission_amount: commissionAmount,
-      net_amount_to_vendor: netAmount
+      net_amount_to_vendor: netAmount,
+      commission_bearer: bearer,
+      customer_amount: customerAmount
     });
   }
 
@@ -175,7 +196,13 @@ export async function POST(request) {
       );
     }
 
-    const { shippingAddress, customerNotes, paymentMethod = 'cash_to_vendor' } = await request.json();
+    // itemIds, when present, scopes this checkout to a subset of the
+    // cart (the cart page's per-store "Place order" buttons send just
+    // that store's item ids) -- absent, the whole cart is checked out as
+    // one order, same as always. cartId is accepted but not needed: the
+    // customer's own cart is always looked up from their session below,
+    // never trusted from the client.
+    const { shippingAddress, customerNotes, paymentMethod = 'cash_to_vendor', itemIds } = await request.json();
     const idempotencyKey = request.headers.get('Idempotency-Key') || null;
 
     // Validate shipping address
@@ -223,6 +250,23 @@ export async function POST(request) {
       );
     }
 
+    // Scope to just the requested items when itemIds is given -- cart.items
+    // is already scoped to this customer's own cart (getOrCreateCart keys
+    // off their session), so filtering it down is safe regardless of what
+    // ids were sent; there's no cross-customer id to leak here.
+    const isScopedCheckout = Array.isArray(itemIds) && itemIds.length > 0;
+    let itemsToProcess = cart.items;
+    if (isScopedCheckout) {
+      const requestedIds = new Set(itemIds);
+      itemsToProcess = cart.items.filter(item => requestedIds.has(item.id));
+      if (itemsToProcess.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "The selected items are no longer in your cart" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Phase 1: validate + atomically reserve stock for every item. Any
     // failure releases everything reserved so far and returns -- no order
     // is created until every item has cleared this phase.
@@ -231,11 +275,11 @@ export async function POST(request) {
 
     // One batched lookup for every cart item's product instead of a query
     // per item -- the loop below reads from this map.
-    const productIds = [...new Set(cart.items.map(item => item.product_id))];
+    const productIds = [...new Set(itemsToProcess.map(item => item.product_id))];
     const products = await findInventoryByIds(productIds);
     const productById = new Map(products.map(p => [p.id, p]));
 
-    for (const cartItem of cart.items) {
+    for (const cartItem of itemsToProcess) {
       const product = productById.get(cartItem.product_id);
 
       if (!product) {
@@ -315,9 +359,16 @@ export async function POST(request) {
       });
     }
 
-    // Calculate totals
-    const subtotal = cart.subtotal;
-    const totalAmount = cart.total;
+    // Calculate totals. For a scoped (per-store) checkout this is
+    // recomputed from just the items being ordered -- cart.subtotal/total
+    // are whole-cart aggregates and would incorrectly include whatever's
+    // left behind. Tax/shipping/discount/coupon are cart-level fields with
+    // no defined per-item split, so a scoped checkout deliberately doesn't
+    // carry them over (they only apply to the whole-cart checkout path).
+    const subtotal = isScopedCheckout
+      ? itemsToProcess.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0)
+      : cart.subtotal;
+    const totalAmount = isScopedCheckout ? subtotal : cart.total;
 
     // Phase 2: every item reserved successfully -- create the order.
     let order;
@@ -327,10 +378,10 @@ export async function POST(request) {
         items: orderItemsInput,
         shippingAddress,
         subtotal,
-        tax: cart.tax || 0,
-        shippingFee: cart.shipping || 0,
-        discount: cart.discount || 0,
-        couponDiscount: cart.coupon_discount || 0,
+        tax: isScopedCheckout ? 0 : (cart.tax || 0),
+        shippingFee: isScopedCheckout ? 0 : (cart.shipping || 0),
+        discount: isScopedCheckout ? 0 : (cart.discount || 0),
+        couponDiscount: isScopedCheckout ? 0 : (cart.coupon_discount || 0),
         totalAmount,
         customerNotes,
         paymentMethod,
@@ -384,8 +435,15 @@ export async function POST(request) {
       console.error('Error recording order_item_batches (non-fatal):', batchLogError);
     }
 
-    // Clear cart
-    await clearCart(cart);
+    // Scoped checkout only removes the items just ordered, leaving
+    // whatever else was in the cart (e.g. another store's items) intact
+    // for a later checkout -- a blanket clearCart here would silently
+    // drop items the customer never asked to check out yet.
+    if (isScopedCheckout) {
+      await removeItemsFromCart(cart, itemsToProcess.map(item => item.id));
+    } else {
+      await clearCart(cart);
+    }
 
     // Single source of truth for per-store subtotals -- feeds both the
     // payment split below and the notification/email loop, so they can
@@ -447,35 +505,40 @@ export async function POST(request) {
         console.error('Error creating order notifications (non-fatal):', notifyError);
       }
 
-      // Send email to each store
-      for (const [storeId, storeData] of Object.entries(storeGroupedItems)) {
-        const storeEmail = storeData.store?.store_email;
+      // Deferred -- on a multi-vendor cart this is N sequential SMTP
+      // round-trips (one per store on the order), and sendNewOrderNotification
+      // already swallows its own errors, so waiting on it here bought no
+      // delivery guarantee, only checkout latency at exactly the busiest
+      // moment (rush hour, multi-vendor carts).
+      after(async () => {
+        for (const [storeId, storeData] of Object.entries(storeGroupedItems)) {
+          const storeEmail = storeData.store?.store_email;
 
-        if (storeEmail) {
-          const emailData = {
-            _id: order.id,
-            orderNumber: order.order_number,
-            customerSnapshot: {
-              firstName: shippingAddress.firstName,
-              lastName: shippingAddress.lastName,
-              phone: shippingAddress.phone
-            },
-            shippingAddress,
-            customerNotes,
-            storeItems: storeData.items,
-            storeTotal: storeData.total,
-            storeItemCount: storeData.items.reduce((sum, item) => sum + item.quantity, 0)
-          };
+          if (storeEmail) {
+            const emailData = {
+              _id: order.id,
+              orderNumber: order.order_number,
+              customerSnapshot: {
+                firstName: shippingAddress.firstName,
+                lastName: shippingAddress.lastName,
+                phone: shippingAddress.phone
+              },
+              shippingAddress,
+              customerNotes,
+              storeItems: storeData.items,
+              storeTotal: storeData.total,
+              storeItemCount: storeData.items.reduce((sum, item) => sum + item.quantity, 0)
+            };
 
-          await sendNewOrderNotification(
-            storeEmail,
-            storeData.store.store_name,
-            emailData
-          );
-
-          console.log(`Order notification email sent to ${storeData.store.store_name} (${storeEmail})`);
+            try {
+              await sendNewOrderNotification(storeEmail, storeData.store.store_name, emailData);
+              console.log(`Order notification email sent to ${storeData.store.store_name} (${storeEmail})`);
+            } catch (emailError) {
+              console.error(`Error sending order notification to ${storeData.store.store_name}:`, emailError);
+            }
+          }
         }
-      }
+      });
     } catch (emailError) {
       console.error("Error sending order notification emails:", emailError);
     }
@@ -485,8 +548,13 @@ export async function POST(request) {
     // (see apps/store/src/app/[slug]/cart/page.js) -- stores with no
     // Paystack subaccount configured yet, or the whole cart when
     // paymentMethod isn't 'paystack' at all.
-    const contactOnlyStoreIds = paymentSplitResult?.contactOnlyStoreIds
-      ?? (paymentMethod === 'paystack' ? [] : Object.keys(storeGroupedItems));
+    // If the split itself failed, the customer still needs a way forward --
+    // fall back to treating every store as contact-only (same as a
+    // non-paystack order), rather than leaving paymentRequired true with no
+    // usable path (see paymentSplitError below).
+    const contactOnlyStoreIds = paymentSplitError
+      ? Object.keys(storeGroupedItems)
+      : (paymentSplitResult?.contactOnlyStoreIds ?? (paymentMethod === 'paystack' ? [] : Object.keys(storeGroupedItems)));
     const contactOnlyStores = contactOnlyStoreIds.map(storeId => {
       const groupData = storeGroupedItems[storeId];
       return {
