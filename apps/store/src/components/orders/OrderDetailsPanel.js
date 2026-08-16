@@ -349,15 +349,17 @@ export default function OrderDetailsPanel({
                 <div className="flex justify-between">
                   <span className="text-gray-600">Payment Method</span>
                   <span className="font-semibold text-gray-900 capitalize">
-                    {order.paymentInfo.method.replace('_', ' ')}
+                    {order.payment?.method ? order.payment.method.replace('_', ' ') : 'Cash to Vendor'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Payment Status</span>
                   <span className={`font-semibold ${
-                    order.paymentInfo.status === 'completed' ? 'text-green-600' : 'text-yellow-600'
+                    order.payment?.status === 'completed' ? 'text-green-600' : 'text-yellow-600'
                   }`}>
-                    {order.paymentInfo.status.charAt(0).toUpperCase() + order.paymentInfo.status.slice(1)}
+                    {order.payment?.status
+                      ? order.payment.status.charAt(0).toUpperCase() + order.payment.status.slice(1)
+                      : 'Pending'}
                   </span>
                 </div>
               </div>
