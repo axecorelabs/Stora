@@ -273,7 +273,10 @@ console.log('Final stores array:', stores.map(s => ({ name: s.storeName, phone: 
       method: paymentInfo.method,
       provider: paymentInfo.provider,
       status: paymentInfo.status,
-      amount: paymentInfo.amount
+      amount: paymentInfo.amount,
+      reference: paymentInfo.reference,
+      transactionId: paymentInfo.transaction_id,
+      paidAt: paymentInfo.paid_at
     } : null
   };
   

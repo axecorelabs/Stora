@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, use } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import {
@@ -24,6 +24,7 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import useStoreStore from "@/stores/storeStore";
 import WhatsAppContactModal from "@/components/orders/WhatsAppContactModal";
 import OrderModal from "@/components/cart/OrderModal";
+import { usePaystackReady } from "@/hooks/usePaystackReady";
 
 export default function StoreCartPage({ params }) {
   const router = useRouter();
@@ -78,41 +79,7 @@ export default function StoreCartPage({ params }) {
   // moment a customer hits confirm -- without this, checkout would create
   // the order, clear the cart, and notify the vendor, then only discover
   // window.PaystackPop doesn't exist yet and silently never show a popup.
-  // A ref (not just the state) is needed because waitForPaystackReady is
-  // called from an event handler, not a render, and needs the latest
-  // value synchronously rather than through a stale closure.
-  const paystackReadyRef = useRef(false);
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.PaystackPop) {
-      paystackReadyRef.current = true;
-      return;
-    }
-    const interval = setInterval(() => {
-      if (typeof window !== "undefined" && window.PaystackPop) {
-        paystackReadyRef.current = true;
-        clearInterval(interval);
-      }
-    }, 150);
-    return () => clearInterval(interval);
-  }, []);
-
-  function waitForPaystackReady(timeoutMs = 6000) {
-    if (paystackReadyRef.current || (typeof window !== "undefined" && window.PaystackPop)) {
-      return Promise.resolve(true);
-    }
-    return new Promise((resolve) => {
-      const start = Date.now();
-      const check = setInterval(() => {
-        if (typeof window !== "undefined" && window.PaystackPop) {
-          clearInterval(check);
-          resolve(true);
-        } else if (Date.now() - start > timeoutMs) {
-          clearInterval(check);
-          resolve(false);
-        }
-      }, 150);
-    });
-  }
+  const { markReady: markPaystackReady, waitForReady: waitForPaystackReady } = usePaystackReady();
 
   // Screen size detection
   useEffect(() => {
@@ -440,12 +407,14 @@ export default function StoreCartPage({ params }) {
 
           if (!initRes.ok || !initData.success) {
             setOrderError(initData.message || "Could not start payment");
+            setIsConfirmingPayment(false);
             resolve({ success: false });
             return;
           }
 
           if (typeof window === "undefined" || !window.PaystackPop) {
             setOrderError("Payment isn't ready yet -- please try again in a moment");
+            setIsConfirmingPayment(false);
             resolve({ success: false });
             return;
           }
@@ -629,6 +598,10 @@ export default function StoreCartPage({ params }) {
   };
 
   const handleStoreConfirmOrder = async (formData) => {
+    // A stale error from a previous attempt (rendered by the page-level
+    // toast above, since OrderModal closes before payment is attempted)
+    // must not persist into this one.
+    setOrderError(null);
     try {
       // Same readiness gate as handleConfirmOrder -- this path also always
       // sends paymentMethod: "paystack".
@@ -702,7 +675,7 @@ export default function StoreCartPage({ params }) {
       <Script
         src="https://js.paystack.co/v1/inline.js"
         strategy="afterInteractive"
-        onLoad={() => { paystackReadyRef.current = true; }}
+        onLoad={markPaystackReady}
       />
 
       {isConfirmingPayment && (
@@ -710,6 +683,23 @@ export default function StoreCartPage({ params }) {
           <div className="bg-white rounded-xl px-6 py-5 flex items-center gap-3 shadow-lg">
             <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
             <span className="text-sm font-medium text-gray-900">Confirming payment...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Page-level fallback for payment-stage errors (triggerPaystackPayment's
+          setOrderError calls) -- the per-store checkout flow (OrderModal)
+          closes as soon as the order is created, before payment is even
+          attempted, so a failure inside triggerPaystackPayment had nowhere
+          left to render: the whole-cart modal's inline error display below
+          is gated on showOrderModal, which is never true on that path.
+          Guarded on !showOrderModal so the two displays don't double up
+          when the whole-cart flow is the one that set this. */}
+      {orderError && !showOrderModal && (
+        <div className="fixed top-4 inset-x-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-md z-[70]">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 shadow-lg flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-red-600 text-sm">{orderError}</p>
           </div>
         </div>
       )}
