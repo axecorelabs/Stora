@@ -1,9 +1,11 @@
 "use client";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, Package, ShoppingBag, ArrowLeft, MapPin, Phone, Calendar, MessageCircle, Clock, X } from "lucide-react";
+import Script from "next/script";
+import { CheckCircle, Package, ShoppingBag, ArrowLeft, MapPin, Phone, Calendar, MessageCircle, Clock, X, AlertCircle, CreditCard } from "lucide-react";
 import useStoreStore from "@/stores/storeStore";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePaystackReady } from "@/hooks/usePaystackReady";
 import WhatsAppContactModal from "@/components/orders/WhatsAppContactModal";
 import StoreSocialsModal from "@/components/orders/StoreSocialsModal";
 
@@ -17,6 +19,10 @@ export default function StoreOrderDetailsPage({ params }) {
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showStoreSocialsModal, setShowStoreSocialsModal] = useState(false);
   const [selectedStore, setSelectedStore] = useState(null);
+  const [isPayingNow, setIsPayingNow] = useState(false);
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+  const [payNowError, setPayNowError] = useState(null);
+  const { markReady: markPaystackReady, waitForReady: waitForPaystackReady } = usePaystackReady();
 
   // Get store from Zustand store
   const { currentStore, fetchStore } = useStoreStore();
@@ -28,33 +34,35 @@ export default function StoreOrderDetailsPage({ params }) {
     }
   }, [resolvedParams.slug, currentStore, fetchStore]);
 
+  // Extracted so the payment-retry flow below can re-fetch the order (to
+  // pick up the new payment/order status) without a full page reload.
+  const fetchOrder = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/orders/${resolvedParams.id}`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setOrder(data.order);
+      } else {
+        setError(data.message || 'Order not found');
+      }
+    } catch (error) {
+      console.error("Error fetching order:", error);
+      setError('Failed to load order details');
+    } finally {
+      setLoading(false);
+    }
+  }, [resolvedParams.id]);
+
   // Fetch order data
   useEffect(() => {
-    const fetchOrder = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/orders/${resolvedParams.id}`, {
-          credentials: 'include'
-        });
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          setOrder(data.order);
-        } else {
-          setError(data.message || 'Order not found');
-        }
-      } catch (error) {
-        console.error("Error fetching order:", error);
-        setError('Failed to load order details');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (resolvedParams.id) {
       fetchOrder();
     }
-  }, [resolvedParams.id]);
+  }, [resolvedParams.id, fetchOrder]);
 
   // Show WhatsApp modal for pending orders
   useEffect(() => {
@@ -146,6 +154,87 @@ export default function StoreOrderDetailsPage({ params }) {
     });
   };
 
+  // Whether this order can still be paid for online -- mirrors the checks
+  // /api/payments/initiate itself makes (order not cancelled/refunded,
+  // payment method is paystack, not already completed), so the button only
+  // shows when an attempt would actually be plausible. The API is still
+  // the real gate; this just avoids showing a button that's certain to
+  // fail with "order no longer available for payment".
+  const canPayNow = order?.payment?.method === 'paystack'
+    && order?.payment?.status !== 'completed'
+    && !['cancelled', 'refunded'].includes(order?.status);
+
+  // Fills the gap this order page always had: there was no way to resume
+  // payment on an order once the cart (and the checkout modal that
+  // triggers Paystack) was gone -- a closed popup, a failed init call, or
+  // any other interruption left the order permanently unpaid with no path
+  // forward except re-shopping from scratch. This reuses the same
+  // initiate -> popup -> verify sequence as the cart page's checkout flow.
+  const handlePayNow = async () => {
+    setPayNowError(null);
+    setIsPayingNow(true);
+
+    const paystackOk = await waitForPaystackReady();
+    if (!paystackOk) {
+      setPayNowError("Payment isn't ready yet -- please check your connection and try again in a moment");
+      setIsPayingNow(false);
+      return;
+    }
+
+    try {
+      setIsConfirmingPayment(true);
+      const initRes = await fetch("/api/payments/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const initData = await initRes.json();
+
+      if (!initRes.ok || !initData.success) {
+        setPayNowError(initData.message || "Could not start payment");
+        setIsConfirmingPayment(false);
+        setIsPayingNow(false);
+        return;
+      }
+
+      const popup = new window.PaystackPop();
+      popup.resumeTransaction(initData.accessCode, {
+        onSuccess: async () => {
+          try {
+            const verifyRes = await fetch(
+              `/api/payments/verify?reference=${encodeURIComponent(initData.reference)}`,
+              { credentials: "include" }
+            );
+            const verifyData = await verifyRes.json();
+            if (!verifyData.success) {
+              setPayNowError(verifyData.message || "Payment could not be confirmed");
+            } else {
+              // Pick up the new payment/order status rather than leaving
+              // stale "Pending" on screen.
+              await fetchOrder();
+            }
+          } catch (error) {
+            console.error("Error verifying payment:", error);
+            setPayNowError("Payment could not be confirmed. Please contact support.");
+          } finally {
+            setIsConfirmingPayment(false);
+            setIsPayingNow(false);
+          }
+        },
+        onCancel: () => {
+          setIsConfirmingPayment(false);
+          setIsPayingNow(false);
+        },
+      });
+    } catch (error) {
+      console.error("Error starting payment:", error);
+      setPayNowError("Could not start payment. Please try again.");
+      setIsConfirmingPayment(false);
+      setIsPayingNow(false);
+    }
+  };
+
   // Get status color class
   const getStatusColor = (status) => {
     const colors = {
@@ -198,6 +287,21 @@ export default function StoreOrderDetailsPage({ params }) {
 
   return (
     <div className="min-h-screen bg-gray-50 py-4 sm:py-8 lg:py-12">
+      <Script
+        src="https://js.paystack.co/v1/inline.js"
+        strategy="afterInteractive"
+        onLoad={markPaystackReady}
+      />
+
+      {isConfirmingPayment && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl px-6 py-5 flex items-center gap-3 shadow-lg">
+            <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+            <span className="text-sm font-medium text-gray-900">Confirming payment...</span>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
         {/* Mobile-optimized Success Header */}
         <div className="text-center mb-6 sm:mb-8">
@@ -431,31 +535,54 @@ export default function StoreOrderDetailsPage({ params }) {
             <div>
               <p className="text-xs sm:text-sm text-gray-500">Payment Method</p>
               <p className="text-sm sm:text-base font-medium text-gray-900">
-                {order.paymentInfo?.method ? order.paymentInfo.method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Cash to Vendor'}
+                {order.payment?.method ? order.payment.method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Cash to Vendor'}
               </p>
             </div>
-            {order.paymentInfo?.transactionId && (
+            {order.payment?.transactionId && (
               <div>
                 <p className="text-xs sm:text-sm text-gray-500">Transaction ID</p>
-                <p className="text-sm sm:text-base font-medium text-gray-900 break-all">{order.paymentInfo.transactionId}</p>
+                <p className="text-sm sm:text-base font-medium text-gray-900 break-all">{order.payment.transactionId}</p>
               </div>
             )}
-            {order.paymentInfo?.reference && (
+            {order.payment?.reference && (
               <div>
                 <p className="text-xs sm:text-sm text-gray-500">Payment Reference</p>
-                <p className="text-sm sm:text-base font-medium text-gray-900 break-all">{order.paymentInfo.reference}</p>
+                <p className="text-sm sm:text-base font-medium text-gray-900 break-all">{order.payment.reference}</p>
               </div>
             )}
             <div>
               <p className="text-xs sm:text-sm text-gray-500">Payment Status</p>
               <p className="text-sm sm:text-base font-medium text-gray-900">
-                {order.paymentInfo?.status ? 
-                  order.paymentInfo.status.charAt(0).toUpperCase() + order.paymentInfo.status.slice(1) : 
+                {order.payment?.status ?
+                  order.payment.status.charAt(0).toUpperCase() + order.payment.status.slice(1) :
                   'Pending'
                 }
               </p>
             </div>
           </div>
+
+          {canPayNow && (
+            <div className="mt-4 sm:mt-5 pt-4 sm:pt-5 border-t border-gray-100">
+              {payNowError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-600 text-sm">{payNowError}</p>
+                </div>
+              )}
+              <button
+                onClick={handlePayNow}
+                disabled={isPayingNow}
+                className="w-full py-3 sm:py-4 text-white rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
+                {isPayingNow ? "Starting payment..." : "Complete Payment"}
+              </button>
+              <p className="text-xs text-gray-500 text-center mt-2">
+                This order is still waiting on payment. Complete it now to confirm your order.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Mobile-optimized Action Buttons */}

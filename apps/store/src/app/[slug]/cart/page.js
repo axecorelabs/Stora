@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, use } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import {
@@ -24,6 +24,7 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import useStoreStore from "@/stores/storeStore";
 import WhatsAppContactModal from "@/components/orders/WhatsAppContactModal";
 import OrderModal from "@/components/cart/OrderModal";
+import { usePaystackReady } from "@/hooks/usePaystackReady";
 
 export default function StoreCartPage({ params }) {
   const router = useRouter();
@@ -78,41 +79,7 @@ export default function StoreCartPage({ params }) {
   // moment a customer hits confirm -- without this, checkout would create
   // the order, clear the cart, and notify the vendor, then only discover
   // window.PaystackPop doesn't exist yet and silently never show a popup.
-  // A ref (not just the state) is needed because waitForPaystackReady is
-  // called from an event handler, not a render, and needs the latest
-  // value synchronously rather than through a stale closure.
-  const paystackReadyRef = useRef(false);
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.PaystackPop) {
-      paystackReadyRef.current = true;
-      return;
-    }
-    const interval = setInterval(() => {
-      if (typeof window !== "undefined" && window.PaystackPop) {
-        paystackReadyRef.current = true;
-        clearInterval(interval);
-      }
-    }, 150);
-    return () => clearInterval(interval);
-  }, []);
-
-  function waitForPaystackReady(timeoutMs = 6000) {
-    if (paystackReadyRef.current || (typeof window !== "undefined" && window.PaystackPop)) {
-      return Promise.resolve(true);
-    }
-    return new Promise((resolve) => {
-      const start = Date.now();
-      const check = setInterval(() => {
-        if (typeof window !== "undefined" && window.PaystackPop) {
-          clearInterval(check);
-          resolve(true);
-        } else if (Date.now() - start > timeoutMs) {
-          clearInterval(check);
-          resolve(false);
-        }
-      }, 150);
-    });
-  }
+  const { markReady: markPaystackReady, waitForReady: waitForPaystackReady } = usePaystackReady();
 
   // Screen size detection
   useEffect(() => {
@@ -708,7 +675,7 @@ export default function StoreCartPage({ params }) {
       <Script
         src="https://js.paystack.co/v1/inline.js"
         strategy="afterInteractive"
-        onLoad={() => { paystackReadyRef.current = true; }}
+        onLoad={markPaystackReady}
       />
 
       {isConfirmingPayment && (
