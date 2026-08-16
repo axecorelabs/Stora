@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase';
 import { updateOrderStatus } from './supabaseOrders';
+import { notifyStoresOfPaidOrder } from './orderNotifications';
 
 // Shared idempotent core called from both the webhook path and the
 // client verify-on-return path (apps/store/src/app/api/payments/webhook/route.js,
@@ -84,6 +85,23 @@ export async function confirmOrderPayment(reference, { transactionId, amountKobo
     await updateOrderStatus(orderPayment.order_id, 'confirmed');
   } catch (statusError) {
     console.error('Error confirming order status after payment:', statusError);
+  }
+
+  // Vendor notifications for this order's paid stores were deliberately
+  // held until now (see apps/store/src/app/api/orders/create/route.js) --
+  // notifying before the charge actually completed would tell a vendor
+  // about an order that might never really happen. Non-fatal: a failure
+  // here must not turn an otherwise-successful payment confirmation into
+  // an error response back to the customer.
+  try {
+    const { data: splits } = await supabaseAdmin
+      .from('order_payment_splits')
+      .select('store_id')
+      .eq('order_payment_id', orderPayment.id);
+    const paidStoreIds = [...new Set((splits || []).map(s => s.store_id))];
+    await notifyStoresOfPaidOrder(orderPayment.order_id, paidStoreIds);
+  } catch (notifyError) {
+    console.error('Error notifying vendors after payment confirmation:', notifyError);
   }
 
   return { success: true, orderId: orderPayment.order_id, alreadyConfirmed: false };
