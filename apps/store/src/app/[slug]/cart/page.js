@@ -419,9 +419,26 @@ export default function StoreCartPage({ params }) {
             return;
           }
 
+          // Belt-and-suspenders against a popup that never calls either
+          // callback (seen in practice: a script-version mismatch, or the
+          // Paystack iframe failing to load for some other reason) -- without
+          // this, isConfirmingPayment never resolves and the customer is
+          // stuck looking at "Confirming payment..." with no way out.
+          let settled = false;
+          const giveUpTimer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            setOrderError("Payment popup didn't respond. Please try again.");
+            setIsConfirmingPayment(false);
+            resolve({ success: false });
+          }, 30000);
+
           const popup = new window.PaystackPop();
           popup.resumeTransaction(initData.accessCode, {
             onSuccess: async () => {
+              if (settled) return;
+              settled = true;
+              clearTimeout(giveUpTimer);
               try {
                 const verifyRes = await fetch(
                   `/api/payments/verify?reference=${encodeURIComponent(initData.reference)}`,
@@ -441,6 +458,9 @@ export default function StoreCartPage({ params }) {
               }
             },
             onCancel: () => {
+              if (settled) return;
+              settled = true;
+              clearTimeout(giveUpTimer);
               setIsConfirmingPayment(false);
               resolve({ success: false, cancelled: true });
             },
@@ -673,7 +693,7 @@ export default function StoreCartPage({ params }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Script
-        src="https://js.paystack.co/v1/inline.js"
+        src="https://js.paystack.co/v2/inline.js"
         strategy="afterInteractive"
         onLoad={markPaystackReady}
       />
