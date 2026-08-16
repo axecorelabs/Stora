@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findInventoryById, findActiveBatchesByInventoryId, calculateBatchQuantities, findStoreById } from "@/lib/supabaseStore";
+import { findInventoryById, findActiveBatchesByInventoryId, resolveBatchPricing, findStoreById } from "@/lib/supabaseStore";
 
 export async function GET(request, { params }) {
   try {
@@ -25,13 +25,6 @@ export async function GET(request, { params }) {
 
     // Get ALL batches for this product, sorted by FIFO (dateReceived ascending)
     const batches = await findActiveBatchesByInventoryId(id);
-    const batchesWithQuantities = await calculateBatchQuantities(batches);
-
-    // Filter to ONLY batches that have stock
-    const activeBatches = batchesWithQuantities.filter(batch => batch.actualQuantityRemaining > 0);
-
-    // Find the current active batch using FIFO logic (first batch with stock)
-    const currentActiveBatch = activeBatches.length > 0 ? activeBatches[0] : null;
 
     // Get store details
     const store = await findStoreById(product.storeId);
@@ -43,50 +36,28 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Calculate batch-based pricing and availability
-    let currentPrice = product.sellingPrice; // fallback
-    let currentCostPrice = product.costPrice; // fallback
-    let totalAvailableQuantity = 0;
-    let priceRange = { min: null, max: null };
-    let hasBatches = activeBatches.length > 0;
-    let currentBatch = null;
+    const {
+      sellingPrice: currentPrice,
+      availableQuantity: totalAvailableQuantity,
+      activeBatches,
+      currentBatch,
+      batchInfo
+    } = await resolveBatchPricing(product, batches);
 
-    if (currentActiveBatch) {
-      // Use the FIRST batch with stock (FIFO) for current pricing
-      currentBatch = currentActiveBatch;
-      currentPrice = currentActiveBatch.selling_price;
-      currentCostPrice = currentActiveBatch.cost_price;
-      
-      // Calculate total available quantity from all batches with stock
-      totalAvailableQuantity = activeBatches.reduce((sum, batch) => sum + batch.actualQuantityRemaining, 0);
-      
-      // Calculate price range across all active batches
-      const prices = activeBatches.map(batch => batch.selling_price);
-      priceRange = {
-        min: Math.min(...prices),
-        max: Math.max(...prices)
-      };
-    } else {
-      // No active batches with stock, use inventory stock if batch system not in use
-      totalAvailableQuantity = product.quantityInStock || 0;
-    }
-
-    // Calculate weighted averages across all batches (for reference)
-    const totalQuantityIn = batchesWithQuantities.reduce((sum, batch) => sum + (batch.quantity_in || 0), 0);
-    const weightedSellingSum = batchesWithQuantities.reduce((sum, batch) => 
-      sum + ((batch.selling_price || 0) * (batch.quantity_in || 0)), 0
-    );
-    const averageSellingPrice = totalQuantityIn > 0 ? weightedSellingSum / totalQuantityIn : currentPrice;
+    const priceRange = batchInfo.priceRange || { min: null, max: null };
+    const averageSellingPrice = batchInfo.averagePrice;
 
     // Prepare enhanced product data
     const enhancedProduct = {
       ...product,
       // Override pricing with CURRENT BATCH pricing (FIFO)
       sellingPrice: currentPrice,
-      
-      // Override quantity with total available from all batches
+
+      // Override quantity with total available from all batches -- both
+      // fields, since consumers are inconsistent about which they read.
       quantityInStock: totalAvailableQuantity,
-      
+      availableQuantity: totalAvailableQuantity,
+
       // Batch information - only include batches with actual stock
       batches: activeBatches.map(batch => ({
         id: batch.id,
@@ -102,22 +73,10 @@ export async function GET(request, { params }) {
         daysUntilExpiry: batch.expiry_date ? Math.ceil((new Date(batch.expiry_date) - new Date()) / (1000 * 60 * 60 * 24)) : null,
         isCurrentBatch: currentBatch ? batch.id === currentBatch.id : false
       })),
-      
-      // Batch metadata
-      batchInfo: {
-        hasBatches: hasBatches,
-        totalBatches: activeBatches.length,
-        totalAvailableQuantity,
-        currentBatchId: currentBatch?.id,
-        currentBatchCode: currentBatch?.batch_code,
-        currentBatchRemaining: currentBatch ? currentBatch.actualQuantityRemaining : 0,
-        priceRange: activeBatches.length > 0 ? priceRange : null,
-        oldestBatchDate: activeBatches.length > 0 ? activeBatches[0]?.date_received : null,
-        newestBatchDate: activeBatches.length > 0 ? activeBatches[activeBatches.length - 1]?.date_received : null,
-        averagePrice: averageSellingPrice,
-        methodology: 'FIFO - First In, First Out (oldest batches sold first)'
-      },
-      
+
+      // Batch metadata -- already correctly computed by resolveBatchPricing
+      batchInfo,
+
       // Pricing information
       pricing: {
         current: currentPrice, // Current selling price from FIFO batch
@@ -125,7 +84,7 @@ export async function GET(request, { params }) {
         hasVariablePricing: priceRange && priceRange.min !== priceRange.max,
         range: priceRange
       },
-      
+
       // Remove sensitive pricing from client response
       costPrice: undefined
     };

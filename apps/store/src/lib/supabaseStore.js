@@ -460,6 +460,80 @@ export async function calculateBatchQuantities(batches) {
   });
 }
 
+// ============ BATCH PRICING RESOLUTION ============
+
+// Single source of truth for "what should a customer see as this product's
+// current price and available stock," given its product row and its
+// (already status='active'-filtered) batches. This used to be 4+ near-
+// duplicate inline implementations (the storefront listing enrichment, the
+// product details page -- twice, once for metadata and once for the page
+// itself --, the single-product API route, and three places in
+// supabaseCart.js). That duplication is exactly how two real bugs crept in
+// and diverged silently between call sites:
+//
+// 1. The details page reassigned its "current price" with `const` inside
+//    an if-block, shadowing the outer variable instead of updating it, so
+//    the page always displayed the stale flat inventory.base_price no
+//    matter what the batches actually priced the item at.
+// 2. Every call site computed `activeBatches.reduce(...) || product.X` --
+//    which, because 0 is falsy, silently revived the (possibly stale)
+//    flat inventory field whenever a batch-tracked product's batches were
+//    all fully depleted, instead of correctly reporting zero stock. Only
+//    `batches.length` (unfiltered) can tell "never batch-tracked" (a
+//    legitimate reason to fall back to flat inventory) apart from
+//    "batch-tracked but currently sold out" (should report 0, not a
+//    stale flat number) -- `activeBatches.length`/its reduce sum cannot,
+//    since both cases produce the same empty/zero result.
+export async function resolveBatchPricing(product, batches) {
+  const batchesWithQuantities = await calculateBatchQuantities(batches);
+  const activeBatches = batchesWithQuantities.filter(b => b.actualQuantityRemaining > 0);
+  const currentBatch = activeBatches.length > 0 ? activeBatches[0] : null;
+
+  // Whether this product has ever been stocked via batches at all --
+  // distinct from activeBatches.length, which is 0 both when there are no
+  // batches AND when there are batches but all are depleted.
+  const isBatchTracked = batches.length > 0;
+
+  const sellingPrice = currentBatch ? currentBatch.selling_price : product.sellingPrice;
+  const availableQuantity = isBatchTracked
+    ? activeBatches.reduce((sum, b) => sum + b.actualQuantityRemaining, 0)
+    : (product.availableQuantity ?? product.quantityInStock ?? 0);
+
+  const prices = activeBatches.map(b => b.selling_price);
+  const totalQuantityIn = batchesWithQuantities.reduce((sum, b) => sum + (b.quantity_in || 0), 0);
+  const weightedSellingSum = batchesWithQuantities.reduce(
+    (sum, b) => sum + ((b.selling_price || 0) * (b.quantity_in || 0)), 0
+  );
+
+  return {
+    sellingPrice,
+    // Both fields set to the same resolved number -- ProductCard.js and
+    // ProductDetailsClient.js key their sold-out/low-stock badges off
+    // availableQuantity, while list/detail payloads have historically
+    // also carried quantityInStock; keeping both in sync here is what the
+    // duplicated call sites failed to do.
+    quantityInStock: availableQuantity,
+    availableQuantity,
+    activeBatches,
+    batchesWithQuantities,
+    currentBatch,
+    batchInfo: {
+      hasBatches: activeBatches.length > 0,
+      isBatchTracked,
+      totalBatches: activeBatches.length,
+      totalAvailableQuantity: availableQuantity,
+      currentBatchId: currentBatch?.id,
+      currentBatchCode: currentBatch?.batch_code,
+      currentBatchRemaining: currentBatch ? currentBatch.actualQuantityRemaining : 0,
+      priceRange: prices.length > 0 ? { min: Math.min(...prices), max: Math.max(...prices) } : null,
+      oldestBatchDate: activeBatches.length > 0 ? activeBatches[0]?.date_received : null,
+      newestBatchDate: activeBatches.length > 0 ? activeBatches[activeBatches.length - 1]?.date_received : null,
+      averagePrice: totalQuantityIn > 0 ? weightedSellingSum / totalQuantityIn : sellingPrice,
+      methodology: 'FIFO - First In, First Out (oldest batches sold first)'
+    }
+  };
+}
+
 // ============ PRODUCT ENRICHMENT ============
 
 export async function enrichProductsWithBatches(products) {
@@ -478,40 +552,16 @@ export async function enrichProductsWithBatches(products) {
         // Batches for this product, pre-fetched in one query above instead
         // of one query per product.
         const batches = batchesByProduct[product.id] || [];
+        const { sellingPrice, quantityInStock, availableQuantity, batchInfo } =
+          await resolveBatchPricing(product, batches);
 
-        // Calculate actual quantities
-        const batchesWithQuantities = await calculateBatchQuantities(batches);
-
-        // Filter to only batches with stock
-        const activeBatches = batchesWithQuantities.filter(
-          batch => batch.actualQuantityRemaining > 0
-        );
-
-        // Find current active batch (FIFO - first batch with stock)
-        const currentActiveBatch = activeBatches.length > 0 ? activeBatches[0] : null;
-
-        // Use batch pricing if available
-        if (currentActiveBatch) {
-          // Calculate available quantity from batches (already accounts for sold + reserved)
-          const availableFromBatches = activeBatches.reduce(
-            (sum, batch) => sum + batch.actualQuantityRemaining,
-            0
-          );
-
-          return {
-            ...product,
-            sellingPrice: currentActiveBatch.selling_price,
-            quantityInStock: availableFromBatches,
-            batchInfo: {
-              currentBatchCode: currentActiveBatch.batch_code,
-              currentBatchPrice: currentActiveBatch.selling_price,
-              totalBatches: activeBatches.length
-            }
-          };
-        }
-
-        // No active batches, return product as-is
-        return product;
+        return {
+          ...product,
+          sellingPrice,
+          quantityInStock,
+          availableQuantity,
+          batchInfo
+        };
       } catch (batchError) {
         console.error(`Error processing batches for product ${product.id}:`, batchError);
         return product;

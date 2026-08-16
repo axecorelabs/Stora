@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import ProductDetailsClient from '@/components/product/ProductDetailsClient';
-import { findStoreBySlug, findInventoryById, findActiveBatchesByInventoryId, calculateBatchQuantities } from '@/lib/supabaseStore';
+import { findStoreBySlug, findInventoryById, findActiveBatchesByInventoryId, resolveBatchPricing } from '@/lib/supabaseStore';
 
 // ISR: this page's price/stock display (FIFO batch pricing) is the most
 // change-sensitive of the three storefront pages and has no client-side
@@ -39,17 +39,8 @@ export async function generateMetadata({ params }) {
 
     // Get batches for accurate pricing
     const batches = await findActiveBatchesByInventoryId(id);
-    const batchesWithQuantities = await calculateBatchQuantities(batches);
-
-    // Filter to only batches with stock (accounting for sold and reserved)
-    const activeBatches = batchesWithQuantities.filter(batch => batch.actualQuantityRemaining > 0);
-    const currentActiveBatch = activeBatches.length > 0 ? activeBatches[0] : null;
-
-    // Use batch pricing if available
-    const currentPrice = currentActiveBatch ? currentActiveBatch.sellingPrice : product.sellingPrice;
-    const totalAvailableQuantity = activeBatches.length > 0 
-      ? activeBatches.reduce((sum, batch) => sum + batch.actualQuantityRemaining, 0)
-      : product.availableQuantity || 0;
+    const { sellingPrice: currentPrice, availableQuantity: totalAvailableQuantity } =
+      await resolveBatchPricing(product, batches);
 
     const title = `${product.productName} - ${store.storeName}`;
     const description = product.description || `Buy ${product.productName} at ${store.storeName}. Category: ${product.category}.`;
@@ -120,45 +111,16 @@ export default async function ProductPage({ params }) {
   // Get ALL batches for this product, sorted by FIFO (dateReceived ascending)
   const batches = await findActiveBatchesByInventoryId(id);
 
-  // Calculate actual remaining quantities (accounting for sold and reserved)
-  const batchesWithActualRemaining = await calculateBatchQuantities(batches);
+  const {
+    sellingPrice: currentPrice,
+    availableQuantity: totalAvailableQuantity,
+    activeBatches,
+    currentBatch: currentActiveBatch,
+    batchInfo
+  } = await resolveBatchPricing(product, batches);
 
-  // Filter to ONLY batches that have stock
-  const activeBatches = batchesWithActualRemaining.filter(batch => batch.actualQuantityRemaining > 0);
-
-  // Find the current active batch using FIFO logic (first batch with stock)
-  const currentActiveBatch = activeBatches.length > 0 ? activeBatches[0] : null;
-
-  // Calculate batch-based pricing and availability
-  let currentPrice = product.sellingPrice; // fallback
-  let totalAvailableQuantity = 0;
-  let priceRange = { min: null, max: null };
-  let hasBatches = activeBatches.length > 0;
-
-  if (currentActiveBatch) {
-    // Use the FIRST batch with stock (FIFO) for current pricing
-    const currentPrice = currentActiveBatch.selling_price;
-    
-    // Calculate total available quantity from all batches with stock
-    totalAvailableQuantity = activeBatches.reduce((sum, batch) => sum + batch.actualQuantityRemaining, 0);
-    
-    // Calculate price range across all active batches
-    const prices = activeBatches.map(batch => batch.selling_price);
-    priceRange = {
-      min: Math.min(...prices),
-      max: Math.max(...prices)
-    };
-  } else {
-    // No active batches with stock, use available quantity (accounting for reservations)
-    totalAvailableQuantity = product.availableQuantity || 0;
-  }
-
-  // Calculate weighted averages across all batches (for reference)
-  const totalQuantityIn = batchesWithActualRemaining.reduce((sum, batch) => sum + (batch.quantity_in || 0), 0);
-  const weightedSellingSum = batchesWithActualRemaining.reduce((sum, batch) => 
-    sum + ((batch.selling_price || 0) * (batch.quantity_in || 0)), 0
-  );
-  const averageSellingPrice = totalQuantityIn > 0 ? weightedSellingSum / totalQuantityIn : currentPrice;
+  const priceRange = batchInfo.priceRange || { min: null, max: null };
+  const averageSellingPrice = batchInfo.averagePrice;
 
   // Transform images array to proper format
   // Handle multiple cases: array of URL strings, array of image objects, OR array of JSON strings
@@ -219,9 +181,12 @@ export default async function ProductPage({ params }) {
     // Override pricing with CURRENT BATCH pricing (FIFO)
     sellingPrice: currentPrice,
     
-    // Override quantity with total available from all batches
+    // Override quantity with total available from all batches -- both
+    // fields, since ProductDetailsClient's sold-out/low-stock logic reads
+    // availableQuantity while other consumers read quantityInStock.
     quantityInStock: totalAvailableQuantity,
-    
+    availableQuantity: totalAvailableQuantity,
+
     // Include ALL category-specific details
     categoryDetails: {
       clothing: product.clothingDetails,
@@ -255,20 +220,8 @@ export default async function ProductPage({ params }) {
       isCurrentBatch: currentActiveBatch ? batch.id === currentActiveBatch.id : false
     })),
     
-    // Batch metadata
-    batchInfo: {
-      hasBatches: hasBatches,
-      totalBatches: activeBatches.length,
-      totalAvailableQuantity,id,
-      currentBatchCode: currentActiveBatch?.batch_code,
-      currentBatchRemaining: currentActiveBatch ? currentActiveBatch.actualQuantityRemaining : 0,
-      priceRange: activeBatches.length > 0 ? priceRange : null,
-      oldestBatchDate: activeBatches.length > 0 ? activeBatches[0]?.date_received : null,
-      newestBatchDate: activeBatches.length > 0 ? activeBatches[activeBatches.length - 1]?.date_received : null,
-      // newestBatchDate: activeBatches.length > 0 ? activeBatches[activeBatches.length - 1]?.dateReceived : null,
-      averagePrice: averageSellingPrice,
-      methodology: 'FIFO - First In, First Out (oldest batches sold first)'
-    },
+    // Batch metadata -- already correctly computed by resolveBatchPricing
+    batchInfo,
     
     // Pricing information
     pricing: {

@@ -3,6 +3,26 @@ import { supabaseAdmin } from "./supabase";
 import { sendNewOrderNotification } from "./email";
 import { findOrderById } from "./supabaseOrders";
 
+// The two callers below hand this two different item shapes: raw
+// order_items DB rows (snake_case product_name, from orders/create's own
+// groupOrderItemsByStore) for the immediate contact-only path, and
+// findOrderById's transformed rows (productSnapshot.productName) for the
+// deferred paid path. NewOrderNotification.jsx's HTML template only ever
+// reads item.productSnapshot.productName -- normalize to that shape (while
+// keeping product_name too, since the plain-text fallback in
+// sendNewOrderNotification reads that field) so both paths render
+// correctly instead of just the one that happened to already match.
+function normalizeEmailItem(item) {
+  const productName = item.productSnapshot?.productName ?? item.product_name ?? "Item";
+  return {
+    ...item,
+    product_name: productName,
+    productSnapshot: { ...item.productSnapshot, productName },
+    quantity: item.quantity ?? 0,
+    subtotal: parseFloat(item.subtotal ?? 0)
+  };
+}
+
 // Low-level: the caller already has the order and its store-grouped items
 // in scope (orders/create builds both right after creating the order), so
 // this does no extra fetching. Scoped to a storeIds subset rather than
@@ -78,7 +98,7 @@ export async function sendStoreOrderNotifications(
         },
         shippingAddress,
         customerNotes,
-        storeItems: storeData.items,
+        storeItems: storeData.items.map(normalizeEmailItem),
         storeTotal: storeData.total,
         storeItemCount: storeData.items.reduce((sum, item) => sum + item.quantity, 0)
       };

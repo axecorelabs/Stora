@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './supabase';
-import { findInventoryById, findActiveBatchesByInventoryId, calculateBatchQuantities } from './supabaseStore';
+import { findInventoryById, findActiveBatchesByInventoryId, resolveBatchPricing } from './supabaseStore';
 
 // ============ CART OPERATIONS ============
 
@@ -383,14 +383,16 @@ export async function enrichCartWithProductData(cart) {
           };
         }
 
-        // Get current batch pricing
+        // Get current batch pricing. resolveBatchPricing distinguishes "no
+        // batches at all" (fall back to flat inventory) from "batches
+        // exist but are fully depleted" (report the batches' real total:
+        // 0) -- the naive `sum || product.quantityInStock` this replaced
+        // couldn't tell those apart, since both produce a falsy 0 sum, and
+        // would revive a possibly-stale flat stock number for an item
+        // whose batches are genuinely sold out.
         const batches = await findActiveBatchesByInventoryId(item.product_id);
-        const batchesWithQuantities = await calculateBatchQuantities(batches);
-        const activeBatches = batchesWithQuantities.filter(b => b.actualQuantityRemaining > 0);
-        const currentBatch = activeBatches.length > 0 ? activeBatches[0] : null;
-
-        const currentPrice = currentBatch?.selling_price || product.sellingPrice;
-        const availableStock = activeBatches.reduce((sum, b) => sum + b.actualQuantityRemaining, 0) || product.quantityInStock;
+        const { sellingPrice: currentPrice, availableQuantity: availableStock } =
+          await resolveBatchPricing(product, batches);
 
         return {
           ...item,
@@ -438,8 +440,12 @@ export async function validateCartStock(cart) {
   for (const item of cart.items) {
     try {
       const product = await findInventoryById(item.product_id);
-      
-      if (!product || !product.is_active) {
+
+      // findInventoryById returns the transformed (camelCase) product
+      // shape -- product.is_active doesn't exist on it and was always
+      // undefined, so this check unconditionally flagged every cart item
+      // as unavailable regardless of real stock.
+      if (!product || !product.isActive) {
         unavailableItems.push({
           product_id: item.product_id,
           product_name: item.product_snapshot?.product_name,
@@ -452,9 +458,7 @@ export async function validateCartStock(cart) {
 
       // Check stock availability
       const batches = await findActiveBatchesByInventoryId(item.product_id);
-      const batchesWithQuantities = await calculateBatchQuantities(batches);
-      const activeBatches = batchesWithQuantities.filter(b => b.actualQuantityRemaining > 0);
-      const availableStock = activeBatches.reduce((sum, b) => sum + b.actualQuantityRemaining, 0) || product.quantity_in_stock;
+      const { availableQuantity: availableStock } = await resolveBatchPricing(product, batches);
 
       if (availableStock < item.quantity) {
         unavailableItems.push({
@@ -497,17 +501,13 @@ export async function prepareCartItemData(productId, quantity, variantData = nul
 
   // Get current batch pricing
   const batches = await findActiveBatchesByInventoryId(productId);
-  const batchesWithQuantities = await calculateBatchQuantities(batches);
-  const activeBatches = batchesWithQuantities.filter(b => b.actualQuantityRemaining > 0);
-  const availableStock = activeBatches.reduce((sum, b) => sum + b.actualQuantityRemaining, 0) || product.quantityInStock;
+  const { sellingPrice: currentPrice, availableQuantity: availableStock, activeBatches, currentBatch } =
+    await resolveBatchPricing(product, batches);
 
   // Check stock availability
   if (availableStock < quantity) {
     throw new Error(`Only ${availableStock} items available`);
   }
-
-  const currentBatch = activeBatches.length > 0 ? activeBatches[0] : null;
-  const currentPrice = currentBatch?.selling_price || product.sellingPrice;
 
   // Get store details using store_id (which should be UUID)
   const { data: store } = await supabaseAdmin
