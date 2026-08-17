@@ -30,13 +30,6 @@
   --color-gold-700: #8A6A36; /* dark enough for text on light gold tints -- mirrors brand-800's role */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);

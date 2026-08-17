@@ -23,14 +23,20 @@ export async function GET(request) {
     const sort = sortParam === "new" ? "new" : "trending";
     const pageParam = parseInt(searchParams.get("page"), 10);
     const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+    const minPriceParam = parseFloat(searchParams.get("minPrice"));
+    const maxPriceParam = parseFloat(searchParams.get("maxPrice"));
+    const minPrice = Number.isFinite(minPriceParam) ? minPriceParam : undefined;
+    const maxPrice = Number.isFinite(maxPriceParam) ? maxPriceParam : undefined;
 
-    const isDefaultBrowse = !search && !category && page === 1;
+    const isDefaultBrowse = !search && !category && page === 1 && minPrice === undefined && maxPrice === undefined;
     const fetchResults = () => searchProductsPaginated({
       search,
       category,
       sort,
       limit: PAGE_SIZE,
-      offset: (page - 1) * PAGE_SIZE
+      offset: (page - 1) * PAGE_SIZE,
+      minPrice,
+      maxPrice
     });
 
     const { products, totalCount } = isDefaultBrowse

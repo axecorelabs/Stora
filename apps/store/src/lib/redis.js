@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { after } from 'next/server';
 
 export const redis = Redis.fromEnv();
 
@@ -72,7 +73,15 @@ export async function cached(key, ttlSeconds, fetcher) {
   if (hit !== null && hit !== undefined) return hit;
 
   const fresh = await fetcher();
-  await cacheSet(key, fresh, ttlSeconds);
+  // Deferred via `after()`, not just left un-awaited -- this runs as a
+  // serverless function on Vercel, and a bare fire-and-forget promise can
+  // be killed mid-flight once the response is sent, since the platform is
+  // free to freeze the execution context right after that. `after()` is
+  // the supported way to guarantee background work actually completes
+  // (same pattern already used for post-response work in the auth routes
+  // and orderNotifications.js) -- the caller still doesn't wait for it,
+  // but it's no longer a coin flip whether it finishes.
+  after(() => cacheSet(key, fresh, ttlSeconds));
   return fresh;
 }
 
@@ -87,6 +96,12 @@ export const cacheKey = {
   // category, page 1) -- the overwhelming majority of visits to that page,
   // unlike free-text search itself which is too varied to cache usefully.
   productsSearchDefault: (sort) => `${NS}:cache:products-search-default:${sort}`,
+  // The typeahead's own preview endpoint has a much narrower key space than
+  // full search (just `q`, no category/price/sort/page), and short/common
+  // prefixes get typed identically by many different people -- unlike full
+  // search results, this one has a real, exploitable hit rate. Lowercased
+  // since the underlying ILIKE match is already case-insensitive.
+  searchPreview: (q) => `${NS}:cache:search-preview:${q.toLowerCase()}`,
   // TTL + explicit invalidation on add/remove -- see comment above.
   wishlist: (customerId) => `${NS}:cache:wishlist:${customerId}`,
 };

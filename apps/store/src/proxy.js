@@ -72,6 +72,7 @@ export const config = {
     '/api/store/:path*',
     '/api/stores/:path*',
     '/api/products/:path*',
+    '/api/search/:path*',
     '/((?!api|_next/static|_next/image|favicon\\.ico|cart|wishlist|orders|reset-password).*)',
   ],
 };

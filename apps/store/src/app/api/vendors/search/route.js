@@ -11,6 +11,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("q")?.trim() || undefined;
+    const category = searchParams.get("category") || undefined;
     const sortParam = searchParams.get("sort");
     const sort = ["featured", "newest", "name"].includes(sortParam) ? sortParam : "featured";
     const pageParam = parseInt(searchParams.get("page"), 10);
@@ -18,6 +19,7 @@ export async function GET(request) {
 
     const { vendors, totalCount } = await searchVendorsPaginated({
       search,
+      category,
       sort,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE

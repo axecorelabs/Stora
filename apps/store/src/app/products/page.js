@@ -5,9 +5,10 @@ import { Package, Loader2 } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import SearchModeTabs from "@/components/search/SearchModeTabs";
-import SearchBar from "@/components/search/SearchBar";
+import SearchConsole from "@/components/search/SearchConsole";
+import PriceFilterPills, { PRICE_BUCKETS } from "@/components/search/PriceFilterPills";
+import ActiveFilters from "@/components/search/ActiveFilters";
 import DiscoveryProductCard from "@/components/home/DiscoveryProductCard";
-import { CATEGORIES } from "@/lib/categories";
 
 function ProductsPageInner() {
   const router = useRouter();
@@ -16,14 +17,18 @@ function ProductsPageInner() {
   const urlQ = searchParams.get("q") || "";
   const urlCategory = searchParams.get("category") || "";
   const urlSort = searchParams.get("sort") === "new" ? "new" : "trending";
+  const urlPriceKey = searchParams.get("price") || "";
 
   const [q, setQ] = useState(urlQ);
   const [category, setCategory] = useState(urlCategory);
   const [sort, setSort] = useState(urlSort);
+  const [priceKey, setPriceKey] = useState(urlPriceKey);
   const [products, setProducts] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  const priceBucket = PRICE_BUCKETS.find((b) => b.key === priceKey);
 
   // Keep the URL in sync (shallow, no scroll jump) so results are
   // shareable/bookmarkable and survive a refresh or back-navigation.
@@ -32,10 +37,11 @@ function ProductsPageInner() {
     if (q) params.set("q", q);
     if (category) params.set("category", category);
     if (sort !== "trending") params.set("sort", sort);
+    if (priceKey) params.set("price", priceKey);
     const qs = params.toString();
     router.replace(qs ? `/products?${qs}` : "/products", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, category, sort]);
+  }, [q, category, sort, priceKey]);
 
   const fetchPage = useCallback(async (pageNum, replace) => {
     if (replace) setLoading(true);
@@ -44,6 +50,8 @@ function ProductsPageInner() {
       const params = new URLSearchParams({ sort, page: String(pageNum) });
       if (q) params.set("q", q);
       if (category) params.set("category", category);
+      if (priceBucket?.min !== undefined) params.set("minPrice", String(priceBucket.min));
+      if (priceBucket?.max !== undefined) params.set("maxPrice", String(priceBucket.max));
       const res = await fetch(`/api/products/search?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -56,7 +64,7 @@ function ProductsPageInner() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [q, category, sort]);
+  }, [q, category, sort, priceBucket]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -65,6 +73,16 @@ function ProductsPageInner() {
   const loadMore = () => {
     if (!pagination || loadingMore) return;
     fetchPage(pagination.page + 1, false);
+  };
+
+  const activeFilters = [
+    category && { key: "category", label: category, onRemove: () => setCategory("") },
+    priceBucket && { key: "price", label: priceBucket.label, onRemove: () => setPriceKey("") }
+  ].filter(Boolean);
+
+  const clearAll = () => {
+    setCategory("");
+    setPriceKey("");
   };
 
   return (
@@ -78,62 +96,49 @@ function ProductsPageInner() {
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-1">
             {q ? `Results for "${q}"` : "All products"}
           </h1>
-          <p className="text-sm text-gray-500">
-            {loading ? "Searching…" : `${pagination?.total?.toLocaleString() ?? 0} product${pagination?.total === 1 ? "" : "s"}`}
-          </p>
         </div>
 
-        <div className="mb-6">
-          <SearchBar value={q} onChange={setQ} placeholder="Search products by name…" />
-        </div>
+        <SearchConsole
+          query={q}
+          onQueryChange={setQ}
+          searchPlaceholder="Search products by name…"
+          category={category}
+          onCategoryChange={setCategory}
+          resultCount={pagination?.total}
+          loading={loading}
+          resultLabel="products"
+        />
 
-        {/* Category chips */}
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-          <button
-            onClick={() => setCategory("")}
-            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
-              !category
-                ? "bg-brand-700 text-white border-brand-700"
-                : "bg-white text-brand-800 border-brand-100 hover:border-brand-300"
-            }`}
-          >
-            All categories
-          </button>
-          {CATEGORIES.map(({ value, icon: Icon }) => (
-            <button
-              key={value}
-              onClick={() => setCategory(value)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
-                category === value
-                  ? "bg-brand-700 text-white border-brand-700"
-                  : "bg-white text-brand-800 border-brand-100 hover:border-brand-300"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {value}
-            </button>
-          ))}
-        </div>
+        {activeFilters.length > 0 && (
+          <div className="flex justify-center mb-6">
+            <ActiveFilters filters={activeFilters} onClearAll={clearAll} />
+          </div>
+        )}
 
-        {/* Sort */}
-        <div className="flex items-center justify-end gap-1 mb-6">
-          {[
-            { key: "trending", label: "Trending" },
-            { key: "new", label: "New arrivals" },
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setSort(key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                sort === key ? "bg-brand-50 text-brand-800" : "text-gray-500 hover:text-brand-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        {/* Price + sort -- opposite top corners of the grid they control. */}
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+          <PriceFilterPills activeKey={priceKey} onChange={setPriceKey} />
+
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {[
+              { key: "trending", label: "Trending" },
+              { key: "new", label: "New arrivals" },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setSort(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  sort === key ? "bg-brand-50 text-brand-800" : "text-gray-500 hover:text-brand-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Results */}
+        <div id="search-results">
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {Array.from({ length: 12 }).map((_, i) => (
@@ -143,9 +148,17 @@ function ProductsPageInner() {
         ) : products.length === 0 ? (
           <div className="text-center py-20">
             <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
-            <p className="text-gray-500 text-sm">
-              {q ? `No products match "${q}".` : "Nothing here yet -- try a different category."}
+            <p className="text-gray-500 text-sm mb-4">
+              {q ? `No products match "${q}".` : "Nothing matches these filters."}
             </p>
+            {activeFilters.length > 0 && (
+              <button
+                onClick={clearAll}
+                className="text-sm font-semibold text-brand-700 hover:text-brand-800"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -169,6 +182,7 @@ function ProductsPageInner() {
             )}
           </>
         )}
+        </div>
       </div>
 
       <SiteFooter />
