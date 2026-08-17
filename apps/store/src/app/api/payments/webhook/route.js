@@ -27,7 +27,8 @@ export async function POST(request) {
       const data = payload.data;
       await confirmOrderPayment(data.reference, {
         transactionId: String(data.id),
-        amountKobo: data.amount
+        amountKobo: data.amount,
+        orderId: data.metadata?.order_id
       });
     } else if (payload.event === 'charge.failed') {
       await markOrderPaymentFailed(payload.data.reference);

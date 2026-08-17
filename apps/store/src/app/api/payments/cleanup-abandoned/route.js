@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyTransaction } from "@/lib/paystack";
 import { updateOrderStatus } from "@/lib/supabaseOrders";
+import { confirmOrderPayment } from "@/lib/supabasePayments";
 
 const ABANDONED_WINDOW_MINUTES = 30;
 
@@ -92,7 +93,7 @@ export async function GET(request) {
   }
 
   let released = 0;
-  let skipped = 0;
+  let confirmed = 0;
   let deferred = 0;
   let forceCancelled = 0;
 
@@ -116,7 +117,26 @@ export async function GET(request) {
 
       const action = classifyAbandonedPayment(payment, { transaction, verifyFailed });
 
-      if (action === 'skip') { skipped++; continue; }
+      if (action === 'skip') {
+        // This cron is the tab- and webhook-independent backstop: if the
+        // client-side flow never ran a verify call (tab closed mid-transfer)
+        // and the webhook never landed (down, misconfigured, or just lost),
+        // this is the only remaining path that will ever confirm a payment
+        // Paystack itself says succeeded. This used to just avoid cancelling
+        // it and stop there, leaving the order stuck in 'pending' forever,
+        // silently -- the same failure mode as a real incident this app
+        // hit, just with a longer fuse.
+        try {
+          await confirmOrderPayment(payment.reference, {
+            transactionId: String(transaction.id),
+            amountKobo: transaction.amount
+          });
+          confirmed++;
+        } catch (confirmError) {
+          console.error(`Error confirming payment ${payment.reference} found successful during cleanup sweep:`, confirmError);
+        }
+        continue;
+      }
       if (action === 'defer') { deferred++; continue; }
 
       await supabaseAdmin
@@ -156,5 +176,5 @@ export async function GET(request) {
     }
   }
 
-  return NextResponse.json({ success: true, checked: (abandoned || []).length, released, skipped, deferred, forceCancelled });
+  return NextResponse.json({ success: true, checked: (abandoned || []).length, released, confirmed, deferred, forceCancelled });
 }

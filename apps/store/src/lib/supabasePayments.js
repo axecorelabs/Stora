@@ -7,12 +7,34 @@ import { removeItemsFromCart } from './supabaseCart';
 // client verify-on-return path (apps/store/src/app/api/payments/webhook/route.js,
 // apps/store/src/app/api/payments/verify/route.js). Neither path trusts
 // the other -- whichever arrives first wins, the second is a no-op.
-export async function confirmOrderPayment(reference, { transactionId, amountKobo }) {
-  const { data: orderPayment, error } = await supabaseAdmin
+export async function confirmOrderPayment(reference, { transactionId, amountKobo, orderId } = {}) {
+  let { data: orderPayment, error } = await supabaseAdmin
     .from('order_payments')
     .select('*')
     .eq('reference', reference)
     .single();
+
+  // order_payments.reference reflects only the most recent Paystack
+  // attempt for this order (order_id is UNIQUE on this table) -- if a
+  // later re-initiation rotated it out from under an event for an older
+  // reference, order_id is the stable key that still resolves. Only the
+  // webhook path can supply this (from the event's own metadata.order_id);
+  // it's the real safety net, since initiate/route.js now checks Paystack
+  // before ever rotating a reference away in the first place.
+  if ((error || !orderPayment) && orderId) {
+    const fallback = await supabaseAdmin
+      .from('order_payments')
+      .select('*')
+      .eq('order_id', orderId)
+      .maybeSingle();
+    if (fallback.data) {
+      console.warn('Payment confirmed via order_id fallback -- reference on file did not match the event', {
+        orderId, eventReference: reference, storedReference: fallback.data.reference
+      });
+      orderPayment = fallback.data;
+      error = null;
+    }
+  }
 
   if (error || !orderPayment) {
     return { success: false, message: 'Payment record not found' };
@@ -33,7 +55,7 @@ export async function confirmOrderPayment(reference, { transactionId, amountKobo
   const now = new Date().toISOString();
   const { error: updateError } = await supabaseAdmin
     .from('order_payments')
-    .update({ status: 'completed', paid_at: now, transaction_id: transactionId, updated_at: now })
+    .update({ status: 'completed', paid_at: now, transaction_id: transactionId, reference, updated_at: now })
     .eq('id', orderPayment.id);
 
   if (updateError) {

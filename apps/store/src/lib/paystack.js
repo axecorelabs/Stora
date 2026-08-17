@@ -28,7 +28,7 @@ async function paystackRequest(path, { method = 'GET', body } = {}) {
 // amount). split is Paystack's inline dynamic split object -- built
 // fresh per checkout since the ratio differs every time, not a
 // pre-created Split resource. See apps/store/src/app/api/payments/initiate/route.js.
-export function initializeTransaction({ email, amountKobo, reference, split, metadata }) {
+export function initializeTransaction({ email, amountKobo, reference, split, metadata, callbackUrl }) {
   return paystackRequest('/transaction/initialize', {
     method: 'POST',
     body: {
@@ -36,7 +36,8 @@ export function initializeTransaction({ email, amountKobo, reference, split, met
       amount: amountKobo,
       reference,
       split,
-      metadata
+      metadata,
+      callback_url: callbackUrl
     }
   });
 }

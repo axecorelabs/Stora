@@ -5,6 +5,8 @@ export default function WhatsAppContactModal({
   isOpen,
   onClose,
   order,
+  contactOnly = true,
+  willRedirectToPayment = false,
   formatPrice,
   openWhatsApp
 }) {
@@ -186,20 +188,38 @@ export default function WhatsAppContactModal({
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-brand-100">
             <MessageCircle className="w-8 h-8 text-brand-700" />
           </div>
-          <h3 className="font-display text-xl font-semibold text-brand-900 mb-1.5">Speed up your order</h3>
+          <h3 className="font-display text-xl font-semibold text-brand-900 mb-1.5">
+            {contactOnly ? "Contact these sellers to confirm" : "Message your sellers"}
+          </h3>
           <p className="text-brand-800/60 text-sm">
-            Contact vendors directly for faster confirmation
+            {contactOnly
+              ? "Online payment isn't available for them yet"
+              : "Reach out about your order"}
           </p>
         </div>
 
         {/* Modal Content */}
         <div className="p-6 overflow-y-auto">
-          <div className="flex items-start gap-2.5 mb-5 px-3.5 py-3 rounded-xl bg-gold-400/10 border border-gold-500/25">
-            <Clock className="w-4 h-4 text-gold-700 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-brand-900/80">
-              Your order is <span className="font-semibold">pending</span>. Reach out below for faster confirmation and delivery updates.
-            </p>
-          </div>
+          {(contactOnly || willRedirectToPayment) && (
+            <div className="space-y-2 mb-5">
+              {contactOnly && (
+                <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-gold-400/10 border border-gold-500/25">
+                  <Clock className="w-4 h-4 text-gold-700 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-brand-900/80">
+                    These sellers can&apos;t be paid online yet -- reach out below to arrange payment and confirm your order.
+                  </p>
+                </div>
+              )}
+              {willRedirectToPayment && (
+                <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-brand-50 border border-brand-100">
+                  <CheckCircle className="w-4 h-4 text-brand-700 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-brand-900/80">
+                    The rest of your order is paid online -- closing this takes you there next.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Store Contact Buttons */}
           <div className="space-y-3 mb-5">
@@ -282,7 +302,7 @@ export default function WhatsAppContactModal({
               onClick={onClose}
               className="flex-1 py-3 border border-gray-300 rounded-xl text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors"
             >
-              Maybe later
+              {willRedirectToPayment ? "Continue to payment" : "Maybe later"}
             </button>
             <button
               onClick={handleContactFirstAvailable}

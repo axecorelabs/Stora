@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import Script from "next/script";
 import {
   ArrowLeft,
   Trash2,
@@ -22,7 +21,6 @@ import { useCart } from "@/contexts/CartContext";
 import useStoreStore from "@/stores/storeStore";
 import WhatsAppContactModal from "@/components/orders/WhatsAppContactModal";
 import OrderModal from "@/components/cart/OrderModal";
-import { usePaystackReady } from "@/hooks/usePaystackReady";
 
 export default function StoreCartPage({ params }) {
   const router = useRouter();
@@ -62,12 +60,12 @@ export default function StoreCartPage({ params }) {
   const [showStoreOrderModal, setShowStoreOrderModal] = useState(false);
   const [selectedStoreGroup, setSelectedStoreGroup] = useState(null);
 
-  // Tracks whether Paystack's inline.js has actually finished loading.
-  // <Script strategy="afterInteractive"> below can still be mid-load the
-  // moment a customer hits confirm -- without this, checkout would create
-  // the order, clear the cart, and notify the vendor, then only discover
-  // window.PaystackPop doesn't exist yet and silently never show a popup.
-  const { markReady: markPaystackReady, waitForReady: waitForPaystackReady } = usePaystackReady();
+  // Set when an order needs both a WhatsApp handoff (for stores with no
+  // Paystack subaccount) and an online payment (for stores that do) -- the
+  // WhatsApp modal is shown first since it's just UI state, and the
+  // redirect to Paystack (which navigates away entirely) is deferred until
+  // it closes, see handleWhatsAppModalClose.
+  const [pendingPaymentOrderId, setPendingPaymentOrderId] = useState(null);
 
   // Screen size detection
   useEffect(() => {
@@ -279,91 +277,52 @@ export default function StoreCartPage({ params }) {
     window.open(whatsappUrl, "_blank");
   };
 
-  // Shared by both checkout flows below. Never trusts the popup's own
-  // onSuccess callback as proof of payment -- that's just a UI event, so
-  // it always follows up with a server-side /api/payments/verify call
-  // (same idempotent core the webhook uses) before resolving success.
-  const triggerPaystackPayment = (orderId) => {
-    return new Promise((resolve) => {
-      (async () => {
-        try {
-          setIsConfirmingPayment(true);
-          const initRes = await fetch("/api/payments/initiate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ orderId }),
-          });
-          const initData = await initRes.json();
+  // Shared by both checkout flows below. Hands off to Paystack's own hosted
+  // checkout page rather than an embedded popup -- it owns the entire
+  // payment UI from here, including waiting out a slow channel like bank
+  // transfer, natively, without us reinventing a client-side timer for it.
+  // Paystack redirects back to returnPath with ?reference= once the
+  // customer's done; the order page picks that up and calls
+  // /api/payments/verify (same idempotent core the webhook uses) -- the
+  // redirect itself is never trusted as proof of payment.
+  const triggerPaystackPayment = async (orderId) => {
+    setIsConfirmingPayment(true);
+    try {
+      const initRes = await fetch("/api/payments/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          orderId,
+          returnPath: `/${resolvedParams.slug}/orders/${orderId}`,
+        }),
+      });
+      const initData = await initRes.json();
 
-          if (!initRes.ok || !initData.success) {
-            setOrderError(initData.message || "Could not start payment");
-            setIsConfirmingPayment(false);
-            resolve({ success: false });
-            return;
-          }
+      if (!initRes.ok || !initData.success) {
+        setOrderError(initData.message || "Could not start payment");
+        setIsConfirmingPayment(false);
+        return { success: false };
+      }
 
-          if (typeof window === "undefined" || !window.PaystackPop) {
-            setOrderError("Payment isn't ready yet -- please try again in a moment");
-            setIsConfirmingPayment(false);
-            resolve({ success: false });
-            return;
-          }
+      // A previous attempt for this order already succeeded on Paystack's
+      // side -- initiate found and confirmed it instead of starting a new
+      // charge. Nothing to redirect to.
+      if (initData.alreadyPaid) {
+        setIsConfirmingPayment(false);
+        return { success: true };
+      }
 
-          // Belt-and-suspenders against a popup that never calls either
-          // callback (seen in practice: a script-version mismatch, or the
-          // Paystack iframe failing to load for some other reason) -- without
-          // this, isConfirmingPayment never resolves and the customer is
-          // stuck looking at "Confirming payment..." with no way out.
-          let settled = false;
-          const giveUpTimer = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            setOrderError("Payment popup didn't respond. Please try again.");
-            setIsConfirmingPayment(false);
-            resolve({ success: false });
-          }, 30000);
-
-          const popup = new window.PaystackPop();
-          popup.resumeTransaction(initData.accessCode, {
-            onSuccess: async () => {
-              if (settled) return;
-              settled = true;
-              clearTimeout(giveUpTimer);
-              try {
-                const verifyRes = await fetch(
-                  `/api/payments/verify?reference=${encodeURIComponent(initData.reference)}`,
-                  { credentials: "include" }
-                );
-                const verifyData = await verifyRes.json();
-                if (!verifyData.success) {
-                  setOrderError(verifyData.message || "Payment could not be confirmed");
-                }
-                resolve({ success: Boolean(verifyData.success) });
-              } catch (error) {
-                console.error("Error verifying payment:", error);
-                setOrderError("Payment could not be confirmed. Please contact support.");
-                resolve({ success: false });
-              } finally {
-                setIsConfirmingPayment(false);
-              }
-            },
-            onCancel: () => {
-              if (settled) return;
-              settled = true;
-              clearTimeout(giveUpTimer);
-              setIsConfirmingPayment(false);
-              resolve({ success: false, cancelled: true });
-            },
-          });
-        } catch (error) {
-          console.error("Error starting payment:", error);
-          setOrderError("Could not start payment. Please try again.");
-          setIsConfirmingPayment(false);
-          resolve({ success: false });
-        }
-      })();
-    });
+      window.location.href = initData.authorizationUrl;
+      // The browser is navigating away -- nothing after this runs, so
+      // never resolve rather than momentarily reporting a false failure.
+      return new Promise(() => {});
+    } catch (error) {
+      console.error("Error starting payment:", error);
+      setOrderError("Could not start payment. Please try again.");
+      setIsConfirmingPayment(false);
+      return { success: false };
+    }
   };
 
   // Wraps orders/create's error body into a real Error, carrying
@@ -384,17 +343,6 @@ export default function StoreCartPage({ params }) {
   // OrderModal's own validated state, same shape both callers receive.
   const handleConfirmOrder = async (formData) => {
     setOrderError(null);
-
-    // Wait for Paystack's script before creating the order at all -- every
-    // checkout here is sent as paymentMethod: "paystack", so if the popup
-    // won't be able to open, better to find out now than after the order
-    // is created, the cart is cleared, and the vendor already notified.
-    const paystackOk = await waitForPaystackReady();
-    if (!paystackOk) {
-      throw new Error(
-        "Payment isn't ready yet -- please check your connection and try again in a moment"
-      );
-    }
 
     const response = await fetch("/api/orders/create", {
       method: "POST",
@@ -435,37 +383,34 @@ export default function StoreCartPage({ params }) {
         setOrderError(data.paymentSplitError);
       }
 
+      // Vendors with no Paystack subaccount yet get the WhatsApp-contact
+      // fallback, scoped to just their items. Shown first -- before any
+      // payment redirect -- since it's just UI state, not a navigation;
+      // redirecting to Paystack immediately would yank the customer away
+      // before they ever saw it. If this order also needs online payment
+      // (other stores in the same cart that do have a subaccount), that's
+      // deferred until this modal closes, see handleWhatsAppModalClose.
+      const contactOnlyStores = data.contactOnlyStores || [];
+      if (contactOnlyStores.length > 0) {
+        setOrderNumber(data.order.orderNumber);
+        setOrderStores(contactOnlyStores);
+        setPendingPaymentOrderId(data.paymentRequired ? data.order.id : null);
+        setShowWhatsAppModal(true);
+        return;
+      }
+
       // Real Paystack payment for whichever vendors in this cart have a
       // subaccount configured -- if none do (or paymentMethod wasn't
       // paystack at all), paymentRequired is false and this is a no-op.
-      // A cancelled or failed payment stops here rather than falling
-      // through to the WhatsApp-contact step below: the order and its
-      // reservation still exist either way, so the customer can retry
-      // paying from the order page (its "Pay Now" button) rather than
-      // this juggling both a half-completed payment and a WhatsApp
-      // handoff in one flow. The cart was already cleared above, so
-      // there's nothing left to resume here regardless of why it
-      // failed -- staying on this (now-empty) page with no path forward
-      // was the actual bug, not the failure itself.
       if (data.paymentRequired) {
         const paymentResult = await triggerPaystackPayment(data.order.id);
         if (!paymentResult.success) {
           router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
-          return;
         }
+        return;
       }
 
-      const contactOnlyStores = data.contactOnlyStores || [];
-      if (contactOnlyStores.length > 0) {
-        // Vendors with no Paystack subaccount yet -- same WhatsApp-contact
-        // fallback as before, just scoped to only these stores instead
-        // of the whole cart.
-        setOrderNumber(data.order.orderNumber);
-        setOrderStores(contactOnlyStores);
-        setShowWhatsAppModal(true);
-      } else {
-        router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
-      }
+      router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
     } else {
       throw orderCreateError(data);
     }
@@ -473,6 +418,20 @@ export default function StoreCartPage({ params }) {
 
   const handleWhatsAppModalClose = () => {
     setShowWhatsAppModal(false);
+
+    // This order also had a store needing online payment -- proceed to
+    // that now that the customer has seen the WhatsApp handoff, rather
+    // than redirecting them away before they ever saw it.
+    if (pendingPaymentOrderId) {
+      const orderId = pendingPaymentOrderId;
+      setPendingPaymentOrderId(null);
+      triggerPaystackPayment(orderId).then((result) => {
+        if (!result.success) {
+          router.push(`/${resolvedParams.slug}/orders/${orderId}`);
+        }
+      });
+      return;
+    }
 
     // Navigate to order details after closing modal
     if (orderNumber) {
@@ -510,15 +469,6 @@ export default function StoreCartPage({ params }) {
     // must not persist into this one.
     setOrderError(null);
     try {
-      // Same readiness gate as handleConfirmOrder -- this path also always
-      // sends paymentMethod: "paystack".
-      const paystackOk = await waitForPaystackReady();
-      if (!paystackOk) {
-        throw new Error(
-          "Payment isn't ready yet -- please check your connection and try again in a moment"
-        );
-      }
-
       const itemIds = selectedStoreGroup.items.map((item) => item.id);
       const response = await fetch("/api/orders/create", {
         method: "POST",
@@ -552,6 +502,18 @@ export default function StoreCartPage({ params }) {
         setShowStoreOrderModal(false);
         setSelectedStoreGroup(null);
 
+        // Vendor with no Paystack subaccount yet -- same WhatsApp-contact
+        // fallback as handleConfirmOrder, shown before any payment redirect
+        // so it's never skipped by the browser navigating away first.
+        const contactOnlyStores = data.contactOnlyStores || [];
+        if (contactOnlyStores.length > 0) {
+          setOrderNumber(data.order.orderNumber);
+          setOrderStores(contactOnlyStores);
+          setPendingPaymentOrderId(data.paymentRequired ? data.order.id : null);
+          setShowWhatsAppModal(true);
+          return;
+        }
+
         // A cancelled/failed payment leaves the order exactly as created
         // (unpaid, reservation intact) -- close this modal rather than
         // throw (OrderModal's error UI is meant for checkout-creation
@@ -562,18 +524,11 @@ export default function StoreCartPage({ params }) {
           const paymentResult = await triggerPaystackPayment(data.order.id);
           if (!paymentResult.success) {
             router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
-            return;
           }
+          return;
         }
 
-        const contactOnlyStores = data.contactOnlyStores || [];
-        if (contactOnlyStores.length > 0) {
-          setOrderNumber(data.order.orderNumber);
-          setOrderStores(contactOnlyStores);
-          setShowWhatsAppModal(true);
-        } else {
-          router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
-        }
+        router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
       } else {
         throw orderCreateError(data);
       }
@@ -585,17 +540,11 @@ export default function StoreCartPage({ params }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Script
-        src="https://js.paystack.co/v2/inline.js"
-        strategy="afterInteractive"
-        onLoad={markPaystackReady}
-      />
-
       {isConfirmingPayment && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-brand-900/50 backdrop-blur-[2px]">
           <div className="bg-white rounded-2xl px-7 py-6 flex items-center gap-3.5 shadow-xl shadow-brand-900/20">
             <div className="w-5 h-5 border-[2.5px] border-brand-100 border-t-brand-700 rounded-full animate-spin" />
-            <span className="text-sm font-medium text-brand-900">Confirming payment…</span>
+            <span className="text-sm font-medium text-brand-900">Taking you to secure checkout…</span>
           </div>
         </div>
       )}
@@ -1127,6 +1076,8 @@ export default function StoreCartPage({ params }) {
           isOpen={showWhatsAppModal}
           onClose={handleWhatsAppModalClose}
           order={{ stores: orderStores, orderNumber }}
+          contactOnly
+          willRedirectToPayment={Boolean(pendingPaymentOrderId)}
           formatPrice={formatPrice}
           openWhatsApp={openWhatsApp}
         />

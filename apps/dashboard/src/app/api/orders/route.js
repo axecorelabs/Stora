@@ -106,23 +106,41 @@ export async function GET(req) {
       );
     }
 
-    // Fetch order_items separately for these orders
+    // Fetch order_items separately for these orders. Scoped to this
+    // vendor's own store_id -- an order can span multiple vendors sharing
+    // one order_number, and without this filter a vendor viewing an order
+    // they only partially fulfilled would see every other vendor's product
+    // names, quantities, and prices too (confirmed real gap: the store-scoped
+    // query above only decides which ORDERS are visible, not which ITEMS
+    // within a shared one are).
     const orderIds = (rawOrders || []).map(o => o.id);
     let orderItemsMap = {};
-    
+    let orderStoreIdsMap = {}; // order_id -> Set of every store's id on that order (not item-level detail), used only to detect a multi-vendor order so order-level shipping/tax/discount/total (not itemized per-store) aren't shown as if they were this vendor's alone.
+
     if (orderIds.length > 0) {
-      // Fetch order items
-      const { data: orderItems } = await supabaseAdmin
-        .from('order_items')
-        .select('order_id, id, product_id, product_name, product_sku, product_image, product_category, variant_color, variant_size, quantity, unit_price, subtotal, item_status')
-        .in('order_id', orderIds);
-      
-      // Create a map of order_id -> items array
+      const [{ data: orderItems }, { data: allStoreLinks }] = await Promise.all([
+        supabaseAdmin
+          .from('order_items')
+          .select('order_id, id, product_id, product_name, product_sku, product_image, product_category, variant_color, variant_size, quantity, unit_price, subtotal, item_status')
+          .in('order_id', orderIds)
+          .eq('store_id', store.id),
+        supabaseAdmin
+          .from('order_items')
+          .select('order_id, store_id')
+          .in('order_id', orderIds)
+      ]);
+
+      // Create a map of order_id -> items array (this vendor's own items only)
       (orderItems || []).forEach(item => {
         if (!orderItemsMap[item.order_id]) {
           orderItemsMap[item.order_id] = [];
         }
         orderItemsMap[item.order_id].push(item);
+      });
+
+      (allStoreLinks || []).forEach(link => {
+        if (!orderStoreIdsMap[link.order_id]) orderStoreIdsMap[link.order_id] = new Set();
+        orderStoreIdsMap[link.order_id].add(link.store_id);
       });
     }
 
@@ -153,9 +171,14 @@ export async function GET(req) {
       const billingAddr = orderAddressMap[order.id]?.billing || {};
       const paymentInfo = orderPaymentMap[order.id] || {};
 
-      // Get unique store IDs from items
-      const storeIds = [...new Set(items.map(item => item.store_id).filter(Boolean))];
-      
+      const storeIds = [...(orderStoreIdsMap[order.id] || [])];
+      const isMultiVendor = storeIds.length > 1;
+      // This vendor's own item total -- the only figure that's meaningful
+      // to show them on a multi-vendor order, since shipping/tax/discount
+      // are tracked once per order, not itemized per-store, and the whole
+      // order.total_amount includes every other vendor's items too.
+      const vendorItemsSubtotal = items.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0);
+
       return {
         ...order,
         customerSnapshot: {
@@ -211,13 +234,22 @@ export async function GET(req) {
         })),
         itemCount: items.length,
         stores: storeIds.map(id => ({ id })),
+        isMultiVendor,
         paymentInfo: {
           status: paymentInfo.status || 'pending',
           method: paymentInfo.method || 'card'
         },
         orderNumber: order.order_number,
-        totalAmount: order.total_amount,
-        discount: order.discount || 0,
+        // Single-vendor order: the order genuinely is this vendor's in
+        // full, so the real order-level figures are accurate. Multi-vendor:
+        // shipping/tax/discount aren't split per-store at all, so showing
+        // the order-wide figures here would attribute other vendors'
+        // portions to this one -- show just this vendor's own items total.
+        subtotal: isMultiVendor ? vendorItemsSubtotal : (order.subtotal || 0),
+        shippingFee: isMultiVendor ? 0 : (order.shipping_fee || 0),
+        discount: isMultiVendor ? 0 : (order.discount || 0),
+        tax: isMultiVendor ? 0 : (order.tax || 0),
+        totalAmount: isMultiVendor ? vendorItemsSubtotal : order.total_amount,
         createdAt: order.created_at
       };
     });

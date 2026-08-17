@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { verifyCustomerSession } from "@/lib/auth";
 import { findCustomerById } from "@/lib/supabaseAuth";
 import { supabaseAdmin } from "@/lib/supabase";
-import { initializeTransaction } from "@/lib/paystack";
+import { initializeTransaction, verifyTransaction } from "@/lib/paystack";
+import { confirmOrderPayment } from "@/lib/supabasePayments";
 
 export async function POST(request) {
   try {
@@ -11,9 +12,22 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const { orderId } = await request.json();
+    const { orderId, returnPath } = await request.json();
     if (!orderId) {
       return NextResponse.json({ success: false, message: "Order ID is required" }, { status: 400 });
+    }
+
+    // Never trust a client-supplied absolute URL for where Paystack redirects
+    // back to -- only a same-origin relative path is accepted, built into a
+    // full URL against our own known origin below. A bare "/" prefix check
+    // alone would still let "//evil.com" (protocol-relative) or
+    // "/x://evil.com" through, so both are rejected explicitly.
+    const isSafeReturnPath = typeof returnPath === 'string'
+      && returnPath.startsWith('/')
+      && !returnPath.startsWith('//')
+      && !returnPath.includes('://');
+    if (!isSafeReturnPath) {
+      return NextResponse.json({ success: false, message: "Invalid return path" }, { status: 400 });
     }
 
     // Scoped to this customer's own order -- confirms ownership, same
@@ -53,6 +67,46 @@ export async function POST(request) {
 
     if (orderPayment.status === 'completed') {
       return NextResponse.json({ success: false, message: "This order has already been paid" }, { status: 400 });
+    }
+
+    // A previous initiate call may already have produced a reference that's
+    // still live on Paystack's side (mid-transfer, or genuinely succeeded but
+    // never made it back here via webhook/verify) -- generating a fresh
+    // reference below would silently orphan it: once overwritten, the old
+    // reference can no longer be looked up, so a webhook or verify call for
+    // it finds no matching row and the payment is lost even though Paystack
+    // already settled the money. Check with Paystack first and only ever
+    // rotate the reference once it's confirmed genuinely dead.
+    const isRealReference = orderPayment.reference && !orderPayment.reference.startsWith('claiming_');
+    if (isRealReference) {
+      let existingTransaction;
+      try {
+        existingTransaction = await verifyTransaction(orderPayment.reference);
+      } catch (verifyError) {
+        console.error('Could not verify previous payment attempt before re-initiating:', verifyError);
+        return NextResponse.json({ success: false, message: "Could not confirm your previous payment attempt. Please wait a moment and try again." }, { status: 409 });
+      }
+
+      if (existingTransaction.status === 'success') {
+        const result = await confirmOrderPayment(orderPayment.reference, {
+          transactionId: String(existingTransaction.id),
+          amountKobo: existingTransaction.amount
+        });
+        return NextResponse.json({
+          success: true,
+          alreadyPaid: true,
+          orderId: order.id,
+          needsReconciliation: result.needsReconciliation || false
+        });
+      }
+
+      if (!['abandoned', 'failed'].includes(existingTransaction.status)) {
+        // Still ongoing/queued/pending on Paystack's side -- not safe to
+        // rotate the reference out from under a transaction that might
+        // still complete.
+        return NextResponse.json({ success: false, message: "A previous payment attempt for this order may still be processing. Please wait a moment and try again." }, { status: 409 });
+      }
+      // Only 'abandoned'/'failed' falls through to generate a fresh reference below.
     }
 
     // Read the already-computed split from orders/create -- never
@@ -154,7 +208,14 @@ export async function POST(request) {
         metadata: {
           order_id: order.id,
           order_number: order.order_number
-        }
+        },
+        // Paystack's own hosted checkout page owns the entire payment UI
+        // from here -- including waiting out a slow channel like bank
+        // transfer -- and redirects the browser back here once the
+        // customer's done (with ?reference= appended). The order page
+        // picks that up and calls /api/payments/verify. This is never
+        // trusted as proof of payment on its own, same as the webhook.
+        callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}${returnPath}`
       });
     } catch (error) {
       console.error('Paystack transaction initialize error:', error);
@@ -172,9 +233,8 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      accessCode: transaction.access_code,
-      reference: transaction.reference,
-      publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
+      authorizationUrl: transaction.authorization_url,
+      reference: transaction.reference
     });
   } catch (error) {
     console.error('Payment initiation error:', error);

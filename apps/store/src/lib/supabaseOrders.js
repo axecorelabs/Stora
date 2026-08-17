@@ -194,6 +194,24 @@ export async function findOrderById(orderId, customerId = null) {
     console.error('Error fetching payment info:', paymentError);
   }
 
+  // Which stores are covered by this order's one combined online payment --
+  // a store with a split row here is being paid through that single charge
+  // (pending or already resolved), not something to route to WhatsApp
+  // contact for. Payment is all-or-nothing at the order level (one
+  // order_payments row, no independent per-store payment events), so this
+  // is a clean split: a store is either in this set or genuinely contact-
+  // only, never both.
+  const { data: paymentSplits, error: splitsError } = await supabaseAdmin
+    .from('order_payment_splits')
+    .select('store_id')
+    .eq('order_id', orderId);
+
+  if (splitsError) {
+    console.error('Error fetching payment splits:', splitsError);
+  }
+
+  const onlinePaymentStoreIds = new Set((paymentSplits || []).map(s => s.store_id));
+
   // Fetch store snapshots
   const { data: orderStores, error: storesError } = await supabaseAdmin
     .from('order_stores')
@@ -300,7 +318,13 @@ export async function findOrderById(orderId, customerId = null) {
     order_items: transformedItems,
     items: transformedItems, // Alias for compatibility
     itemCount: transformedItems?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0,
-    stores: stores, // Grouped by store
+    stores: stores, // Grouped by store, all of them
+    // Scoped subset for the WhatsApp-contact flow -- stores with no online
+    // payment covering their items at all, as opposed to stores just
+    // mid-payment on the one combined charge. Showing "this seller doesn't
+    // accept online payment" for a store that actually does (just hasn't
+    // been paid yet) would be actively misleading.
+    contactOnlyStores: stores.filter(s => !onlinePaymentStoreIds.has(s.storeId)),
     shippingAddress: shippingAddress ? {
       firstName: shippingAddress.first_name,
       lastName: shippingAddress.last_name,

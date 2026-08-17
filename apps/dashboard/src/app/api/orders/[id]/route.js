@@ -58,15 +58,22 @@ export async function GET(req, { params }) {
       );
     }
 
-    const [{ data: customer }, { data: addresses }, { data: payment }, { data: timeline }] = await Promise.all([
+    const [{ data: customer }, { data: addresses }, { data: payment }, { data: timeline }, { data: allStoreLinks }] = await Promise.all([
       supabaseAdmin.from('order_customers').select('*').eq('order_id', id).maybeSingle(),
       supabaseAdmin.from('order_addresses').select('*').eq('order_id', id),
       supabaseAdmin.from('order_payments').select('*').eq('order_id', id).maybeSingle(),
-      supabaseAdmin.from('order_timeline').select('*').eq('order_id', id).order('timestamp', { ascending: true })
+      supabaseAdmin.from('order_timeline').select('*').eq('order_id', id).order('timestamp', { ascending: true }),
+      // Every store's id on this order (not item-level detail) -- used only
+      // to detect a multi-vendor order, since shipping/tax/discount/total
+      // are tracked once per order, not itemized per-store, and would
+      // otherwise misattribute other vendors' portions to this one.
+      supabaseAdmin.from('order_items').select('store_id').eq('order_id', id)
     ]);
 
     const shippingAddr = (addresses || []).find(a => a.address_type === 'shipping') || {};
     const billingAddr = (addresses || []).find(a => a.address_type === 'billing') || {};
+    const isMultiVendor = new Set((allStoreLinks || []).map(l => l.store_id)).size > 1;
+    const vendorItemsSubtotal = items.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0);
 
     return NextResponse.json({
       success: true,
@@ -82,7 +89,13 @@ export async function GET(req, { params }) {
         billingAddress: billingAddr,
         paymentInfo: payment || {},
         items,
-        timeline: timeline || []
+        timeline: timeline || [],
+        isMultiVendor,
+        subtotal: isMultiVendor ? vendorItemsSubtotal : (order.subtotal || 0),
+        shipping_fee: isMultiVendor ? 0 : (order.shipping_fee || 0),
+        discount: isMultiVendor ? 0 : (order.discount || 0),
+        tax: isMultiVendor ? 0 : (order.tax || 0),
+        total_amount: isMultiVendor ? vendorItemsSubtotal : order.total_amount
       }
     });
 
