@@ -119,6 +119,7 @@ function transformStoreFields(store) {
     settings: store.settings,
     branding: store.branding,
     businessHours: store.business_hours,
+    website: store.website,
     isVerified: store.is_verified,
     isActive: store.is_active,
     averageRating: store.average_rating,
@@ -220,6 +221,7 @@ export async function findFeaturedStores({ limit = 12 } = {}) {
     .from('stores')
     .select('*')
     .eq('is_active', true)
+    .eq('website->>isEnabled', 'true')
     .order('total_orders', { ascending: false })
     .order('average_rating', { ascending: false })
     .order('created_at', { ascending: false })
@@ -359,22 +361,40 @@ export async function findInventoryByStoreId(storeId, filters = {}) {
   }
 }
 
-// Over-fetch bound for findDiscoverableProducts' candidate pool -- large
-// enough that a JS-side sold_quantity sort (see below) has a real pool to
-// work with, small enough to stay a single cheap query.
-const DISCOVERY_CANDIDATE_LIMIT = 80;
-
 // Cross-vendor listing for the homepage's discovery grid -- every other
 // product query in this file is scoped to one known store_id.
-// sold_quantity only exists per-variant (inventory_variants), not as a
-// column on inventory itself, so "trending" can't be a single SQL ORDER BY
-// -- fetch a candidate pool ordered by recency, transform (which sums each
-// product's variants into totalSold), then re-sort in JS for 'trending'.
-// 'new' just takes the already-recency-ordered pool as-is.
+// inventory.sold_quantity is a trigger-maintained rollup of
+// inventory_variants.sold_quantity (see
+// 20260817000007_denormalize_sold_quantity_and_cache.sql), not a value
+// this or any other write path sets directly -- it exists purely so
+// "trending" can be a single indexed SQL ORDER BY instead of pulling a
+// candidate pool into JS to sum and re-sort (which was also subtly wrong:
+// a true top-seller outside the recency-ordered candidate window would
+// never surface).
 export async function findDiscoverableProducts({ category, search, sort = 'trending', limit = 12 } = {}) {
+  // A disabled-website vendor's products would otherwise still surface
+  // here and link straight into a storefront that now 404s (see the
+  // website.isEnabled checks in [slug]/page.js and siblings) -- exclude
+  // them at the query itself rather than filtering the already-limited
+  // results afterward, which could silently under-fill the grid.
+  const { data: enabledStores, error: enabledStoresError } = await supabaseAdmin
+    .from('stores')
+    .select('id')
+    .eq('is_active', true)
+    .eq('website->>isEnabled', 'true');
+
+  if (enabledStoresError) {
+    console.error('Error finding enabled stores:', enabledStoresError);
+    throw new Error('Failed to find discoverable products');
+  }
+
+  const enabledStoreIds = (enabledStores || []).map(s => s.id);
+  if (enabledStoreIds.length === 0) return [];
+
   let query = supabaseAdmin
     .from('inventory')
     .select('*')
+    .in('store_id', enabledStoreIds)
     .eq('is_active', true)
     .eq('web_visibility', true)
     .eq('is_deleted', false);
@@ -387,9 +407,11 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
     query = query.ilike('name', `%${search}%`);
   }
 
-  const { data, error } = await query
-    .order('created_at', { ascending: false })
-    .limit(DISCOVERY_CANDIDATE_LIMIT);
+  query = sort === 'trending'
+    ? query.order('sold_quantity', { ascending: false }).order('created_at', { ascending: false })
+    : query.order('created_at', { ascending: false });
+
+  const { data, error } = await query.limit(limit);
 
   if (error) {
     console.error('Error finding discoverable products:', error);
@@ -400,12 +422,7 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
   if (items.length === 0) return [];
 
   const withVariants = await attachVariants(items);
-  let products = withVariants.map(transformInventoryToProduct);
-
-  if (sort === 'trending') {
-    products = products.sort((a, b) => (b.soldQuantity || 0) - (a.soldQuantity || 0));
-  }
-  products = products.slice(0, limit);
+  const products = withVariants.map(transformInventoryToProduct);
 
   // Attach each product's own vendor info -- a cross-vendor card needs its
   // own store's slug (to link to the right storefront) and brand colors
@@ -430,6 +447,7 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
       store: store ? {
         storeName: store.store_name,
         storeSlug: store.store_slug,
+        logo: store.branding?.logo || null,
         primaryColor: store.branding?.primaryColor || null,
         secondaryColor: store.branding?.secondaryColor || null
       } : null
@@ -487,6 +505,7 @@ export async function searchProductsPaginated({ search, category, sort = 'trendi
       store: store ? {
         storeName: store.store_name,
         storeSlug: store.store_slug,
+        logo: store.branding?.logo || null,
         primaryColor: store.branding?.primaryColor || null,
         secondaryColor: store.branding?.secondaryColor || null
       } : null

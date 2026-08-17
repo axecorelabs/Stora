@@ -6,7 +6,7 @@ import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import SearchModeTabs from "@/components/search/SearchModeTabs";
 import SearchBar from "@/components/search/SearchBar";
-import VendorCard from "@/components/home/VendorCard";
+import VendorSearchCard from "@/components/search/VendorSearchCard";
 
 const SORTS = [
   { key: "featured", label: "Featured" },
@@ -101,9 +101,9 @@ function VendorsPageInner() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="h-[180px] rounded-2xl bg-gray-50 border border-gray-100 animate-pulse" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-[320px] rounded-2xl bg-gray-50 border border-gray-100 animate-pulse" />
             ))}
           </div>
         ) : vendors.length === 0 ? (
@@ -115,9 +115,9 @@ function VendorsPageInner() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {vendors.map((store) => (
-                <VendorCard key={store.id} store={store} />
+                <VendorSearchCard key={store.id} store={store} />
               ))}
             </div>
 

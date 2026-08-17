@@ -29,7 +29,7 @@ export async function generateMetadata({ params }) {
     // Fetch store by website path using Supabase
     const store = await findStoreByWebsitePath(slug);
 
-    if (!store) {
+    if (!store || !store.website?.isEnabled) {
       return {
         title: 'Store Not Found',
         description: 'The store you are looking for does not exist.'
@@ -75,7 +75,7 @@ export default async function StorePage({ params }) {
   // Fetch store using Supabase
   const store = await findStoreByWebsitePath(slug);
 
-  if (!store) {
+  if (!store || !store.website?.isEnabled) {
     notFound();
   }
 

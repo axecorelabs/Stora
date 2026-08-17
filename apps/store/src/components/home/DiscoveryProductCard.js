@@ -13,8 +13,11 @@ import { Package } from "lucide-react";
 // explicitly from the product's own store record instead.
 export default function DiscoveryProductCard({ product }) {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [logoErrored, setLogoErrored] = useState(false);
   const accentColor = product.store?.primaryColor || "#145C41";
   const storeSlug = product.store?.storeSlug;
+  const storeInitial = (product.store?.storeName || "?").trim().charAt(0).toUpperCase();
+  const showLogoImage = product.store?.logo && !logoErrored;
 
   const formatPrice = (price) => `₦${Number(price || 0).toLocaleString("en-NG")}`;
 
@@ -55,9 +58,36 @@ export default function DiscoveryProductCard({ product }) {
         <h3 className="text-[14px] font-semibold text-gray-900 mb-1.5 line-clamp-1">
           {product.productName}
         </h3>
-        <p className="text-base font-bold tabular-nums" style={{ color: accentColor }}>
-          {formatPrice(product.sellingPrice)}
-        </p>
+        <div className="flex items-end justify-between gap-2">
+          <p className="text-base font-bold tabular-nums" style={{ color: accentColor }}>
+            {formatPrice(product.sellingPrice)}
+          </p>
+
+          {/* Which vendor this is, at a glance, without repeating the full
+              name a second time -- same logo-or-initial fallback as
+              VendorCard.js, so a store with no uploaded logo still gets a
+              recognizable, consistent mark. */}
+          {product.store && (
+            <div
+              className="w-6 h-6 rounded-full border border-gray-100 overflow-hidden flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: showLogoImage ? "#fff" : accentColor }}
+              title={product.store.storeName}
+            >
+              {showLogoImage ? (
+                <img
+                  src={product.store.logo}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={() => setLogoErrored(true)}
+                />
+              ) : (
+                <span className="font-display text-[10px] font-bold text-white leading-none">
+                  {storeInitial}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

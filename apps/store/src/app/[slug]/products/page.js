@@ -22,7 +22,7 @@ export async function generateMetadata({ params }) {
     
     const store = await findStoreBySlug(slug);
 
-    if (!store) {
+    if (!store || !store.website?.isEnabled) {
       return { title: 'Products Not Found' };
     }
 
@@ -45,7 +45,7 @@ export default async function ProductsPage({ params }) {
   
   const store = await findStoreBySlug(slug);
 
-  if (!store) {
+  if (!store || !store.website?.isEnabled) {
     notFound();
   }
 

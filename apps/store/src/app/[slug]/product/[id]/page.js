@@ -26,7 +26,7 @@ export async function generateMetadata({ params }) {
     // Fetch store from Supabase
     const store = await findStoreBySlug(slug);
 
-    if (!store) {
+    if (!store || !store.website?.isEnabled) {
       return { title: 'Product Not Found' };
     }
 
@@ -97,7 +97,7 @@ export default async function ProductPage({ params }) {
   // Fetch store from Supabase
   const store = await findStoreBySlug(slug);
 
-  if (!store) {
+  if (!store || !store.website?.isEnabled) {
     notFound();
   }
 

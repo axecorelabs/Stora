@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { searchProductsPaginated } from "@/lib/supabaseStore";
+import { cached, cacheKey } from "@/lib/redis";
 
 const PAGE_SIZE = 24;
+// Only the plain "browse" landing view is cached -- no query, no category,
+// first page. That's the overwhelming majority of visits to this page
+// (someone just clicking into /products), and unlike free-text search
+// (too many distinct terms for caching to pay off) it's a single, cheap-
+// to-invalidate-by-TTL entry per sort option.
+const DEFAULT_BROWSE_TTL_SECONDS = 180;
 
 // Public, unauthenticated -- backs the dedicated /products search & browse
 // page. Distinct from /api/products/discover (small, cached homepage
@@ -17,13 +24,18 @@ export async function GET(request) {
     const pageParam = parseInt(searchParams.get("page"), 10);
     const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
-    const { products, totalCount } = await searchProductsPaginated({
+    const isDefaultBrowse = !search && !category && page === 1;
+    const fetchResults = () => searchProductsPaginated({
       search,
       category,
       sort,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE
     });
+
+    const { products, totalCount } = isDefaultBrowse
+      ? await cached(cacheKey.productsSearchDefault(sort), DEFAULT_BROWSE_TTL_SECONDS, fetchResults)
+      : await fetchResults();
 
     return NextResponse.json({
       success: true,

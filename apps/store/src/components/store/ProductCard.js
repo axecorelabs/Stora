@@ -153,8 +153,11 @@ export default function ProductCard({ product, primaryColor, currency, secondary
   return (
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer"
          onClick={handleProductClick}>
-      {/* Image Container */}
-      <div className="p-3 md:p-0">
+      {/* Image Container -- same framed treatment as home/DiscoveryProductCard.js
+          and search/VendorSearchCard.js's logo slot: padded inset, not
+          edge-to-edge, so every product card in the app reads as one
+          consistent card language regardless of which page it's on. */}
+      <div className="p-3">
         <div className="relative w-full aspect-square rounded-xl overflow-hidden"
           style={{
             backgroundColor: secondaryColor || '#F3F4F6'
@@ -162,16 +165,8 @@ export default function ProductCard({ product, primaryColor, currency, secondary
         >
           {product.image ? (
             <>
-              {/* Loading skeleton with glassmorphism */}
               {!imageLoaded && (
-                <div className="absolute inset-0 bg-gradient-to-br from-gray-100/80 to-gray-200/80 backdrop-blur-sm animate-pulse">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"
-                       style={{
-                         backgroundSize: '200% 100%',
-                         animation: 'shimmer 2s infinite'
-                       }}
-                  />
-                </div>
+                <div className="absolute inset-0 bg-gray-100 animate-pulse" />
               )}
 
               <img
@@ -224,20 +219,20 @@ export default function ProductCard({ product, primaryColor, currency, secondary
         </div>
       </div>
 
-      {/* Content */}
-      <div className="px-3.5 md:px-4 pb-3.5 md:pb-4">
+      {/* Content -- same type scale as home/DiscoveryProductCard.js */}
+      <div className="px-3.5 pb-3.5">
         {/* Category */}
         <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">
           {product.category}
         </p>
 
         {/* Title */}
-        <h3 className="text-[15px] font-semibold text-gray-900 mb-2 line-clamp-1">
+        <h3 className="text-[14px] font-semibold text-gray-900 mb-1.5 line-clamp-1">
           {product.productName}
         </h3>
 
         {/* Price */}
-        <p className="text-lg font-bold mb-3.5 tabular-nums" style={{ color: primaryColor }}>
+        <p className="text-base font-bold mb-3 tabular-nums" style={{ color: primaryColor }}>
           {formatPrice(product.sellingPrice)}
         </p>
 
@@ -270,20 +265,6 @@ export default function ProductCard({ product, primaryColor, currency, secondary
 
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes shimmer {
-          0% {
-            background-position: -200% 0;
-          }
-          100% {
-            background-position: 200% 0;
-          }
-        }
-        .animate-shimmer {
-          animation: shimmer 2s infinite;
-        }
-      `}</style>
     </div>
   );
 }
