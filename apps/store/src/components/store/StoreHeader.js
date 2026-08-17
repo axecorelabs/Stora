@@ -26,6 +26,7 @@ export default function StoreHeader({ store, onSignInClick }) {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [headerSearch, setHeaderSearch] = useState('');
 
   // Extract store slug from pathname
   const storeSlug = pathname.split('/')[1];
@@ -80,18 +81,18 @@ export default function StoreHeader({ store, onSignInClick }) {
     setShowMobileMenu(false);
     setShowSignIn(true);
   };
-  
+
+  const handleHeaderSearch = (e) => {
+    e.preventDefault();
+    if (!headerSearch.trim()) return;
+    setIsNavigating(true);
+    router.push(`/${storeSlug}/products?search=${encodeURIComponent(headerSearch.trim())}`);
+  };
+
+
   return (
     <>
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
-        {/* Top announcement bar */}
-        {/* <div 
-          className="text-white text-center py-2 px-4 text-sm font-medium" 
-          style={{ backgroundColor: primaryColor }}
-        >
-          {currentStore?.storeDescription}
-        </div> */}
-
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         {/* Main header */}
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between py-4 gap-6">
@@ -116,7 +117,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                     </span>
                   </div>
                 )}
-                <h1 className="text-xl font-semibold text-gray-900 truncate min-w-0" title={currentStore?.storeName}>
+                <h1 className="font-display text-xl font-semibold text-gray-900 truncate min-w-0" title={currentStore?.storeName}>
                   {currentStore?.storeName || 'Store'}
                 </h1>
               </div>
@@ -160,24 +161,26 @@ export default function StoreHeader({ store, onSignInClick }) {
                     </span>
                   </div>
                 )}
-                <h1 className="text-xl font-semibold text-gray-900 truncate max-w-[16rem] min-w-0" title={currentStore?.storeName}>
+                <h1 className="font-display text-xl font-semibold text-gray-900 truncate max-w-[16rem] min-w-0" title={currentStore?.storeName}>
                   {currentStore?.storeName || 'Store'}
                 </h1>
               </div>
             </div>
 
             {/* Center: Search Bar (Hidden on Mobile) */}
-            <div className="hidden md:flex flex-1 max-w-2xl">
-              <div className="relative flex items-center space-x-2 w-full">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+            <form onSubmit={handleHeaderSearch} className="hidden md:flex flex-1 max-w-2xl">
+              <div className="relative flex items-center w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search for products..."
-                  className="w-full px-4 py-3 pl-11 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:bg-white transition-colors"
+                  value={headerSearch}
+                  onChange={(e) => setHeaderSearch(e.target.value)}
+                  placeholder={`Search ${currentStore?.storeName || 'this store'}…`}
+                  className="w-full px-4 py-2.5 pl-11 bg-gray-50/70 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent focus:bg-white transition-colors"
                   style={{ '--tw-ring-color': primaryColor }}
                 />
               </div>
-            </div>
+            </form>
 
             {/* Right: Actions (Hidden on Mobile) */}
             <div className="hidden md:flex items-center gap-2">

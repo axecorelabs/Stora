@@ -33,7 +33,7 @@ export async function PUT(req, { params }) {
     }
 
     const { id: inventoryId } = await params;
-    const { type, quantity, reason, batchId, createNewBatch } = await req.json();
+    const { type, quantity, reason, batchId, createNewBatch, variantId } = await req.json();
 
     // Validate input
     if (!type || !quantity || !reason) {
@@ -72,343 +72,152 @@ export async function PUT(req, { params }) {
       );
     }
 
-    const previousStock = inventory.stock_quantity || 0;
-    let updatedBatch = null;
-    let newBatch = null;
-    let affectedBatches = [];
+    // Every product has >=1 real variant now -- stock is always variant-
+    // scoped. If the caller (StockUpdateModal.js) didn't specify which
+    // variant, that's only unambiguous when the product has exactly one.
+    let targetVariant;
+    if (variantId) {
+      const { data: v } = await supabaseAdmin
+        .from('inventory_variants')
+        .select('*')
+        .eq('id', variantId)
+        .eq('inventory_id', inventoryId)
+        .single();
+      if (!v) {
+        return NextResponse.json({ success: false, message: 'Variant not found' }, { status: 404 });
+      }
+      targetVariant = v;
+    } else {
+      const { data: variants } = await supabaseAdmin
+        .from('inventory_variants')
+        .select('*')
+        .eq('inventory_id', inventoryId)
+        .eq('is_active', true);
+      if (!variants || variants.length !== 1) {
+        return NextResponse.json(
+          { success: false, message: variants?.length > 1 ? 'This product has multiple variants -- specify which one' : 'This product has no variant to adjust' },
+          { status: 400 }
+        );
+      }
+      targetVariant = variants[0];
+    }
 
+    const previousStock = targetVariant.quantity_in_stock || 0;
+
+    // Both branches now go through fn_create_batch/fn_add_to_batch/
+    // fn_remove_stock (20260817000002_variant_only_rpcs.sql) -- one
+    // locked transaction each instead of the three separate
+    // unsynchronized round trips (read stock, write batch, write stock)
+    // this route used to make.
     if (type === 'add') {
-      // Adding stock
       if (createNewBatch || !batchId) {
-        // Create new batch
         const productCode = inventory.sku ? inventory.sku.split('-')[0] : 'PRD';
         const dateCode = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-        
-        // Count existing batches
         const { count } = await supabaseAdmin
           .from('inventory_batches')
           .select('*', { count: 'exact', head: true })
           .eq('inventory_id', inventoryId);
-        
         const batchSequence = String((count || 0) + 1).padStart(3, '0');
         const batchCode = `${productCode}-${dateCode}-B${batchSequence}`;
 
-        const { data: createdBatch, error: batchError } = await supabaseAdmin
-          .from('inventory_batches')
-          .insert({
-            user_id: user.id,
-            inventory_id: inventoryId,
-            batch_code: batchCode,
-            quantity_in: quantity,
-            quantity_sold: 0,
-            quantity_remaining: quantity,
-            cost_price: inventory.cost || 0,
-            selling_price: inventory.base_price || 0,
-            date_received: new Date().toISOString(),
-            supplier: '',
-            notes: `Stock added: ${reason}`,
-            status: 'active',
-            batch_location: 'Main Store'
-          })
-          .select()
-          .single();
+        const { data: rpcResult, error: batchError } = await supabaseAdmin.rpc('fn_create_batch', {
+          p_variant_id: targetVariant.id,
+          p_user_id: user.id,
+          p_batch_code: batchCode,
+          p_quantity_in: quantity,
+          p_cost_price: targetVariant.cost_price || 0,
+          p_selling_price: targetVariant.price || 0,
+          p_notes: `Stock added: ${reason}`,
+          p_reason: reason
+        });
 
         if (batchError) {
           console.error('Batch creation error:', batchError);
-          return NextResponse.json(
-            { success: false, message: 'Failed to create batch' },
-            { status: 500 }
-          );
+          return NextResponse.json({ success: false, message: 'Failed to create batch' }, { status: 500 });
         }
 
-        newBatch = createdBatch;
-        updatedBatch = transformBatch(createdBatch);
-      } else {
-        // Add to existing batch
-        const { data: batch, error: batchFetchError } = await supabaseAdmin
-          .from('inventory_batches')
-          .select('*')
-          .eq('id', batchId)
-          .eq('user_id', user.id)
-          .eq('inventory_id', inventoryId)
-          .single();
+        const result = rpcResult?.[0];
+        const { data: createdBatch } = await supabaseAdmin.from('inventory_batches').select('*').eq('id', result.batch_id).single();
 
-        if (batchFetchError || !batch) {
-          return NextResponse.json(
-            { success: false, message: 'Batch not found' },
-            { status: 404 }
-          );
-        }
-
-        // Update batch quantities
-        const newNotes = batch.notes 
-          ? `${batch.notes}\nAdded: ${reason} (+${quantity})` 
-          : `Added: ${reason} (+${quantity})`;
-
-        const { data: updatedBatchData, error: updateError } = await supabaseAdmin
-          .from('inventory_batches')
-          .update({
-            quantity_in: batch.quantity_in + quantity,
-            quantity_remaining: batch.quantity_remaining + quantity,
-            notes: newNotes,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', batchId)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('Batch update error:', updateError);
-          return NextResponse.json(
-            { success: false, message: 'Failed to update batch' },
-            { status: 500 }
-          );
-        }
-
-        updatedBatch = transformBatch(updatedBatchData);
-      }
-
-      // Update inventory totals
-      const { data: updatedInventory, error: invUpdateError } = await supabaseAdmin
-        .from('inventory')
-        .update({
-          stock_quantity: previousStock + quantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', inventoryId)
-        .select()
-        .single();
-
-      if (invUpdateError) {
-        console.error('Inventory update error:', invUpdateError);
-      }
-
-      // Track activity
-      try {
-        await supabaseAdmin
-          .from('inventory_activities')
-          .insert({
-            user_id: user.id,
-            inventory_id: inventoryId,
-            activity_type: 'stock_added',
-            quantity_before: previousStock,
-            quantity_changed: quantity,
-            quantity_after: previousStock + quantity,
-            reason: reason,
-            batch_id: newBatch?.id || batchId,
-            batch_code: newBatch?.batch_code || updatedBatch?.batchCode,
-            metadata: {
-              batchType: createNewBatch ? 'new' : 'existing'
-            }
-          });
-      } catch (activityError) {
-        console.error('Activity tracking failed:', activityError);
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Stock added successfully',
-        data: {
-          inventory: {
-            _id: inventoryId,
-            id: inventoryId,
-            quantityInStock: previousStock + quantity,
-            stockQuantity: previousStock + quantity
-          },
-          batch: updatedBatch,
-          affectedBatches: [],
-          stockChange: {
-            type,
-            quantity,
-            previousStock,
-            newStock: previousStock + quantity
+        return NextResponse.json({
+          success: true,
+          message: 'Stock added successfully',
+          data: {
+            inventory: { _id: inventoryId, id: inventoryId, variantId: targetVariant.id, quantityInStock: result.new_stock_quantity, stockQuantity: result.new_stock_quantity },
+            batch: transformBatch(createdBatch),
+            affectedBatches: [],
+            stockChange: { type, quantity, previousStock, newStock: result.new_stock_quantity }
           }
+        });
+      } else {
+        const { data: rpcResult, error: addError } = await supabaseAdmin.rpc('fn_add_to_batch', {
+          p_batch_id: batchId,
+          p_quantity: quantity,
+          p_user_id: user.id,
+          p_reason: reason
+        });
+
+        if (addError) {
+          console.error('Add to batch error:', addError);
+          return NextResponse.json({ success: false, message: addError.message || 'Failed to update batch' }, { status: 500 });
         }
+
+        const result = rpcResult?.[0];
+        const { data: updatedBatchData } = await supabaseAdmin.from('inventory_batches').select('*').eq('id', batchId).single();
+
+        return NextResponse.json({
+          success: true,
+          message: 'Stock added successfully',
+          data: {
+            inventory: { _id: inventoryId, id: inventoryId, variantId: targetVariant.id, quantityInStock: result.new_stock_quantity, stockQuantity: result.new_stock_quantity },
+            batch: transformBatch(updatedBatchData),
+            affectedBatches: [],
+            stockChange: { type, quantity, previousStock, newStock: result.new_stock_quantity }
+          }
+        });
+      }
+    } else if (type === 'subtract') {
+      // fn_remove_stock is a correction/write-off, not a sale -- it
+      // deliberately does not touch quantity_sold (the previous
+      // hand-written version of this route booked manual removals as if
+      // sold, inflating sold-quantity/profit metrics with stock that was
+      // actually lost to damage, loss, or a recount).
+      const { data: rpcResult, error: removeError } = await supabaseAdmin.rpc('fn_remove_stock', {
+        p_variant_id: targetVariant.id,
+        p_batch_id: batchId || null,
+        p_quantity: quantity,
+        p_user_id: user.id,
+        p_reason: reason
       });
 
-    } else if (type === 'subtract') {
-      // Subtracting stock
-      if (quantity > previousStock) {
+      if (removeError) {
+        console.error('Remove stock error:', removeError);
+        return NextResponse.json({ success: false, message: removeError.message || 'Failed to remove stock' }, { status: 500 });
+      }
+
+      const result = rpcResult?.[0];
+      if (!result?.success) {
         return NextResponse.json(
-          { success: false, message: 'Cannot remove more stock than available' },
+          { success: false, message: `Cannot remove more stock than available (${result?.shortfall ?? quantity} short)` },
           { status: 400 }
         );
       }
 
-      if (batchId) {
-        // Remove from specific batch
-        const { data: batch, error: batchFetchError } = await supabaseAdmin
-          .from('inventory_batches')
-          .select('*')
-          .eq('id', batchId)
-          .eq('user_id', user.id)
-          .eq('inventory_id', inventoryId)
-          .single();
-
-        if (batchFetchError || !batch) {
-          return NextResponse.json(
-            { success: false, message: 'Batch not found' },
-            { status: 404 }
-          );
-        }
-
-        if (quantity > batch.quantity_remaining) {
-          return NextResponse.json(
-            { success: false, message: 'Cannot remove more than available in batch' },
-            { status: 400 }
-          );
-        }
-
-        // Update batch quantities
-        const newNotes = batch.notes 
-          ? `${batch.notes}\nRemoved: ${reason} (-${quantity})` 
-          : `Removed: ${reason} (-${quantity})`;
-
-        const { data: updatedBatchData, error: updateError } = await supabaseAdmin
-          .from('inventory_batches')
-          .update({
-            quantity_remaining: batch.quantity_remaining - quantity,
-            quantity_sold: (batch.quantity_sold || 0) + quantity,
-            notes: newNotes,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', batchId)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('Batch update error:', updateError);
-          return NextResponse.json(
-            { success: false, message: 'Failed to update batch' },
-            { status: 500 }
-          );
-        }
-
-        updatedBatch = transformBatch(updatedBatchData);
-        affectedBatches.push({
-          batchId: batch.id,
-          batchCode: batch.batch_code,
-          quantityRemoved: quantity,
-          remainingAfter: batch.quantity_remaining - quantity
-        });
-
-      } else {
-        // Use FIFO to remove from oldest batches first
-        const { data: activeBatches, error: batchesError } = await supabaseAdmin
-          .from('inventory_batches')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('inventory_id', inventoryId)
-          .eq('status', 'active')
-          .gt('quantity_remaining', 0)
-          .order('date_received', { ascending: true });
-
-        if (batchesError) {
-          console.error('Batch fetch error:', batchesError);
-          return NextResponse.json(
-            { success: false, message: 'Failed to fetch batches' },
-            { status: 500 }
-          );
-        }
-
-        let remainingToRemove = quantity;
-
-        for (const batch of (activeBatches || [])) {
-          if (remainingToRemove <= 0) break;
-
-          const removeFromBatch = Math.min(remainingToRemove, batch.quantity_remaining);
-          
-          const newNotes = batch.notes 
-            ? `${batch.notes}\nRemoved: ${reason} (-${removeFromBatch})` 
-            : `Removed: ${reason} (-${removeFromBatch})`;
-
-          const { error: updateError } = await supabaseAdmin
-            .from('inventory_batches')
-            .update({
-              quantity_remaining: batch.quantity_remaining - removeFromBatch,
-              quantity_sold: (batch.quantity_sold || 0) + removeFromBatch,
-              notes: newNotes,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', batch.id);
-
-          if (updateError) {
-            console.error('Batch update error:', updateError);
-          }
-
-          affectedBatches.push({
-            batchId: batch.id,
-            batchCode: batch.batch_code,
-            quantityRemoved: removeFromBatch,
-            remainingAfter: batch.quantity_remaining - removeFromBatch
-          });
-
-          remainingToRemove -= removeFromBatch;
-        }
-
-        if (remainingToRemove > 0) {
-          return NextResponse.json(
-            { success: false, message: 'Insufficient stock in batches' },
-            { status: 400 }
-          );
-        }
-
-        updatedBatch = affectedBatches;
-      }
-
-      // Update inventory totals
       const newStockQuantity = previousStock - quantity;
-      const { error: invUpdateError } = await supabaseAdmin
-        .from('inventory')
-        .update({
-          stock_quantity: newStockQuantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', inventoryId);
-
-      if (invUpdateError) {
-        console.error('Inventory update error:', invUpdateError);
-      }
-
-      // Track activity
-      try {
-        await supabaseAdmin
-          .from('inventory_activities')
-          .insert({
-            user_id: user.id,
-            inventory_id: inventoryId,
-            activity_type: 'stock_removed',
-            quantity_before: previousStock,
-            quantity_changed: -quantity,
-            quantity_after: newStockQuantity,
-            reason: reason,
-            metadata: {
-              batchType: batchId ? 'specific' : 'fifo',
-              affectedBatches: affectedBatches
-            }
-          });
-      } catch (activityError) {
-        console.error('Activity tracking failed:', activityError);
-      }
+      const affectedBatches = (result.batches || []).map(b => ({
+        batchId: b.batch_id,
+        batchCode: b.batch_code,
+        quantityRemoved: b.quantity
+      }));
 
       return NextResponse.json({
         success: true,
         message: 'Stock removed successfully',
         data: {
-          inventory: {
-            _id: inventoryId,
-            id: inventoryId,
-            quantityInStock: newStockQuantity,
-            stockQuantity: newStockQuantity
-          },
-          batch: updatedBatch,
-          affectedBatches: affectedBatches,
-          stockChange: {
-            type,
-            quantity,
-            previousStock,
-            newStock: newStockQuantity
-          }
+          inventory: { _id: inventoryId, id: inventoryId, variantId: targetVariant.id, quantityInStock: newStockQuantity, stockQuantity: newStockQuantity },
+          batch: affectedBatches,
+          affectedBatches,
+          stockChange: { type, quantity, previousStock, newStock: newStockQuantity }
         }
       });
     }

@@ -1,34 +1,39 @@
 "use client";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useMemo, use } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Heart, 
-  ArrowLeft, 
-  ShoppingCart, 
-  Trash2, 
-  Package, 
-  Tag,
-  Eye
+import {
+  Heart,
+  ArrowLeft,
+  ShoppingCart,
+  Trash2,
+  Package,
+  Eye,
+  AlertTriangle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import useStoreStore from "@/stores/storeStore";
+import Toast from "@/components/ui/Toast";
 
 export default function StoreWishlistPage({ params }) {
   const router = useRouter();
   const resolvedParams = use(params);
   const { isAuthenticated, customer, isLoading: authLoading } = useAuth();
   const { addToCart } = useCart();
-  
+
   // Get store from Zustand store
   const { currentStore, fetchStore } = useStoreStore();
-  
+
+  // Raw wishlist response (every store's items) -- filtered down to this
+  // store's items via useMemo below, kept separate from the fetch so the
+  // filter re-runs once currentStore finishes loading instead of racing it.
   const [wishlist, setWishlist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addingToCart, setAddingToCart] = useState(null);
   const [removingItem, setRemovingItem] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [toast, setToast] = useState(null);
 
   // Screen size detection
   useEffect(() => {
@@ -50,7 +55,7 @@ export default function StoreWishlistPage({ params }) {
 
   // Fetch store if not loaded
   useEffect(() => {
-    if (resolvedParams.slug && (!currentStore || currentStore.website?.websitePath !== resolvedParams.slug)) {
+    if (resolvedParams.slug && (!currentStore || currentStore.storeSlug !== resolvedParams.slug)) {
       fetchStore(resolvedParams.slug);
     }
   }, [resolvedParams.slug, currentStore, fetchStore]);
@@ -61,13 +66,6 @@ export default function StoreWishlistPage({ params }) {
       router.push(`/${resolvedParams.slug}`);
     }
   }, [isAuthenticated, authLoading, router, resolvedParams.slug]);
-
-  // Fetch wishlist
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchWishlist();
-    }
-  }, [isAuthenticated]);
 
   // Store colors with fallbacks
   const primaryColor = currentStore?.branding?.primaryColor || '#0D9488';
@@ -83,18 +81,7 @@ export default function StoreWishlistPage({ params }) {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Filter items from this store only
-        const storeItems = data.wishlist?.items?.filter(item => 
-          item.storeSnapshot?.storeSlug === resolvedParams.slug ||
-          item.storeSnapshot?.website?.websitePath === resolvedParams.slug
-        ) || [];
-        
-        setWishlist({
-          ...data.wishlist,
-          items: storeItems,
-          itemCount: storeItems.length,
-          totalWishlistValue: storeItems.reduce((sum, item) => sum + (item.productSnapshot?.sellingPrice || 0), 0)
-        });
+        setWishlist(data.wishlist);
       } else {
         setError(data.message || "Failed to load wishlist");
       }
@@ -106,6 +93,34 @@ export default function StoreWishlistPage({ params }) {
     }
   };
 
+  // Fetch wishlist -- unfiltered; store-scoping happens in storeItems below,
+  // once currentStore is actually available.
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchWishlist();
+    }
+  }, [isAuthenticated]);
+
+  // Items scoped to this store, matched on the real store_id rather than
+  // parsing store_snapshot -- that snapshot is frozen at the moment an item
+  // was wishlisted (sometimes months ago) and its field names/casing have
+  // drifted across the IVMA->Stora rebrand since, so matching against it
+  // silently matched nothing for every store, ever. store_id is a real,
+  // stable foreign key and isn't affected by any of that.
+  const storeItems = useMemo(() => {
+    if (!wishlist?.items || !currentStore?.id) return [];
+    return wishlist.items.filter(item => item.store_id === currentStore.id);
+  }, [wishlist, currentStore]);
+
+  const totalWishlistValue = useMemo(
+    () => storeItems.reduce((sum, item) => sum + (item.product_data?.base_price || 0), 0),
+    [storeItems]
+  );
+  const inStockCount = useMemo(
+    () => storeItems.filter(item => item.in_stock).length,
+    [storeItems]
+  );
+
   const formatPrice = (price) => {
     if (currency === 'NGN') {
       return `₦${price?.toLocaleString()}`;
@@ -116,19 +131,19 @@ export default function StoreWishlistPage({ params }) {
   const handleAddToCart = async (item) => {
     if (!isAuthenticated) return;
 
-    setAddingToCart(item._id);
-    
+    setAddingToCart(item.id);
+
     try {
-      const result = await addToCart(item.product._id || item.product, 1);
-      
+      const result = await addToCart(item.product_id, 1);
+
       if (result.success) {
-        alert("Item added to cart successfully!");
+        setToast({ message: "Added to cart", type: 'success' });
       } else {
-        alert(result.error || "Failed to add item to cart");
+        setToast({ message: result.error || "Failed to add item to cart", type: 'error' });
       }
     } catch (error) {
       console.error("Error adding to cart:", error);
-      alert("Failed to add item to cart");
+      setToast({ message: "Failed to add item to cart", type: 'error' });
     } finally {
       setAddingToCart(null);
     }
@@ -138,52 +153,38 @@ export default function StoreWishlistPage({ params }) {
     if (!confirm("Remove this item from your wishlist?")) return;
 
     setRemovingItem(productId);
-    
+
     try {
       const response = await fetch(`/api/wishlist/${productId}`, {
         method: 'DELETE',
         credentials: 'include'
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok && data.success) {
-        // Filter items for this store
-        const storeItems = data.wishlist?.items?.filter(item => 
-          item.storeSnapshot?.storeSlug === resolvedParams.slug ||
-          item.storeSnapshot?.website?.websitePath === resolvedParams.slug
-        ) || [];
-        
-        setWishlist({
-          ...data.wishlist,
-          items: storeItems,
-          itemCount: storeItems.length,
-          totalWishlistValue: storeItems.reduce((sum, item) => sum + (item.productSnapshot?.sellingPrice || 0), 0)
-        });
+        setWishlist(data.wishlist);
       } else {
-        alert(data.message || "Failed to remove item");
+        setToast({ message: data.message || "Failed to remove item", type: 'error' });
       }
     } catch (error) {
       console.error("Error removing from wishlist:", error);
-      alert("Failed to remove item");
+      setToast({ message: "Failed to remove item", type: 'error' });
     } finally {
       setRemovingItem(null);
     }
   };
 
   const handleViewProduct = (item) => {
-    router.push(`/${resolvedParams.slug}/product/${item.product._id || item.product}`);
+    router.push(`/${resolvedParams.slug}/product/${item.product_id}`);
   };
 
   if (authLoading || loading || !currentStore) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-brand-50/40">
         <div className="text-center">
-          <div 
-            className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-4 mb-4 mx-auto"
-            style={{ borderTopColor: primaryColor }}
-          ></div>
-          <p className="text-gray-600">Loading your wishlist...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-brand-100 border-t-brand-700 mb-4 mx-auto"></div>
+          <p className="text-brand-800/60 text-sm">Loading your wishlist…</p>
         </div>
       </div>
     );
@@ -191,18 +192,19 @@ export default function StoreWishlistPage({ params }) {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md">
-          <div className="text-8xl mb-4">💔</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Wishlist Error</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-brand-50/40 px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-red-50 flex items-center justify-center">
+            <AlertTriangle className="w-7 h-7 text-red-500" strokeWidth={1.5} />
+          </div>
+          <h2 className="font-display text-xl font-semibold text-gray-900 mb-2">Couldn&apos;t load your wishlist</h2>
+          <p className="text-sm text-gray-500 mb-6">{error}</p>
           <button
             onClick={() => router.push(`/${resolvedParams.slug}`)}
-            className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: primaryColor }}
+            className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl text-sm font-semibold bg-brand-700 hover:bg-brand-800 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Store
+            <ArrowLeft className="w-4 h-4" />
+            Back to store
           </button>
         </div>
       </div>
@@ -216,33 +218,30 @@ export default function StoreWishlistPage({ params }) {
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4">
           <button
             onClick={() => router.push(`/${resolvedParams.slug}`)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors mb-3"
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-3"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium text-sm md:text-base">Back to {currentStore?.storeName || 'Store'}</span>
+            <ArrowLeft className="w-4 h-4" />
+            <span className="font-medium text-sm">Back to {currentStore?.storeName || 'Store'}</span>
           </button>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div 
-                className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: `${primaryColor}20` }}
-              >
-                <Heart className="w-5 h-5 md:w-6 md:h-6" style={{ color: primaryColor }} />
+              <div className="w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center flex-shrink-0 bg-brand-50">
+                <Heart className="w-5 h-5 text-brand-700" />
               </div>
               <div>
-                <h1 className="text-xl md:text-3xl font-bold text-gray-900">My Wishlist</h1>
-                <p className="text-xs md:text-sm text-gray-600">
-                  {wishlist?.itemCount || 0} {wishlist?.itemCount === 1 ? 'item' : 'items'}
+                <h1 className="font-display text-xl md:text-2xl font-semibold text-gray-900">My wishlist</h1>
+                <p className="text-xs md:text-sm text-gray-500 tabular-nums">
+                  {storeItems.length} {storeItems.length === 1 ? 'item' : 'items'}
                 </p>
               </div>
             </div>
 
             {!isMobile && currentStore?.branding?.logo && (
-              <img 
-                src={currentStore.branding.logo} 
-                alt={currentStore.storeName} 
-                className="h-8 w-auto object-contain opacity-60" 
+              <img
+                src={currentStore.branding.logo}
+                alt={currentStore.storeName}
+                className="h-8 w-auto object-contain opacity-60"
               />
             )}
           </div>
@@ -250,95 +249,94 @@ export default function StoreWishlistPage({ params }) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 md:py-8">
-        {!wishlist || wishlist.items?.length === 0 ? (
+        {storeItems.length === 0 ? (
           // Empty Wishlist
-          <div className="bg-white rounded-2xl border border-gray-100 p-8 md:p-12 text-center">
-            <div className="text-6xl md:text-8xl mb-4 md:mb-6">💝</div>
-            <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2 md:mb-3">
-              No items from {currentStore?.storeName || 'this store'}
+          <div className="bg-white rounded-2xl border border-gray-100 p-10 md:p-14 text-center">
+            <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-brand-50 flex items-center justify-center">
+              <Heart className="w-7 h-7 text-brand-600" strokeWidth={1.5} />
+            </div>
+            <h3 className="font-display text-xl md:text-2xl font-semibold text-gray-900 mb-2">
+              No items from {currentStore?.storeName || 'this store'} yet
             </h3>
-            <p className="text-sm md:text-base text-gray-600 mb-6 md:mb-8 max-w-md mx-auto">
-              Browse {currentStore?.storeName || 'this store'} and add items you love to your wishlist.
+            <p className="text-sm text-gray-500 mb-7 max-w-sm mx-auto">
+              Browse {currentStore?.storeName || 'this store'} and save items you love here.
             </p>
             <button
               onClick={() => router.push(`/${resolvedParams.slug}`)}
-              className="inline-flex items-center gap-2 px-6 md:px-8 py-3 md:py-4 text-white rounded-xl text-sm md:text-base font-semibold hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 px-7 py-3.5 text-white rounded-xl text-sm font-semibold hover:brightness-95 transition-all"
               style={{ backgroundColor: primaryColor }}
             >
-              <Package className="w-4 h-4 md:w-5 md:h-5" />
-              Browse Store
+              <Package className="w-4 h-4" />
+              Browse store
             </button>
           </div>
         ) : (
           <div className="space-y-4 md:space-y-6">
             {/* Stats - Mobile Optimized */}
-            <div 
-              className="rounded-xl md:rounded-2xl border border-gray-100 p-4 md:p-6"
-              style={{ backgroundColor: `${primaryColor}05` }}
-            >
+            <div className="rounded-xl md:rounded-2xl border border-gray-100 p-4 md:p-6 bg-white">
               <div className="grid grid-cols-3 gap-3 md:gap-6">
                 <div className="text-center">
-                  <div className="text-xl md:text-2xl font-bold text-gray-900">{wishlist.itemCount}</div>
-                  <div className="text-xs md:text-sm text-gray-600">Items</div>
+                  <div className="text-xl md:text-2xl font-bold text-gray-900 tabular-nums">{storeItems.length}</div>
+                  <div className="text-xs md:text-sm text-gray-500">Items</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl md:text-2xl font-bold" style={{ color: primaryColor }}>
-                    {formatPrice(wishlist.totalWishlistValue)}
+                  <div className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: primaryColor }}>
+                    {formatPrice(totalWishlistValue)}
                   </div>
-                  <div className="text-xs md:text-sm text-gray-600">Total</div>
+                  <div className="text-xs md:text-sm text-gray-500">Total</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl md:text-2xl font-bold text-green-600">
-                    {wishlist.items?.filter(item => item.productSnapshot?.quantityInStock > 0).length || 0}
+                  <div className="text-xl md:text-2xl font-bold text-brand-700 tabular-nums">
+                    {inStockCount}
                   </div>
-                  <div className="text-xs md:text-sm text-gray-600">In Stock</div>
+                  <div className="text-xs md:text-sm text-gray-500">In stock</div>
                 </div>
               </div>
             </div>
 
             {/* Items Grid - Matching ProductCard Style */}
             <div className={`grid ${
-              isMobile 
-                ? 'grid-cols-2 gap-3' 
+              isMobile
+                ? 'grid-cols-2 gap-3'
                 : 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
             }`}>
-              {wishlist.items.map((item) => (
+              {storeItems.map((item) => (
                 <div
-                  key={item._id}
-                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all"
+                  key={item.id}
+                  className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] transition-shadow"
                 >
                   {/* Product Image */}
                   <div className={isMobile ? 'p-0' : 'p-4'}>
-                    <div 
+                    <div
                       className={`relative w-full aspect-square ${isMobile ? 'rounded-none' : 'rounded-xl'} overflow-hidden mb-3`}
                       style={{ backgroundColor: secondaryColor }}
                     >
-                      {item.productSnapshot?.image ? (
+                      {item.product_data?.primary_image ? (
                         <img
-                          src={item.productSnapshot.image}
-                          alt={item.productSnapshot?.productName}
+                          src={item.product_data.primary_image}
+                          alt={item.product_data?.name}
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl md:text-4xl">
-                          📦
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="w-9 h-9 text-gray-300" strokeWidth={1.5} />
                         </div>
                       )}
 
                       {/* Stock Badge - Top Left */}
-                      {item.productSnapshot?.quantityInStock <= 0 && (
-                        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full shadow-sm">
-                          Out of Stock
+                      {!item.in_stock && (
+                        <div className="absolute top-2 left-2 bg-red-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                          {item.is_available === false ? 'No longer available' : 'Out of stock'}
                         </div>
                       )}
 
                       {/* Wishlist Remove Button - Top Right */}
                       <button
-                        onClick={() => handleRemoveFromWishlist(item.product._id || item.product)}
-                        disabled={removingItem === (item.product._id || item.product)}
-                        className="absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-white hover:scale-110 transition-all disabled:opacity-50 z-10"
+                        onClick={() => handleRemoveFromWishlist(item.product_id)}
+                        disabled={removingItem === item.product_id}
+                        className="absolute top-2 right-2 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:bg-white transition-all disabled:opacity-50 z-10"
                       >
-                        {removingItem === (item.product._id || item.product) ? (
+                        {removingItem === item.product_id ? (
                           <div className="w-3 h-3 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
                         ) : (
                           <Trash2 className="w-4 h-4 text-red-600" />
@@ -348,38 +346,35 @@ export default function StoreWishlistPage({ params }) {
 
                     {/* Product Details */}
                     <div className={isMobile ? 'px-3 pb-3' : ''}>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         <div>
-                          <h3 className={`font-semibold text-gray-900 line-clamp-1 ${
-                            isMobile ? 'text-base' : 'text-lg'
-                          }`}>
-                            {item.productSnapshot?.productName}
-                          </h3>
-                          <p className="text-xs text-gray-500">
-                            {item.productSnapshot?.category}
+                          <p className="text-[11px] text-gray-400 uppercase tracking-wide truncate">
+                            {item.product_data?.category}
                           </p>
+                          <h3 className={`font-semibold text-gray-900 line-clamp-1 ${
+                            isMobile ? 'text-sm' : 'text-[15px]'
+                          }`}>
+                            {item.product_data?.name}
+                          </h3>
                         </div>
 
                         {/* Price */}
-                        <div className="flex items-center gap-1">
-                          <Tag className="w-3 h-3 text-gray-500" />
-                          <span className={`font-bold ${isMobile ? 'text-sm' : 'text-base'}`} style={{ color: primaryColor }}>
-                            {formatPrice(item.productSnapshot?.sellingPrice)}
-                          </span>
-                        </div>
+                        <p className={`font-bold tabular-nums ${isMobile ? 'text-sm' : 'text-base'}`} style={{ color: primaryColor }}>
+                          {formatPrice(item.product_data?.base_price)}
+                        </p>
 
                         {/* Stock Status - Only on Desktop */}
-                        {!isMobile && item.productSnapshot?.quantityInStock > 0 && (
-                          <span className="text-xs text-green-600 font-medium block">
-                            {item.productSnapshot.quantityInStock} available
+                        {!isMobile && item.in_stock && (
+                          <span className="text-xs text-brand-700 font-medium block">
+                            {item.product_data?.stock_quantity} available
                           </span>
                         )}
 
                         {/* Priority Badge - Only on Desktop */}
                         {!isMobile && item.priority && item.priority !== 'medium' && (
-                          <span className={`inline-block text-xs px-2 py-1 rounded-full font-medium ${
-                            item.priority === 'high' 
-                              ? 'bg-red-100 text-red-700' 
+                          <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${
+                            item.priority === 'high'
+                              ? 'bg-red-100 text-red-700'
                               : 'bg-blue-100 text-blue-700'
                           }`}>
                             {item.priority} priority
@@ -388,7 +383,7 @@ export default function StoreWishlistPage({ params }) {
 
                         {/* Notes - Only on Desktop */}
                         {!isMobile && item.notes && (
-                          <p className="text-xs text-gray-600 line-clamp-2 pt-1">
+                          <p className="text-xs text-gray-500 line-clamp-2 pt-1">
                             {item.notes}
                           </p>
                         )}
@@ -399,18 +394,18 @@ export default function StoreWishlistPage({ params }) {
                             // Mobile: Single compact button
                             <button
                               onClick={() => handleAddToCart(item)}
-                              disabled={item.productSnapshot?.quantityInStock <= 0 || addingToCart === item._id}
-                              className="flex-1 py-1.5 text-white rounded-lg text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
-                              style={{ backgroundColor: item.productSnapshot?.quantityInStock <= 0 ? '#9CA3AF' : primaryColor }}
+                              disabled={!item.in_stock || addingToCart === item.id}
+                              className="flex-1 py-1.5 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                              style={{ backgroundColor: !item.in_stock ? '#9CA3AF' : primaryColor }}
                             >
-                              {addingToCart === item._id ? (
+                              {addingToCart === item.id ? (
                                 <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              ) : item.productSnapshot?.quantityInStock <= 0 ? (
-                                'Not Available'
+                              ) : !item.in_stock ? (
+                                'Not available'
                               ) : (
                                 <>
                                   <ShoppingCart className="w-3 h-3" />
-                                  <span>Add to Cart</span>
+                                  <span>Add to cart</span>
                                 </>
                               )}
                             </button>
@@ -419,20 +414,22 @@ export default function StoreWishlistPage({ params }) {
                             <>
                               <button
                                 onClick={() => handleAddToCart(item)}
-                                disabled={item.productSnapshot?.quantityInStock <= 0 || addingToCart === item._id}
-                                className="flex-1 py-2 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                style={{ backgroundColor: primaryColor }}
+                                disabled={!item.in_stock || addingToCart === item.id}
+                                className="flex-1 py-2 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                style={{ backgroundColor: !item.in_stock ? '#9CA3AF' : primaryColor }}
                               >
-                                {addingToCart === item._id ? (
+                                {addingToCart === item.id ? (
                                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : !item.in_stock ? (
+                                  'Not available'
                                 ) : (
                                   <>
                                     <ShoppingCart className="w-4 h-4" />
-                                    <span>Add to Cart</span>
+                                    <span>Add to cart</span>
                                   </>
                                 )}
                               </button>
-                              
+
                               <button
                                 onClick={() => handleViewProduct(item)}
                                 className="px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
@@ -451,6 +448,14 @@ export default function StoreWishlistPage({ params }) {
           </div>
         )}
       </div>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

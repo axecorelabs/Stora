@@ -1,5 +1,5 @@
 "use client";
-import { X, Package, MapPin, Phone, Calendar, Clock, CheckCircle, Truck, Box } from "lucide-react";
+import { X, Package, MapPin, Phone, Calendar, Clock, CheckCircle, Truck, Box, ImageOff } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function OrderDetailsPanel({ 
@@ -108,29 +108,26 @@ export default function OrderDetailsPanel({
         }}
       >
         <div className="flex flex-col h-full">
-          {/* Header with Store Colors */}
-          <div 
-            className={`flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white ${isMobile ? '' : 'rounded-t-2xl'}`}
-            style={{ backgroundColor: `${primaryColor}05` }}
-          >
+          {/* Header -- an order can span multiple vendors (see the Stores
+              section below), so this chrome is Stora-branded rather than
+              tinted by whichever single store's color happens to be passed
+              in, same reasoning as the checkout modal and WhatsApp modal. */}
+          <div className={`flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-brand-50/70 ${isMobile ? '' : 'rounded-t-2xl'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: `${primaryColor}20` }}
-                >
-                  <Package className="w-5 h-5" style={{ color: primaryColor }} />
+                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-brand-100">
+                  <Package className="w-5 h-5 text-brand-700" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Order Details</h2>
-                  <p className="text-sm text-gray-600">#{order.orderNumber}</p>
+                  <h2 className="font-display text-lg font-semibold text-brand-900">Order details</h2>
+                  <p className="text-sm text-brand-800/60">#{order.orderNumber}</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-white/60 rounded-full transition-colors"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-brand-800/70" />
               </button>
             </div>
 
@@ -141,8 +138,8 @@ export default function OrderDetailsPanel({
                 {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
               </span>
               <div className="text-right">
-                <p className="text-xs text-gray-500">Total Amount</p>
-                <p className="text-xl font-bold" style={{ color: primaryColor }}>
+                <p className="text-xs text-brand-800/50">Total amount</p>
+                <p className="text-xl font-bold text-brand-800 tabular-nums">
                   {formatPrice(order.totalAmount)}
                 </p>
               </div>
@@ -180,60 +177,66 @@ export default function OrderDetailsPanel({
               </div>
             </div>
 
-            {/* Delivery Information with Store Colors */}
-            <div 
-              className="rounded-lg p-4 border"
-              style={{ 
-                backgroundColor: `${primaryColor}10`,
-                borderColor: `${primaryColor}30`
-              }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <MapPin className="w-4 h-4" style={{ color: primaryColor }} />
-                <h3 className="text-sm font-bold text-gray-900">Delivery Address</h3>
-              </div>
-              <div className="space-y-2">
-                <p className="font-semibold text-gray-900 text-sm">
-                  {order.shippingAddress.firstName} {order.shippingAddress.lastName}
-                </p>
-                <p className="text-sm text-gray-700">
-                  {order.shippingAddress.city}, {order.shippingAddress.state}
-                </p>
-                <div className="flex items-center gap-2 pt-1">
-                  <Phone className="w-3 h-3 text-gray-600" />
-                  <span className="text-sm text-gray-900">{order.shippingAddress.phone}</span>
+            {/* Delivery Information with Store Colors -- order.shippingAddress
+                can genuinely be null (order predates the address batch-fetch
+                fix, or the row is missing for some other reason), so this is
+                optional-chained throughout rather than assuming it exists. */}
+            {order.shippingAddress && (
+              <div
+                className="rounded-lg p-4 border"
+                style={{
+                  backgroundColor: `${primaryColor}10`,
+                  borderColor: `${primaryColor}30`
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="w-4 h-4" style={{ color: primaryColor }} />
+                  <h3 className="text-sm font-bold text-gray-900">Delivery address</h3>
+                </div>
+                <div className="space-y-2">
+                  <p className="font-semibold text-gray-900 text-sm">
+                    {order.shippingAddress.firstName} {order.shippingAddress.lastName}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    {order.shippingAddress.city}, {order.shippingAddress.state}
+                  </p>
+                  {order.shippingAddress.phone && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <Phone className="w-3 h-3 text-gray-600" />
+                      <span className="text-sm text-gray-900">{order.shippingAddress.phone}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Store Information with Store Colors */}
+            {/* Store Information -- an order can list several different
+                vendors, so (like the header) this stays brand-neutral
+                rather than tinted by one arbitrary vendor's color. */}
             {order.stores && order.stores.length > 0 && (
               <div>
                 <h3 className="text-sm font-bold text-gray-900 mb-3">
                   Store{order.stores.length > 1 ? 's' : ''} ({order.stores.length})
                 </h3>
                 <div className="space-y-2">
-                  {order.stores.map((store, idx) => (
+                  {order.stores.map((store) => (
                     <div
-                      key={idx}
+                      key={store.storeId}
                       className="bg-white border border-gray-200 rounded-lg p-3"
                     >
                       <div className="flex items-center gap-3">
-                        <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${primaryColor}20` }}
-                        >
-                          <span className="text-xs font-bold" style={{ color: primaryColor }}>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-brand-50">
+                          <span className="text-xs font-bold text-brand-700">
                             {store.storeName?.charAt(0)?.toUpperCase() || 'S'}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-gray-900 text-sm truncate">{store.storeName}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 tabular-nums">
                             {store.itemCount} {store.itemCount === 1 ? 'item' : 'items'}
                           </p>
                         </div>
-                        <p className="text-sm font-bold" style={{ color: primaryColor }}>
+                        <p className="text-sm font-bold text-brand-800 tabular-nums">
                           {formatPrice(store.subtotal)}
                         </p>
                       </div>
@@ -246,7 +249,7 @@ export default function OrderDetailsPanel({
             {/* Order Items */}
             <div>
               <h3 className="text-sm font-bold text-gray-900 mb-3">
-                Order Items ({order.items?.length || 0})
+                Order items ({order.items?.length || 0})
               </h3>
               <div className="space-y-3">
                 {order.items?.map((item, idx) => (
@@ -259,8 +262,8 @@ export default function OrderDetailsPanel({
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xl">
-                          📦
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageOff className="w-5 h-5 text-gray-300" strokeWidth={1.5} />
                         </div>
                       )}
                       {item.variant && (
@@ -310,32 +313,29 @@ export default function OrderDetailsPanel({
               </div>
             </div>
 
-            {/* Order Summary with Store Colors */}
-            <div 
-              className="rounded-lg p-4 border border-gray-200"
-              style={{ backgroundColor: secondaryColor }}
-            >
-              <h3 className="text-sm font-bold text-gray-900 mb-3">Order Summary</h3>
+            {/* Order Summary -- ledger-receipt treatment, matching checkout */}
+            <div className="rounded-lg p-4 border border-brand-100/70 bg-brand-50/60">
+              <h3 className="text-sm font-bold text-gray-900 mb-3">Order summary</h3>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="font-semibold text-gray-900">{formatPrice(order.subtotal)}</span>
+                  <span className="font-semibold text-gray-900 tabular-nums">{formatPrice(order.subtotal)}</span>
                 </div>
                 {order.discount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Discount</span>
-                    <span className="font-semibold text-red-600">-{formatPrice(order.discount)}</span>
+                    <span className="font-semibold text-red-600 tabular-nums">-{formatPrice(order.discount)}</span>
                   </div>
                 )}
                 {order.shippingFee > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Shipping Fee</span>
-                    <span className="font-semibold text-gray-900">{formatPrice(order.shippingFee)}</span>
+                    <span className="text-gray-600">Shipping fee</span>
+                    <span className="font-semibold text-gray-900 tabular-nums">{formatPrice(order.shippingFee)}</span>
                   </div>
                 )}
-                <div className="border-t border-gray-300 pt-2 flex justify-between">
+                <div className="border-t border-dashed border-brand-200/70 pt-2 flex justify-between">
                   <span className="font-bold text-gray-900 text-sm">Total</span>
-                  <span className="text-lg font-bold" style={{ color: primaryColor }}>
+                  <span className="text-lg font-bold text-brand-800 tabular-nums">
                     {formatPrice(order.totalAmount)}
                   </span>
                 </div>
@@ -343,19 +343,19 @@ export default function OrderDetailsPanel({
             </div>
 
             {/* Payment Info */}
-            <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
-              <h3 className="text-sm font-bold text-gray-900 mb-2">Payment Information</h3>
+            <div className="bg-gold-400/10 rounded-lg p-4 border border-gold-500/25">
+              <h3 className="text-sm font-bold text-gray-900 mb-2">Payment information</h3>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Payment Method</span>
+                  <span className="text-gray-600">Payment method</span>
                   <span className="font-semibold text-gray-900 capitalize">
-                    {order.payment?.method ? order.payment.method.replace('_', ' ') : 'Cash to Vendor'}
+                    {order.payment?.method ? order.payment.method.replace('_', ' ') : 'Cash to vendor'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Payment Status</span>
+                  <span className="text-gray-600">Payment status</span>
                   <span className={`font-semibold ${
-                    order.payment?.status === 'completed' ? 'text-green-600' : 'text-yellow-600'
+                    order.payment?.status === 'completed' ? 'text-green-700' : 'text-gold-700'
                   }`}>
                     {order.payment?.status
                       ? order.payment.status.charAt(0).toUpperCase() + order.payment.status.slice(1)
@@ -365,15 +365,6 @@ export default function OrderDetailsPanel({
               </div>
             </div>
           </div>
-
-          {/* Footer Actions with Store Colors */}
-          {order.canBeCancelled && (
-            <div className={`flex-shrink-0 px-6 py-4 border-t border-gray-200 bg-white ${isMobile ? '' : 'rounded-b-2xl'}`}>
-              <button className="w-full py-3 border-2 border-red-300 text-red-600 rounded-lg font-semibold hover:bg-red-50 transition-colors text-sm">
-                Cancel Order
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </>

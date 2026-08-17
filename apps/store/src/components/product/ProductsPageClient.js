@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, SlidersHorizontal, Grid2X2, List, Search, SearchX, Package, X } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal, Grid2X2, List, Search, SearchX, Package, X, AlertTriangle } from "lucide-react";
 import StoreHeader from "@/components/store/StoreHeader";
 import StoreFooter from "@/components/store/StoreFooter";
 import ProductCard from "@/components/store/ProductCard";
@@ -37,11 +37,17 @@ export default function ProductsPageClient({ store, products: initialProducts, s
   const primaryColor = store.branding?.primaryColor || "#0D9488";
   const secondaryColor = store.branding?.secondaryColor || "#F3F4F6";
 
-  // Initialize category from URL on mount
+  // Initialize category/search from URL on mount -- search arrives here from
+  // the header's search box (StoreHeader.js), which has no results view of
+  // its own.
   useEffect(() => {
     const categoryParam = searchParams.get('category');
     if (categoryParam) {
       setSelectedCategory(categoryParam);
+    }
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchQuery(searchParam);
     }
   }, [searchParams]);
 
@@ -141,7 +147,7 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                 <span className="font-medium">Back</span>
               </button>
               <span className="text-gray-300">›</span>
-              <h1 className="text-2xl font-bold text-gray-900">All Products</h1>
+              <h1 className="font-display text-xl sm:text-2xl font-semibold text-gray-900">All products</h1>
             </div>
 
             {/* View Mode Toggle - Desktop Only */}
@@ -182,46 +188,31 @@ export default function ProductsPageClient({ store, products: initialProducts, s
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
         {/* Search Bar */}
         <div className="mb-6">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="   Search products, brands, categories..."
-                className="w-full pl-4 pr-10 py-3 text-gray-900 placeholder-gray-400 border-2 rounded-lg focus:outline-none focus:ring-2 transition-all text-sm sm:text-base shadow-sm"
-                style={{ 
-                  backgroundColor: `${primaryColor}05`,
-                  borderColor: searchQuery ? primaryColor : `${primaryColor}20`,
-                  '--tw-ring-color': primaryColor
-                }}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
-                >
-                  <X className="w-4 h-4 text-gray-400" />
-                </button>
-              )}
-            </div>
-            
-            {/* Search Icon Button */}
-            <button
-              className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center transition-all hover:opacity-90 shadow-sm"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <Search className="w-5 h-5 text-white" />
-            </button>
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search products, brands, categories…"
+              className="w-full pl-10 pr-10 py-3 text-gray-900 placeholder-gray-400 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-sm sm:text-base bg-gray-50/70 focus:bg-white"
+              style={{ '--tw-ring-color': primaryColor }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
+              >
+                <X className="w-4 h-4 text-gray-400" />
+              </button>
+            )}
           </div>
-          
+
           {/* Search Results Info */}
           {searchQuery && (
-            <div className="mt-3 flex items-center justify-between px-2">
-              <p className="text-sm text-gray-600">
-                Found <span className="font-semibold" style={{ color: primaryColor }}>
-                  {filteredProducts.length}
-                </span> {filteredProducts.length === 1 ? 'result' : 'results'} for "{searchQuery}"
+            <div className="mt-3 flex items-center justify-between px-1">
+              <p className="text-sm text-gray-500">
+                {filteredProducts.length} {filteredProducts.length === 1 ? 'result' : 'results'} for &ldquo;{searchQuery}&rdquo;
               </p>
               {filteredProducts.length > 0 && (
                 <button
@@ -270,47 +261,46 @@ export default function ProductsPageClient({ store, products: initialProducts, s
         {/* Products Grid/List */}
         {isLoading ? (
           <div className="text-center py-20">
-            <div 
-              className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-4 mb-4"
-              style={{ borderTopColor: primaryColor }}
-            ></div>
-            <p className="text-gray-600">Loading products...</p>
+            <div className="inline-block animate-spin rounded-full h-10 w-10 border-[3px] border-brand-100 border-t-brand-700 mb-4"></div>
+            <p className="text-brand-800/60 text-sm">Loading products…</p>
           </div>
         ) : error ? (
           <div className="text-center py-20">
-            <div className="text-8xl mb-4">⚠️</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Products</h3>
-            <p className="text-gray-600 mb-4">{error.message}</p>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-red-50 flex items-center justify-center">
+              <AlertTriangle className="w-7 h-7 text-red-500" strokeWidth={1.5} />
+            </div>
+            <h3 className="font-display text-lg font-semibold text-gray-900 mb-1.5">Couldn&apos;t load products</h3>
+            <p className="text-sm text-gray-500 mb-5">{error.message}</p>
             <button
               onClick={() => window.location.reload()}
-              className="px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: primaryColor }}
+              className="px-6 py-2.5 text-white rounded-xl text-sm font-medium bg-brand-700 hover:bg-brand-800 transition-colors"
             >
-              Retry
+              Try again
             </button>
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20">
-            {searchQuery ? (
-              <SearchX className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            ) : (
-              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            )}
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {searchQuery ? 'No Results Found' : 'No Products Found'}
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-brand-50 flex items-center justify-center">
+              {searchQuery ? (
+                <SearchX className="w-7 h-7 text-brand-600" strokeWidth={1.5} />
+              ) : (
+                <Package className="w-7 h-7 text-brand-600" strokeWidth={1.5} />
+              )}
+            </div>
+            <h3 className="font-display text-lg font-semibold text-gray-900 mb-1.5">
+              {searchQuery ? 'No results found' : 'No products found'}
             </h3>
-            <p className="text-gray-600 mb-4">
-              {searchQuery 
-                ? `We couldn't find any products matching "${searchQuery}"` 
-                : 'Try selecting a different category'}
+            <p className="text-sm text-gray-500 mb-5">
+              {searchQuery
+                ? `Nothing matched "${searchQuery}" — try a different search.`
+                : 'Try selecting a different category.'}
             </p>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: primaryColor }}
+                className="px-6 py-2.5 text-white rounded-xl text-sm font-medium bg-brand-700 hover:bg-brand-800 transition-colors"
               >
-                Clear Search
+                Clear search
               </button>
             )}
           </div>
@@ -366,8 +356,8 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-6xl">
-                          📦
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="w-12 h-12 text-gray-300" strokeWidth={1.5} />
                         </div>
                       )}
                     </div>

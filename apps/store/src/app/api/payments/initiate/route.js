@@ -111,11 +111,30 @@ export async function POST(request) {
     // Flat shares: each subaccount gets exactly net_amount_to_vendor
     // (already has the platform commission subtracted), not a re-derived
     // percentage -- the unassigned remainder (the commission) implicitly
-    // goes to Stora's main account, per bearer_type: 'account' below.
+    // goes to Stora's main account.
     const subaccounts = splits.map(split => ({
       subaccount: split.subaccount_code,
       share: Math.round(parseFloat(split.net_amount_to_vendor) * 100)
     }));
+
+    // bearer_type: 'account' (Stora's main account absorbing Paystack's own
+    // processing fee) made the merchant's leftover share go negative on
+    // anything below roughly NGN27-28k -- at a 2% commission, Paystack's
+    // ~1.5%+NGN100 fee routinely exceeds Stora's entire cut, and Paystack
+    // rejects the whole split outright when that happens ("Merchant share
+    // cannot be lower than zero"), so checkout couldn't even generate a
+    // charge for most real order sizes. 'subaccount' + bearer_subaccount
+    // moves that cost to the vendor instead, so Stora's commission is never
+    // at risk of going negative. For the (common) single-vendor case this
+    // is exact. Paystack has no "split the fee across subaccounts only,
+    // excluding the merchant" mode -- bearer_subaccount always names ONE
+    // subaccount to absorb the whole fee -- so on the rarer combined
+    // multi-vendor checkout, the largest-share vendor is picked to absorb
+    // it, which is the least-distorting approximation available, not an
+    // exact fair split.
+    const bearerSplit = splits.reduce((largest, s) =>
+      parseFloat(s.net_amount_to_vendor) > parseFloat(largest.net_amount_to_vendor) ? s : largest
+    );
 
     const amountKobo = Math.round(parseFloat(orderPayment.amount) * 100);
     const reference = `pay_${order.id}_${Date.now()}`;
@@ -128,7 +147,8 @@ export async function POST(request) {
         reference,
         split: {
           type: 'flat',
-          bearer_type: 'account',
+          bearer_type: 'subaccount',
+          bearer_subaccount: bearerSplit.subaccount_code,
           subaccounts
         },
         metadata: {

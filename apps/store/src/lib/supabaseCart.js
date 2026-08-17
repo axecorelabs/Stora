@@ -383,16 +383,21 @@ export async function enrichCartWithProductData(cart) {
           };
         }
 
-        // Get current batch pricing. resolveBatchPricing distinguishes "no
-        // batches at all" (fall back to flat inventory) from "batches
-        // exist but are fully depleted" (report the batches' real total:
-        // 0) -- the naive `sum || product.quantityInStock` this replaced
-        // couldn't tell those apart, since both produce a falsy 0 sum, and
-        // would revive a possibly-stale flat stock number for an item
-        // whose batches are genuinely sold out.
+        // Get current batch pricing, scoped to the specific variant this
+        // cart item is for (every batch is variant-scoped now -- without
+        // passing variantId here, a multi-variant product's price/stock
+        // would resolve against an aggregate across ALL its variants,
+        // not the one the customer actually put in their cart).
+        // resolveBatchPricing distinguishes "no batches at all" (fall
+        // back to flat inventory) from "batches exist but are fully
+        // depleted" (report the batches' real total: 0) -- the naive
+        // `sum || product.quantityInStock` this replaced couldn't tell
+        // those apart, since both produce a falsy 0 sum, and would
+        // revive a possibly-stale flat stock number for an item whose
+        // batches are genuinely sold out.
         const batches = await findActiveBatchesByInventoryId(item.product_id);
         const { sellingPrice: currentPrice, availableQuantity: availableStock } =
-          await resolveBatchPricing(product, batches);
+          await resolveBatchPricing(product, batches, item.product_snapshot?.variant?.variant_id || null);
 
         return {
           ...item,
@@ -456,9 +461,9 @@ export async function validateCartStock(cart) {
         continue;
       }
 
-      // Check stock availability
+      // Check stock availability, scoped to this item's specific variant.
       const batches = await findActiveBatchesByInventoryId(item.product_id);
-      const { availableQuantity: availableStock } = await resolveBatchPricing(product, batches);
+      const { availableQuantity: availableStock } = await resolveBatchPricing(product, batches, item.product_snapshot?.variant?.variant_id || null);
 
       if (availableStock < item.quantity) {
         unavailableItems.push({
@@ -499,15 +504,49 @@ export async function prepareCartItemData(productId, quantity, variantData = nul
     throw new Error('Product is not available');
   }
 
-  // Get current batch pricing
+  // Every product has >=1 real variant now. A multi-variant product needs
+  // an explicit choice (the picker only shows for those); a simple
+  // product's sole variant is resolved automatically here so variant_id
+  // ends up populated in the snapshot either way -- nothing downstream
+  // (checkout, reservation, order_items) should ever see a null
+  // variant_id again.
+  const variants = product.variants || [];
+  // Callers build this as { variant_id, color, size } (cart/add/route.js,
+  // cart/route.js) -- accept variantId too defensively, since it's an easy
+  // mismatch to reintroduce.
+  let resolvedVariantId = variantData?.variant_id || variantData?.variantId || null;
+  if (!resolvedVariantId) {
+    if (variants.length === 1) {
+      resolvedVariantId = variants[0].id;
+    } else if (variants.length > 1) {
+      throw new Error('Please select a variant');
+    }
+  }
+  const resolvedVariant = variants.find(v => v.id === resolvedVariantId) || null;
+
+  // Get current batch pricing, scoped to the resolved variant -- previously
+  // this always resolved product-level pricing even when a specific
+  // variant was requested, so a multi-variant product's price/stock check
+  // never actually reflected the variant the customer picked.
   const batches = await findActiveBatchesByInventoryId(productId);
   const { sellingPrice: currentPrice, availableQuantity: availableStock, activeBatches, currentBatch } =
-    await resolveBatchPricing(product, batches);
+    await resolveBatchPricing(product, batches, resolvedVariantId);
 
   // Check stock availability
   if (availableStock < quantity) {
     throw new Error(`Only ${availableStock} items available`);
   }
+
+  // Always carry a real variant_id in the snapshot, even for a simple
+  // product with no real size/color options -- variantData (from the
+  // picker) already has size/color; a simple product's auto-resolved
+  // variant doesn't, so fill those in from the resolved variant row.
+  const finalVariantData = resolvedVariantId ? {
+    variant_id: resolvedVariantId,
+    variantId: resolvedVariantId,
+    color: variantData?.color ?? resolvedVariant?.color ?? null,
+    size: variantData?.size ?? resolvedVariant?.size ?? null
+  } : null;
 
   // Get store details using store_id (which should be UUID)
   const { data: store } = await supabaseAdmin
@@ -534,7 +573,7 @@ export async function prepareCartItemData(productId, quantity, variantData = nul
       primary_image: product.image || (product.images && product.images.length > 0 ? product.images[0] : null),
       unit_of_measure: product.unitOfMeasure,
       has_batches: activeBatches.length > 0,
-      variant: variantData || null,
+      variant: finalVariantData,
       batch: currentBatch ? {
         batch_id: currentBatch.id,
         batch_code: currentBatch.batch_code,

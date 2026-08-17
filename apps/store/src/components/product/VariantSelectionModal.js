@@ -115,7 +115,11 @@ export default function VariantSelectionModal({
     
     const newVariant = {
       ...currentSelection,
-      variantId: variantInfo._id,
+      // transformInventoryToProduct (supabaseStore.js) outputs `id`, never
+      // `_id` -- this read undefined for every variant selection until now,
+      // silently sending variantId: undefined all the way through to
+      // checkout's stock reservation.
+      variantId: variantInfo.id,
       sku: variantInfo.sku,
       image: colorImage, // Ensure we're getting the correct image
       availableStock: getVariantStock(currentSelection.color, currentSelection.size)

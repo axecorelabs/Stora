@@ -2,31 +2,6 @@ import { supabaseAdmin } from './supabase';
 
 // ============ FIELD TRANSFORMATION UTILITIES ============
 
-/**
- * Calculate available quantity accounting for reservations
- * 
- * QUANTITY CALCULATION LOGIC:
- * - For inventory: available = stock_quantity - quantity_reserved
- * - For inventory_batches: available = quantity_in - quantity_sold - quantity_reserved
- * - For inventory_variants: available = quantity_in_stock - quantity_reserved
- * 
- * NOTES:
- * - stock_quantity: Current physical stock level (actual DB column)
- * - quantity_reserved: Stock reserved for pending orders (may not exist yet)
- * - availableQuantity: What customers can actually order right now
- * 
- * FALLBACK: If quantity_reserved column doesn't exist, use stock_quantity directly
- */
-function calculateAvailableQuantity(inventory) {
-  // Use actual database column names: stock_quantity (not quantity_in_stock)
-  const stockQuantity = inventory.stock_quantity || 0;
-  const quantityReserved = inventory.quantity_reserved || 0;
-
-  const available = Math.max(0, stockQuantity - quantityReserved);
-
-  return available;
-}
-
 // Each entry in inventory.images can be an object ({url, isPrimary, colorTag}),
 // or for legacy rows a JSON-encoded string or a bare URL string -- normalize
 // once here so every consumer downstream (product grid, detail page, cart,
@@ -55,34 +30,42 @@ function getPrimaryImageUrl(normalizedImages) {
   return primary?.url || normalizedImages[0]?.url || null;
 }
 
+// Every product has >=1 real inventory_variants row now (see
+// 20260817000001_unify_inventory_variants.sql) -- stock/price/hasVariants
+// are always derived from those, never a flat column on `inventory`.
+// `inventory.variantsData` must always be populated by the caller (every
+// find*/enrich* function below does this in one batched query).
 function transformInventoryToProduct(inventory) {
   if (!inventory) return null;
-  
-  const availableQuantity = calculateAvailableQuantity(inventory);
-  
-  // Transform variants from inventory_variants table if they exist
-  let transformedVariants = [];
-  if (inventory.variantsData && Array.isArray(inventory.variantsData)) {
-    transformedVariants = inventory.variantsData.map(v => ({
-      id: v.id,
-      color: v.color,
-      size: v.size,
-      sku: v.sku,
-      quantityInStock: v.quantity_in_stock,
-      quantityReserved: v.reserved_quantity,
-      availableQuantity: Math.max(0, (v.quantity_in_stock || 0) - (v.reserved_quantity || 0)),
-      reorderLevel: v.reorder_level,
-      soldQuantity: v.sold_quantity,
-      price: v.price,
-      costPrice: v.cost_price,
-      images: v.images,
-      barcode: v.barcode,
-      weight: v.weight,
-      isActive: v.is_active
-    }));
-  }
-  
-  console.log(`[Transform] Product: ${inventory.name}, Stock: ${inventory.stock_quantity}, Reserved: ${inventory.quantity_reserved || 0}, Available: ${availableQuantity}, Variants: ${transformedVariants.length}`);
+
+  const variantRows = inventory.variantsData || [];
+  const transformedVariants = variantRows.map(v => ({
+    id: v.id,
+    color: v.color,
+    size: v.size,
+    sku: v.sku,
+    quantityInStock: v.quantity_in_stock,
+    quantityReserved: v.reserved_quantity,
+    availableQuantity: Math.max(0, (v.quantity_in_stock || 0) - (v.reserved_quantity || 0)),
+    reorderLevel: v.reorder_level,
+    soldQuantity: v.sold_quantity,
+    price: v.price,
+    costPrice: v.cost_price,
+    images: v.images,
+    barcode: v.barcode,
+    weight: v.weight,
+    isActive: v.is_active
+  }));
+
+  const totalStock = transformedVariants.reduce((sum, v) => sum + (v.quantityInStock || 0), 0);
+  const totalReserved = transformedVariants.reduce((sum, v) => sum + (v.quantityReserved || 0), 0);
+  const totalSold = transformedVariants.reduce((sum, v) => sum + (v.soldQuantity || 0), 0);
+  const totalAvailable = Math.max(0, totalStock - totalReserved);
+  // "From ₦X" for a multi-variant product; the single variant's own price
+  // for a simple product (its one "Default" variant).
+  const prices = transformedVariants.map(v => v.price).filter(p => p != null);
+  const representativePrice = prices.length > 0 ? Math.min(...prices) : 0;
+  const representativeCost = transformedVariants[0]?.costPrice ?? 0;
 
   const normalizedImages = normalizeImages(inventory.images);
 
@@ -95,12 +78,12 @@ function transformInventoryToProduct(inventory) {
     description: inventory.description,
     image: inventory.primary_image || getPrimaryImageUrl(normalizedImages),
     images: normalizedImages,
-    sellingPrice: inventory.base_price,
-    costPrice: inventory.cost,
-    quantityInStock: inventory.stock_quantity,
-    quantityReserved: inventory.quantity_reserved || 0,
-    availableQuantity: availableQuantity,
-    soldQuantity: inventory.sold_quantity || 0,
+    sellingPrice: representativePrice,
+    costPrice: representativeCost,
+    quantityInStock: totalStock,
+    quantityReserved: totalReserved,
+    availableQuantity: totalAvailable,
+    soldQuantity: totalSold,
     reorderLevel: inventory.minimum_stock,
     unitOfMeasure: inventory.unit_of_measure,
     location: inventory.location,
@@ -111,9 +94,8 @@ function transformInventoryToProduct(inventory) {
     storeId: inventory.store_id,
     createdAt: inventory.created_at,
     updatedAt: inventory.updated_at,
-    // Additional fields from actual schema
-    hasVariants: inventory.has_variants,
-    variants: transformedVariants, // Use transformed variants from inventory_variants table
+    hasVariants: transformedVariants.length > 1,
+    variants: transformedVariants,
     categoryDetails: inventory.category_details,
     webVisibility: inventory.web_visibility,
     // Preserve batch info if present
@@ -123,7 +105,7 @@ function transformInventoryToProduct(inventory) {
 
 function transformStoreFields(store) {
   if (!store) return null;
-  
+
   return {
     id: store.id,
     storeName: store.store_name,
@@ -252,6 +234,34 @@ export async function updateStoreMetrics(storeId, updates) {
 // complaint -- real pagination UI would be a separate product decision.
 const STORE_CATALOG_LIMIT = 500;
 
+// Every product now has >=1 real variant row -- always batch-fetch them,
+// no has_variants gate.
+async function attachVariants(items) {
+  const ids = items.map(item => item.id);
+  if (ids.length === 0) return items;
+
+  const { data: allVariants, error } = await supabaseAdmin
+    .from('inventory_variants')
+    .select('*')
+    .in('inventory_id', ids)
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('Error finding inventory variants:', error);
+    return items;
+  }
+
+  const variantsByInventoryId = (allVariants || []).reduce((acc, v) => {
+    (acc[v.inventory_id] ||= []).push(v);
+    return acc;
+  }, {});
+
+  return items.map(item => {
+    item.variantsData = variantsByInventoryId[item.id] || [];
+    return item;
+  });
+}
+
 export async function findInventoryByStoreId(storeId, filters = {}) {
   try {
     let query = supabaseAdmin
@@ -288,36 +298,7 @@ export async function findInventoryByStoreId(storeId, filters = {}) {
       console.warn('Store catalog fetch hit STORE_CATALOG_LIMIT', { storeId });
     }
 
-    // Fetch variants for every product that has them in one batched query
-    // instead of one query per product.
-    const idsWithVariants = items.filter(item => item.has_variants).map(item => item.id);
-    let variantsByInventoryId = {};
-    if (idsWithVariants.length > 0) {
-      const { data: allVariants, error: variantsError } = await supabaseAdmin
-        .from('inventory_variants')
-        .select('*')
-        .in('inventory_id', idsWithVariants)
-        .eq('is_active', true);
-
-      if (variantsError) {
-        console.error('Error finding inventory variants:', variantsError);
-      } else {
-        variantsByInventoryId = (allVariants || []).reduce((acc, v) => {
-          (acc[v.inventory_id] ||= []).push(v);
-          return acc;
-        }, {});
-      }
-    }
-
-    const productsWithVariants = items.map((item) => {
-      const variantsData = variantsByInventoryId[item.id];
-      if (variantsData && variantsData.length > 0) {
-        item.variantsData = variantsData;
-      }
-      return item;
-    });
-
-    // Transform all inventory items to product format
+    const productsWithVariants = await attachVariants(items);
     return productsWithVariants.map(transformInventoryToProduct);
   } catch (err) {
     console.error('Exception in findInventoryByStoreId:', err);
@@ -340,20 +321,8 @@ export async function findInventoryById(inventoryId) {
     throw new Error('Failed to find inventory item');
   }
 
-  // Fetch variants if product has variants
-  if (data.has_variants) {
-    const { data: variantsData } = await supabaseAdmin
-      .from('inventory_variants')
-      .select('*')
-      .eq('inventory_id', inventoryId)
-      .eq('is_active', true);
-    
-    if (variantsData && variantsData.length > 0) {
-      data.variantsData = variantsData;
-    }
-  }
-
-  return transformInventoryToProduct(data);
+  const [withVariants] = await attachVariants([data]);
+  return transformInventoryToProduct(withVariants);
 }
 
 // Batched sibling of findInventoryById -- one query for a whole list of
@@ -372,34 +341,8 @@ export async function findInventoryByIds(inventoryIds) {
     throw new Error('Failed to find inventory items');
   }
 
-  const items = data || [];
-  const idsWithVariants = items.filter(item => item.has_variants).map(item => item.id);
-
-  let variantsByInventoryId = {};
-  if (idsWithVariants.length > 0) {
-    const { data: allVariants, error: variantsError } = await supabaseAdmin
-      .from('inventory_variants')
-      .select('*')
-      .in('inventory_id', idsWithVariants)
-      .eq('is_active', true);
-
-    if (variantsError) {
-      console.error('Error finding inventory variants by ids:', variantsError);
-    } else {
-      variantsByInventoryId = (allVariants || []).reduce((acc, v) => {
-        (acc[v.inventory_id] ||= []).push(v);
-        return acc;
-      }, {});
-    }
-  }
-
-  return items.map((item) => {
-    const variantsData = variantsByInventoryId[item.id];
-    if (variantsData && variantsData.length > 0) {
-      item.variantsData = variantsData;
-    }
-    return transformInventoryToProduct(item);
-  });
+  const items = await attachVariants(data || []);
+  return items.map(transformInventoryToProduct);
 }
 
 // ============ INVENTORY BATCH OPERATIONS ============
@@ -463,41 +406,47 @@ export async function calculateBatchQuantities(batches) {
 // ============ BATCH PRICING RESOLUTION ============
 
 // Single source of truth for "what should a customer see as this product's
-// current price and available stock," given its product row and its
-// (already status='active'-filtered) batches. This used to be 4+ near-
-// duplicate inline implementations (the storefront listing enrichment, the
-// product details page -- twice, once for metadata and once for the page
-// itself --, the single-product API route, and three places in
-// supabaseCart.js). That duplication is exactly how two real bugs crept in
-// and diverged silently between call sites:
-//
-// 1. The details page reassigned its "current price" with `const` inside
-//    an if-block, shadowing the outer variable instead of updating it, so
-//    the page always displayed the stale flat inventory.base_price no
-//    matter what the batches actually priced the item at.
-// 2. Every call site computed `activeBatches.reduce(...) || product.X` --
-//    which, because 0 is falsy, silently revived the (possibly stale)
-//    flat inventory field whenever a batch-tracked product's batches were
-//    all fully depleted, instead of correctly reporting zero stock. Only
-//    `batches.length` (unfiltered) can tell "never batch-tracked" (a
-//    legitimate reason to fall back to flat inventory) apart from
-//    "batch-tracked but currently sold out" (should report 0, not a
-//    stale flat number) -- `activeBatches.length`/its reduce sum cannot,
-//    since both cases produce the same empty/zero result.
-export async function resolveBatchPricing(product, batches) {
-  const batchesWithQuantities = await calculateBatchQuantities(batches);
+// (or one specific variant's) current price and available stock," given the
+// product row (with .variants attached) and its (already status='active'-
+// filtered) batches. Every batch now carries a real variant_id
+// (20260817000001_unify_inventory_variants.sql) -- this function scopes to
+// one variant's own batches when variantId is given (product detail page,
+// once a size/color is picked, and checkout/cart, which always operate on
+// one specific variant); when it's omitted (listing cards, initial detail-
+// page render before a variant is picked), it resolves the product's sole
+// variant automatically if there's only one, or aggregates a "from ₦X" /
+// summed-stock view across all of them for a genuine multi-variant product.
+export async function resolveBatchPricing(product, batches, variantId = null) {
+  const variants = product.variants || [];
+  const resolvedVariantId = variantId || (variants.length === 1 ? variants[0].id : null);
+
+  const scopedBatches = resolvedVariantId
+    ? batches.filter(b => b.variant_id === resolvedVariantId)
+    : batches;
+
+  const batchesWithQuantities = await calculateBatchQuantities(scopedBatches);
   const activeBatches = batchesWithQuantities.filter(b => b.actualQuantityRemaining > 0);
   const currentBatch = activeBatches.length > 0 ? activeBatches[0] : null;
+  const isBatchTracked = scopedBatches.length > 0;
 
-  // Whether this product has ever been stocked via batches at all --
-  // distinct from activeBatches.length, which is 0 both when there are no
-  // batches AND when there are batches but all are depleted.
-  const isBatchTracked = batches.length > 0;
+  let sellingPrice;
+  let availableQuantity;
 
-  const sellingPrice = currentBatch ? currentBatch.selling_price : product.sellingPrice;
-  const availableQuantity = isBatchTracked
-    ? activeBatches.reduce((sum, b) => sum + b.actualQuantityRemaining, 0)
-    : (product.availableQuantity ?? product.quantityInStock ?? 0);
+  if (resolvedVariantId) {
+    const variant = variants.find(v => v.id === resolvedVariantId);
+    sellingPrice = currentBatch ? currentBatch.selling_price : (variant?.price ?? product.sellingPrice ?? 0);
+    availableQuantity = isBatchTracked
+      ? activeBatches.reduce((sum, b) => sum + b.actualQuantityRemaining, 0)
+      : (variant?.availableQuantity ?? product.availableQuantity ?? 0);
+  } else {
+    // Genuine multi-variant product with no single variant selected yet --
+    // "from" price and total stock across every variant.
+    const prices = variants.map(v => v.price).filter(p => p != null);
+    sellingPrice = prices.length > 0 ? Math.min(...prices) : (product.sellingPrice ?? 0);
+    availableQuantity = variants.length > 0
+      ? variants.reduce((sum, v) => sum + (v.availableQuantity || 0), 0)
+      : (product.availableQuantity ?? product.quantityInStock ?? 0);
+  }
 
   const prices = activeBatches.map(b => b.selling_price);
   const totalQuantityIn = batchesWithQuantities.reduce((sum, b) => sum + (b.quantity_in || 0), 0);
@@ -514,6 +463,7 @@ export async function resolveBatchPricing(product, batches) {
     // duplicated call sites failed to do.
     quantityInStock: availableQuantity,
     availableQuantity,
+    variantId: resolvedVariantId,
     activeBatches,
     batchesWithQuantities,
     currentBatch,
@@ -550,7 +500,10 @@ export async function enrichProductsWithBatches(products) {
     products.map(async (product) => {
       try {
         // Batches for this product, pre-fetched in one query above instead
-        // of one query per product.
+        // of one query per product. No variantId here -- this is the
+        // listing-card view, which resolves the product's sole variant
+        // automatically or aggregates across variants for a multi-variant
+        // product (see resolveBatchPricing).
         const batches = batchesByProduct[product.id] || [];
         const { sellingPrice, quantityInStock, availableQuantity, batchInfo } =
           await resolveBatchPricing(product, batches);
@@ -576,12 +529,12 @@ export async function enrichProductsWithBatches(products) {
 
 export function sanitizeStore(store) {
   if (!store) return null;
-  
+
   const {
     bank_details,
     ...sanitized
   } = store;
-  
+
   return sanitized;
 }
 

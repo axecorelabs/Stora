@@ -26,7 +26,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  AlertTriangle
 } from "lucide-react";
 
 // useSearchParams() requires a Suspense boundary above it or Next's build
@@ -498,6 +499,12 @@ function OrdersPageContent() {
                                 Multi-vendor
                               </span>
                             )}
+                            {order.admin_notes && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
+                                <AlertTriangle className="w-2.5 h-2.5" />
+                                Needs review
+                              </span>
+                            )}
                             {order.itemCount} item{order.itemCount !== 1 ? 's' : ''}
                           </div>
                         </td>
@@ -535,6 +542,15 @@ function OrdersPageContent() {
                       {isExpanded && (
                         <tr>
                           <td colSpan="6" className="px-6 md:px-8 py-5 md:py-6 bg-gray-50/60 border-b border-gray-100">
+                            {order.admin_notes && (
+                              <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs md:text-sm text-amber-900">
+                                <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                                <div>
+                                  <p className="font-semibold mb-0.5">Needs review before fulfilling</p>
+                                  <p className="whitespace-pre-line">{order.admin_notes}</p>
+                                </div>
+                              </div>
+                            )}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                               {/* Items */}
                               <div className="lg:col-span-2">

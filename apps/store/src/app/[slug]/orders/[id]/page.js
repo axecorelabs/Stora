@@ -29,7 +29,7 @@ export default function StoreOrderDetailsPage({ params }) {
 
   // Fetch store if not loaded
   useEffect(() => {
-    if (resolvedParams.slug && (!currentStore || currentStore.website?.websitePath !== resolvedParams.slug)) {
+    if (resolvedParams.slug && (!currentStore || currentStore.storeSlug !== resolvedParams.slug)) {
       fetchStore(resolvedParams.slug);
     }
   }, [resolvedParams.slug, currentStore, fetchStore]);
@@ -97,8 +97,6 @@ export default function StoreOrderDetailsPage({ params }) {
   };
 
   const openWhatsApp = (storePhone, storeName, itemCount) => {
-    console.log('Opening WhatsApp with:', { storePhone, storeName, itemCount });
-    
     if (!storePhone) {
       alert(`Sorry, ${storeName} doesn't have a WhatsApp number available.`);
       return;
@@ -107,16 +105,13 @@ export default function StoreOrderDetailsPage({ params }) {
     // Clean and format phone number
     const cleanPhone = storePhone.replace(/\s/g, '').replace(/^0/, '234');
     const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone.substring(1) : cleanPhone;
-    
-    console.log('Formatted phone:', formattedPhone);
-    
+
     const customerName = `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim();
     const message = formatWhatsAppMessage(storeName, order?.orderNumber, customerName, itemCount);
-    
+
     // Open WhatsApp
     const whatsappUrl = `https://wa.me/${formattedPhone}?text=${message}`;
-    console.log('WhatsApp URL:', whatsappUrl);
-    
+
     // Try to open in new window/tab
     const newWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     
@@ -269,13 +264,10 @@ export default function StoreOrderDetailsPage({ params }) {
 
   if (loading || !currentStore) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-brand-50/40">
         <div className="text-center">
-          <div 
-            className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-4 mb-4 mx-auto"
-            style={{ borderTopColor: primaryColor }}
-          ></div>
-          <p className="text-gray-600">Loading order details...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-brand-100 border-t-brand-700 mb-4 mx-auto"></div>
+          <p className="text-brand-800/60 text-sm">Loading order details…</p>
         </div>
       </div>
     );
@@ -283,20 +275,21 @@ export default function StoreOrderDetailsPage({ params }) {
 
   if (error || !order) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md">
-          <div className="text-8xl mb-4">📦</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">{error || 'Order Not Found'}</h2>
-          <p className="text-gray-600 mb-6">
-            We couldn't find the order you're looking for.
+      <div className="min-h-screen flex items-center justify-center bg-brand-50/40 px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-red-50 flex items-center justify-center">
+            <AlertCircle className="w-7 h-7 text-red-500" strokeWidth={1.5} />
+          </div>
+          <h2 className="font-display text-xl font-semibold text-gray-900 mb-2">{error || 'Order not found'}</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            We couldn&apos;t find the order you&apos;re looking for.
           </p>
           <button
             onClick={() => router.push(`/${resolvedParams.slug}`)}
-            className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: primaryColor }}
+            className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl text-sm font-semibold bg-brand-700 hover:bg-brand-800 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Store
+            <ArrowLeft className="w-4 h-4" />
+            Back to store
           </button>
         </div>
       </div>
@@ -312,27 +305,26 @@ export default function StoreOrderDetailsPage({ params }) {
       />
 
       {isConfirmingPayment && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl px-6 py-5 flex items-center gap-3 shadow-lg">
-            <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-            <span className="text-sm font-medium text-gray-900">Confirming payment...</span>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-brand-900/50 backdrop-blur-[2px]">
+          <div className="bg-white rounded-2xl px-7 py-6 flex items-center gap-3.5 shadow-xl shadow-brand-900/20">
+            <div className="w-5 h-5 border-[2.5px] border-brand-100 border-t-brand-700 rounded-full animate-spin" />
+            <span className="text-sm font-medium text-brand-900">Confirming payment…</span>
           </div>
         </div>
       )}
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        {/* Mobile-optimized Success Header */}
+        {/* Success Header -- Stora chrome: the order this page describes can
+            span several vendors (see Store Groups below), so this doesn't
+            tint by whichever single store's color happens to be loaded. */}
         <div className="text-center mb-6 sm:mb-8">
-          <div 
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4"
-            style={{ backgroundColor: `${primaryColor}20` }}
-          >
-            <CheckCircle className="w-8 h-8 sm:w-12 sm:h-12" style={{ color: primaryColor }} />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 bg-brand-100">
+            <CheckCircle className="w-8 h-8 sm:w-12 sm:h-12 text-brand-700" />
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
-            Order Details
+          <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-semibold text-gray-900 mb-2">
+            Order details
           </h1>
-          <p className="text-gray-600 text-base sm:text-lg px-4">
+          <p className="text-gray-500 text-base sm:text-lg px-4">
             Thank you for shopping with {currentStore?.storeName || 'us'}
           </p>
         </div>
@@ -341,7 +333,7 @@ export default function StoreOrderDetailsPage({ params }) {
         <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
           <div className="flex flex-col gap-3 sm:gap-4 mb-4">
             <div className="text-center sm:text-left">
-              <p className="text-xs sm:text-sm text-gray-500 mb-1">Order Number</p>
+              <p className="text-xs sm:text-sm text-gray-500 mb-1">Order number</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900">{order.orderNumber}</p>
             </div>
             <div className="flex justify-center sm:justify-end">
@@ -356,7 +348,7 @@ export default function StoreOrderDetailsPage({ params }) {
             <div className="flex items-center gap-3">
               <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               <div>
-                <p className="text-xs text-gray-500">Order Date</p>
+                <p className="text-xs text-gray-500">Order date</p>
                 <p className="text-sm font-medium text-gray-900">
                   {new Date(order.createdAt).toLocaleDateString()}
                 </p>
@@ -365,15 +357,15 @@ export default function StoreOrderDetailsPage({ params }) {
             <div className="flex items-center gap-3">
               <Package className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               <div>
-                <p className="text-xs text-gray-500">Total Items</p>
-                <p className="text-sm font-medium text-gray-900">{order.itemCount} items</p>
+                <p className="text-xs text-gray-500">Total items</p>
+                <p className="text-sm font-medium text-gray-900 tabular-nums">{order.itemCount} items</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               <div>
-                <p className="text-xs text-gray-500">Total Amount</p>
-                <p className="text-base sm:text-lg font-bold" style={{ color: primaryColor }}>
+                <p className="text-xs text-gray-500">Total amount</p>
+                <p className="text-base sm:text-lg font-bold text-brand-800 tabular-nums">
                   {formatPrice(order.totalAmount)}
                 </p>
               </div>
@@ -381,11 +373,11 @@ export default function StoreOrderDetailsPage({ params }) {
           </div>
         </div>
 
-        {/* Mobile-optimized Shipping Address */}
+        {/* Shipping Address */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
             <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
-            Delivery Address
+            Delivery address
           </h2>
           <div className="bg-gray-50 rounded-lg sm:rounded-xl p-3 sm:p-4">
             {order.shippingAddress ? (
@@ -417,10 +409,10 @@ export default function StoreOrderDetailsPage({ params }) {
 
         {/* Mobile-optimized Store Groups */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Orders Sent To:</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Sent to</h2>
           <div className="space-y-3 sm:space-y-4">
-            {order.stores?.map((storeGroup, idx) => (
-              <div key={idx} className="border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-md transition-shadow">
+            {order.stores?.map((storeGroup) => (
+              <div key={storeGroup.storeId} className="border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-sm transition-shadow">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900 text-base sm:text-lg">
@@ -483,21 +475,21 @@ export default function StoreOrderDetailsPage({ params }) {
 
         {/* Mobile-optimized Order Items */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Order Items</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Order items</h2>
           <div className="space-y-3 sm:space-y-4">
             {order.items?.map((item, idx) => (
               <div key={idx} className="flex gap-3 sm:gap-4 p-3 sm:p-4 border border-gray-100 rounded-lg sm:rounded-xl">
                 {/* Mobile: Smaller image */}
                 <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                   {item.productSnapshot?.image ? (
-                    <img 
-                      src={item.productSnapshot.image} 
+                    <img
+                      src={item.productSnapshot.image}
                       alt={item.productSnapshot.productName}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xl sm:text-2xl">
-                      📦
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Package className="w-6 h-6 sm:w-7 sm:h-7 text-gray-300" strokeWidth={1.5} />
                     </div>
                   )}
                 </div>
@@ -517,43 +509,43 @@ export default function StoreOrderDetailsPage({ params }) {
           </div>
         </div>
 
-        {/* Mobile-optimized Order Summary */}
+        {/* Order Summary -- ledger-receipt treatment, matching checkout */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Order Summary</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Order summary</h2>
           <div className="space-y-2 sm:space-y-3">
             <div className="flex justify-between text-gray-600 text-sm sm:text-base">
               <span>Subtotal</span>
-              <span className="font-semibold text-gray-900">{formatPrice(order.subtotal)}</span>
+              <span className="font-semibold text-gray-900 tabular-nums">{formatPrice(order.subtotal)}</span>
             </div>
             {order.discount > 0 && (
               <div className="flex justify-between text-gray-600 text-sm sm:text-base">
                 <span>Discount</span>
-                <span className="font-semibold text-red-600">-{formatPrice(order.discount)}</span>
+                <span className="font-semibold text-red-600 tabular-nums">-{formatPrice(order.discount)}</span>
               </div>
             )}
             {order.shippingFee > 0 && (
               <div className="flex justify-between text-gray-600 text-sm sm:text-base">
-                <span>Shipping Fee</span>
-                <span className="font-semibold text-gray-900">{formatPrice(order.shippingFee)}</span>
+                <span>Shipping fee</span>
+                <span className="font-semibold text-gray-900 tabular-nums">{formatPrice(order.shippingFee)}</span>
               </div>
             )}
-            <div className="border-t border-gray-200 pt-2 sm:pt-3 flex justify-between">
+            <div className="border-t border-dashed border-gray-200 pt-2 sm:pt-3 flex justify-between">
               <span className="text-base sm:text-lg font-bold text-gray-900">Total</span>
-              <span className="text-xl sm:text-2xl font-bold" style={{ color: primaryColor }}>
+              <span className="text-xl sm:text-2xl font-bold text-brand-800 tabular-nums">
                 {formatPrice(order.totalAmount)}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Mobile-optimized Payment Information */}
+        {/* Payment Information */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Payment Information</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Payment information</h3>
           <div className="space-y-3 sm:space-y-4">
             <div>
-              <p className="text-xs sm:text-sm text-gray-500">Payment Method</p>
+              <p className="text-xs sm:text-sm text-gray-500">Payment method</p>
               <p className="text-sm sm:text-base font-medium text-gray-900">
-                {order.payment?.method ? order.payment.method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Cash to Vendor'}
+                {order.payment?.method ? order.payment.method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Cash to vendor'}
               </p>
             </div>
             {order.payment?.transactionId && (
@@ -564,12 +556,12 @@ export default function StoreOrderDetailsPage({ params }) {
             )}
             {order.payment?.reference && (
               <div>
-                <p className="text-xs sm:text-sm text-gray-500">Payment Reference</p>
+                <p className="text-xs sm:text-sm text-gray-500">Payment reference</p>
                 <p className="text-sm sm:text-base font-medium text-gray-900 break-all">{order.payment.reference}</p>
               </div>
             )}
             <div>
-              <p className="text-xs sm:text-sm text-gray-500">Payment Status</p>
+              <p className="text-xs sm:text-sm text-gray-500">Payment status</p>
               <p className="text-sm sm:text-base font-medium text-gray-900">
                 {order.payment?.status ?
                   order.payment.status.charAt(0).toUpperCase() + order.payment.status.slice(1) :
@@ -590,11 +582,10 @@ export default function StoreOrderDetailsPage({ params }) {
               <button
                 onClick={handlePayNow}
                 disabled={isPayingNow}
-                className="w-full py-3 sm:py-4 text-white rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
-                style={{ backgroundColor: primaryColor }}
+                className="w-full py-3 sm:py-4 text-white rounded-xl font-semibold bg-brand-700 hover:bg-brand-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
-                {isPayingNow ? "Starting payment..." : "Complete Payment"}
+                {isPayingNow ? "Starting payment…" : "Complete payment"}
               </button>
               <p className="text-xs text-gray-500 text-center mt-2">
                 This order is still waiting on payment. Complete it now to confirm your order.
@@ -603,44 +594,43 @@ export default function StoreOrderDetailsPage({ params }) {
           )}
         </div>
 
-        {/* Mobile-optimized Action Buttons */}
+        {/* Action Buttons */}
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
           <button
             onClick={() => router.push(`/${resolvedParams.slug}`)}
-            className="flex-1 py-3 sm:py-4 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
+            className="flex-1 py-3 sm:py-4 border border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
           >
             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-            Back to Store
+            Back to store
           </button>
-          
+
           {/* Contact All Vendors Button - Mobile: full width if multiple stores */}
           {order.stores?.length > 1 && (
             <button
               onClick={handleContactAllVendors}
-              className="flex-1 py-3 sm:py-4 text-white rounded-xl font-semibold hover:opacity-90 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
+              className="flex-1 py-3 sm:py-4 text-white rounded-xl font-semibold hover:brightness-95 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
               style={{ backgroundColor: '#25D366' }}
             >
               <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">Contact All Vendors</span>
-              <span className="sm:hidden">Contact All</span>
+              <span className="hidden sm:inline">Contact all vendors</span>
+              <span className="sm:hidden">Contact all</span>
             </button>
           )}
-          
+
           <button
             onClick={() => router.push(`/${resolvedParams.slug}/orders`)}
-            className="flex-1 py-3 sm:py-4 text-white rounded-xl font-semibold hover:opacity-90 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
-            style={{ backgroundColor: primaryColor }}
+            className="flex-1 py-3 sm:py-4 text-white rounded-xl font-semibold bg-brand-700 hover:bg-brand-800 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
           >
             <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="hidden sm:inline">View All Orders</span>
-            <span className="sm:hidden">All Orders</span>
+            <span className="hidden sm:inline">View all orders</span>
+            <span className="sm:hidden">All orders</span>
           </button>
         </div>
 
-        {/* Mobile-optimized Additional Info */}
-        <div className="mt-6 sm:mt-8 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-xl">
-          <p className="text-xs sm:text-sm text-blue-800">
-            <strong>Note:</strong> You will receive order confirmations via WhatsApp from each store. 
+        {/* Additional Info */}
+        <div className="mt-6 sm:mt-8 p-3 sm:p-4 bg-gold-400/10 border border-gold-500/25 rounded-xl">
+          <p className="text-xs sm:text-sm text-brand-900/80">
+            <strong className="text-gold-700">Note:</strong> You&apos;ll receive order confirmations via WhatsApp from each store.
             If you have any questions about your order, please contact the respective store directly using the message buttons above.
           </p>
         </div>
@@ -651,7 +641,6 @@ export default function StoreOrderDetailsPage({ params }) {
         isOpen={showWhatsAppModal}
         onClose={() => setShowWhatsAppModal(false)}
         order={order}
-        primaryColor={primaryColor}
         formatPrice={formatPrice}
         openWhatsApp={openWhatsApp}
       />

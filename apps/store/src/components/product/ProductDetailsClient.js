@@ -354,7 +354,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
         const clothing = initialProduct.clothingDetails;
         return (
           <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Shirt className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
               Clothing Specifications
             </h3>
@@ -390,7 +390,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
         const shoes = initialProduct.shoesDetails;
         return (
           <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Footprints className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
               Shoe Specifications
             </h3>
@@ -420,7 +420,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const clothing = details.clothing;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Shirt className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Clothing Specifications
           </h3>
@@ -456,7 +456,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const shoes = details.shoes;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Footprints className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Shoe Specifications
           </h3>
@@ -483,7 +483,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const acc = details.accessories;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Watch className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Accessory Specifications
           </h3>
@@ -504,7 +504,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const perfume = details.perfume;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Droplets className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Perfume Specifications
           </h3>
@@ -527,7 +527,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const food = details.food;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <UtensilsCrossed className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Food Information
           </h3>
@@ -560,7 +560,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const bev = details.beverages;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Coffee className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Beverage Specifications
           </h3>
@@ -588,7 +588,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const elec = details.electronics;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Smartphone className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Electronics Specifications
           </h3>
@@ -622,7 +622,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const book = details.books;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Book Information
           </h3>
@@ -649,7 +649,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const home = details.homeGarden;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Home className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Home & Garden Specifications
           </h3>
@@ -682,7 +682,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const sport = details.sports;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Sports Specifications
           </h3>
@@ -711,7 +711,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const auto = details.automotive;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Car className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Automotive Specifications
           </h3>
@@ -748,7 +748,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       const health = details.healthBeauty;
       return (
         <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: primaryColor }} />
             Health & Beauty Specifications
           </h3>
@@ -794,7 +794,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-10 shadow-sm">
+      <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <button
@@ -802,17 +802,17 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                 setIsNavigating(true);
                 router.push(`/${slug}`);
               }}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors group"
+              className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors group text-sm"
             >
-              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               <span className="font-medium">Back to {store?.storeName || 'Store'}</span>
             </button>
-            
+
             {store?.branding?.logo && (
-              <img 
-                src={store.branding.logo} 
-                alt={store.storeName} 
-                className="h-6 sm:h-8 w-auto object-contain opacity-60" 
+              <img
+                src={store.branding.logo}
+                alt={store.storeName}
+                className="h-6 sm:h-8 w-auto object-contain opacity-60"
               />
             )}
           </div>
@@ -821,7 +821,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
       {/* Product Details */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 lg:py-12">
-        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-[0_1px_3px_rgba(11,59,46,0.06)] border border-gray-100 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
             
             {/* Image Section */}
@@ -876,20 +876,20 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
-                      <span className="text-6xl sm:text-8xl mb-2 sm:mb-4 block">📦</span>
-                      <p className="text-gray-500 text-xs sm:text-sm">No image available</p>
+                      <Package className="w-14 h-14 sm:w-20 sm:h-20 text-gray-300 mx-auto mb-2 sm:mb-3" strokeWidth={1.5} />
+                      <p className="text-gray-400 text-xs sm:text-sm">No image available</p>
                     </div>
                   </div>
                 )}
 
                 {/* Stock badges */}
                 {isOutOfStock && (
-                  <div className="absolute top-3 sm:top-6 left-3 sm:left-6 bg-red-600 text-white text-xs sm:text-sm font-semibold px-2 sm:px-4 py-1 sm:py-2 rounded-full shadow-lg backdrop-blur-sm">
-                    Out of Stock
+                  <div className="absolute top-3 sm:top-6 left-3 sm:left-6 bg-red-600 text-white text-xs sm:text-sm font-semibold px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full shadow-sm">
+                    Out of stock
                   </div>
                 )}
                 {isLowStock && !isOutOfStock && (
-                  <div className="absolute top-3 sm:top-6 left-3 sm:left-6 bg-yellow-500 text-white text-xs sm:text-sm font-semibold px-2 sm:px-4 py-1 sm:py-2 rounded-full shadow-lg backdrop-blur-sm">
+                  <div className="absolute top-3 sm:top-6 left-3 sm:left-6 bg-gold-600 text-white text-xs sm:text-sm font-semibold px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full shadow-sm">
                     Only {maxQuantity} left
                   </div>
                 )}
@@ -984,15 +984,15 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             {/* Product Information */}
             <div className="p-4 sm:p-8 lg:p-12 flex flex-col">
               <div className="mb-6 sm:mb-8">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full text-xs font-medium text-gray-700 mb-3 sm:mb-4">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-[11px] font-medium text-gray-600 mb-3 sm:mb-4 uppercase tracking-wide">
                   <Tag className="w-3 h-3" />
                   {initialProduct.category}
                 </div>
-                
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight">
+
+                <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-semibold text-gray-900 mb-2 sm:mb-3 leading-tight tracking-tight">
                   {initialProduct.productName}
                 </h1>
-                
+
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                   <span>SKU: <span className="font-mono font-medium text-gray-700">{initialProduct.sku || 'N/A'}</span></span>
                   {initialProduct.brand && (
@@ -1007,7 +1007,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
               <div className="mb-6 sm:mb-8 pb-6 sm:pb-8 border-b border-gray-100">
                 <p className="text-sm text-gray-500 mb-2">Price</p>
                 <div className="flex items-baseline gap-3">
-                  <p className="text-3xl sm:text-4xl lg:text-5xl font-bold" style={{ color: primaryColor }}>
+                  <p className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold tabular-nums" style={{ color: primaryColor }}>
                     {formatPrice(initialProduct.sellingPrice)}
                   </p>
                 </div>
@@ -1015,7 +1015,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
               {initialProduct.description && (
                 <div className="mb-6 sm:mb-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Description</h3>
+                  <h3 className="text-base font-semibold text-gray-900 mb-3">Description</h3>
                   <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
                     {initialProduct.description}
                   </p>
@@ -1027,43 +1027,43 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
               {/* Quantity Selection - Only for non-variant products */}
               {!initialProduct.hasVariants && (
                 <div className="mb-6 sm:mb-8">
-                  <label className="text-lg font-semibold text-gray-900 mb-3 sm:mb-4 block">
-                    Select Quantity
+                  <label className="text-sm font-semibold text-gray-900 mb-3 block">
+                    Quantity
                   </label>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                    <div className="flex items-center bg-gray-50 border-2 border-gray-200 rounded-xl sm:rounded-2xl overflow-hidden hover:border-gray-300 transition-colors">
+                    <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
                       <button
                         onClick={() => handleQuantityChange(quantity - 1)}
                         disabled={quantity <= 1 || isOutOfStock}
-                        className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="px-4 sm:px-5 py-2.5 sm:py-3 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                       >
-                        <Minus className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
+                        <Minus className="w-4 h-4 text-gray-600" />
                       </button>
                       <input
                         type="number"
                         value={quantity}
                         onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
                         disabled={isOutOfStock}
-                        className="w-16 sm:w-20 text-center text-lg sm:text-xl font-bold text-gray-900 bg-transparent focus:outline-none"
+                        className="w-14 sm:w-16 text-center text-base sm:text-lg font-semibold text-gray-900 bg-transparent focus:outline-none tabular-nums"
                         min="1"
                         max={maxQuantity}
                       />
                       <button
                         onClick={() => handleQuantityChange(quantity + 1)}
                         disabled={quantity >= maxQuantity || isOutOfStock}
-                        className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="px-4 sm:px-5 py-2.5 sm:py-3 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                       >
-                        <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
+                        <Plus className="w-4 h-4 text-gray-600" />
                       </button>
                     </div>
                     {shouldShowStock && (
-                      <p className="text-sm text-gray-600">
-                        <span className="font-semibold text-gray-900">{maxQuantity}</span> items available
+                      <p className="text-sm text-gray-500">
+                        <span className="font-semibold text-gray-900 tabular-nums">{maxQuantity}</span> available
                       </p>
                     )}
                     {!shouldShowStock && maxQuantity > 0 && (
-                      <p className="text-sm text-green-600 font-medium">
-                        In Stock
+                      <p className="text-sm text-brand-700 font-medium">
+                        In stock
                       </p>
                     )}
                   </div>
@@ -1072,14 +1072,14 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
               {/* Total Price and Add to Cart */}
               {!initialProduct.hasVariants && (
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-gray-600 text-base sm:text-lg">Total Price</span>
-                    <span className="text-2xl sm:text-3xl font-bold text-gray-900">
+                <div className="bg-brand-50/60 border border-brand-100/70 rounded-xl p-4 sm:p-5 mb-6 sm:mb-8">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-gray-600 text-sm">Total</span>
+                    <span className="text-xl sm:text-2xl font-bold text-brand-800 tabular-nums">
                       {formatPrice(totalPrice)}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs text-gray-500">
                     {quantity} {quantity === 1 ? 'item' : 'items'} × {formatPrice(initialProduct.sellingPrice)}
                   </p>
                 </div>
@@ -1089,32 +1089,32 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                 <button
                   onClick={handleAddToCart}
                   disabled={!initialProduct.hasVariants && (isOutOfStock || isAddingToCart)}
-                  className="w-full py-4 sm:py-5 px-6 rounded-xl sm:rounded-2xl text-white text-base sm:text-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                  className="w-full py-3.5 sm:py-4 px-6 rounded-xl text-white text-base font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 hover:brightness-95 shadow-sm"
                   style={{ backgroundColor: primaryColor }}
                 >
                   {isAddingToCart ? (
                     <>
-                      <svg className="animate-spin h-5 w-5 sm:h-6 sm:w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Adding...
+                      Adding…
                     </>
                   ) : isOutOfStock && !initialProduct.hasVariants ? (
-                    'Out of Stock'
+                    'Out of stock'
                   ) : (
                     <>
-                      <ShoppingCart className="w-5 h-5 sm:w-6 sm:w-6" />
-                      {initialProduct.hasVariants ? 'Add to Cart' : 'Add to Cart'}
+                      <ShoppingCart className="w-5 h-5" />
+                      Add to cart
                     </>
                   )}
                 </button>
 
                 <button
                   onClick={() => router.push(`/${slug}`)}
-                  className="w-full py-4 sm:py-5 px-6 border-2 border-gray-200 rounded-xl sm:rounded-2xl text-gray-700 text-base sm:text-lg font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all"
+                  className="w-full py-3.5 sm:py-4 px-6 border border-gray-200 rounded-xl text-gray-700 text-base font-semibold hover:bg-gray-50 transition-colors"
                 >
-                  Continue Shopping
+                  Continue shopping
                 </button>
               </div>
             </div>
@@ -1122,8 +1122,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
         </div>
 
         {(initialProduct.supplier || initialProduct.notes) && (
-          <div className="mt-6 sm:mt-8 bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 p-4 sm:p-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Additional Information</h2>
+          <div className="mt-6 sm:mt-8 bg-white rounded-2xl sm:rounded-3xl shadow-[0_1px_3px_rgba(11,59,46,0.06)] border border-gray-100 p-4 sm:p-8">
+            <h2 className="font-display text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Additional information</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {initialProduct.supplier && (
                 <div>
@@ -1159,10 +1159,10 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
       {/* Sign In Prompt Modal - Keep this */}
       {showSignInPrompt && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="bg-white rounded-xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 mx-4">
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(8, 42, 32, 0.5)' }}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Sign In Required</h3>
+              <h3 className="font-display text-lg font-semibold text-gray-900">Sign in required</h3>
               <button
                 onClick={() => setShowSignInPrompt(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -1170,8 +1170,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-              Please sign in to add items to your cart and complete your purchase.
+            <p className="text-sm text-gray-600 mb-5">
+              Sign in to add items to your cart and complete your purchase.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
@@ -1179,14 +1179,14 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                   setShowSignInPrompt(false);
                   setShowSignInModal(true);
                 }}
-                className="w-full py-3 rounded-xl text-white font-semibold transition-all"
+                className="w-full py-3 rounded-xl text-white font-semibold transition-colors"
                 style={{ backgroundColor: primaryColor }}
               >
-                Sign In
+                Sign in
               </button>
               <button
                 onClick={() => setShowSignInPrompt(false)}
-                className="w-full py-3 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all"
+                className="w-full py-3 border border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>

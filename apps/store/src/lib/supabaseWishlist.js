@@ -251,18 +251,17 @@ async function updateWishlistTotals(wishlistId) {
 export async function prepareWishlistItemData(productId, options = {}) {
   const { priority = 'medium', notes = '', priceDropAlert = true, backInStockAlert = true, targetPrice = null } = options;
 
-  // Get product details directly from inventory (not transformed)
-  const { data: product, error } = await supabaseAdmin
-    .from('inventory')
-    .select('*')
-    .eq('id', productId)
-    .single();
+  // Uses the transformed product shape (findInventoryById), not a raw
+  // `inventory` row -- price/stock now live on inventory_variants, and
+  // this used to read inventory.base_price directly, a column that's no
+  // longer authoritative (or written to) at all.
+  const product = await findInventoryById(productId);
 
-  if (error || !product) {
+  if (!product) {
     throw new Error('Product not found');
   }
 
-  if (!product.is_active) {
+  if (!product.isActive) {
     throw new Error('Product is not available');
   }
 
@@ -270,7 +269,7 @@ export async function prepareWishlistItemData(productId, options = {}) {
   const { data: store } = await supabaseAdmin
     .from('stores')
     .select('id, store_name, store_slug')
-    .eq('id', product.store_id)
+    .eq('id', product.storeId)
     .single();
 
   if (!store) {
@@ -286,10 +285,10 @@ export async function prepareWishlistItemData(productId, options = {}) {
     back_in_stock_alert: backInStockAlert,
     target_price: targetPrice,
     product_snapshot: {
-      name: product.name,
+      name: product.productName,
       description: product.description,
-      base_price: product.base_price,
-      primary_image: product.primary_image,
+      base_price: product.sellingPrice,
+      primary_image: product.image,
       category: product.category,
       sku: product.sku
     },
@@ -320,21 +319,27 @@ export async function enrichWishlistWithProductData(wishlist) {
           };
         }
 
-        const currentPrice = product.base_price;
+        // product is the transformed shape (findInventoryById) -- reads
+        // product.base_price/.stock_quantity here (fields that don't
+        // exist on it, only on a raw DB row) always evaluated to
+        // undefined, so price_changed/in_stock were silently wrong for
+        // every wishlist item before this fix, independent of the
+        // variant migration.
+        const currentPrice = product.sellingPrice;
         const priceChanged = parseFloat(currentPrice) !== parseFloat(item.product_snapshot?.base_price || 0);
 
         return {
           ...item,
           product_data: {
-            name: product.name,
+            name: product.productName,
             base_price: currentPrice,
-            primary_image: product.primary_image,
+            primary_image: product.image,
             category: product.category,
-            is_active: product.is_active,
-            stock_quantity: product.stock_quantity
+            is_active: product.isActive,
+            stock_quantity: product.availableQuantity
           },
-          is_available: product.is_active,
-          in_stock: (product.stock_quantity || 0) > 0,
+          is_available: product.isActive,
+          in_stock: (product.availableQuantity || 0) > 0,
           price_changed: priceChanged,
           current_price: currentPrice
         };

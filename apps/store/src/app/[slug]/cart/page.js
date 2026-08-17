@@ -12,15 +12,12 @@ import {
   CheckCircle,
   AlertCircle,
   MessageCircle,
-  Phone,
   Store,
-  Clock,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
-import CustomDropdown from "@/components/ui/CustomDropdown";
 import useStoreStore from "@/stores/storeStore";
 import WhatsAppContactModal from "@/components/orders/WhatsAppContactModal";
 import OrderModal from "@/components/cart/OrderModal";
@@ -38,7 +35,7 @@ export default function StoreCartPage({ params }) {
     updateQuantity,
     getCartTotal,
     getCartCount,
-    clearCart,
+    refreshCart,
   } = useCart();
 
   // Get store from Zustand store
@@ -49,18 +46,8 @@ export default function StoreCartPage({ params }) {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [updatingItemId, setUpdatingItemId] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
   const [orderError, setOrderError] = useState(null);
-  const [shippingAddress, setShippingAddress] = useState({
-    phone: "",
-    street: "",
-    city: "",
-    state: "",
-    landmark: "", // Optional landmark for easier delivery
-  });
-  const [isValidatingWhatsApp, setIsValidatingWhatsApp] = useState(false);
-  const [whatsAppValidated, setWhatsAppValidated] = useState(false);
 
   // New state for WhatsApp contact modal
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
@@ -110,52 +97,6 @@ export default function StoreCartPage({ params }) {
     }
   }, [resolvedParams.slug, currentStore, fetchStore]);
 
-  // Nigerian states array
-  const nigerianStates = [
-    "Abia",
-    "Adamawa",
-    "Akwa Ibom",
-    "Anambra",
-    "Bauchi",
-    "Bayelsa",
-    "Benue",
-    "Borno",
-    "Cross River",
-    "Delta",
-    "Ebonyi",
-    "Edo",
-    "Ekiti",
-    "Enugu",
-    "FCT",
-    "Gombe",
-    "Imo",
-    "Jigawa",
-    "Kaduna",
-    "Kano",
-    "Katsina",
-    "Kebbi",
-    "Kogi",
-    "Kwara",
-    "Lagos",
-    "Nasarawa",
-    "Niger",
-    "Ogun",
-    "Ondo",
-    "Osun",
-    "Oyo",
-    "Plateau",
-    "Rivers",
-    "Sokoto",
-    "Taraba",
-    "Yobe",
-    "Zamfara",
-  ];
-
-  const stateOptions = nigerianStates.map((state) => ({
-    value: state,
-    label: state,
-  }));
-
   // Redirect if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -171,13 +112,10 @@ export default function StoreCartPage({ params }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-brand-50/40">
         <div className="text-center">
-          <div
-            className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-4 mb-4"
-            style={{ borderTopColor: primaryColor }}
-          ></div>
-          <p className="text-gray-600">Loading your cart...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-[3px] border-brand-100 border-t-brand-700 mb-4"></div>
+          <p className="text-brand-800/70 text-sm font-medium">Loading your cart…</p>
         </div>
       </div>
     );
@@ -185,38 +123,38 @@ export default function StoreCartPage({ params }) {
 
   if (!cart || cart.items?.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-brand-50/40">
         {/* Header */}
-        <div className="bg-white border-b border-gray-100">
+        <div className="bg-white border-b border-brand-100/70">
           <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4">
             <button
               onClick={() => router.push(`/${resolvedParams.slug}`)}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-brand-800/70 hover:text-brand-800 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Continue Shopping</span>
+              <span className="font-medium text-sm">Continue Shopping</span>
             </button>
           </div>
         </div>
 
-        {/* Empty Cart */}
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
-          <div className="text-center max-w-md mx-auto">
-            <div className="text-8xl mb-6">🛒</div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Your Cart is Empty
+        {/* Empty Cart -- Stora chrome, not vendor-colored: this is the
+            platform speaking, not a specific seller's product content. */}
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-20 md:py-28">
+          <div className="text-center max-w-sm mx-auto">
+            <div className="w-20 h-20 mx-auto mb-7 rounded-2xl bg-brand-100/70 flex items-center justify-center">
+              <ShoppingBag className="w-9 h-9 text-brand-700" strokeWidth={1.5} />
+            </div>
+            <h2 className="font-display text-2xl md:text-[28px] font-semibold text-brand-900 mb-2.5 tracking-tight">
+              Your cart is empty
             </h2>
-            <p className="text-gray-600 mb-8">
-              Looks like you haven't added anything to your cart yet. Start
-              shopping to fill it up!
+            <p className="text-brand-800/60 text-[15px] leading-relaxed mb-8">
+              Nothing here yet — find something you like and it&apos;ll show up in this cart.
             </p>
             <button
               onClick={() => router.push(`/${resolvedParams.slug}`)}
-              className="inline-flex items-center gap-2 px-8 py-4 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: primaryColor }}
+              className="inline-flex items-center gap-2 px-7 py-3.5 text-white rounded-xl font-semibold text-sm bg-brand-700 hover:bg-brand-800 transition-colors shadow-sm shadow-brand-900/10"
             >
-              <ShoppingBag className="w-5 h-5" />
-              Start Shopping
+              Start shopping
             </button>
           </div>
         </div>
@@ -290,57 +228,9 @@ export default function StoreCartPage({ params }) {
     }, 1000);
   };
 
-  const handleShippingAddressChange = (e) => {
-    const { name, value } = e.target;
-    setShippingAddress((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    if (name === "phone") {
-      setWhatsAppValidated(false);
-    }
-  };
-
-  const validateWhatsAppNumber = async () => {
-    if (!shippingAddress.phone || shippingAddress.phone.trim() === "") {
-      setOrderError("Please enter a phone number");
-      return;
-    }
-
-    setIsValidatingWhatsApp(true);
-    setOrderError(null);
-
-    try {
-      const formattedPhone = shippingAddress.phone.replace(/\s/g, "");
-      const nigerianPhoneRegex = /^(\+234|0)[789]\d{9}$/;
-
-      if (!nigerianPhoneRegex.test(formattedPhone)) {
-        setOrderError(
-          "Please enter a valid Nigerian phone number (e.g., 08012345678 or +2348012345678)"
-        );
-        setIsValidatingWhatsApp(false);
-        return;
-      }
-
-      setWhatsAppValidated(true);
-      setOrderError(null);
-    } catch (error) {
-      setOrderError("Failed to validate phone number");
-    } finally {
-      setIsValidatingWhatsApp(false);
-    }
-  };
-
+  // OrderModal owns its own form state (including WhatsApp validation) and
+  // resets it fresh on every mount -- this just needs to open it.
   const handlePlaceOrder = () => {
-    setShippingAddress({
-      phone: customer?.phone || "",
-      street: "",
-      city: "",
-      state: "",
-      landmark: "",
-    });
-    setWhatsAppValidated(false);
     setShowOrderModal(true);
     setOrderError(null);
   };
@@ -475,26 +365,11 @@ export default function StoreCartPage({ params }) {
     });
   };
 
-  const handleConfirmOrder = async () => {
-    // Validate all required fields
-    if (
-      !shippingAddress.phone ||
-      !shippingAddress.street ||
-      !shippingAddress.city ||
-      !shippingAddress.state
-    ) {
-      setOrderError(
-        "Please provide complete delivery address (phone, street address, city, and state)"
-      );
-      return;
-    }
-
-    if (!whatsAppValidated) {
-      setOrderError("Please validate your WhatsApp number first");
-      return;
-    }
-
-    setIsPlacingOrder(true);
+  // Whole-cart checkout, now routed through the same OrderModal component
+  // as per-store checkout (handleStoreConfirmOrder below) instead of a
+  // second, near-identical form living inline in this file -- formData is
+  // OrderModal's own validated state, same shape both callers receive.
+  const handleConfirmOrder = async (formData) => {
     setOrderError(null);
 
     // Wait for Paystack's script before creating the order at all -- every
@@ -503,84 +378,83 @@ export default function StoreCartPage({ params }) {
     // is created, the cart is cleared, and the vendor already notified.
     const paystackOk = await waitForPaystackReady();
     if (!paystackOk) {
-      setOrderError(
+      throw new Error(
         "Payment isn't ready yet -- please check your connection and try again in a moment"
       );
-      setIsPlacingOrder(false);
-      return;
     }
 
-    try {
-      const response = await fetch("/api/orders/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    const response = await fetch("/api/orders/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        cartId: cart._id,
+        shippingAddress: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          street: formData.street,
+          city: formData.city,
+          state: formData.state,
+          country: "Nigeria",
+          landmark: formData.landmark || "",
         },
-        credentials: "include",
-        body: JSON.stringify({
-          cartId: cart._id,
-          shippingAddress: {
-            firstName: customer.firstName,
-            lastName: customer.lastName,
-            email: customer.email,
-            phone: shippingAddress.phone,
-            street: shippingAddress.street,
-            city: shippingAddress.city,
-            state: shippingAddress.state,
-            country: "Nigeria",
-            landmark: shippingAddress.landmark || "", // Optional landmark
-          },
-          customerNotes: "",
-          paymentMethod: "paystack",
-        }),
-      });
+        customerNotes: "",
+        paymentMethod: "paystack",
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (response.ok && data.success) {
-        await clearCart();
-        setShowOrderModal(false);
+    if (response.ok && data.success) {
+      // Cart clearing now happens server-side in orders/create, scoped
+      // to what's actually settled (contact-only items now, paid items
+      // only once payment confirms) -- a blanket clearCart() call here
+      // would wipe out items still awaiting payment before they'd even
+      // had a chance to be charged.
+      await refreshCart();
+      setShowOrderModal(false);
 
-        if (data.paymentSplitError) {
-          setOrderError(data.paymentSplitError);
-        }
-
-        // Real Paystack payment for whichever vendors in this cart have a
-        // subaccount configured -- if none do (or paymentMethod wasn't
-        // paystack at all), paymentRequired is false and this is a no-op.
-        // A cancelled or failed payment stops here rather than falling
-        // through to the WhatsApp-contact step below: the order and its
-        // reservation still exist either way, so the customer can retry
-        // paying from the order page rather than this juggling both a
-        // half-completed payment and a WhatsApp handoff in one flow.
-        if (data.paymentRequired) {
-          const paymentResult = await triggerPaystackPayment(data.order.id);
-          if (!paymentResult.success) {
-            return;
-          }
-        }
-
-        const contactOnlyStores = data.contactOnlyStores || [];
-        if (contactOnlyStores.length > 0) {
-          // Vendors with no Paystack subaccount yet -- same WhatsApp-contact
-          // fallback as before, just scoped to only these stores instead
-          // of the whole cart.
-          setOrderNumber(data.order.orderNumber);
-          setOrderStores(contactOnlyStores);
-          setShowWhatsAppModal(true);
-        } else {
-          router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
-        }
-      } else {
-        setOrderError(data.message || "Failed to place order");
+      if (data.paymentSplitError) {
+        setOrderError(data.paymentSplitError);
       }
-    } catch (error) {
-      console.error("Error placing order:", error);
-      setOrderError(
-        "An error occurred while placing your order. Please try again."
-      );
-    } finally {
-      setIsPlacingOrder(false);
+
+      // Real Paystack payment for whichever vendors in this cart have a
+      // subaccount configured -- if none do (or paymentMethod wasn't
+      // paystack at all), paymentRequired is false and this is a no-op.
+      // A cancelled or failed payment stops here rather than falling
+      // through to the WhatsApp-contact step below: the order and its
+      // reservation still exist either way, so the customer can retry
+      // paying from the order page (its "Pay Now" button) rather than
+      // this juggling both a half-completed payment and a WhatsApp
+      // handoff in one flow. The cart was already cleared above, so
+      // there's nothing left to resume here regardless of why it
+      // failed -- staying on this (now-empty) page with no path forward
+      // was the actual bug, not the failure itself.
+      if (data.paymentRequired) {
+        const paymentResult = await triggerPaystackPayment(data.order.id);
+        if (!paymentResult.success) {
+          router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
+          return;
+        }
+      }
+
+      const contactOnlyStores = data.contactOnlyStores || [];
+      if (contactOnlyStores.length > 0) {
+        // Vendors with no Paystack subaccount yet -- same WhatsApp-contact
+        // fallback as before, just scoped to only these stores instead
+        // of the whole cart.
+        setOrderNumber(data.order.orderNumber);
+        setOrderStores(contactOnlyStores);
+        setShowWhatsAppModal(true);
+      } else {
+        router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
+      }
+    } else {
+      throw new Error(data.message || "Failed to place order");
     }
   };
 
@@ -658,17 +532,23 @@ export default function StoreCartPage({ params }) {
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        await clearCart();
+        // See handleConfirmOrder's identical comment -- cart clearing is
+        // server-side and payment-status-aware now, not a blanket call
+        // from here.
+        await refreshCart();
         setShowStoreOrderModal(false);
         setSelectedStoreGroup(null);
 
         // A cancelled/failed payment leaves the order exactly as created
-        // (unpaid, reservation intact) -- close this modal and stop here
-        // rather than throw, since OrderModal's error UI is meant for
-        // checkout-creation failures, not a user backing out of paying.
+        // (unpaid, reservation intact) -- close this modal rather than
+        // throw (OrderModal's error UI is meant for checkout-creation
+        // failures, not a user backing out of paying), then send them to
+        // the order page's "Pay Now" retry instead of leaving them on the
+        // now-emptied cart with no path forward.
         if (data.paymentRequired) {
           const paymentResult = await triggerPaystackPayment(data.order.id);
           if (!paymentResult.success) {
+            router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
             return;
           }
         }
@@ -699,10 +579,10 @@ export default function StoreCartPage({ params }) {
       />
 
       {isConfirmingPayment && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl px-6 py-5 flex items-center gap-3 shadow-lg">
-            <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-            <span className="text-sm font-medium text-gray-900">Confirming payment...</span>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-brand-900/50 backdrop-blur-[2px]">
+          <div className="bg-white rounded-2xl px-7 py-6 flex items-center gap-3.5 shadow-xl shadow-brand-900/20">
+            <div className="w-5 h-5 border-[2.5px] border-brand-100 border-t-brand-700 rounded-full animate-spin" />
+            <span className="text-sm font-medium text-brand-900">Confirming payment…</span>
           </div>
         </div>
       )}
@@ -717,21 +597,21 @@ export default function StoreCartPage({ params }) {
           when the whole-cart flow is the one that set this. */}
       {orderError && !showOrderModal && (
         <div className="fixed top-4 inset-x-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-md z-[70]">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 shadow-lg flex items-start gap-2">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 shadow-lg shadow-black/5 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-            <p className="text-red-600 text-sm">{orderError}</p>
+            <p className="text-red-700 text-sm">{orderError}</p>
           </div>
         </div>
       )}
 
       {/* Header - Mobile Optimized */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-10 shadow-sm">
+      <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push(`/${resolvedParams.slug}`)}
-                className="flex items-center gap-1 md:gap-2 text-gray-600 hover:text-gray-900 transition-colors group"
+                className="flex items-center gap-1 md:gap-2 text-gray-500 hover:text-brand-800 transition-colors group"
               >
                 <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 group-hover:-translate-x-1 transition-transform" />
                 <span className="font-medium text-sm md:text-base truncate max-w-[120px] md:max-w-none">
@@ -745,9 +625,9 @@ export default function StoreCartPage({ params }) {
                 </>
               )}
             </div>
-            <div className="flex items-center gap-1 md:gap-2">
-              <ShoppingBag className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
-              <span className="font-semibold text-gray-900 text-sm md:text-base">
+            <div className="flex items-center gap-1.5 md:gap-2 text-brand-800">
+              <ShoppingBag className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="font-semibold text-sm md:text-base tabular-nums">
                 {getCartCount()}
               </span>
             </div>
@@ -756,9 +636,10 @@ export default function StoreCartPage({ params }) {
       </div>
 
       {/* Main Content - Mobile Optimized */}
-      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4 md:py-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4 md:mb-8">
-          YOUR CART
+      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 md:py-10">
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-brand-600 mb-1.5">Checkout</p>
+        <h1 className="font-display text-[26px] md:text-[34px] font-semibold text-brand-900 tracking-tight mb-6 md:mb-9">
+          Your cart
         </h1>
 
         <div className="grid lg:grid-cols-3 gap-4 md:gap-8">
@@ -767,16 +648,20 @@ export default function StoreCartPage({ params }) {
             {storeGroups.map((storeGroup, idx) => (
               <div
                 key={idx}
-                className="relative bg-white rounded-xl md:rounded-2xl border border-gray-100 overflow-hidden flex flex-col"
+                className="relative bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col shadow-[0_1px_2px_rgba(11,59,46,0.04)]"
               >
-                {/* Store Header */}
+                {/* Store Header -- vendor-colored (a 3px accent rule, not a
+                    full-bleed tint): this names whose products these are,
+                    genuinely vendor content, so it stays in their color
+                    rather than Stora's chrome. */}
                 {storeGroup.storeSnapshot && (
                   <div
-                    className="px-3 md:px-6 py-2 md:py-3 border-b border-gray-100"
-                    style={{ backgroundColor: `${primaryColor}10` }}
+                    className="px-4 md:px-6 py-2.5 md:py-3 border-b border-gray-100 border-l-[3px] flex items-center gap-2"
+                    style={{ borderLeftColor: primaryColor }}
                   >
-                    <p className="font-semibold text-gray-900 text-sm md:text-base truncate">
-                      From: {storeGroup.storeSnapshot.store_name || storeGroup.storeSnapshot.storeName}
+                    <Store className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    <p className="font-medium text-gray-700 text-xs md:text-sm truncate">
+                      {storeGroup.storeSnapshot.store_name || storeGroup.storeSnapshot.storeName}
                     </p>
                   </div>
                 )}
@@ -796,8 +681,7 @@ export default function StoreCartPage({ params }) {
                             <div
                               className={`${
                                 isMobile ? "w-20 h-20" : "w-32 h-32"
-                              } rounded-lg md:rounded-xl overflow-hidden relative`}
-                              style={{ backgroundColor: secondaryColor }}
+                              } rounded-xl overflow-hidden relative bg-gray-50 border border-gray-100`}
                             >
                               {itemImage ? (
                                 <img
@@ -806,17 +690,13 @@ export default function StoreCartPage({ params }) {
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
-                                <div
-                                  className={`w-full h-full flex items-center justify-center ${
-                                    isMobile ? "text-2xl" : "text-4xl"
-                                  }`}
-                                >
-                                  📦
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <ShoppingBag className={`${isMobile ? "w-6 h-6" : "w-9 h-9"} text-gray-300`} strokeWidth={1.5} />
                                 </div>
                               )}
                               {/* Variant Badge */}
                               {item.variant && (
-                                <div className="absolute bottom-1 left-1 right-1 bg-black/70 backdrop-blur-sm text-white text-[10px] text-center py-0.5 px-1 rounded">
+                                <div className="absolute bottom-1 left-1 right-1 bg-brand-900/75 backdrop-blur-sm text-white text-[10px] font-medium text-center py-0.5 px-1 rounded-md">
                                   Custom
                                 </div>
                               )}
@@ -862,7 +742,7 @@ export default function StoreCartPage({ params }) {
                                     item.product_id
                                   )
                                 }
-                                className="p-1.5 md:p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                                className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
                                 title="Remove item"
                               >
                                 <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
@@ -870,7 +750,7 @@ export default function StoreCartPage({ params }) {
                             </div>
 
                             <p
-                              className="text-lg md:text-2xl font-bold mb-2 md:mb-4"
+                              className="text-lg md:text-2xl font-bold mb-2 md:mb-4 tabular-nums"
                               style={{ color: primaryColor }}
                             >
                               {formatPrice(item.price)}
@@ -878,7 +758,7 @@ export default function StoreCartPage({ params }) {
 
                             {/* Quantity Controls */}
                             <div className="flex items-center gap-2 md:gap-4">
-                              <div className="flex items-center border border-gray-300 rounded-lg md:rounded-xl overflow-hidden">
+                              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
                                 <button
                                   onClick={() =>
                                     handleQuantityChange(
@@ -890,11 +770,11 @@ export default function StoreCartPage({ params }) {
                                     item.quantity <= 1 ||
                                     updatingItemId === item.product_id
                                   }
-                                  className="px-2 md:px-4 py-1.5 md:py-2 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  className="px-2 md:px-3.5 py-1.5 md:py-2 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                 >
-                                  <Minus className="w-3 h-3 md:w-4 md:h-4 text-gray-600" />
+                                  <Minus className="w-3 h-3 md:w-3.5 md:h-3.5 text-gray-500" />
                                 </button>
-                                <span className="px-3 md:px-6 py-1.5 md:py-2 font-semibold text-gray-900 min-w-[40px] md:min-w-[60px] text-center text-sm md:text-base">
+                                <span className="px-3 md:px-5 py-1.5 md:py-2 font-semibold text-gray-900 min-w-[40px] md:min-w-[56px] text-center text-sm md:text-base tabular-nums">
                                   {item.quantity}
                                 </span>
                                 <button
@@ -907,15 +787,15 @@ export default function StoreCartPage({ params }) {
                                   disabled={
                                     updatingItemId === item.product_id
                                   }
-                                  className="px-2 md:px-4 py-1.5 md:py-2 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  className="px-2 md:px-3.5 py-1.5 md:py-2 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                 >
-                                  <Plus className="w-3 h-3 md:w-4 md:h-4 text-gray-600" />
+                                  <Plus className="w-3 h-3 md:w-3.5 md:h-3.5 text-gray-500" />
                                 </button>
                               </div>
 
                               {updatingItemId === item.product_id && (
-                                <span className="text-xs md:text-sm text-gray-500">
-                                  Updating...
+                                <span className="text-xs md:text-sm text-gray-400">
+                                  Updating…
                                 </span>
                               )}
                             </div>
@@ -926,30 +806,27 @@ export default function StoreCartPage({ params }) {
                         {showExpandButton && (
                           <button
                             onClick={() => toggleItemExpansion(itemId)}
-                            className="absolute bottom-3 right-3 md:bottom-6 md:right-6 flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors bg-white px-3 py-1.5 rounded-lg "
+                            className="absolute bottom-3 right-3 md:bottom-6 md:right-6 flex items-center gap-1.5 text-xs md:text-sm text-gray-500 hover:text-brand-800 transition-colors bg-white px-2.5 py-1.5 rounded-lg"
                           >
                             <span className="font-medium">
-                              {isExpanded ? "Hide Details" : "Show Details"}
+                              {isExpanded ? "Hide details" : "Show details"}
                             </span>
                             {isExpanded ? (
-                              <ChevronUp className="w-4 h-4" />
+                              <ChevronUp className="w-3.5 h-3.5 md:w-4 md:h-4" />
                             ) : (
-                              <ChevronDown className="w-4 h-4" />
+                              <ChevronDown className="w-3.5 h-3.5 md:w-4 md:h-4" />
                             )}
                           </button>
                         )}
 
                         {/* Expanded Details Section */}
                         {isExpanded && showExpandButton && (
-                          <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                          <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
                             {/* Variant Details */}
                             {item.variant && (
-                              <div
-                                className="rounded-lg p-3"
-                                style={{ backgroundColor: `${primaryColor}05` }}
-                              >
-                                <h4 className="text-sm font-semibold text-gray-900 mb-2">
-                                  Variant Details
+                              <div className="rounded-lg p-3 bg-brand-50/60 border border-brand-100/70">
+                                <h4 className="text-xs font-semibold text-brand-800 uppercase tracking-wide mb-2">
+                                  Variant details
                                 </h4>
                                 <div className="grid grid-cols-2 gap-2 text-sm">
                                   {item.variant.color && (
@@ -1019,12 +896,12 @@ export default function StoreCartPage({ params }) {
 
                             {/* Notes */}
                             {item.notes && (
-                              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                <h4 className="text-sm font-semibold text-amber-900 mb-1 flex items-center gap-2">
+                              <div className="bg-gold-400/10 border border-gold-500/30 rounded-lg p-3">
+                                <h4 className="text-sm font-semibold text-gold-700 mb-1 flex items-center gap-2">
                                   <Tag className="w-4 h-4" />
                                   Notes
                                 </h4>
-                                <p className="text-sm text-amber-800">
+                                <p className="text-sm text-brand-900/80">
                                   {item.notes}
                                 </p>
                               </div>
@@ -1036,21 +913,17 @@ export default function StoreCartPage({ params }) {
                   })}
                 </div>
 
-                {/* Store Footer Panel with Place Order Button */}
-                <div
-                  className="px-3 md:px-6 py-3 md:py-4 border-t border-gray-100 bg-white flex items-center justify-between"
-                  style={{
-                    backgroundColor: `${primaryColor}05`,
-                    position: "relative",
-                    zIndex: 1,
-                  }}
-                >
+                {/* Store Footer Panel -- subtotal figure stays vendor-colored
+                    (it's this seller's money), but the action button that
+                    actually starts a Stora-processed payment uses the
+                    platform's own brand color, not the vendor's. */}
+                <div className="px-4 md:px-6 py-3.5 md:py-4 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between relative z-[1]">
                   <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 font-medium mb-0.5">
-                      Store Subtotal
+                    <span className="text-[11px] text-gray-500 font-medium uppercase tracking-wide mb-0.5">
+                      Store subtotal
                     </span>
                     <span
-                      className="text-base md:text-lg font-bold"
+                      className="text-base md:text-lg font-bold tabular-nums"
                       style={{ color: primaryColor }}
                     >
                       {formatPrice(
@@ -1063,71 +936,68 @@ export default function StoreCartPage({ params }) {
                   </div>
                   <button
                     onClick={() => handleStorePlaceOrder(storeGroup)}
-                    className="px-4 py-2 md:px-6 md:py-3 rounded-xl font-semibold shadow-sm hover:shadow-md transition-all flex items-center gap-2 text-white text-sm md:text-base"
-                    style={{
-                      background: `linear-gradient(90deg, ${primaryColor} 60%, ${primaryColor} 100%)`,
-                      boxShadow: "0 2px 8px 0 rgba(16, 185, 129, 0.08)",
-                    }}
+                    className="px-4 py-2.5 md:px-6 md:py-3 rounded-xl font-semibold transition-colors flex items-center gap-2 text-white text-sm md:text-base bg-brand-700 hover:bg-brand-800 shadow-sm shadow-brand-900/10"
                   >
-                    <CheckCircle className="w-5 h-5" />
-                    <span className="font-semibold">Place Order</span>
+                    <CheckCircle className="w-4 h-4 md:w-5 md:h-5" />
+                    <span>Place order</span>
                   </button>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Order Summary - Mobile Optimized */}
+          {/* Order Summary -- styled as a ledger receipt: the one place on
+              this page that's unambiguously Stora's (money changing hands
+              through the platform), so it carries the brand's own visual
+              language rather than any one vendor's. */}
           <div className="lg:col-span-1">
             <div
-              className={`bg-white rounded-xl md:rounded-2xl border border-gray-100 overflow-hidden ${
+              className={`bg-white rounded-2xl border border-gray-100 overflow-hidden ${
                 !isMobile && "sticky top-24"
               }`}
             >
-              <div className="p-4 md:p-6">
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">
-                  Order Summary
+              <div className="h-1 bg-gradient-to-r from-brand-700 via-brand-600 to-gold-500" />
+              <div className="p-5 md:p-6">
+                <h2 className="font-display text-lg md:text-xl font-semibold text-brand-900 mb-5">
+                  Order summary
                 </h2>
 
-                <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm md:text-base text-gray-600">
+                <div className="space-y-3 md:space-y-3.5 mb-5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">
                       Subtotal
                     </span>
-                    <span className="text-base md:text-lg font-semibold text-gray-900">
+                    <span className="font-medium text-gray-900 tabular-nums">
                       {formatPrice(cart.subtotal || 0)}
                     </span>
                   </div>
 
                   {cart.discount > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm md:text-base text-gray-600">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">
                         Discount
                       </span>
-                      <span className="text-base md:text-lg font-semibold text-red-600">
+                      <span className="font-medium text-red-600 tabular-nums">
                         -{formatPrice(cart.discount)}
                       </span>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm md:text-base text-gray-600">
-                      Delivery Fee
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">
+                      Delivery fee
                     </span>
-                    <span className="text-base md:text-lg font-semibold text-gray-900">
+                    <span className="font-medium text-gray-900 tabular-nums">
                       {formatPrice(cart.shipping || 0)}
                     </span>
                   </div>
 
-                  <div className="border-t border-gray-200 pt-3 md:pt-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-base md:text-lg font-semibold text-gray-900">
+                  <div className="border-t border-dashed border-gray-200 pt-3.5">
+                    <div className="flex items-end justify-between">
+                      <span className="text-sm font-medium text-gray-700">
                         Total
                       </span>
-                      <span
-                        className="text-xl md:text-2xl font-bold"
-                        style={{ color: primaryColor }}
-                      >
+                      <span className="font-display text-2xl font-semibold text-brand-800 tabular-nums">
                         {formatPrice(cart.total || 0)}
                       </span>
                     </div>
@@ -1137,284 +1007,39 @@ export default function StoreCartPage({ params }) {
                 {/* Place Order Button - Mobile Optimized */}
                 <button
                   onClick={handlePlaceOrder}
-                  className="w-full py-3 md:py-4 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-base md:text-lg"
-                  style={{ backgroundColor: primaryColor }}
+                  className="w-full py-3.5 md:py-4 text-white rounded-xl font-semibold bg-brand-700 hover:bg-brand-800 transition-colors flex items-center justify-center gap-2 text-[15px] md:text-base shadow-sm shadow-brand-900/10"
                 >
                   <CheckCircle className="w-4 h-4 md:w-5 md:h-5" />
-                  Place Order for All Stores
+                  Place order for all stores
                 </button>
+                <p className="text-center text-[11px] text-gray-400 mt-3">
+                  Payments are processed securely by Paystack
+                </p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Order Confirmation Modal with Store Colors */}
+      {/* Order Confirmation Modal -- shared with per-store checkout via the
+          same OrderModal component below (storeGroup=null means "all
+          stores"), instead of duplicating this whole form inline. */}
       {showOrderModal && (
-        <div
-          className="fixed inset-0 flex items-center justify-center z-50 p-4"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-        >
-          <div className="bg-white rounded-2xl max-w-md max-h-[90dvh] w-full overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div
-              className="text-center p-6 flex-shrink-0"
-              style={{ backgroundColor: `${primaryColor}10` }}
-            >
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-                style={{ backgroundColor: `${primaryColor}20` }}
-              >
-                <ShoppingBag
-                  className="w-8 h-8"
-                  style={{ color: primaryColor }}
-                />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                Complete Your Order
-              </h3>
-              <p className="text-gray-600">
-                Provide delivery details to proceed
-              </p>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-4">
-                {/* Customer Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Customer Name
-                  </label>
-                  <input
-                    type="text"
-                    value={`${customer?.firstName} ${customer?.lastName}`}
-                    disabled
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900"
-                    style={{ backgroundColor: secondaryColor }}
-                  />
-                </div>
-
-                {/* WhatsApp Phone Number */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    WhatsApp Phone Number *
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={shippingAddress.phone}
-                      onChange={handleShippingAddressChange}
-                      placeholder="08012345678"
-                      disabled={whatsAppValidated}
-                      className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 text-gray-900 ${
-                        whatsAppValidated
-                          ? "bg-green-50 border-green-300"
-                          : "border-gray-300 bg-white"
-                      }`}
-                      style={{ "--tw-ring-color": primaryColor }}
-                    />
-                    {!whatsAppValidated ? (
-                      <button
-                        onClick={validateWhatsAppNumber}
-                        disabled={isValidatingWhatsApp}
-                        className="px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex-shrink-0"
-                        style={{ backgroundColor: primaryColor }}
-                      >
-                        {isValidatingWhatsApp ? "Validating..." : "Validate"}
-                      </button>
-                    ) : (
-                      <div className="flex items-center px-4 bg-green-50 border border-green-300 rounded-xl flex-shrink-0">
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Ensure this is your WhatsApp number for order updates
-                  </p>
-                </div>
-
-                {/* Delivery Address Section */}
-                <div className="border-t border-gray-200 pt-4 mt-4">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3">
-                    Delivery Address
-                  </h4>
-
-                  {/* Street Address */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Street Address *
-                    </label>
-                    <textarea
-                      name="street"
-                      value={shippingAddress.street}
-                      onChange={handleShippingAddressChange}
-                      placeholder="e.g., No. 15, Allen Avenue, Ikeja"
-                      rows="2"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 bg-white text-gray-900 resize-none"
-                      style={{ "--tw-ring-color": primaryColor }}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Include house number and street name
-                    </p>
-                  </div>
-
-                  {/* City */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      City/Town *
-                    </label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={shippingAddress.city}
-                      onChange={handleShippingAddressChange}
-                      placeholder="e.g., Ikeja, Lekki, Surulere"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 bg-white text-gray-900"
-                      style={{ "--tw-ring-color": primaryColor }}
-                    />
-                  </div>
-
-                  {/* State */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      State *
-                    </label>
-                    <CustomDropdown
-                      options={stateOptions}
-                      value={shippingAddress.state}
-                      onChange={(value) =>
-                        handleShippingAddressChange({
-                          target: { name: "state", value },
-                        })
-                      }
-                      placeholder="Select your state"
-                      backgroundColor="#FFFFFF"
-                      error={false}
-                    />
-                  </div>
-
-                  {/* Landmark (Optional) */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Landmark (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      name="landmark"
-                      value={shippingAddress.landmark}
-                      onChange={handleShippingAddressChange}
-                      placeholder="e.g., Near GTBank, Opposite Shoprite"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 bg-white text-gray-900"
-                      style={{ "--tw-ring-color": primaryColor }}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      This helps the delivery person find you easily
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Order Summary */}
-              <div className="bg-gray-50 rounded-xl p-4 my-6">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total Items:</span>
-                    <span className="font-semibold text-gray-900">
-                      {getCartCount()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Stores:</span>
-                    <span className="font-semibold text-gray-900">
-                      {storeGroups.length}
-                    </span>
-                  </div>
-                  <div className="border-t border-gray-200 my-2"></div>
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-gray-900">
-                      Total Amount:
-                    </span>
-                    <span
-                      className="text-xl font-bold"
-                      style={{ color: primaryColor }}
-                    >
-                      {formatPrice(cart.total || 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {orderError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-red-600 text-sm">{orderError}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="p-6 border-t border-gray-100 flex-shrink-0">
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowOrderModal(false)}
-                  disabled={isPlacingOrder}
-                  className="flex-1 py-3 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmOrder}
-                  disabled={
-                    isPlacingOrder ||
-                    !whatsAppValidated ||
-                    !shippingAddress.street ||
-                    !shippingAddress.city ||
-                    !shippingAddress.state
-                  }
-                  className="flex-1 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  {isPlacingOrder ? (
-                    <>
-                      <svg
-                        className="animate-spin h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Placing Order...
-                    </>
-                  ) : (
-                    "Confirm Order"
-                  )}
-                </button>
-              </div>
-
-              {/* Additional Info */}
-              <p className="text-xs text-gray-500 text-center mt-4">
-                You will receive order confirmations on WhatsApp from each store
-              </p>
-            </div>
-          </div>
-        </div>
+        <OrderModal
+          isOpen={showOrderModal}
+          onClose={() => setShowOrderModal(false)}
+          onConfirm={handleConfirmOrder}
+          customer={customer}
+          storeGroup={null}
+          storeCount={storeGroups.length}
+          totalAmount={cart.total || 0}
+          itemCount={getCartCount()}
+          primaryColor={primaryColor}
+          secondaryColor={secondaryColor}
+          formatPrice={formatPrice}
+        />
       )}
+
 
       {/* WhatsApp Auto-Redirect Modal */}
       {redirectingToWhatsApp && (
@@ -1461,7 +1086,6 @@ export default function StoreCartPage({ params }) {
           isOpen={showWhatsAppModal}
           onClose={handleWhatsAppModalClose}
           order={{ stores: orderStores, orderNumber }}
-          primaryColor={primaryColor}
           formatPrice={formatPrice}
           openWhatsApp={openWhatsApp}
         />

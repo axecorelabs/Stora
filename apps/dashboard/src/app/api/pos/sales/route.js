@@ -42,7 +42,7 @@ export async function POST(req) {
       let totalCostFromBatches = 0;
       let totalProfitFromBatches = 0;
 
-      const results = await processItemsWithBatchTracking(saleData.items, user.id, isOrderProcessing);
+      const results = await processItemsWithBatchTracking(saleData.items, user.id, isOrderProcessing, isOrderProcessing ? (saleData.linkedOrderId || null) : null);
       for (const result of results) {
         processedItems.push(result.processedItem);
         if (result.saleItemData) {

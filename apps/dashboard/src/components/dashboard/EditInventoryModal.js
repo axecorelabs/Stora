@@ -953,33 +953,30 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity in Stock *
-                    {detectedColorVariants.length >= 2 && (
-                      <span className="text-xs text-blue-600 ml-2">(Auto-calculated from variants)</span>
-                    )}
+                    Quantity in Stock
                   </label>
+                  {/* Read-only everywhere on this edit form, not just the
+                      variant-auto-calculated case -- stock only ever
+                      changes through a batch (Add Batch / Adjust Stock),
+                      which records what changed, why, and keeps batches in
+                      sync with this total. A freely-editable number here
+                      let a vendor silently desync the two. */}
                   <input
                     type="number"
                     name="quantityInStock"
                     value={formData.quantityInStock}
-                    onChange={handleChange}
                     min="0"
                     step="1"
                     placeholder="0"
-                    disabled={detectedColorVariants.length >= 2}
-                    readOnly={detectedColorVariants.length >= 2}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
-                      errors.quantityInStock ? 'border-red-300' : 'border-gray-300'
-                    } ${detectedColorVariants.length >= 2 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    disabled
+                    readOnly
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black bg-gray-100 cursor-not-allowed"
                   />
-                  {detectedColorVariants.length >= 2 && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      ✓ Auto-calculated from variants: {formData.quantityInStock} units
-                    </p>
-                  )}
-                  {!detectedColorVariants.length >= 2 && errors.quantityInStock && (
-                    <p className="text-red-500 text-xs mt-1">{errors.quantityInStock}</p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {detectedColorVariants.length >= 2
+                      ? 'Auto-calculated from variants.'
+                      : 'Use "Adjust Stock" or "Add Batch" to change this.'}
+                  </p>
                 </div>
 
                 <div>

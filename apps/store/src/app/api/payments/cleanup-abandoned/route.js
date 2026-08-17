@@ -6,6 +6,29 @@ import { updateOrderStatus } from "@/lib/supabaseOrders";
 
 const ABANDONED_WINDOW_MINUTES = 30;
 
+// A transaction still in one of these states is actively resolving on
+// Paystack's side (mid-OTP/3DS, or an async channel like bank transfer/
+// USSD awaiting confirmation) -- cancelling now would race a payment
+// that's genuinely about to succeed. That race is exactly what used to
+// produce a "NEEDS RECONCILIATION" order (see confirmOrderPayment in
+// supabasePayments.js): this loop would see "not success" at the moment
+// it checked, cancel and release the stock, and then the real webhook
+// would land a few seconds later against a reservation that no longer
+// existed. Deferring here instead of cancelling closes that race for any
+// case where Paystack itself can tell us the charge is still alive.
+// Anything else -- success (handled separately), a genuine terminal
+// failure (failed/abandoned/reversed), or a status Paystack has never
+// documented to us -- is safe to treat as dead.
+const STILL_PROCESSING_STATUSES = new Set(['pending', 'processing', 'ongoing', 'queued']);
+
+// Absolute ceiling regardless of Paystack's reported status: a charge
+// that's still "processing" a full day after being initiated is not
+// resolving normally, and holding stock reserved for it indefinitely is
+// worse than the (by now vanishingly small) risk of cancelling a real
+// payment. Force-cancelled past this point gets its own flagged note
+// instead of silently disappearing, same as any other reconciliation case.
+const HARD_CANCEL_HOURS = 24;
+
 // Timing-safe compare -- a plain === here would leak how many leading
 // bytes of CRON_SECRET a guess got right via response-time differences,
 // same class of issue the webhook signature check already guards against
@@ -19,8 +42,33 @@ function isAuthorized(request) {
   return crypto.timingSafeEqual(authBuf, expectedBuf);
 }
 
-// Vercel Cron, hourly-or-more-often: releases stock reserved for orders
-// whose Paystack payment was started (or never started) but never
+// Decides what to do with one abandoned-candidate payment. Pure and I/O
+// free so the decision table can be verified against synthetic Paystack
+// responses without needing a real in-flight transaction to test against.
+//   'cancel'       -- safe to cancel now (never attempted, or Paystack
+//                      confirms it's genuinely dead)
+//   'skip'         -- Paystack confirms it already succeeded
+//   'defer'        -- still resolving (or unverifiable); try again next run
+//   'force_cancel' -- still resolving, but past the hard ceiling
+export function classifyAbandonedPayment(payment, { transaction = null, verifyFailed = false } = {}) {
+  if (!payment.reference) return 'cancel';
+
+  if (transaction?.status === 'success') return 'skip';
+
+  const stillProcessing = verifyFailed || (transaction && STILL_PROCESSING_STATUSES.has(transaction.status));
+  if (stillProcessing) {
+    const ageMs = Date.now() - new Date(payment.created_at).getTime();
+    return ageMs > HARD_CANCEL_HOURS * 60 * 60 * 1000 ? 'force_cancel' : 'defer';
+  }
+
+  return 'cancel';
+}
+
+// Vercel Cron (once daily on the Hobby plan -- see apps/store/vercel.json;
+// an external scheduler hitting this same endpoint more often is what
+// actually gets this closer to the route's ~30-minute window) plus
+// whatever hits this route more frequently: releases stock reserved for
+// orders whose Paystack payment was started (or never started) but never
 // completed. A customer who just closes the Inline popup without paying
 // triggers no webhook and no verify call, so nothing else in the system
 // would ever release this reservation on its own.
@@ -33,7 +81,7 @@ export async function GET(request) {
 
   const { data: abandoned, error } = await supabaseAdmin
     .from('order_payments')
-    .select('id, order_id, reference')
+    .select('id, order_id, reference, created_at')
     .eq('status', 'pending')
     .eq('method', 'paystack')
     .lt('created_at', cutoff);
@@ -45,20 +93,31 @@ export async function GET(request) {
 
   let released = 0;
   let skipped = 0;
+  let deferred = 0;
+  let forceCancelled = 0;
 
   for (const payment of abandoned || []) {
     try {
-      // Belt-and-suspenders: don't release stock for something that
-      // actually succeeded but whose webhook and client-verify both
-      // failed to land -- only relevant if a reference was ever issued
-      // (i.e. the customer actually opened the payment popup).
+      let transaction = null;
+      let verifyFailed = false;
       if (payment.reference) {
-        const transaction = await verifyTransaction(payment.reference).catch(() => null);
-        if (transaction?.status === 'success') {
-          skipped++;
-          continue;
+        try {
+          transaction = await verifyTransaction(payment.reference);
+        } catch (verifyError) {
+          // Couldn't reach Paystack (or it errored) -- treat as "don't
+          // know" and defer, not as "must be abandoned." The old code
+          // swallowed this into a silent cancel, which meant a Paystack
+          // outage during this cron's run would wrongly cancel every
+          // payment-attempted order it happened to check.
+          console.error(`Could not verify ${payment.reference} with Paystack -- deferring:`, verifyError.message);
+          verifyFailed = true;
         }
       }
+
+      const action = classifyAbandonedPayment(payment, { transaction, verifyFailed });
+
+      if (action === 'skip') { skipped++; continue; }
+      if (action === 'defer') { deferred++; continue; }
 
       await supabaseAdmin
         .from('order_payments')
@@ -72,11 +131,30 @@ export async function GET(request) {
       // quantity_reserved below its real value (caught via testing).
       await updateOrderStatus(payment.order_id, 'cancelled');
 
+      if (action === 'force_cancel') {
+        forceCancelled++;
+        const now = new Date().toISOString();
+        const flaggedNote = `[NEEDS REVIEW] Auto-cancelled after ${HARD_CANCEL_HOURS}h even though Paystack still reported this transaction as "${transaction?.status || 'unverifiable'}" -- not a normal abandonment. If the charge later succeeds anyway, it will follow the usual payment-after-cancellation reconciliation path.`;
+        const { data: currentOrder } = await supabaseAdmin.from('orders').select('admin_notes').eq('id', payment.order_id).single();
+        await supabaseAdmin
+          .from('orders')
+          .update({ admin_notes: currentOrder?.admin_notes ? `${currentOrder.admin_notes}\n${flaggedNote}` : flaggedNote, updated_at: now })
+          .eq('id', payment.order_id);
+        await supabaseAdmin.from('order_timeline').insert({
+          order_id: payment.order_id,
+          status: 'cancelled',
+          from_status: 'cancelled',
+          note: flaggedNote,
+          updated_by: 'system',
+          timestamp: now
+        });
+      }
+
       released++;
     } catch (cleanupError) {
       console.error(`Error cleaning up abandoned payment ${payment.id}:`, cleanupError);
     }
   }
 
-  return NextResponse.json({ success: true, checked: (abandoned || []).length, released, skipped });
+  return NextResponse.json({ success: true, checked: (abandoned || []).length, released, skipped, deferred, forceCancelled });
 }

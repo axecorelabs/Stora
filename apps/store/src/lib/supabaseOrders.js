@@ -40,21 +40,60 @@ export async function findOrdersByCustomerId(customerId, options = {}) {
 
   const orders = data || [];
 
-  // One batched query for this page's payment rows instead of one query
-  // per order -- attached as order.order_payments[0] so transformOrderFields
-  // can shape it the same way findOrderById's single-order payment object
-  // already is (this list endpoint never fetched payment data at all
-  // before, which is what let OrderDetailsPanel.js read a field that
-  // was always undefined).
   if (orders.length > 0) {
+    const orderIds = orders.map(o => o.id);
+
+    // One batched query for this page's payment rows instead of one query
+    // per order -- attached as order.order_payments[0] so transformOrderFields
+    // can shape it the same way findOrderById's single-order payment object
+    // already is (this list endpoint never fetched payment data at all
+    // before, which is what let OrderDetailsPanel.js read a field that
+    // was always undefined).
     const { data: payments } = await supabaseAdmin
       .from('order_payments')
       .select('*')
-      .in('order_id', orders.map(o => o.id));
+      .in('order_id', orderIds);
 
     const paymentByOrderId = new Map((payments || []).map(p => [p.order_id, p]));
     for (const order of orders) {
       order.order_payments = paymentByOrderId.has(order.id) ? [paymentByOrderId.get(order.id)] : [];
+    }
+
+    // Same gap as payments, but worse: OrderDetailsPanel.js reads
+    // order.shippingAddress.firstName with no optional chaining at all, so
+    // this wasn't a silently-wrong field like itemCount/stores below -- it
+    // was a hard crash the moment anyone opened the panel for any order,
+    // since this list endpoint never fetched order_addresses either.
+    const { data: addresses } = await supabaseAdmin
+      .from('order_addresses')
+      .select('*')
+      .in('order_id', orderIds)
+      .eq('address_type', 'shipping');
+
+    const addressByOrderId = new Map((addresses || []).map(a => [a.order_id, a]));
+    for (const order of orders) {
+      order.shipping_address = addressByOrderId.get(order.id) || null;
+    }
+
+    // order_stores is keyed by order_item_id (one snapshot per line item's
+    // vendor, written at checkout -- see orders/create/route.js), not by
+    // order_id directly -- batch it the same way and attach per item so
+    // transformOrderFields can group by vendor below. Neither this nor
+    // itemCount existed anywhere on the transformed shape before, despite
+    // both the list card and the detail panel reading them.
+    const allItemIds = orders.flatMap(o => (o.order_items || []).map(i => i.id));
+    if (allItemIds.length > 0) {
+      const { data: orderStores } = await supabaseAdmin
+        .from('order_stores')
+        .select('order_item_id, store_id, store_name')
+        .in('order_item_id', allItemIds);
+
+      const storeByItemId = new Map((orderStores || []).map(s => [s.order_item_id, s]));
+      for (const order of orders) {
+        for (const item of order.order_items || []) {
+          item.order_store = storeByItemId.get(item.id) || null;
+        }
+      }
     }
   }
 
@@ -132,8 +171,6 @@ export async function findOrderById(orderId, customerId = null) {
   if (addressError && addressError.code !== 'PGRST116') {
     console.error('Error fetching shipping address:', addressError);
   }
-  
-  console.log('Shipping address fetched for order:', orderId, shippingAddress);
 
   // Fetch customer info
   const { data: customerInfo, error: customerError } = await supabaseAdmin
@@ -166,19 +203,11 @@ export async function findOrderById(orderId, customerId = null) {
   if (storesError) {
     console.error('Error fetching order stores:', storesError);
   }
-  
-  console.log('Order stores fetched:', orderStores?.length, 'for', transformedItems.length, 'items');
 
   // Create store lookup map
   const storeMap = new Map();
   if (orderStores) {
     for (const store of orderStores) {
-      console.log('Processing store from order_stores:', {
-        store_id: store.store_id,
-        store_name: store.store_name,
-        store_phone: store.store_phone
-      });
-      
       if (!storeMap.has(store.store_id)) {
         storeMap.set(store.store_id, {
           storeId: store.store_id,
@@ -214,21 +243,23 @@ export async function findOrderById(orderId, customerId = null) {
               secondaryColor: store.secondary_color
             }
           }
-          });
-        }
+        });
       }
     }
-  
-    // Group items by store
-    const storeGroups = {};
-    for (const item of transformedItems) {
-      const storeId = item.storeId;
-      const storeInfo = storeMap.get(storeId);
-      
-      if (!storeGroups[storeId]) {
-        console.log('Creating store group for:', storeId, 'storeInfo exists:', !!storeInfo);
-        
-        storeGroups[storeId] = {
+  }
+
+  // Group items by store. status mirrors the order's own status rather
+  // than a hardcoded 'pending' -- there's no independent per-vendor
+  // fulfillment status tracked separately from the order as a whole, so a
+  // delivered/cancelled order previously still showed every store card as
+  // "pending" regardless of what actually happened.
+  const storeGroups = {};
+  for (const item of transformedItems) {
+    const storeId = item.storeId;
+    const storeInfo = storeMap.get(storeId);
+
+    if (!storeGroups[storeId]) {
+      storeGroups[storeId] = {
         storeId,
         storeName: storeInfo?.storeName || 'Unknown Store',
         storePhone: storeInfo?.storePhone || null,
@@ -237,7 +268,7 @@ export async function findOrderById(orderId, customerId = null) {
         items: [],
         itemCount: 0,
         subtotal: 0,
-        status: 'pending'
+        status: order.status
       };
     }
     storeGroups[storeId].items.push(item);
@@ -245,9 +276,7 @@ export async function findOrderById(orderId, customerId = null) {
     storeGroups[storeId].subtotal += parseFloat(item.subtotal || 0);
   }
 
-const stores = Object.values(storeGroups);
-
-console.log('Final stores array:', stores.map(s => ({ name: s.storeName, phone: s.storePhone })));
+  const stores = Object.values(storeGroups);
 
   // Format and return order with all related data
   const formattedOrder = {
@@ -299,8 +328,7 @@ console.log('Final stores array:', stores.map(s => ({ name: s.storeName, phone: 
       paidAt: paymentInfo.paid_at
     } : null
   };
-  
-  console.log('Returning formatted order:', formattedOrder.orderNumber, formattedOrder.totalAmount);
+
   return formattedOrder;
 }
 
@@ -663,6 +691,31 @@ export async function updateOrderItemStatus(orderItemId, status) {
 export function transformOrderFields(order) {
   if (!order) return null;
 
+  const items = order.order_items?.map(transformOrderItemFields) || [];
+  const itemCount = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+  // Group by vendor using order_store (attached per-item by
+  // findOrdersByCustomerId's batched lookup, keyed off order_item_id --
+  // that's where the snapshot actually lives, not on the order itself).
+  // itemCount/subtotal here are figures the caller (order card, detail
+  // panel) reads with no equivalent anywhere before this.
+  const storesByStoreId = new Map();
+  (order.order_items || []).forEach((rawItem, idx) => {
+    const store = rawItem.order_store;
+    if (!store) return;
+    if (!storesByStoreId.has(store.store_id)) {
+      storesByStoreId.set(store.store_id, {
+        storeId: store.store_id,
+        storeName: store.store_name,
+        itemCount: 0,
+        subtotal: 0
+      });
+    }
+    const entry = storesByStoreId.get(store.store_id);
+    entry.itemCount += items[idx]?.quantity || 0;
+    entry.subtotal += items[idx]?.subtotal || 0;
+  });
+
   return {
     id: order.id,
     orderNumber: order.order_number,
@@ -684,7 +737,9 @@ export function transformOrderFields(order) {
     cancelledAt: order.cancelled_at,
     createdAt: order.created_at,
     updatedAt: order.updated_at,
-    items: order.order_items?.map(transformOrderItemFields) || [],
+    items,
+    itemCount,
+    stores: Array.from(storesByStoreId.values()),
     // order.order_payments[0] is attached by findOrdersByCustomerId's
     // batched payment lookup -- same shape as findOrderById's `payment`
     // field, so both order-detail surfaces (this list panel and the
@@ -697,6 +752,20 @@ export function transformOrderFields(order) {
       reference: order.order_payments[0].reference,
       transactionId: order.order_payments[0].transaction_id,
       paidAt: order.order_payments[0].paid_at
+    } : null,
+    // order.shipping_address is attached by findOrdersByCustomerId's
+    // batched order_addresses lookup -- same shape findOrderById already
+    // builds inline for the single-order page.
+    shippingAddress: order.shipping_address ? {
+      firstName: order.shipping_address.first_name,
+      lastName: order.shipping_address.last_name,
+      phone: order.shipping_address.phone,
+      street: order.shipping_address.street,
+      city: order.shipping_address.city,
+      state: order.shipping_address.state,
+      country: order.shipping_address.country,
+      postalCode: order.shipping_address.postal_code,
+      landmark: order.shipping_address.landmark
     } : null
   };
 }
@@ -746,10 +815,17 @@ export function transformOrderItemFields(item) {
 // in JS anymore; apps/dashboard/src/lib/batchInventory.js (POS) calls the
 // same functions.
 
-export async function reserveStock(inventoryId, quantity, variantId = null) {
+// variantId is required now -- every product has >=1 real variant row
+// (20260817000001_unify_inventory_variants.sql), and the RPCs themselves
+// are variant-only (20260817000002_variant_only_rpcs.sql). Callers resolve
+// it at add-to-cart time (see supabaseCart.js's prepareCartItemData), so
+// by the time checkout reserves stock, there's always a real one.
+export async function reserveStock(variantId, quantity) {
+  if (!variantId) {
+    throw new Error('reserveStock requires a variantId');
+  }
   const { data, error } = await supabaseAdmin.rpc('fn_reserve_stock', {
-    p_inventory_id: inventoryId,
-    p_variant_id: variantId || null,
+    p_variant_id: variantId,
     p_quantity: quantity
   });
 
@@ -766,10 +842,12 @@ export async function reserveStock(inventoryId, quantity, variantId = null) {
   return { success: true, reservedQuantity: result.reserved_qty, batches: result.batches || [] };
 }
 
-export async function releaseStockReservation(inventoryId, quantity, variantId = null) {
+export async function releaseStockReservation(variantId, quantity) {
+  if (!variantId) {
+    throw new Error('releaseStockReservation requires a variantId');
+  }
   const { data, error } = await supabaseAdmin.rpc('fn_release_stock_reservation', {
-    p_inventory_id: inventoryId,
-    p_variant_id: variantId || null,
+    p_variant_id: variantId,
     p_quantity: quantity
   });
 
@@ -805,8 +883,7 @@ export async function releaseOrderReservations(orderId) {
   if (!orderItems || orderItems.length === 0) return { success: true };
 
   const items = orderItems.map(item => ({
-    inventory_id: item.product_id,
-    variant_id: item.variant_id || null,
+    variant_id: item.variant_id,
     quantity: item.quantity
   }));
 
@@ -818,6 +895,19 @@ export async function releaseOrderReservations(orderId) {
     console.error('Error releasing order reservations:', error);
     throw new Error('Failed to release order reservations');
   }
+
+  // Free up any cart items that were flagged as payment-pending for this
+  // order (see orders/create/route.js's duplicate-checkout guard) -- once
+  // the order is cancelled, those items are available for a fresh
+  // checkout attempt again instead of being permanently stuck pointing at
+  // a dead order. Non-fatal: a failed unflag just means a future checkout
+  // attempt on the same item is blocked until this is retried/fixed
+  // manually, not a stock-safety issue.
+  const { error: unflagError } = await supabaseAdmin
+    .from('cart_items')
+    .update({ pending_order_id: null })
+    .eq('pending_order_id', orderId);
+  if (unflagError) console.error('Error clearing pending_order_id after cancellation:', unflagError);
 
   return { success: true };
 }
@@ -842,8 +932,7 @@ export async function fulfillOrderReservations(orderId) {
   if (!orderItems || orderItems.length === 0) return { success: true };
 
   const items = orderItems.map(item => ({
-    inventory_id: item.product_id,
-    variant_id: item.variant_id || null,
+    variant_id: item.variant_id,
     quantity: item.quantity,
     reason: 'Order delivered'
   }));

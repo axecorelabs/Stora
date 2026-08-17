@@ -4,11 +4,15 @@ import { verifySession } from '@/lib/auth';
 import { generateSKU, backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 
-// Helper to transform inventory data for response (snake_case to camelCase)
-function transformInventory(item) {
+// Helper to transform inventory data for response (snake_case to camelCase).
+// Every product has >=1 real inventory_variants row now (see
+// 20260817000001_unify_inventory_variants.sql) -- stock/price are always
+// derived from those rows, never a flat column on `inventory` itself.
+// hasVariants is likewise derived (more than one row), not a stored flag
+// that could drift from the real variant count.
+function transformInventory(item, variants = []) {
   if (!item) return null;
-  
-  // Parse images safely - each image in the array may be a JSON string
+
   let images = [];
   try {
     const rawImages = item.images || [];
@@ -25,32 +29,40 @@ function transformInventory(item) {
   } catch (e) {
     images = [];
   }
-  
-  // Get primary image URL - prefer database field, fallback to images array
+
   let primaryImage = item.primary_image || null;
-  
-  // Fallback: if no primary_image in DB, try to find from images array
   if (!primaryImage && images.length > 0) {
     const primaryImg = images.find(img => img && img.isPrimary);
     primaryImage = (primaryImg?.url) || (images[0]?.url) || null;
   }
-  
-  // Parse variants safely - may be double-stringified JSON
-  let variants = [];
-  try {
-    if (item.variants) {
-      let parsed = item.variants;
-      // Parse until we get an array (handles double or single stringification)
-      while (typeof parsed === 'string') {
-        parsed = JSON.parse(parsed);
-      }
-      variants = Array.isArray(parsed) ? parsed : [];
-    }
-  } catch (e) {
-    console.error('Error parsing variants:', e);
-    variants = [];
-  }
-  
+
+  const transformedVariants = variants.map(v => ({
+    id: v.id,
+    _id: v.id,
+    size: v.size,
+    color: v.color,
+    sku: v.sku,
+    quantityInStock: v.quantity_in_stock,
+    reservedQuantity: v.reserved_quantity,
+    soldQuantity: v.sold_quantity,
+    reorderLevel: v.reorder_level,
+    images: v.images || [],
+    barcode: v.barcode,
+    isActive: v.is_active,
+    price: v.price,
+    costPrice: v.cost_price
+  }));
+
+  const totalStock = variants.reduce((sum, v) => sum + (v.quantity_in_stock || 0), 0);
+  const totalReserved = variants.reduce((sum, v) => sum + (v.reserved_quantity || 0), 0);
+  const totalSold = variants.reduce((sum, v) => sum + (v.sold_quantity || 0), 0);
+  // Today's product-create/edit UI only ever sets one price for the whole
+  // product (applied to every variant identically) -- there's no
+  // per-variant pricing UI yet, so the first variant's price/cost is
+  // representative of all of them until that UI exists.
+  const representativePrice = variants[0]?.price ?? 0;
+  const representativeCost = variants[0]?.cost_price ?? 0;
+
   return {
     id: item.id,
     _id: item.id, // For backward compatibility
@@ -64,16 +76,18 @@ function transformInventory(item) {
     location: item.location,
     category: item.category,
     categoryDetails: item.category_details,
-    variants: variants,
-    hasVariants: item.has_variants || (variants.length > 0),
-    sellingPrice: item.base_price,
-    basePrice: item.base_price,
-    costPrice: item.cost,
-    cost: item.cost,
+    variants: transformedVariants,
+    hasVariants: variants.length > 1,
+    sellingPrice: representativePrice,
+    basePrice: representativePrice,
+    costPrice: representativeCost,
+    cost: representativeCost,
     sku: item.sku,
     barcode: item.barcode,
-    quantityInStock: item.stock_quantity,
-    stockQuantity: item.stock_quantity,
+    quantityInStock: totalStock,
+    stockQuantity: totalStock,
+    quantityReserved: totalReserved,
+    soldQuantity: totalSold,
     minimumStock: item.minimum_stock,
     reorderLevel: item.minimum_stock,
     unitOfMeasure: item.unit_of_measure || 'Piece',
@@ -85,33 +99,6 @@ function transformInventory(item) {
     status: item.is_active ? 'Active' : 'Inactive',
     createdAt: item.created_at,
     updatedAt: item.updated_at
-  };
-}
-
-// Helper to transform batch data
-function transformBatch(batch) {
-  if (!batch) return null;
-  return {
-    id: batch.id,
-    _id: batch.id,
-    mongoId: batch.mongo_id,
-    userId: batch.user_id,
-    productId: batch.inventory_id,
-    batchCode: batch.batch_code,
-    quantityIn: batch.quantity_in,
-    quantitySold: batch.quantity_sold,
-    quantityRemaining: batch.quantity_remaining,
-    costPrice: batch.cost_price,
-    sellingPrice: batch.selling_price,
-    dateReceived: batch.date_received,
-    expiryDate: batch.expiry_date,
-    supplier: batch.supplier,
-    notes: batch.notes,
-    status: batch.status,
-    batchLocation: batch.batch_location,
-    archivedAt: batch.archived_at,
-    createdAt: batch.created_at,
-    updatedAt: batch.updated_at
   };
 }
 
@@ -137,15 +124,16 @@ export async function GET(req) {
 
     const offset = (page - 1) * limit;
 
-    // Map sortBy fields from MongoDB names to Supabase column names
+    // Map sortBy fields from MongoDB names to Supabase column names.
+    // quantityInStock/sellingPrice are now variant-derived aggregates, not
+    // real inventory columns -- sorting by them happens in JS after the
+    // fetch (below) instead of in the query.
     const sortFieldMap = {
       'productName': 'name',
       'createdAt': 'created_at',
-      'updatedAt': 'updated_at',
-      'quantityInStock': 'stock_quantity',
-      'sellingPrice': 'base_price'
+      'updatedAt': 'updated_at'
     };
-    const sortField = sortFieldMap[sortBy] || sortBy;
+    const sortField = sortFieldMap[sortBy] || null;
 
     // Build query
     let query = supabaseAdmin
@@ -170,10 +158,16 @@ export async function GET(req) {
       query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%,description.ilike.%${search}%`);
     }
 
-    // Apply sorting and pagination
-    query = query
-      .order(sortField, { ascending: sortOrder })
-      .range(offset, offset + limit - 1);
+    if (sortField) {
+      query = query.order(sortField, { ascending: sortOrder });
+    }
+    // Deferred pagination: quantityInStock/sellingPrice sorting needs the
+    // variant aggregate computed first (see below), so .range() for those
+    // two happens after that instead of here.
+    const deferredSort = !sortField;
+    if (!deferredSort) {
+      query = query.range(offset, offset + limit - 1);
+    }
 
     const { data: inventory, error, count } = await query;
 
@@ -189,16 +183,27 @@ export async function GET(req) {
     await backfillMissingSkus(inventory);
     await backfillMissingStoreIds(inventory, user.id);
 
-    // Get batches for all inventory items for pricing
     const inventoryIds = inventory.map(item => item.id);
-    
+
+    // One batched fetch each for every product's variants and batches,
+    // instead of a query per item.
+    const { data: allVariants } = await supabaseAdmin
+      .from('inventory_variants')
+      .select('*')
+      .in('inventory_id', inventoryIds);
+
     const { data: allBatches } = await supabaseAdmin
       .from('inventory_batches')
       .select('*')
       .in('inventory_id', inventoryIds)
       .order('date_received', { ascending: true });
 
-    // Group batches by inventory_id
+    const variantsByInventory = {};
+    (allVariants || []).forEach(v => {
+      if (!variantsByInventory[v.inventory_id]) variantsByInventory[v.inventory_id] = [];
+      variantsByInventory[v.inventory_id].push(v);
+    });
+
     const batchesByInventory = {};
     (allBatches || []).forEach(batch => {
       if (!batchesByInventory[batch.inventory_id]) {
@@ -208,9 +213,10 @@ export async function GET(req) {
     });
 
     // Enhance inventory items with batch pricing
-    const enhancedInventory = inventory.map(item => {
+    let enhancedInventory = inventory.map(item => {
+      const variants = variantsByInventory[item.id] || [];
       const batches = batchesByInventory[item.id] || [];
-      const transformedItem = transformInventory(item);
+      const transformedItem = transformInventory(item, variants);
 
       // Find the current active batch using FIFO logic
       const currentActiveBatch = batches.find(batch => {
@@ -218,10 +224,9 @@ export async function GET(req) {
         return remainingQuantity > 0 && batch.status === 'active';
       });
 
-      // Calculate batch-based pricing
       let batchPricing = {
-        currentCostPrice: item.cost,
-        currentSellingPrice: item.base_price,
+        currentCostPrice: transformedItem.costPrice,
+        currentSellingPrice: transformedItem.sellingPrice,
         hasActiveBatch: false,
         activeBatchCode: null,
         activeBatchRemaining: 0
@@ -244,8 +249,8 @@ export async function GET(req) {
       const weightedCostSum = batches.reduce((sum, batch) => sum + ((batch.cost_price || 0) * (batch.quantity_in || 0)), 0);
       const weightedSellingSum = batches.reduce((sum, batch) => sum + ((batch.selling_price || 0) * (batch.quantity_in || 0)), 0);
 
-      const averageCostPrice = totalQuantityIn > 0 ? weightedCostSum / totalQuantityIn : item.cost;
-      const averageSellingPrice = totalQuantityIn > 0 ? weightedSellingSum / totalQuantityIn : item.base_price;
+      const averageCostPrice = totalQuantityIn > 0 ? weightedCostSum / totalQuantityIn : transformedItem.costPrice;
+      const averageSellingPrice = totalQuantityIn > 0 ? weightedSellingSum / totalQuantityIn : transformedItem.sellingPrice;
 
       return {
         ...transformedItem,
@@ -258,13 +263,19 @@ export async function GET(req) {
         },
         currentCostPrice: batchPricing.currentCostPrice,
         currentSellingPrice: batchPricing.currentSellingPrice,
-        currentStockValue: (item.stock_quantity || 0) * batchPricing.currentCostPrice,
-        expectedRevenue: (item.stock_quantity || 0) * batchPricing.currentSellingPrice,
-        currentProfitMargin: batchPricing.currentCostPrice > 0 
+        currentStockValue: transformedItem.stockQuantity * batchPricing.currentCostPrice,
+        expectedRevenue: transformedItem.stockQuantity * batchPricing.currentSellingPrice,
+        currentProfitMargin: batchPricing.currentCostPrice > 0
           ? (((batchPricing.currentSellingPrice - batchPricing.currentCostPrice) / batchPricing.currentCostPrice) * 100).toFixed(1)
           : 0
       };
     });
+
+    if (deferredSort) {
+      const key = sortBy === 'sellingPrice' ? 'sellingPrice' : 'quantityInStock';
+      enhancedInventory.sort((a, b) => sortOrder ? a[key] - b[key] : b[key] - a[key]);
+      enhancedInventory = enhancedInventory.slice(offset, offset + limit);
+    }
 
     const total = count || 0;
 
@@ -323,7 +334,8 @@ export async function POST(req) {
       .eq('owner_id', user.id)
       .single();
 
-    // Create inventory item
+    // `inventory` is listing metadata only now -- no price/stock/variant
+    // flag written here, those live exclusively on inventory_variants.
     const { data: newItem, error: invError } = await supabaseAdmin
       .from('inventory')
       .insert({
@@ -333,12 +345,8 @@ export async function POST(req) {
         description: inventoryData.description || '',
         category: inventoryData.category,
         category_details: categoryDetails,
-        has_variants: inventoryData.hasVariants || (inventoryData.variants && inventoryData.variants.length > 0),
-        base_price: inventoryData.sellingPrice || inventoryData.basePrice || 0,
-        cost: inventoryData.costPrice || inventoryData.cost || 0,
         sku: inventoryData.sku || generateSKU(inventoryData.category, inventoryData.productName || inventoryData.name),
         barcode: inventoryData.barcode || null,
-        stock_quantity: inventoryData.quantityInStock || inventoryData.stockQuantity || 0,
         minimum_stock: inventoryData.minimumStock || inventoryData.reorderLevel || 5,
         images: inventoryData.images || [],
         tags: inventoryData.tags || [],
@@ -361,92 +369,116 @@ export async function POST(req) {
       );
     }
 
-    // Variants live in the normalized inventory_variants table, not as a column on inventory
-    if (Array.isArray(inventoryData.variants) && inventoryData.variants.length > 0) {
-      const variantRows = inventoryData.variants.map(v => ({
-        inventory_id: newItem.id,
-        size: v.size || 'One Size',
-        color: v.color,
-        sku: v.sku || null,
-        quantity_in_stock: v.quantityInStock || 0,
-        reorder_level: v.reorderLevel || 5,
-        images: v.images || []
-      }));
+    // Every product gets >=1 real inventory_variants row -- a product with
+    // no real size/color options still gets exactly one "default" variant,
+    // which is what actually carries its price/stock going forward.
+    const sellingPrice = inventoryData.sellingPrice || inventoryData.basePrice || 0;
+    const costPrice = inventoryData.costPrice || inventoryData.cost || 0;
+    const providedVariants = Array.isArray(inventoryData.variants) && inventoryData.variants.length > 0
+      ? inventoryData.variants
+      : [{
+          size: 'One Size',
+          color: 'Default',
+          quantityInStock: inventoryData.quantityInStock || inventoryData.stockQuantity || 0,
+          reorderLevel: inventoryData.minimumStock || inventoryData.reorderLevel || 5
+        }];
 
-      const { error: variantsError } = await supabaseAdmin
-        .from('inventory_variants')
-        .insert(variantRows);
+    const variantRows = providedVariants.map(v => ({
+      inventory_id: newItem.id,
+      size: v.size || 'One Size',
+      color: v.color || 'Default',
+      sku: v.sku || null,
+      // Starts at 0, same as the product used to -- fn_create_batch below
+      // is what actually sets it, atomically alongside a real batch, per
+      // variant, so no variant ever has stock without a batch backing it.
+      quantity_in_stock: 0,
+      reorder_level: v.reorderLevel || 5,
+      // Today's UI only sets one price for the whole product -- every
+      // variant gets that same price/cost until per-variant pricing UI
+      // exists.
+      price: sellingPrice,
+      cost_price: costPrice,
+      images: v.images || [],
+      is_active: true
+    }));
 
-      if (variantsError) {
-        console.error('Variant creation error:', variantsError);
-        // Don't fail the entire operation if variant creation fails
-      }
+    const { data: insertedVariants, error: variantsError } = await supabaseAdmin
+      .from('inventory_variants')
+      .insert(variantRows)
+      .select();
+
+    if (variantsError || !insertedVariants || insertedVariants.length === 0) {
+      console.error('Variant creation error:', variantsError);
+      // Roll back the product -- a product with zero variants violates the
+      // "every product has >=1 variant" invariant the rest of the app now
+      // depends on (checkout, POS, stock RPCs all require a real variant).
+      await supabaseAdmin.from('inventory').delete().eq('id', newItem.id);
+      return NextResponse.json(
+        { success: false, message: 'Failed to create product variant' },
+        { status: 500 }
+      );
     }
 
-    // Generate batch code
+    // One batch per variant that actually has starting stock, each created
+    // via fn_create_batch so quantity_in_stock and its batch are set
+    // atomically together (20260817000002_variant_only_rpcs.sql).
     const dateCode = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-    const productCode = inventoryData.sku ? inventoryData.sku.split('-')[0] : 'PRD';
-    const batchCode = `${productCode}-${dateCode}-B001`;
+    const productCode = newItem.sku ? newItem.sku.split('-')[0] : 'PRD';
+    const createdBatches = [];
+    let batchSeq = 1;
 
-    // Create initial batch
-    const { data: firstBatch, error: batchError } = await supabaseAdmin
-      .from('inventory_batches')
-      .insert({
-        user_id: user.id,
-        inventory_id: newItem.id,
-        batch_code: batchCode,
-        quantity_in: inventoryData.quantityInStock || 0,
-        quantity_sold: 0,
-        quantity_remaining: inventoryData.quantityInStock || 0,
-        cost_price: inventoryData.costPrice || inventoryData.cost || 0,
-        selling_price: inventoryData.sellingPrice || inventoryData.basePrice || 0,
-        date_received: new Date().toISOString(),
-        supplier: inventoryData.supplier || '',
-        notes: 'Initial stock batch - created with product',
-        status: 'active',
-        batch_location: inventoryData.location || 'Main Store'
-      })
-      .select()
-      .single();
+    for (const variant of insertedVariants) {
+      const source = providedVariants.find(v =>
+        (v.color || 'Default') === variant.color && (v.size || 'One Size') === variant.size
+      );
+      const qty = source?.quantityInStock || 0;
+      if (qty <= 0) continue;
 
-    if (batchError) {
-      console.error('Batch creation error:', batchError);
-      // Don't fail the entire operation if batch creation fails
+      const batchCode = `${productCode}-${dateCode}-B${String(batchSeq).padStart(3, '0')}`;
+      batchSeq += 1;
+
+      const { data: batchResult, error: batchError } = await supabaseAdmin.rpc('fn_create_batch', {
+        p_variant_id: variant.id,
+        p_user_id: user.id,
+        p_batch_code: batchCode,
+        p_quantity_in: qty,
+        p_cost_price: costPrice,
+        p_selling_price: sellingPrice,
+        p_supplier: inventoryData.supplier || '',
+        p_notes: 'Initial stock batch - created with product',
+        p_batch_location: inventoryData.location || 'Main Store',
+        p_reason: `Created new inventory item: ${newItem.name}`
+      });
+
+      if (batchError) {
+        console.error(`Initial batch creation error for variant ${variant.id}:`, batchError);
+        // Don't fail the whole product for one variant's batch failing --
+        // the product and its variant rows already exist; that variant
+        // just starts at 0 stock instead, fixable via Add Batch afterward.
+        continue;
+      }
+
+      const result = batchResult?.[0];
+      createdBatches.push({ id: result?.batch_id, batchCode: result?.batch_code, variantId: variant.id, totalQuantity: qty });
     }
 
-    // Track activity
-    try {
-      await supabaseAdmin
-        .from('inventory_activities')
-        .insert({
-          user_id: user.id,
-          inventory_id: newItem.id,
-          activity_type: 'created',
-          quantity_before: 0,
-          quantity_changed: inventoryData.quantityInStock || 0,
-          quantity_after: inventoryData.quantityInStock || 0,
-          reason: `Created new inventory item: ${newItem.name}`,
-          batch_id: firstBatch?.id,
-          batch_code: firstBatch?.batch_code,
-          metadata: {
-            initialBatchId: firstBatch?.id,
-            initialBatchCode: firstBatch?.batch_code
-          }
-        });
-    } catch (activityError) {
-      console.error('Activity tracking error:', activityError);
-    }
+    // Re-fetch the variants so the response reflects their real post-batch
+    // quantity_in_stock rather than the pre-batch 0 from the insert above.
+    const { data: finalVariants } = await supabaseAdmin
+      .from('inventory_variants')
+      .select('*')
+      .eq('inventory_id', newItem.id);
 
     return NextResponse.json({
       success: true,
       message: 'Inventory item and initial batch created successfully',
       data: {
-        inventory: transformInventory(newItem),
-        initialBatch: firstBatch ? {
-          _id: firstBatch.id,
-          id: firstBatch.id,
-          batchCode: firstBatch.batch_code,
-          totalQuantity: firstBatch.quantity_in
+        inventory: transformInventory(newItem, finalVariants || insertedVariants),
+        initialBatch: createdBatches[0] ? {
+          _id: createdBatches[0].id,
+          id: createdBatches[0].id,
+          batchCode: createdBatches[0].batchCode,
+          totalQuantity: createdBatches.reduce((sum, b) => sum + b.totalQuantity, 0)
         } : null
       }
     });

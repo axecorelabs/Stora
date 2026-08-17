@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabase';
 import { updateOrderStatus } from './supabaseOrders';
 import { notifyStoresOfPaidOrder } from './orderNotifications';
+import { removeItemsFromCart } from './supabaseCart';
 
 // Shared idempotent core called from both the webhook path and the
 // client verify-on-return path (apps/store/src/app/api/payments/webhook/route.js,
@@ -85,6 +86,26 @@ export async function confirmOrderPayment(reference, { transactionId, amountKobo
     await updateOrderStatus(orderPayment.order_id, 'confirmed');
   } catch (statusError) {
     console.error('Error confirming order status after payment:', statusError);
+  }
+
+  // Clear this order's items out of the customer's cart now that payment
+  // has actually confirmed -- deferred from order creation (see
+  // orders/create/route.js) specifically so a failed/abandoned payment
+  // attempt doesn't leave the customer with an already-emptied cart and
+  // nothing to show for it. Scoped via pending_order_id (set at checkout
+  // time) rather than re-deriving which items belong to this order by
+  // product match. Non-fatal: a failure here must not turn an otherwise-
+  // successful payment confirmation into an error response.
+  try {
+    const { data: paidCartItems } = await supabaseAdmin
+      .from('cart_items')
+      .select('id, cart_id')
+      .eq('pending_order_id', orderPayment.order_id);
+    if (paidCartItems && paidCartItems.length > 0) {
+      await removeItemsFromCart({ id: paidCartItems[0].cart_id }, paidCartItems.map(i => i.id));
+    }
+  } catch (cartError) {
+    console.error('Error clearing paid items from cart:', cartError);
   }
 
   // Vendor notifications for this order's paid stores were deliberately

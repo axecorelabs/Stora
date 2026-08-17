@@ -4,10 +4,14 @@ import { verifyCustomerSession } from "@/lib/auth";
 import { sendStoreOrderNotifications } from "@/lib/orderNotifications";
 import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supabaseOrders";
 import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseCart";
-import { findInventoryByIds } from "@/lib/supabaseStore";
+import { findInventoryByIds, findActiveBatchesByInventoryIds, resolveBatchPricing } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
 
 const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
+// A flat 2% is too thin to be worth collecting on small orders (Paystack's
+// own per-transaction fee alone can exceed it) -- floor Stora's take
+// regardless of order size.
+const PLATFORM_MINIMUM_COMMISSION = parseFloat(process.env.PLATFORM_MINIMUM_COMMISSION || '200');
 
 // Groups an order's items by store, matching each item up with its
 // order_stores snapshot -- the single source of truth both the payment
@@ -88,7 +92,12 @@ async function computePaymentSplit(order, storeGroupedItems) {
 
   for (const storeId of payableStoreIds) {
     const grossAmount = storeGroupedItems[storeId].total;
-    const commissionAmount = Math.round(grossAmount * PLATFORM_COMMISSION_RATE * 100) / 100;
+    const rateBasedCommission = Math.round(grossAmount * PLATFORM_COMMISSION_RATE * 100) / 100;
+    // Floored at PLATFORM_MINIMUM_COMMISSION, but never above grossAmount
+    // itself -- without that cap, an item priced under NGN200 would push
+    // netAmount negative below in 'vendor'-bearer mode (Stora can't take
+    // more commission than the order is actually worth).
+    const commissionAmount = Math.min(Math.max(rateBasedCommission, PLATFORM_MINIMUM_COMMISSION), grossAmount);
     const bearer = commissionBearerByStoreId.get(storeId);
 
     // Snapshotted per split at checkout time -- a vendor flipping their
@@ -180,7 +189,7 @@ export async function POST(request) {
   const releaseAll = async () => {
     for (const r of reservations) {
       try {
-        await releaseStockReservation(r.inventoryId, r.quantity, r.variantId);
+        await releaseStockReservation(r.variantId, r.quantity);
       } catch (releaseError) {
         console.error('Error releasing reservation during rollback:', releaseError);
       }
@@ -267,6 +276,28 @@ export async function POST(request) {
       }
     }
 
+    // Block re-checking-out an item that's already tied to a still-unpaid
+    // order. Cart items now stay in the cart (flagged via pending_order_id)
+    // while their payment is unresolved instead of being cleared at order
+    // creation -- see the cart-handling block below -- so without this
+    // guard, a customer could reserve stock twice for the same item by
+    // just clicking "place order" again before the first attempt resolves.
+    const pendingOrderIds = [...new Set(itemsToProcess.map(item => item.pending_order_id).filter(Boolean))];
+    if (pendingOrderIds.length > 0) {
+      const { data: liveOrders } = await supabaseAdmin
+        .from('orders')
+        .select('id, order_number')
+        .in('id', pendingOrderIds)
+        .not('status', 'in', '(cancelled,refunded)');
+      if (liveOrders && liveOrders.length > 0) {
+        return NextResponse.json({
+          success: false,
+          message: `You already have an order (${liveOrders[0].order_number}) awaiting payment for one or more of these items. Complete or cancel that payment first.`,
+          existingOrderId: liveOrders[0].id
+        }, { status: 409 });
+      }
+    }
+
     // Phase 1: validate + atomically reserve stock for every item. Any
     // failure releases everything reserved so far and returns -- no order
     // is created until every item has cleared this phase.
@@ -278,6 +309,7 @@ export async function POST(request) {
     const productIds = [...new Set(itemsToProcess.map(item => item.product_id))];
     const products = await findInventoryByIds(productIds);
     const productById = new Map(products.map(p => [p.id, p]));
+    const batchesByProduct = await findActiveBatchesByInventoryIds(productIds);
 
     for (const cartItem of itemsToProcess) {
       const product = productById.get(cartItem.product_id);
@@ -299,16 +331,50 @@ export async function POST(request) {
       }
 
       // The real variant identity lives at product_snapshot.variant (set
-      // when the item was added to cart) -- cart_items has no top-level
-      // `variant`/`batch_id` columns, so reading those directly (as this
-      // route used to) always resolved to null and silently reserved
-      // stock against the parent product instead of the chosen variant.
+      // when the item was added to cart -- see supabaseCart.js's
+      // prepareCartItemData, which now always resolves one, even for a
+      // simple product with no real size/color options). No fallback to
+      // null: every product has >=1 real variant row
+      // (20260817000001_unify_inventory_variants.sql), so a cart item
+      // with no resolved variant_id is stale pre-migration data, not a
+      // legitimate state to silently proceed on.
       const variant = cartItem.product_snapshot?.variant || null;
       const variantId = variant?.variant_id || null;
+      if (!variantId) {
+        await releaseAll();
+        return NextResponse.json(
+          { success: false, message: `${product.productName} needs to be re-added to your cart before checkout.` },
+          { status: 400 }
+        );
+      }
+
+      // Price re-validation: checkout has always charged whatever price
+      // was snapshotted into the cart at add-to-cart time, with no check
+      // against the current price -- a vendor repricing (or a batch
+      // rotating) mid-session meant the customer could be charged a
+      // stale number with no defense. Reject and ask them to review
+      // their cart rather than either silently honoring the old price or
+      // silently charging the new one without their awareness.
+      const currentBatches = (batchesByProduct[cartItem.product_id] || []).filter(b => b.variant_id === variantId);
+      const { sellingPrice: currentPrice } = await resolveBatchPricing(product, currentBatches, variantId);
+      if (parseFloat(currentPrice) !== parseFloat(cartItem.price)) {
+        await releaseAll();
+        return NextResponse.json(
+          {
+            success: false,
+            message: `The price of ${product.productName} has changed (was ₦${parseFloat(cartItem.price).toLocaleString('en-NG')}, now ₦${parseFloat(currentPrice).toLocaleString('en-NG')}). Please review your cart before checking out.`,
+            priceChanged: true,
+            productId: cartItem.product_id,
+            oldPrice: parseFloat(cartItem.price),
+            newPrice: parseFloat(currentPrice)
+          },
+          { status: 409 }
+        );
+      }
 
       let reserveResult;
       try {
-        reserveResult = await reserveStock(cartItem.product_id, cartItem.quantity, variantId);
+        reserveResult = await reserveStock(variantId, cartItem.quantity);
       } catch (stockError) {
         await releaseAll();
         return NextResponse.json(
@@ -317,7 +383,7 @@ export async function POST(request) {
         );
       }
 
-      reservations.push({ inventoryId: cartItem.product_id, variantId, quantity: cartItem.quantity });
+      reservations.push({ variantId, quantity: cartItem.quantity });
 
       // Fetch complete store data if not cached
       if (!storeDataCache.has(cartItem.store_id)) {
@@ -435,16 +501,6 @@ export async function POST(request) {
       console.error('Error recording order_item_batches (non-fatal):', batchLogError);
     }
 
-    // Scoped checkout only removes the items just ordered, leaving
-    // whatever else was in the cart (e.g. another store's items) intact
-    // for a later checkout -- a blanket clearCart here would silently
-    // drop items the customer never asked to check out yet.
-    if (isScopedCheckout) {
-      await removeItemsFromCart(cart, itemsToProcess.map(item => item.id));
-    } else {
-      await clearCart(cart);
-    }
-
     // Single source of truth for per-store subtotals -- feeds both the
     // payment split below and the notification/email loop, so they can
     // never disagree about what each vendor is owed.
@@ -473,6 +529,40 @@ export async function POST(request) {
     const contactOnlyStoreIds = paymentSplitError
       ? Object.keys(storeGroupedItems)
       : (paymentSplitResult?.contactOnlyStoreIds ?? (paymentMethod === 'paystack' ? [] : Object.keys(storeGroupedItems)));
+
+    // Items belonging to a store with a pending online charge stay in the
+    // cart, flagged via pending_order_id, instead of being removed now --
+    // clearing is deferred to actual payment confirmation
+    // (confirmOrderPayment in supabasePayments.js), and the flag is what
+    // lets a second checkout attempt on the same item be detected and
+    // blocked above instead of silently double-reserving stock. Anything
+    // with no payment to wait for (contact-only stores, or the whole cart
+    // when paymentMethod isn't 'paystack' at all) is removed immediately,
+    // same as this route always did before payment was ever deferred.
+    const payableStoreIdSet = new Set(paymentSplitResult?.payableStoreIds || []);
+    const pendingItems = itemsToProcess.filter(item => payableStoreIdSet.has(item.store_id));
+    const settledItems = itemsToProcess.filter(item => !payableStoreIdSet.has(item.store_id));
+
+    if (pendingItems.length > 0) {
+      const { error: flagError } = await supabaseAdmin
+        .from('cart_items')
+        .update({ pending_order_id: order.id })
+        .in('id', pendingItems.map(item => item.id));
+      if (flagError) console.error('Error flagging cart items as payment-pending:', flagError);
+    }
+
+    if (settledItems.length > 0) {
+      if (isScopedCheckout || pendingItems.length > 0) {
+        // Scoped checkout, or a mixed cart where some items are still
+        // payment-pending -- remove exactly what's settled, never touch
+        // the rest of the cart.
+        await removeItemsFromCart(cart, settledItems.map(item => item.id));
+      } else {
+        // Whole-cart checkout with nothing left pending -- same full reset
+        // this route always did.
+        await clearCart(cart);
+      }
+    }
 
     // Notify only the contact-only stores now -- no online payment gates
     // them, so this is the same immediate notification the cash_to_vendor

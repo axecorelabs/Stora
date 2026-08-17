@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Package, 
+import {
+  Package,
   ArrowLeft,
   Clock
 } from "lucide-react";
@@ -34,13 +34,6 @@ export default function StoreOrdersPage({ params }) {
     }
   }, [isAuthenticated, authLoading, router, resolvedParams.slug]);
 
-  // Fetch orders
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchOrders();
-    }
-  }, [isAuthenticated, activeTab]);
-
   // Store colors with fallbacks
   const primaryColor = currentStore?.branding?.primaryColor || '#0D9488';
   const secondaryColor = currentStore?.branding?.secondaryColor || '#F3F4F6';
@@ -68,15 +61,12 @@ export default function StoreOrdersPage({ params }) {
         url.searchParams.append('status', status);
       });
       
-      console.log('Fetching orders with URL:', url.toString());
-      
       const response = await fetch(url.toString(), {
         credentials: 'include'
       });
       const data = await response.json();
 
       if (response.ok && data.success) {
-        console.log(`Loaded ${data.orders.length} orders for tab: ${activeTab}`);
         setOrders(data.orders);
         setStats(data.stats);
         setPagination(data.pagination);
@@ -89,6 +79,13 @@ export default function StoreOrdersPage({ params }) {
       setLoading(false);
     }
   };
+
+  // Fetch orders
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchOrders();
+    }
+  }, [isAuthenticated, activeTab]);
 
   const formatPrice = (price) => {
     if (currency === 'NGN') {
@@ -135,13 +132,10 @@ export default function StoreOrdersPage({ params }) {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-brand-50/40">
         <div className="text-center">
-          <div 
-            className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-4 mb-4 mx-auto"
-            style={{ borderTopColor: primaryColor }}
-          ></div>
-          <p className="text-gray-600">Loading your orders...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-brand-100 border-t-brand-700 mb-4 mx-auto"></div>
+          <p className="text-brand-800/60 text-sm">Loading your orders…</p>
         </div>
       </div>
     );
@@ -154,19 +148,19 @@ export default function StoreOrdersPage({ params }) {
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4">
           <button
             onClick={() => router.push(`/${resolvedParams.slug}`)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors mb-4"
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-4"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Back to {currentStore?.storeName || 'Store'}</span>
+            <ArrowLeft className="w-4 h-4" />
+            <span className="font-medium text-sm">Back to {currentStore?.storeName || 'Store'}</span>
           </button>
 
           <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
+            <h1 className="font-display text-2xl md:text-3xl font-semibold text-gray-900">My orders</h1>
             {currentStore?.branding?.logo && (
-              <img 
-                src={currentStore.branding.logo} 
-                alt={currentStore.storeName} 
-                className="h-8 w-auto object-contain opacity-60" 
+              <img
+                src={currentStore.branding.logo}
+                alt={currentStore.storeName}
+                className="h-8 w-auto object-contain opacity-60"
               />
             )}
           </div>
@@ -180,14 +174,14 @@ export default function StoreOrdersPage({ params }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 font-medium transition-all relative ${
+              className={`px-5 py-3 text-sm font-medium transition-all relative tabular-nums ${
                 activeTab === tab.id
                   ? 'border-b-2'
-                  : 'text-gray-600 hover:text-gray-900'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
-              style={activeTab === tab.id ? { 
-                color: primaryColor, 
-                borderBottomColor: primaryColor 
+              style={activeTab === tab.id ? {
+                color: primaryColor,
+                borderBottomColor: primaryColor
               } : {}}
             >
               {tab.label} ({tab.count})
@@ -198,118 +192,84 @@ export default function StoreOrdersPage({ params }) {
         {/* Orders List */}
         {orders.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-            <div className="text-6xl mb-4">📦</div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+            <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-brand-50 flex items-center justify-center">
+              <Package className="w-7 h-7 text-brand-600" strokeWidth={1.5} />
+            </div>
+            <h3 className="font-display text-xl font-semibold text-gray-900 mb-2">
               No {activeTab} orders
             </h3>
-            <p className="text-gray-600 mb-6">
-              {activeTab === 'upcoming' 
-                ? "You don't have any upcoming orders" 
+            <p className="text-sm text-gray-500 mb-6">
+              {activeTab === 'upcoming'
+                ? "You don't have any upcoming orders"
                 : "You haven't completed any orders yet"}
             </p>
             <button
               onClick={() => router.push(`/${resolvedParams.slug}`)}
-              className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl text-sm font-semibold hover:brightness-95 transition-all"
               style={{ backgroundColor: primaryColor }}
             >
-              <Package className="w-5 h-5" />
-              Start Shopping
+              <Package className="w-4 h-4" />
+              Start shopping
             </button>
           </div>
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
               <div
-                key={order._id}
+                key={order.id}
                 onClick={() => handleOrderClick(order)}
-                className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] transition-shadow cursor-pointer"
               >
                 {/* Order Header */}
-                <div className="p-6 border-b border-gray-100">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <div 
-                        className="w-12 h-12 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: `${primaryColor}20` }}
-                      >
-                        <Package className="w-6 h-6" style={{ color: primaryColor }} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-gray-900 text-lg">
-                          Order no #{order.orderNumber}
-                        </h3>
-                        <p className="font-semibold text-lg mb-2" style={{ color: primaryColor }}>
-                          {formatPrice(order.totalAmount)}
-                        </p>
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
-                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                        </span>
-                      </div>
+                <div className="p-5 md:p-6 border-b border-gray-100">
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 bg-brand-50">
+                      <Package className="w-5 h-5 text-brand-700" />
                     </div>
-
-                    <div className="text-right flex gap-3">
-                      {/* <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/${resolvedParams.slug}/orders/${order._id}`);
-                        }}
-                        className="px-6 py-2 text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
-                        style={{ backgroundColor: primaryColor }}
-                      >
-                        Full Details
-                      </button> */}
-                      {order.canBeCancelled && (
-                        <button 
-                          onClick={(e) => e.stopPropagation()}
-                          className="px-6 py-2 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors"
-                        >
-                          Cancel Order
-                        </button>
-                      )}
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-gray-900 text-[15px] truncate">
+                        Order #{order.orderNumber}
+                      </h3>
+                      <p className="font-bold text-lg mb-1.5 tabular-nums" style={{ color: primaryColor }}>
+                        {formatPrice(order.totalAmount)}
+                      </p>
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
+                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Order Details */}
-                <div 
-                  className="p-6"
-                  style={{ backgroundColor: `${primaryColor}05` }}
-                >
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4" />
-                        <span>{order.itemCount} Items</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>•</span>
-                        <span>Pay to vendor</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>•</span>
-                        <Clock className="w-4 h-4" />
-                        <span>Ordered {formatDate(order.createdAt)}</span>
-                      </div>
+                <div className="p-5 md:p-6 bg-gray-50/60">
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-gray-500">
+                    <div className="flex items-center gap-1.5">
+                      <Package className="w-3.5 h-3.5" />
+                      <span className="tabular-nums">{order.itemCount} {order.itemCount === 1 ? 'item' : 'items'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="capitalize">{order.payment?.method?.replace('_', ' ') || 'Cash to vendor'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Ordered {formatDate(order.createdAt)}</span>
                     </div>
                   </div>
 
                   {/* Store Information */}
                   {order.stores && order.stores.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
-                      <p className="text-xs font-medium text-gray-500 mb-2">
-                        {order.stores.length === 1 ? 'Store:' : 'Stores:'}
+                      <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        {order.stores.length === 1 ? 'Store' : 'Stores'}
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {order.stores.map((store, idx) => (
+                        {order.stores.map((store) => (
                           <div
-                            key={idx}
+                            key={store.storeId}
                             className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg"
                           >
-                            <div 
-                              className="w-6 h-6 rounded-full flex items-center justify-center"
-                              style={{ backgroundColor: `${primaryColor}20` }}
-                            >
-                              <span className="text-xs font-semibold" style={{ color: primaryColor }}>
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center bg-brand-50">
+                              <span className="text-xs font-semibold text-brand-700">
                                 {store.storeName?.charAt(0)?.toUpperCase() || 'S'}
                               </span>
                             </div>
@@ -317,7 +277,7 @@ export default function StoreOrdersPage({ params }) {
                               <span className="text-sm font-medium text-gray-900">
                                 {store.storeName}
                               </span>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-500 tabular-nums">
                                 {store.itemCount} {store.itemCount === 1 ? 'item' : 'items'}
                               </span>
                             </div>

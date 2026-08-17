@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Space_Grotesk, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -6,11 +6,21 @@ import QueryProvider from "@/providers/QueryProvider";
 import GoogleAuthErrorBanner from "@/components/auth/GoogleAuthErrorBanner";
 import Head from "next/head";
 
-const geistSans = Geist({
+// Same pairing as apps/dashboard -- one typographic identity across both
+// apps, not a second one invented for this app alone.
+const inter = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-display-raw",
+  subsets: ["latin"],
+});
+
+// Order numbers, SKUs, prices in a few places lean on font-mono for
+// tabular alignment -- kept as its own face rather than folded into
+// Inter's default figures.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
@@ -81,7 +91,7 @@ export default function RootLayout({ children }) {
         />
 
       </Head>
-      <body className="bg-gray-50 text-gray-900">
+      <body className={`${inter.variable} ${spaceGrotesk.variable} ${geistMono.variable} bg-gray-50 text-gray-900 font-sans`}>
         <QueryProvider>
           <AuthProvider>
             <CartProvider>

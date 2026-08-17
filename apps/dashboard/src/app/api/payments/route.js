@@ -2,11 +2,20 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 
+// Same values apps/store's checkout math reads (PLATFORM_COMMISSION_RATE,
+// PLATFORM_MINIMUM_COMMISSION in orders/create/route.js) -- surfaced here
+// purely for display, so the Payments page can explain the real policy
+// instead of hardcoding copy that could drift from what's actually charged.
+const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
+const PLATFORM_MINIMUM_COMMISSION = parseFloat(process.env.PLATFORM_MINIMUM_COMMISSION || '200');
+
 const EMPTY_DATA = (page, limit) => ({
   transactions: [],
   stats: { totalGross: 0, totalCommission: 0, totalNet: 0, totalRefunded: 0, transactionCount: 0 },
   payoutAccount: { ready: false },
   commissionBearer: 'vendor',
+  commissionRate: PLATFORM_COMMISSION_RATE,
+  minimumCommission: PLATFORM_MINIMUM_COMMISSION,
   pagination: { current: page, pages: 0, total: 0, limit, hasMore: false }
 });
 
@@ -188,6 +197,8 @@ export async function GET(req) {
         stats,
         payoutAccount,
         commissionBearer: store.commission_bearer === 'customer' ? 'customer' : 'vendor',
+        commissionRate: PLATFORM_COMMISSION_RATE,
+        minimumCommission: PLATFORM_MINIMUM_COMMISSION,
         pagination: {
           current: page,
           pages: Math.ceil((totalCount || 0) / limit),

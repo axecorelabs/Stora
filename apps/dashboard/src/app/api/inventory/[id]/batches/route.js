@@ -201,104 +201,96 @@ export async function POST(req, { params }) {
       );
     }
 
-    // Generate batch code if not provided
-    let batchCode = batchData.batchCode;
-    
-    if (!batchCode) {
-      const productCode = inventory.sku ? inventory.sku.split('-')[0] : 'PRD';
-      const dateReceived = batchData.dateReceived ? new Date(batchData.dateReceived) : new Date();
-      const dateCode = dateReceived.toISOString().slice(2, 10).replace(/-/g, '');
-      
-      // Count existing batches
-      const { count } = await supabaseAdmin
-        .from('inventory_batches')
-        .select('*', { count: 'exact', head: true })
-        .eq('inventory_id', productId);
-      
-      const batchSequence = String((count || 0) + 1).padStart(3, '0');
-      batchCode = `${productCode}-${dateCode}-B${batchSequence}`;
-    }
-
-    // Create new batch
-    const { data: newBatch, error: batchError } = await supabaseAdmin
+    const productCode = inventory.sku ? inventory.sku.split('-')[0] : 'PRD';
+    const dateReceived = batchData.dateReceived ? new Date(batchData.dateReceived) : new Date();
+    const dateCode = dateReceived.toISOString().slice(2, 10).replace(/-/g, '');
+    const { count: existingBatchCount } = await supabaseAdmin
       .from('inventory_batches')
-      .insert({
-        user_id: user.id,
-        inventory_id: productId,
-        batch_code: batchCode,
-        quantity_in: batchData.quantityIn,
-        quantity_sold: 0,
-        quantity_remaining: batchData.quantityIn,
-        cost_price: batchData.costPrice,
-        selling_price: batchData.sellingPrice,
-        date_received: batchData.dateReceived || new Date().toISOString(),
-        expiry_date: batchData.expiryDate || null,
-        supplier: batchData.supplier || '',
-        notes: batchData.notes || '',
-        status: 'active',
-        batch_location: batchData.batchLocation || 'Main Store'
-      })
-      .select()
-      .single();
+      .select('*', { count: 'exact', head: true })
+      .eq('inventory_id', productId);
 
-    if (batchError) {
-      console.error('Batch creation error:', batchError);
-      return NextResponse.json(
-        { success: false, message: 'Failed to create batch' },
-        { status: 500 }
-      );
+    // Every batch is variant-scoped now. AddBatchModal.js sends a
+    // `variants` array (one entry per size/color) for a multi-variant
+    // product -- previously silently ignored (this route only ever read
+    // the singular `variantId`, so a per-variant batch submission ended up
+    // crediting the product as a whole instead of the right variants).
+    // Now actually consumed: one fn_create_batch call per entry.
+    let targetVariants;
+    if (Array.isArray(batchData.variants) && batchData.variants.length > 0) {
+      targetVariants = batchData.variants.map(v => ({
+        variantId: v.variantId,
+        quantityIn: v.quantityIn,
+        costPrice: v.costPrice ?? batchData.costPrice,
+        sellingPrice: v.sellingPrice ?? batchData.sellingPrice
+      }));
+    } else if (batchData.variantId) {
+      targetVariants = [{ variantId: batchData.variantId, quantityIn: batchData.quantityIn, costPrice: batchData.costPrice, sellingPrice: batchData.sellingPrice }];
+    } else {
+      // No variant specified -- only valid when the product has exactly
+      // one (its "default" variant). A real multi-variant product must
+      // say which variant(s) via the array above.
+      const { data: variants } = await supabaseAdmin
+        .from('inventory_variants')
+        .select('id')
+        .eq('inventory_id', productId)
+        .eq('is_active', true);
+      if (!variants || variants.length !== 1) {
+        return NextResponse.json(
+          { success: false, message: variants?.length > 1 ? 'This product has multiple variants -- specify which one(s) to add stock to' : 'This product has no variant to add stock to' },
+          { status: 400 }
+        );
+      }
+      targetVariants = [{ variantId: variants[0].id, quantityIn: batchData.quantityIn, costPrice: batchData.costPrice, sellingPrice: batchData.sellingPrice }];
     }
 
-    // Update inventory totals
-    const newStockQuantity = (inventory.stock_quantity || 0) + batchData.quantityIn;
-    const { data: updatedInventory, error: updateError } = await supabaseAdmin
-      .from('inventory')
-      .update({
-        stock_quantity: newStockQuantity,
-        cost: batchData.costPrice || inventory.cost,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', productId)
-      .select()
-      .single();
+    const createdBatches = [];
+    for (let i = 0; i < targetVariants.length; i++) {
+      const v = targetVariants[i];
+      const batchCode = batchData.batchCode && targetVariants.length === 1
+        ? batchData.batchCode
+        : `${productCode}-${dateCode}-B${String((existingBatchCount || 0) + i + 1).padStart(3, '0')}`;
 
-    if (updateError) {
-      console.error('Inventory update error:', updateError);
-    }
+      // fn_create_batch inserts the batch and bumps the variant's
+      // quantity_in_stock in one locked transaction -- see
+      // 20260817000002_variant_only_rpcs.sql.
+      const { data: rpcResult, error: batchError } = await supabaseAdmin.rpc('fn_create_batch', {
+        p_variant_id: v.variantId,
+        p_user_id: user.id,
+        p_batch_code: batchCode,
+        p_quantity_in: v.quantityIn,
+        p_cost_price: v.costPrice,
+        p_selling_price: v.sellingPrice,
+        p_supplier: batchData.supplier || '',
+        p_notes: batchData.notes || '',
+        p_batch_location: batchData.batchLocation || 'Main Store',
+        p_date_received: batchData.dateReceived || new Date().toISOString(),
+        p_expiry_date: batchData.expiryDate || null,
+        p_reason: `Added new batch: ${batchCode}`
+      });
 
-    // Track activity
-    try {
-      await supabaseAdmin
-        .from('inventory_activities')
-        .insert({
-          user_id: user.id,
-          inventory_id: productId,
-          activity_type: 'stock_added',
-          quantity_before: inventory.stock_quantity || 0,
-          quantity_changed: batchData.quantityIn,
-          quantity_after: newStockQuantity,
-          reason: `Added new batch: ${batchCode}`,
-          batch_id: newBatch.id,
-          batch_code: batchCode,
-          metadata: {
-            costPrice: batchData.costPrice
-          }
-        });
-    } catch (activityError) {
-      console.error('Activity tracking failed:', activityError);
+      if (batchError) {
+        console.error(`Batch creation error for variant ${v.variantId}:`, batchError);
+        return NextResponse.json(
+          { success: false, message: `Failed to create batch${targetVariants.length > 1 ? ` (variant ${i + 1} of ${targetVariants.length})` : ''}`, createdSoFar: createdBatches.length },
+          { status: 500 }
+        );
+      }
+
+      const result = rpcResult?.[0];
+      const { data: newBatch } = await supabaseAdmin.from('inventory_batches').select('*').eq('id', result.batch_id).single();
+      createdBatches.push({ batch: transformBatch(newBatch), variantId: v.variantId, newVariantStock: result.new_stock_quantity });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Batch added successfully',
+      message: createdBatches.length > 1 ? `${createdBatches.length} batches added successfully` : 'Batch added successfully',
       data: {
-        batch: transformBatch(newBatch),
-        updatedInventory: updatedInventory ? {
-          id: updatedInventory.id,
-          _id: updatedInventory.id,
-          quantityInStock: updatedInventory.stock_quantity,
-          stockQuantity: updatedInventory.stock_quantity
-        } : null
+        batch: createdBatches[0].batch,
+        batches: createdBatches.map(b => b.batch),
+        updatedInventory: {
+          id: productId,
+          _id: productId
+        }
       }
     });
 

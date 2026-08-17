@@ -10,58 +10,62 @@ export function CartProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
 
+  // Re-fetches and replaces local cart state without deleting anything
+  // server-side -- unlike clearCart() below, which calls DELETE /api/cart
+  // (a full reset). Needed after order creation: cart clearing now happens
+  // server-side in orders/create (scoped to what's actually settled, with
+  // payment-pending items deliberately left in the cart until payment
+  // confirms), so the frontend just needs to pick up whatever changed
+  // rather than force a clear of its own.
+  const refreshCart = async () => {
+    if (!isAuthenticated) {
+      setCart(null);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/cart", {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('[CartContext] Cart fetched:', {
+            itemCount: data.cart?.item_count,
+            itemsLength: data.cart?.items?.length,
+            cart: data.cart
+          });
+          setCart(data.cart);
+          setFetchError(null);
+        } else {
+          console.error("Cart fetch failed:", data.message);
+          setFetchError(data.message);
+        }
+      } else if (response.status === 401) {
+        console.log("User not authenticated, skipping cart fetch");
+        setCart(null);
+      } else {
+        console.error("Cart fetch error:", response.status);
+      }
+    } catch (error) {
+      console.error("Error fetching cart:", error);
+      setFetchError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Fetch cart when user is authenticated
   useEffect(() => {
-    const fetchCart = async () => {
-      // Wait for auth to finish loading
-      if (authLoading) {
-        return;
-      }
-
-      if (!isAuthenticated) {
-        setCart(null);
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        const response = await fetch("/api/cart", {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            console.log('[CartContext] Cart fetched:', {
-              itemCount: data.cart?.item_count,
-              itemsLength: data.cart?.items?.length,
-              cart: data.cart
-            });
-            setCart(data.cart);
-            setFetchError(null);
-          } else {
-            console.error("Cart fetch failed:", data.message);
-            setFetchError(data.message);
-          }
-        } else if (response.status === 401) {
-          console.log("User not authenticated, skipping cart fetch");
-          setCart(null);
-        } else {
-          console.error("Cart fetch error:", response.status);
-        }
-      } catch (error) {
-        console.error("Error fetching cart:", error);
-        setFetchError(error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchCart();
+    if (authLoading) return;
+    refreshCart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, authLoading, customer]);
 
   const addToCart = async (productId, quantity = 1, metadata = {}) => {
@@ -226,6 +230,7 @@ export function CartProvider({ children }) {
     removeFromCart,
     updateQuantity,
     clearCart,
+    refreshCart,
     getCartTotal,
     getCartCount,
     validateCart

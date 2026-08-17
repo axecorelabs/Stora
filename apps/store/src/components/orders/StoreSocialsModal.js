@@ -1,5 +1,5 @@
 "use client";
-import { MessageCircle, Package, Phone, Clock, CheckCircle, X, Instagram, Facebook, Twitter, Video, ExternalLink } from "lucide-react";
+import { MessageCircle, Package, X, Instagram, Facebook, Twitter, Video, ExternalLink, MessageSquareOff } from "lucide-react";
 
 export default function StoreSocialsModal({ 
   isOpen, 
@@ -249,7 +249,7 @@ export default function StoreSocialsModal({
           {/* Available Social Media Platforms */}
           {availableSocials.length > 0 ? (
             <div className="space-y-3 mb-6">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Available Contact Methods:</h4>
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">Available contact methods</h4>
               {availableSocials.map((social, index) => (
                 <button
                   key={index}
@@ -283,23 +283,25 @@ export default function StoreSocialsModal({
             </div>
           ) : (
             <div className="text-center py-8">
-              <div className="text-4xl mb-4">📱</div>
-              <h4 className="text-lg font-semibold text-gray-900 mb-2">No Contact Methods Available</h4>
+              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center">
+                <MessageSquareOff className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
+              </div>
+              <h4 className="text-base font-semibold text-gray-900 mb-1.5">No contact methods available</h4>
               <p className="text-sm text-gray-500">
-                This store hasn't added their social media contacts yet.
+                This store hasn&apos;t added their social media contacts yet.
               </p>
             </div>
           )}
 
           {/* Message Preview */}
           {availableSocials.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="bg-brand-50/60 border border-brand-100/70 rounded-xl p-4">
               <div className="flex items-start gap-3">
-                <MessageCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <MessageCircle className="w-4 h-4 text-brand-700 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-blue-900 mb-1">Message Preview:</p>
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    "Hi {store.storeName}! I placed an order #{orderNumber} with {itemCount} {itemCount === 1 ? 'item' : 'items'}. Please confirm my order status. Thank you!"
+                  <p className="text-sm font-medium text-brand-900 mb-1">Message preview</p>
+                  <p className="text-xs text-brand-800/70 leading-relaxed">
+                    &ldquo;Hi {store.storeName}! I placed an order #{orderNumber} with {itemCount} {itemCount === 1 ? 'item' : 'items'}. Please confirm my order status. Thank you!&rdquo;
                   </p>
                 </div>
               </div>
@@ -310,7 +312,7 @@ export default function StoreSocialsModal({
           <div className="mt-6">
             <button
               onClick={onClose}
-              className="w-full py-3 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+              className="w-full py-3 border border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
             >
               Close
             </button>

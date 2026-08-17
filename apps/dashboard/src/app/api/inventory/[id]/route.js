@@ -4,11 +4,13 @@ import { verifySession } from '@/lib/auth';
 import { backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 
-// Helper to transform inventory data for response
-function transformInventory(item) {
+// Helper to transform inventory data for response. Every product has >=1
+// real inventory_variants row now -- stock/price are always derived from
+// those, never a flat column on `inventory`. hasVariants is derived (more
+// than one row), not a stored flag.
+function transformInventory(item, variants = []) {
   if (!item) return null;
-  
-  // Parse images safely - each image in the array may be a JSON string
+
   let images = [];
   try {
     const rawImages = item.images || [];
@@ -25,19 +27,36 @@ function transformInventory(item) {
   } catch (e) {
     images = [];
   }
-  
-  // Get primary image URL - prefer database field, fallback to images array
-  let primaryImage = item.primary_image || null;
 
-  // Fallback: if no primary_image in DB, try to find from images array
+  let primaryImage = item.primary_image || null;
   if (!primaryImage && images.length > 0) {
     const primaryImg = images.find(img => img && img.isPrimary);
     primaryImage = (primaryImg?.url) || (images[0]?.url) || null;
   }
-  
-  // Variants will be fetched separately from inventory_variants table
-  // Keep empty array here, will be populated by GET handler
-  
+
+  const transformedVariants = variants.map(v => ({
+    _id: v.id,
+    id: v.id,
+    size: v.size,
+    color: v.color,
+    sku: v.sku,
+    quantityInStock: v.quantity_in_stock,
+    reservedQuantity: v.reserved_quantity,
+    reorderLevel: v.reorder_level,
+    soldQuantity: v.sold_quantity,
+    images: v.images || [],
+    barcode: v.barcode,
+    isActive: v.is_active,
+    price: v.price,
+    costPrice: v.cost_price
+  }));
+
+  const totalStock = variants.reduce((sum, v) => sum + (v.quantity_in_stock || 0), 0);
+  const totalReserved = variants.reduce((sum, v) => sum + (v.reserved_quantity || 0), 0);
+  const totalSold = variants.reduce((sum, v) => sum + (v.sold_quantity || 0), 0);
+  const representativePrice = variants[0]?.price ?? 0;
+  const representativeCost = variants[0]?.cost_price ?? 0;
+
   return {
     id: item.id,
     _id: item.id,
@@ -51,21 +70,23 @@ function transformInventory(item) {
     location: item.location,
     category: item.category,
     categoryDetails: item.category_details,
-    variants: [], // Populated separately from inventory_variants table
-    hasVariants: item.has_variants || false,
-    sellingPrice: item.base_price,
-    basePrice: item.base_price,
-    costPrice: item.cost,
-    cost: item.cost,
+    variants: transformedVariants,
+    hasVariants: variants.length > 1,
+    sellingPrice: representativePrice,
+    basePrice: representativePrice,
+    costPrice: representativeCost,
+    cost: representativeCost,
     sku: item.sku,
     barcode: item.barcode,
-    quantityInStock: item.stock_quantity,
-    stockQuantity: item.stock_quantity,
+    quantityInStock: totalStock,
+    stockQuantity: totalStock,
+    quantityReserved: totalReserved,
+    soldQuantity: totalSold,
     minimumStock: item.minimum_stock,
     reorderLevel: item.minimum_stock,
     unitOfMeasure: item.unit_of_measure || 'Piece',
     images: images,
-    image: primaryImage, // Primary image URL for easy access
+    image: primaryImage,
     primaryImage: primaryImage,
     tags: typeof item.tags === 'string' ? JSON.parse(item.tags || '[]') : item.tags || [],
     isActive: item.is_active,
@@ -73,6 +94,13 @@ function transformInventory(item) {
     createdAt: item.created_at,
     updatedAt: item.updated_at
   };
+}
+
+async function fetchVariants(inventoryId, { activeOnly = true } = {}) {
+  let query = supabaseAdmin.from('inventory_variants').select('*').eq('inventory_id', inventoryId);
+  if (activeOnly) query = query.eq('is_active', true);
+  const { data } = await query.order('color', { ascending: true }).order('size', { ascending: true });
+  return data || [];
 }
 
 // GET - Fetch specific inventory item
@@ -106,41 +134,14 @@ export async function GET(req, { params }) {
     await backfillMissingSkus([item]);
     await backfillMissingStoreIds([item], user.id);
 
-    // Fetch variants from the normalized table if has_variants is true
-    let variants = [];
-    if (item.has_variants) {
-      const { data: variantData } = await supabaseAdmin
-        .from('inventory_variants')
-        .select('*')
-        .eq('inventory_id', id)
-        .eq('is_active', true)
-        .order('color', { ascending: true })
-        .order('size', { ascending: true });
-      
-      variants = (variantData || []).map(v => ({
-        _id: v.id,
-        id: v.id,
-        size: v.size,
-        color: v.color,
-        sku: v.sku,
-        quantityInStock: v.quantity_in_stock,
-        reorderLevel: v.reorder_level,
-        soldQuantity: v.sold_quantity,
-        images: v.images || [],
-        barcode: v.barcode,
-        isActive: v.is_active,
-        price: v.price,
-        costPrice: v.cost_price
-      }));
-    }
-
-    const transformedItem = transformInventory(item);
-    // Override variants with normalized data
-    transformedItem.variants = variants;
+    // Always fetch variants now -- no has_variants gate, every product has
+    // at least one (its "default" variant if it has no real size/color
+    // options).
+    const variants = await fetchVariants(id);
 
     return NextResponse.json({
       success: true,
-      data: transformedItem
+      data: transformInventory(item, variants)
     });
 
   } catch (error) {
@@ -166,7 +167,11 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const updateData = await request.json();
 
-    // Build update object with snake_case keys
+    // Build update object with snake_case keys -- listing metadata only.
+    // has_variants/base_price/cost/stock_quantity are not columns this
+    // route writes to anymore: hasVariants is derived from variant count,
+    // price/cost live on inventory_variants (updated below), and stock
+    // only ever changes through the batch RPCs.
     const dbUpdate = {
       updated_at: new Date().toISOString()
     };
@@ -183,28 +188,11 @@ export async function PUT(request, { params }) {
     if (updateData.categoryDetails) {
       dbUpdate.category_details = updateData.categoryDetails;
     }
-    if (updateData.variants) {
-      dbUpdate.has_variants = updateData.hasVariants !== undefined
-        ? updateData.hasVariants
-        : (updateData.variants && updateData.variants.length > 0);
-    }
-    if (updateData.hasVariants !== undefined) {
-      dbUpdate.has_variants = updateData.hasVariants;
-    }
-    if (updateData.sellingPrice !== undefined || updateData.basePrice !== undefined) {
-      dbUpdate.base_price = updateData.sellingPrice || updateData.basePrice;
-    }
-    if (updateData.costPrice !== undefined || updateData.cost !== undefined) {
-      dbUpdate.cost = updateData.costPrice || updateData.cost;
-    }
     if (updateData.sku) {
       dbUpdate.sku = updateData.sku;
     }
     if (updateData.barcode !== undefined) {
       dbUpdate.barcode = updateData.barcode;
-    }
-    if (updateData.quantityInStock !== undefined || updateData.stockQuantity !== undefined) {
-      dbUpdate.stock_quantity = updateData.quantityInStock || updateData.stockQuantity;
     }
     if (updateData.minimumStock !== undefined || updateData.reorderLevel !== undefined) {
       dbUpdate.minimum_stock = updateData.minimumStock || updateData.reorderLevel;
@@ -241,39 +229,93 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Variants live in the normalized inventory_variants table, not as a column on inventory
-    if (updateData.variants) {
-      const { error: deleteVariantsError } = await supabaseAdmin
+    // No per-variant pricing UI exists yet -- a price/cost edit here
+    // applies to every variant of this product uniformly, matching the
+    // single-price form the vendor actually filled in.
+    if (updateData.sellingPrice !== undefined || updateData.basePrice !== undefined || updateData.costPrice !== undefined || updateData.cost !== undefined) {
+      const priceUpdate = { updated_at: new Date().toISOString() };
+      if (updateData.sellingPrice !== undefined || updateData.basePrice !== undefined) {
+        priceUpdate.price = updateData.sellingPrice ?? updateData.basePrice;
+      }
+      if (updateData.costPrice !== undefined || updateData.cost !== undefined) {
+        priceUpdate.cost_price = updateData.costPrice ?? updateData.cost;
+      }
+      const { error: priceError } = await supabaseAdmin
         .from('inventory_variants')
-        .delete()
+        .update(priceUpdate)
         .eq('inventory_id', id);
+      if (priceError) console.error('Variant price update error:', priceError);
+    }
 
-      if (deleteVariantsError) {
-        console.error('Variant deletion error:', deleteVariantsError);
-      } else if (updateData.variants.length > 0) {
-        const variantRows = updateData.variants.map(v => ({
-          inventory_id: id,
-          size: v.size || 'One Size',
-          color: v.color,
-          sku: v.sku || null,
-          quantity_in_stock: v.quantityInStock || 0,
-          reorder_level: v.reorderLevel || 5,
-          images: v.images || []
-        }));
+    // Reconcile variant rows (size/color/reorder_level/sku/images) against
+    // the submitted list -- NOT a delete-and-reinsert. inventory_batches
+    // references variants with ON DELETE SET NULL, and an active batch is
+    // required to have a variant_id (see the CHECK constraint added in
+    // 20260817000001_unify_inventory_variants.sql), so hard-deleting a
+    // variant that still has active batches would break that invariant.
+    // Matched by id when the client sent one (existing variant, editable
+    // fields only -- quantity/price are not touched here, those come from
+    // Add Batch/Adjust Stock and the price block above respectively);
+    // unmatched incoming rows are new variants (start at 0 stock, same as
+    // a brand-new product does, until stock is actually added to them);
+    // existing variants missing from the payload are soft-removed
+    // (is_active: false) rather than deleted, preserving their batch
+    // history and FK integrity.
+    if (updateData.variants) {
+      const existingVariants = await fetchVariants(id, { activeOnly: false });
+      const incoming = updateData.variants;
+      const incomingIds = new Set(incoming.map(v => v.id || v._id).filter(Boolean));
 
-        const { error: variantsError } = await supabaseAdmin
-          .from('inventory_variants')
-          .insert(variantRows);
-
-        if (variantsError) {
-          console.error('Variant creation error:', variantsError);
+      for (const v of incoming) {
+        const variantId = v.id || v._id;
+        if (variantId && existingVariants.some(ev => ev.id === variantId)) {
+          const { error: updErr } = await supabaseAdmin
+            .from('inventory_variants')
+            .update({
+              size: v.size || 'One Size',
+              color: v.color || 'Default',
+              sku: v.sku || null,
+              reorder_level: v.reorderLevel || 5,
+              images: v.images || [],
+              is_active: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', variantId)
+            .eq('inventory_id', id);
+          if (updErr) console.error('Variant update error:', updErr);
+        } else {
+          const { error: insErr } = await supabaseAdmin
+            .from('inventory_variants')
+            .insert({
+              inventory_id: id,
+              size: v.size || 'One Size',
+              color: v.color || 'Default',
+              sku: v.sku || null,
+              quantity_in_stock: 0,
+              reorder_level: v.reorderLevel || 5,
+              price: updateData.sellingPrice ?? updateData.basePrice ?? existingVariants[0]?.price ?? 0,
+              cost_price: updateData.costPrice ?? updateData.cost ?? existingVariants[0]?.cost_price ?? 0,
+              images: v.images || [],
+              is_active: true
+            });
+          if (insErr) console.error('Variant creation error:', insErr);
         }
+      }
+
+      const toDeactivate = existingVariants.filter(ev => ev.is_active && !incomingIds.has(ev.id));
+      if (toDeactivate.length > 0) {
+        const { error: deactErr } = await supabaseAdmin
+          .from('inventory_variants')
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .in('id', toDeactivate.map(v => v.id));
+        if (deactErr) console.error('Variant deactivation error:', deactErr);
       }
     }
 
+    const finalVariants = await fetchVariants(id);
     return NextResponse.json({
       success: true,
-      data: transformInventory(item)
+      data: transformInventory(item, finalVariants)
     });
 
   } catch (error) {

@@ -157,7 +157,7 @@ export default function StoreFooter() {
                 </div>
               )}
               <div>
-                <h3 className="text-xl font-bold text-gray-900">
+                <h3 className="font-display text-xl font-semibold text-gray-900">
                   {currentStore.storeName}
                 </h3>
                 {/* <span 
@@ -411,15 +411,14 @@ export default function StoreFooter() {
               </p>
               <p className="text-xs text-gray-500 mt-1.5 flex items-center justify-center sm:justify-start gap-1">
                 <span>Powered by</span>
-                <a 
-                  href="https://app.stora.com.ng" 
-                  target="_blank" 
+                <a
+                  href="https://stora.com.ng"
+                  target="_blank"
                   rel="noopener noreferrer"
-                  className="font-semibold hover:underline inline-flex items-center gap-1 transition-colors"
-                  style={{ color: primaryColor }}
+                  className="font-semibold text-gold-700 hover:underline inline-flex items-center gap-1.5 transition-colors"
                 >
+                  <img src="/favicon-16x16.png" alt="" className="w-3.5 h-3.5 rounded-[3px]" />
                   Stora
-                  <Globe className="w-3 h-3" />
                 </a>
               </p>
             </div>

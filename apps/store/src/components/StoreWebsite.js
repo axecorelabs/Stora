@@ -38,7 +38,9 @@ import {
   Package,
   Search,
   SearchX,
-  X
+  X,
+  ShieldCheck,
+  AlertTriangle
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import useStoreStore from "@/stores/storeStore";
@@ -600,51 +602,33 @@ export default function StoreWebsite({ store }) {
     if (!isMobile || !isAutoPlaying) return;
 
     const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % 4); // 4 slides total
+      setCurrentSlide((prev) => (prev + 1) % carouselSlides.length);
     }, 5000); // Change slide every 5 seconds
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, isAutoPlaying]);
 
-  // Carousel slides data
+  // Carousel slides data -- trimmed from 4 to 2: the store's own banner,
+  // plus one on-brand Stora trust slide. The previous 3 "Stora" slides
+  // were near-duplicate generic marketplace ad copy over random Unsplash
+  // stock photos (a real external dependency + load cost for content that
+  // said nothing specific) -- one honest trust signal says more than three
+  // interchangeable ones.
   const carouselSlides = [
     {
       type: 'store',
-      title: `Welcome to ${store.storeName}`,
+      title: store.storeName,
       description: store.storeDescription,
-      badge: store.storeType === 'physical' ? '🏪 Physical Store' : '🌐 Online Store',
-      showLogo: true,
-      showLogo: false
+      badge: store.storeType === 'physical' ? 'Physical store' : 'Online store',
+      showLogo: true
     },
     {
       type: 'stora',
-      title: "Nigeria's #1 Marketplace",
-      description: "Shop from thousands of verified stores across Nigeria",
-      badge: '🇳🇬 Trusted by Nigerians',
-      showLogo: false,
-      showLogo: true,
-      gradient: 'from-emerald-500 to-teal-600',
-      backgroundImage: 'https://images.unsplash.com/photo-1557821552-17105176677c?w=800&h=400&fit=crop'
-    },
-    {
-      type: 'stora-features',
-      title: "Why Shop on Stora?",
-      description: "Secure payments • Fast delivery • Quality products • 24/7 support",
-      badge: '✨ Your Shopping Companion',
-      showLogo: false,
-      showLogo: true,
-      gradient: 'from-blue-500 to-indigo-600',
-      backgroundImage: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&h=400&fit=crop'
-    },
-    {
-      type: 'stora-discover',
-      title: "Discover Amazing Deals",
-      description: "Browse thousands of products from local Nigerian stores",
-      badge: '🎉 Shop Local, Shop Smart',
-      showLogo: false,
-      showLogo: true,
-      gradient: 'from-purple-500 to-pink-600',
-      backgroundImage: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=400&fit=crop'
+      title: 'Secure checkout, every order',
+      description: 'Payments are held safely and released to the seller once your order is confirmed.',
+      badge: 'Verified by Stora',
+      showLogo: false
     }
   ];
 
@@ -657,22 +641,72 @@ export default function StoreWebsite({ store }) {
 
   return (
     <div className="min-h-screen bg-white relative">
-      {/* Animated Background Shapes */}
-      {!isMobile && (
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" >
-          <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ backgroundColor: secondaryColor }} />
-          <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full opacity-20 blur-3xl" style={{ backgroundColor: secondaryColor }} />
-          <div className="absolute top-20 left-20 w-64 h-64 rounded-full opacity-15 blur-2xl" style={{ backgroundColor: secondaryColor }} />
-          <div className="absolute top-1/2 -right-20 w-56 h-56 rounded-full opacity-15 blur-2xl" style={{ backgroundColor: secondaryColor }} />
-          <div className="absolute bottom-40 right-1/4 w-40 h-40 rounded-full opacity-10 blur-xl" style={{ backgroundColor: secondaryColor }} />
-          <div className="absolute top-1/3 left-1/4 w-48 h-48 rounded-full opacity-10 blur-xl" style={{ backgroundColor: secondaryColor }} />
-        </div>
-      )}
-
-      <StoreHeader 
-        store={store} 
+      <StoreHeader
+        store={store}
         onSignInClick={() => setShowSignInModal(true)}
       />
+
+      {/* Desktop Storefront Hero -- this page didn't have one at all before
+          (just decorative blur shapes behind a search bar); this is a
+          vendor's own shop window, so it leads with their name, their
+          description, their own color -- Stora's presence is the small
+          "Verified" mark, not a competing visual layer. */}
+      {!isMobile && (
+        <div className="relative overflow-hidden border-b border-gray-100 min-h-[220px] lg:min-h-[260px] flex items-center">
+          {/* Banner image, when the vendor has one -- same blurred color-wash
+              treatment the mobile carousel already uses for consistency,
+              just given real room to breathe on desktop. Falls back to a
+              flat vendor-tinted card when there's no banner to show. */}
+          {store.branding?.banner ? (
+            <>
+              <div
+                className="absolute inset-0 bg-cover bg-center scale-105"
+                style={{ backgroundImage: `url(${store.branding.banner})` }}
+              />
+              <div
+                className="absolute inset-0 backdrop-blur-md"
+                style={{ backgroundColor: `${primaryColor}66` }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0" style={{ backgroundColor: `${primaryColor}E6` }} />
+              <div
+                className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full blur-3xl opacity-20 pointer-events-none bg-white"
+              />
+            </>
+          )}
+
+          <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12 lg:py-14 relative w-full">
+            <div className="flex items-center gap-5">
+              {store.branding?.logo && (
+                <img
+                  src={store.branding.logo}
+                  alt={store.storeName}
+                  className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl object-cover bg-white border border-white/40 shadow-lg flex-shrink-0"
+                />
+              )}
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-gold-400/40 mb-2.5">
+                  <ShieldCheck className="w-3 h-3 text-gold-400" />
+                  <span className="text-[10.5px] font-semibold text-gold-400 tracking-wide uppercase">
+                    Verified by Stora
+                  </span>
+                </div>
+                <h1 className="font-display text-[28px] lg:text-[34px] font-semibold text-white tracking-tight truncate drop-shadow-sm">
+                  {store.storeName}
+                </h1>
+                {store.storeDescription && (
+                  <p className="text-white/85 text-[15px] mt-1.5 max-w-xl line-clamp-2 drop-shadow-sm">
+                    {store.storeDescription}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8 relative z-10 min-h-screen">
         {/* Enhanced Mobile Store Banner with Carousel */}
@@ -686,101 +720,57 @@ export default function StoreWebsite({ store }) {
                 style={{ transform: `translateX(-${currentSlide * 100}%)` }}
               >
                 {carouselSlides.map((slide, index) => (
-                  <div 
+                  <div
                     key={index}
-                    className="min-w-full h-40 relative flex-shrink-0"
-                    style={{
-                      backgroundImage: slide.type === 'store' && store.branding?.banner 
-                        ? `url(${store.branding.banner})` 
-                        : slide.backgroundImage 
-                          ? `url(${slide.backgroundImage})`
-                          : 'none',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundColor: slide.type === 'store' && store.branding?.banner 
-                        ? 'transparent' 
-                        : slide.type === 'store' 
-                          ? `${primaryColor}10` 
-                          : 'transparent'
-                    }}
+                    className={`min-w-full h-40 relative flex-shrink-0 ${slide.type !== 'store' ? 'bg-gradient-to-br from-brand-800 to-brand-900' : ''}`}
+                    style={
+                      slide.type === 'store'
+                        ? {
+                            backgroundImage: store.branding?.banner ? `url(${store.branding.banner})` : 'none',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            backgroundColor: `${primaryColor}12`
+                          }
+                        : undefined
+                    }
                   >
-                    {/* Gradient Background for Stora slides */}
-                    {slide.type !== 'store' && (
-                      <div 
-                        className={`absolute inset-0 bg-gradient-to-br ${slide.gradient}`}
-                        style={{ opacity: 0.85 }}
+                    {slide.type === 'store' && (
+                      <div
+                        className="absolute inset-0 backdrop-blur-[2px]"
+                        style={{ backgroundColor: `${primaryColor}25` }}
                       />
                     )}
 
-                    {/* Backdrop Blur Overlay */}
-                    <div 
-                      className="absolute inset-0 backdrop-blur-sm"
-                      style={{ 
-                        backgroundColor: slide.type === 'store' 
-                          ? `${primaryColor}20` 
-                          : 'rgba(0, 0, 0, 0.3)',
-                        backdropFilter: 'blur(8px) saturate(120%)'
-                      }}
-                    />
-                    
-                    {/* Content - Scaled down text sizes */}
+                    {/* Content */}
                     <div className="absolute inset-0 flex flex-col justify-center px-6 banner-content">
                       <div className="flex items-center gap-2 mb-1.5">
-                        {/* Store Logo - Slightly smaller */}
-                        {slide.showLogo && store.branding?.logo && (
-                          <img 
-                            src={store.branding.logo} 
-                            alt={store.storeName} 
-                            className="h-7 w-auto object-contain bg-white/20 backdrop-blur-sm rounded-lg p-1" 
+                        {slide.type === 'store' && slide.showLogo && store.branding?.logo && (
+                          <img
+                            src={store.branding.logo}
+                            alt={store.storeName}
+                            className="h-7 w-7 object-cover bg-white/90 backdrop-blur-sm rounded-lg p-0.5 flex-shrink-0"
                           />
                         )}
-                        
-                        {/* Stora Logo - Slightly smaller */}
-                        {slide.showLogo && (
-                          <img 
-                            src="/favicon-16x16.png"
-                            alt="Stora Logo" 
-                            className="h-7 w-auto object-contain bg-white/90 backdrop-blur-sm rounded-lg p-1.5" 
-                          />
+                        {slide.type !== 'store' && (
+                          <ShieldCheck className="w-5 h-5 text-gold-400 flex-shrink-0" />
                         )}
-                        
-                        {/* Fallback Icon - Smaller */}
-                        {slide.type !== 'store' && !slide.showLogo && (
-                          <div className="w-7 h-7 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-base">
-                            🛍️
-                          </div>
-                        )}
-                        
-                        {/* Title - Scaled down from text-xl to text-base */}
-                        <h1 className="text-lg font-bold text-white drop-shadow-lg">
+                        <h1 className="text-lg font-bold text-white drop-shadow-lg font-display truncate">
                           {slide.title}
                         </h1>
                       </div>
-                      
-                      {/* Description - Scaled down from text-sm to text-xs */}
+
                       {slide.description && (
-                        <p className="text-white/90 text-xs leading-relaxed drop-shadow-md line-clamp-2">
+                        <p className="text-white/85 text-xs leading-relaxed drop-shadow-md line-clamp-2">
                           {slide.description}
                         </p>
                       )}
-                      
-                      {/* Badge - Scaled down padding and text */}
+
                       <div className="mt-1.5">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/20 backdrop-blur-sm text-white border border-white/30">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/15 backdrop-blur-sm text-white border border-white/25">
                           {slide.badge}
                         </span>
                       </div>
                     </div>
-                    
-                    {/* Gradient Overlay */}
-                    {slide.type === 'store' && (
-                      <div 
-                        className="absolute inset-0 opacity-30"
-                        style={{
-                          background: `linear-gradient(45deg, ${primaryColor}60, transparent 70%)`
-                        }}
-                      />
-                    )}
                   </div>
                 ))}
               </div>
@@ -824,11 +814,15 @@ export default function StoreWebsite({ store }) {
           </div>
         )}
 
-        {/* Mobile Categories Section - Only show if more than 1 category */}
-        {isMobile  && categoriesWithCounts.length > 1 && (
-          <div className="mb-6 -mx-6">
-            <div className="px-6 flex items-center justify-between mb-3">
-              <h3 className="text-base font-semibold text-gray-900">Category</h3>
+        {/* Categories Section -- desktop already has search in the sticky
+            header (StoreHeader.js), so this space is category browsing
+            instead of a second, redundant search box. Mobile keeps the
+            horizontal-scroll treatment (no room to wrap); desktop wraps
+            since there's width to spare. */}
+        {categoriesWithCounts.length > 1 && (
+          <div className={`mb-6 ${isMobile ? '-mx-6' : ''}`}>
+            <div className={`flex items-center justify-between mb-3 ${isMobile ? 'px-6' : ''}`}>
+              <h3 className="text-base font-semibold text-gray-900">Shop by category</h3>
               <button
                 onClick={() => {
                   setIsNavigating(true);
@@ -837,48 +831,47 @@ export default function StoreWebsite({ store }) {
                 className="text-sm font-medium"
                 style={{ color: primaryColor }}
               >
-                See All
+                See all
               </button>
             </div>
-            
-            {/* Horizontal Scrollable Categories */}
-            <div className="overflow-x-auto scrollbar-hide px-6">
-              <div className="flex gap-4 pb-2">
+
+            <div className={isMobile ? 'overflow-x-auto scrollbar-hide px-6' : ''}>
+              <div className={isMobile ? 'flex gap-4 pb-2' : 'flex flex-wrap gap-4'}>
                 {categoriesWithCounts.map((category, index) => {
                   const IconComponent = category.icon;
                   return (
                     <button
                       key={index}
                       onClick={() => handleCategoryClick(category.name)}
-                      className={`flex flex-col items-center flex-shrink-0 transition-all duration-200 ${
+                      className={`flex flex-col items-center flex-shrink-0 transition-transform duration-200 ${
                         selectedCategory === category.name ? 'scale-105' : ''
                       }`}
                     >
-                      <div 
+                      <div
                         className="w-16 h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-200"
-                        style={{ 
-                          backgroundColor: selectedCategory === category.name 
-                            ? `${primaryColor}20` 
-                            : `${primaryColor}10`,
-                          border: selectedCategory === category.name 
-                            ? `2px solid ${primaryColor}` 
-                            : 'none'
+                        style={{
+                          backgroundColor: selectedCategory === category.name
+                            ? `${primaryColor}20`
+                            : `${primaryColor}0D`,
+                          border: selectedCategory === category.name
+                            ? `2px solid ${primaryColor}`
+                            : '1px solid transparent'
                         }}
                       >
-                        <IconComponent 
-                          className="w-5 h-7" 
-                          style={{ 
-                            color: selectedCategory === category.name 
-                              ? primaryColor 
+                        <IconComponent
+                          className="w-6 h-6"
+                          style={{
+                            color: selectedCategory === category.name
+                              ? primaryColor
                               : '#6B7280'
                           }}
                         />
                       </div>
-                      <span 
+                      <span
                         className="text-xs font-medium text-center max-w-[70px] truncate"
-                        style={{ 
-                          color: selectedCategory === category.name 
-                            ? primaryColor 
+                        style={{
+                          color: selectedCategory === category.name
+                            ? primaryColor
                             : '#374151'
                         }}
                       >
@@ -892,65 +885,51 @@ export default function StoreWebsite({ store }) {
           </div>
         )}
 
-        {/* Search Bar - Icon moved outside to the right */}
-        <div className="mb-8 relative z-40" >
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="  Search products, brands, categories..."
-                className="w-full pl-4 pr-10 py-3 text-gray-900 placeholder-gray-400 border-2 rounded-lg focus:outline-none focus:ring-2 transition-all text-sm sm:text-base shadow-sm"
-                style={{ 
-                  backgroundColor: `${primaryColor}05`,
-                  borderColor: searchQuery ? primaryColor : `${primaryColor}`,
-                  '--tw-ring-color': primaryColor
-                }}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
-                >
-                  <X className="w-4 h-4 text-gray-400" />
-                </button>
-              )}
+        {/* Search Bar -- mobile only; desktop's search lives in the sticky
+            header instead of being duplicated here. */}
+        {isMobile && (
+          <div className="mb-8 relative z-40" >
+            <div className="flex items-center gap-2.5">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search products, brands, categories…"
+                  className="w-full pl-10 pr-10 py-3 text-gray-900 placeholder-gray-400 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-sm sm:text-base bg-gray-50/70 focus:bg-white"
+                  style={{ '--tw-ring-color': primaryColor }}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
+                  >
+                    <X className="w-4 h-4 text-gray-400" />
+                  </button>
+                )}
+              </div>
             </div>
-            
-            {/* Search Icon Button - Outside */}
-            <button
-              onClick={() => {
-                // Optional: trigger search action
-                console.log('Searching for:', searchQuery);
-              }}
-              className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center transition-all hover:opacity-90 shadow-sm"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <Search className="w-5 h-5 text-white" />
-            </button>
+
+            {/* Search Results Count */}
+            {searchQuery && (
+              <div className="mt-3 flex items-center justify-between px-1">
+                <p className="text-sm text-gray-500">
+                  {filteredProducts.length} {filteredProducts.length === 1 ? 'result' : 'results'} for &ldquo;{searchQuery}&rdquo;
+                </p>
+                {filteredProducts.length > 0 && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="text-xs font-medium hover:underline"
+                    style={{ color: primaryColor }}
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          
-          {/* Search Results Count */}
-          {searchQuery && (
-            <div className="mt-3 flex items-center justify-between px-2">
-              <p className="text-sm text-gray-600">
-                Found <span className="font-semibold" style={{ color: primaryColor }}>
-                  {filteredProducts.length}
-                </span> {filteredProducts.length === 1 ? 'result' : 'results'} for "{searchQuery}"
-              </p>
-              {filteredProducts.length > 0 && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="text-xs font-medium hover:underline"
-                  style={{ color: primaryColor }}
-                >
-                  Clear search
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        )}
 
         {/* COMMENTED OUT: Filters Bar */}
         {/* <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-8 relative z-40" ref={filtersRef}>
@@ -1004,59 +983,56 @@ export default function StoreWebsite({ store }) {
         {/* Products Section */}
         <div>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-semibold text-gray-900">
-              {isMobile ? 'Products' : ''}
+            <h3 className="font-display text-xl md:text-2xl font-semibold text-gray-900">
+              {isMobile ? 'Products' : 'All products'}
             </h3>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-500 tabular-nums">
               {displayedProducts.length} of {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
             </span>
           </div>
 
           {loading ? (
             <div className="text-center py-20">
-                        <div 
-                          className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-4 mb-4"
-                          style={{ borderTopColor: primaryColor }}
-                        ></div>
-                        <p className="text-gray-600">Loading products...</p>
-                      </div>
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-[3px] border-brand-100 border-t-brand-700 mb-4"></div>
+              <p className="text-brand-800/60 text-sm">Loading products…</p>
+            </div>
           ) : error ? (
             <div className="text-center py-20">
-              <div className="text-8xl mb-4">⚠️</div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Products</h4>
-              <p className="text-sm text-gray-600 mb-4">{error.message}</p>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-red-50 flex items-center justify-center">
+                <AlertTriangle className="w-7 h-7 text-red-500" strokeWidth={1.5} />
+              </div>
+              <h4 className="font-display text-lg font-semibold text-gray-900 mb-1.5">Couldn&apos;t load products</h4>
+              <p className="text-sm text-gray-500 mb-5">{error.message}</p>
               <button
                 onClick={() => window.location.reload()}
-                className="px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: primaryColor }}
+                className="px-6 py-2.5 text-white rounded-xl text-sm font-medium bg-brand-700 hover:bg-brand-800 transition-colors"
               >
-                Retry
+                Try again
               </button>
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-20" ref={emptyStateRef}>
-              <div className="mb-4">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-brand-50 flex items-center justify-center">
                 {searchQuery ? (
-                  <SearchX className="w-16 h-16 text-gray-300 mx-auto" />
+                  <SearchX className="w-7 h-7 text-brand-600" strokeWidth={1.5} />
                 ) : (
-                  <Package className="w-16 h-16 text-gray-300 mx-auto" />
+                  <Package className="w-7 h-7 text-brand-600" strokeWidth={1.5} />
                 )}
               </div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">
-                {searchQuery ? 'No Results Found' : 'No Products Found'}
+              <h4 className="font-display text-lg font-semibold text-gray-900 mb-1.5">
+                {searchQuery ? 'No results found' : 'No products yet'}
               </h4>
-              <p className="text-sm text-gray-600 mb-4">
-                {searchQuery 
-                  ? `We couldn't find any products matching "${searchQuery}"` 
-                  : 'Try adjusting your filters to see more products'}
+              <p className="text-sm text-gray-500 mb-5">
+                {searchQuery
+                  ? `Nothing matched "${searchQuery}" — try a different search.`
+                  : 'This store hasn’t listed anything yet. Check back soon.'}
               </p>
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="px-6 py-3 text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
-                  style={{ backgroundColor: primaryColor }}
+                  className="px-6 py-2.5 text-white rounded-xl text-sm font-medium bg-brand-700 hover:bg-brand-800 transition-colors"
                 >
-                  Clear Search
+                  Clear search
                 </button>
               )}
             </div>
@@ -1100,14 +1076,11 @@ export default function StoreWebsite({ store }) {
                       setIsNavigating(true);
                       router.push(`/${store.storeSlug}/products`);
                     }}
-                    className="inline-flex items-center gap-2 px-8 py-4 text-white rounded-xl font-semibold hover:opacity-90 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                    className="inline-flex items-center gap-2.5 px-7 py-3.5 text-white rounded-xl font-semibold text-sm hover:brightness-95 transition-all shadow-sm hover:shadow-md"
                     style={{ backgroundColor: primaryColor }}
                   >
-                    <Package className="w-5 h-5" />
-                    <span>See All Products</span>
-                    <span 
-                      className="ml-2 px-2.5 py-0.5 bg-white/20 rounded-full text-sm font-bold"
-                    >
+                    <span>See all products</span>
+                    <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-bold tabular-nums">
                       {filteredProducts.length}
                     </span>
                   </button>

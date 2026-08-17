@@ -14,10 +14,6 @@ function transformInventory(item) {
     category: item.category,
     sku: item.sku,
     barcode: item.barcode,
-    basePrice: item.base_price,
-    cost: item.cost,
-    stockQuantity: item.stock_quantity,
-    quantityInStock: item.stock_quantity,
     minimumStock: item.minimum_stock,
     images: item.images,
     tags: item.tags,
@@ -128,17 +124,24 @@ export async function DELETE(req, { params }) {
         })
         .eq('inventory_id', id);
 
-      // Log activity
+      // Log activity -- quantity is the sum across this product's
+      // variants now, not a flat inventory column.
       try {
+        const { data: variantsAtDelete } = await supabaseAdmin
+          .from('inventory_variants')
+          .select('quantity_in_stock')
+          .eq('inventory_id', id);
+        const stockAtDelete = (variantsAtDelete || []).reduce((sum, v) => sum + (v.quantity_in_stock || 0), 0);
+
         await supabaseAdmin
           .from('inventory_activities')
           .insert({
             user_id: user.id,
             inventory_id: id,
             activity_type: 'deleted',
-            quantity_before: item.stock_quantity || 0,
+            quantity_before: stockAtDelete,
             quantity_changed: 0,
-            quantity_after: item.stock_quantity || 0,
+            quantity_after: stockAtDelete,
             reason: reason,
             metadata: {
               dependencies: {
@@ -333,17 +336,23 @@ export async function POST(req, { params }) {
       .eq('inventory_id', id)
       .eq('status', 'archived');
 
-    // Log activity
+    // Log activity -- quantity is the sum across this product's variants.
     try {
+      const { data: variantsAtRestore } = await supabaseAdmin
+        .from('inventory_variants')
+        .select('quantity_in_stock')
+        .eq('inventory_id', id);
+      const stockAtRestore = (variantsAtRestore || []).reduce((sum, v) => sum + (v.quantity_in_stock || 0), 0);
+
       await supabaseAdmin
         .from('inventory_activities')
         .insert({
           user_id: user.id,
           inventory_id: id,
           activity_type: 'restored',
-          quantity_before: item.stock_quantity || 0,
+          quantity_before: stockAtRestore,
           quantity_changed: 0,
-          quantity_after: item.stock_quantity || 0,
+          quantity_after: stockAtRestore,
           reason: 'Item restored from deletion',
           metadata: {
             restoredAt: new Date().toISOString()

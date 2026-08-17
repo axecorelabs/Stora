@@ -4,8 +4,11 @@ import { supabaseAdmin } from './supabase';
 // Resolve inventory + variant identity for a whole batch of line items in
 // bulk: one query for every inventory row involved, one query for every
 // active variant across those inventory rows, matched in JS by
-// (inventory_id, size, color). Replaces what used to be up to 2 queries
-// PER item (an inventory select + a conditional variant select).
+// (inventory_id, size, color) when given, or -- since every product now
+// has >=1 real variant row (20260817000001_unify_inventory_variants.sql)
+// -- resolved to the product's sole variant when no size/color was
+// specified at all. Every sale item now resolves to a real variant_id,
+// never null.
 async function resolveInventoryAndVariants(saleItems) {
   const inventoryIds = [...new Set(saleItems.map(i => i.inventoryId))];
 
@@ -27,7 +30,7 @@ async function resolveInventoryAndVariants(saleItems) {
 
   const { data: variantRows, error: varError } = await supabaseAdmin
     .from('inventory_variants')
-    .select('id, sku, images, inventory_id, size, color')
+    .select('id, sku, images, inventory_id, size, color, cost_price')
     .in('inventory_id', inventoryIds)
     .eq('is_active', true);
 
@@ -38,29 +41,54 @@ async function resolveInventoryAndVariants(saleItems) {
   const variantByKey = new Map(
     (variantRows || []).map(v => [`${v.inventory_id}|${v.size}|${v.color}`, v])
   );
+  const variantsByInventory = new Map();
+  for (const v of variantRows || []) {
+    if (!variantsByInventory.has(v.inventory_id)) variantsByInventory.set(v.inventory_id, []);
+    variantsByInventory.get(v.inventory_id).push(v);
+  }
 
-  return { inventoryById, variantByKey };
+  return { inventoryById, variantByKey, variantsByInventory };
 }
 
-function resolveVariantInfo(saleItem, variantByKey) {
+function resolveVariantInfo(saleItem, variantByKey, variantsByInventory) {
   const requestedVariant = saleItem.variant && saleItem.variant.size && saleItem.variant.color ? saleItem.variant : null;
 
-  if (!requestedVariant) {
-    return { hasVariant: false, size: null, color: null, variantSku: null, variantId: null, images: [] };
+  if (requestedVariant) {
+    const resolved = variantByKey.get(`${saleItem.inventoryId}|${requestedVariant.size}|${requestedVariant.color}`);
+    if (!resolved) {
+      throw new Error(`Variant ${requestedVariant.color} - ${requestedVariant.size} not found for item ${saleItem.inventoryId}`);
+    }
+    return {
+      hasVariant: true,
+      size: requestedVariant.size,
+      color: requestedVariant.color,
+      variantSku: resolved.sku,
+      variantId: resolved.id,
+      costPrice: resolved.cost_price,
+      images: resolved.images || []
+    };
   }
 
-  const resolved = variantByKey.get(`${saleItem.inventoryId}|${requestedVariant.size}|${requestedVariant.color}`);
-  if (!resolved) {
-    throw new Error(`Variant ${requestedVariant.color} - ${requestedVariant.size} not found for item ${saleItem.inventoryId}`);
+  // No size/color given -- only unambiguous when the product has exactly
+  // one variant (the common "simple product" case, which still has a real
+  // variant row, just no real size/color options to pick between).
+  const productVariants = variantsByInventory.get(saleItem.inventoryId) || [];
+  if (productVariants.length !== 1) {
+    throw new Error(
+      productVariants.length > 1
+        ? `Item ${saleItem.inventoryId} has multiple variants -- a size/color must be specified`
+        : `Item ${saleItem.inventoryId} has no variant to sell`
+    );
   }
-
+  const only = productVariants[0];
   return {
-    hasVariant: true,
-    size: requestedVariant.size,
-    color: requestedVariant.color,
-    variantSku: resolved.sku,
-    variantId: resolved.id,
-    images: resolved.images || []
+    hasVariant: only.color !== 'Default' || only.size !== 'One Size',
+    size: only.size,
+    color: only.color,
+    variantSku: only.sku,
+    variantId: only.id,
+    costPrice: only.cost_price,
+    images: only.images || []
   };
 }
 
@@ -73,7 +101,7 @@ function buildProcessedResult(saleItem, inventoryItem, variantInfo, rpcRow) {
   let totalProfit = 0;
 
   const batchesSoldFrom = rpcBatches.map(b => {
-    const costPriceFromBatch = parseFloat(b.cost_price ?? inventoryItem.cost ?? 0);
+    const costPriceFromBatch = parseFloat(b.cost_price ?? variantInfo.costPrice ?? 0);
     totalCost += b.quantity * costPriceFromBatch;
     totalProfit += b.quantity * (saleItem.unitPrice - costPriceFromBatch);
     return {
@@ -88,15 +116,15 @@ function buildProcessedResult(saleItem, inventoryItem, variantInfo, rpcRow) {
   });
 
   // Batches may under-cover the requested quantity (e.g. a legacy item with
-  // no batch records) -- fall back to the inventory-level cost price for
-  // whatever wasn't traceable to a specific batch, same as before.
+  // no batch records) -- fall back to the variant's own cost price for
+  // whatever wasn't traceable to a specific batch.
   const coveredQuantity = rpcBatches.reduce((sum, b) => sum + b.quantity, 0);
   const uncovered = saleItem.quantity - coveredQuantity;
   if (uncovered > 0) {
-    const fallbackCostPrice = parseFloat(inventoryItem.cost || 0);
+    const fallbackCostPrice = parseFloat(variantInfo.costPrice || 0);
     totalCost += uncovered * fallbackCostPrice;
     totalProfit += uncovered * (saleItem.unitPrice - fallbackCostPrice);
-    console.warn(`No batch coverage for ${uncovered} units of ${inventoryItem.name}, using inventory cost price`);
+    console.warn(`No batch coverage for ${uncovered} units of ${inventoryItem.name}, using variant cost price`);
   }
 
   const processedItem = {
@@ -126,7 +154,7 @@ function buildProcessedResult(saleItem, inventoryItem, variantInfo, rpcRow) {
     total_cost: totalCost,
     weighted_average_cost: saleItem.quantity > 0 ? totalCost / saleItem.quantity : 0,
     profit: totalProfit,
-    variant_info: variantInfo.hasVariant ? variantInfo : null,
+    variant_info: variantInfo,
     batches_sold_from: batchesSoldFrom.length > 0 ? batchesSoldFrom : null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -141,21 +169,18 @@ function buildProcessedResult(saleItem, inventoryItem, variantInfo, rpcRow) {
 // fn_fulfill_stock_reservations_bulk (isOrderProcessing=true: converts
 // reservations made at checkout into a real sale) or
 // fn_sell_stock_direct_bulk (isOrderProcessing=false: a POS sale with no
-// prior reservation) once for every item
-// (apps/dashboard/supabase/migrations/20260815000000_bulk_stock_reservation_functions.sql).
-// Replaces the old per-item processItemWithBatchTracking loop, which was
-// up to 3 sequential DB round trips (inventory select, variant select, RPC
-// call) PER line item -- real latency on a multi-item order at rush hour.
+// prior reservation) once for every item, variant-scoped
+// (apps/dashboard/supabase/migrations/20260817000002_variant_only_rpcs.sql).
 // Returns an array of results in saleItems order, same per-item shape the
 // old function always returned.
-export async function processItemsWithBatchTracking(saleItems, userId, isOrderProcessing = false) {
+export async function processItemsWithBatchTracking(saleItems, userId, isOrderProcessing = false, relatedId = null) {
   if (!saleItems || saleItems.length === 0) return [];
 
-  const { inventoryById, variantByKey } = await resolveInventoryAndVariants(saleItems);
+  const { inventoryById, variantByKey, variantsByInventory } = await resolveInventoryAndVariants(saleItems);
 
   const itemContexts = saleItems.map(saleItem => {
     const inventoryItem = inventoryById.get(saleItem.inventoryId);
-    const variantInfo = resolveVariantInfo(saleItem, variantByKey);
+    const variantInfo = resolveVariantInfo(saleItem, variantByKey, variantsByInventory);
     const reasonSuffix = variantInfo.hasVariant
       ? `(${variantInfo.color} - ${variantInfo.size}) via ${isOrderProcessing ? 'order fulfillment' : 'POS'}`
       : `via ${isOrderProcessing ? 'order fulfillment' : 'POS'}`;
@@ -164,21 +189,23 @@ export async function processItemsWithBatchTracking(saleItems, userId, isOrderPr
   });
 
   const rpcItems = itemContexts.map(({ saleItem, variantInfo, reason }) => ({
-    inventory_id: saleItem.inventoryId,
     variant_id: variantInfo.variantId,
     quantity: saleItem.quantity,
     reason
   }));
 
   const rpcName = isOrderProcessing ? 'fn_fulfill_stock_reservations_bulk' : 'fn_sell_stock_direct_bulk';
-  // p_related_order_id/p_related_sale_id are null here, matching what this
-  // code always passed before batching -- the sale/order-linkage row this
-  // would reference is created by the caller AFTER this function returns
-  // (it needs totals this function computes), so there's nothing to link
-  // to yet at this point in either call site.
+  // Order fulfillment: the order already exists at call time (both callers
+  // have its id before invoking this), so relatedId threads through as
+  // p_related_order_id, letting every inventory_activities row this
+  // produces be traced straight back to the order that caused it.
+  // Direct POS sale: relatedId is genuinely unavailable here -- the sales
+  // row this would reference is only created by the caller AFTER this
+  // function returns (it needs totals this function computes) -- so
+  // p_related_sale_id stays null; there's nothing to link to yet.
   const rpcParams = isOrderProcessing
-    ? { p_items: rpcItems, p_user_id: userId, p_related_order_id: null }
-    : { p_items: rpcItems, p_user_id: userId, p_related_sale_id: null };
+    ? { p_items: rpcItems, p_user_id: userId, p_related_order_id: relatedId }
+    : { p_items: rpcItems, p_user_id: userId, p_related_sale_id: relatedId };
 
   const { data, error } = await supabaseAdmin.rpc(rpcName, rpcParams);
 
@@ -211,19 +238,24 @@ export async function processItemsWithBatchTracking(saleItems, userId, isOrderPr
 // every item on a cancelled order) in one round trip via
 // fn_release_stock_reservations_bulk, instead of one RPC call per item.
 // `items` is [{inventoryId, quantity, variant: {variantId?, size?, color?}}].
+// Every item must resolve to a real variant_id -- when neither variantId
+// nor size/color is given, falls back to the product's sole variant (the
+// common "simple product" case), same as resolveVariantInfo above.
 export async function releaseItemsReservation(items) {
   if (!items || items.length === 0) return;
 
-  const needsResolve = items.filter(i => !i.variant?.variantId && i.variant?.size && i.variant?.color);
-  let variantByKey = new Map();
-  if (needsResolve.length > 0) {
-    const inventoryIds = [...new Set(needsResolve.map(i => i.inventoryId))];
-    const { data: variantRows } = await supabaseAdmin
-      .from('inventory_variants')
-      .select('id, inventory_id, size, color')
-      .in('inventory_id', inventoryIds)
-      .eq('is_active', true);
-    variantByKey = new Map((variantRows || []).map(v => [`${v.inventory_id}|${v.size}|${v.color}`, v]));
+  const inventoryIds = [...new Set(items.map(i => i.inventoryId))];
+  const { data: variantRows } = await supabaseAdmin
+    .from('inventory_variants')
+    .select('id, inventory_id, size, color')
+    .in('inventory_id', inventoryIds)
+    .eq('is_active', true);
+
+  const variantByKey = new Map((variantRows || []).map(v => [`${v.inventory_id}|${v.size}|${v.color}`, v]));
+  const variantsByInventory = new Map();
+  for (const v of variantRows || []) {
+    if (!variantsByInventory.has(v.inventory_id)) variantsByInventory.set(v.inventory_id, []);
+    variantsByInventory.get(v.inventory_id).push(v);
   }
 
   const rpcItems = items.map(i => {
@@ -231,7 +263,14 @@ export async function releaseItemsReservation(items) {
     if (!variantId && i.variant?.size && i.variant?.color) {
       variantId = variantByKey.get(`${i.inventoryId}|${i.variant.size}|${i.variant.color}`)?.id || null;
     }
-    return { inventory_id: i.inventoryId, variant_id: variantId, quantity: i.quantity };
+    if (!variantId) {
+      const productVariants = variantsByInventory.get(i.inventoryId) || [];
+      if (productVariants.length === 1) variantId = productVariants[0].id;
+    }
+    if (!variantId) {
+      throw new Error(`Could not resolve a variant to release stock for item ${i.inventoryId}`);
+    }
+    return { variant_id: variantId, quantity: i.quantity };
   });
 
   const { error } = await supabaseAdmin.rpc('fn_release_stock_reservations_bulk', { p_items: rpcItems });

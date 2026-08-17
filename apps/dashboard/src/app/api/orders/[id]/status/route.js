@@ -162,7 +162,8 @@ export async function PUT(req, { params }) {
               : null
           })),
           user.id,
-          true // isOrderProcessing: releases the reservation made at checkout, deducts real stock
+          true, // isOrderProcessing: releases the reservation made at checkout, deducts real stock
+          id // relatedId -> inventory_activities.related_order_id, so this fulfillment traces back to the order
         );
 
         for (const { saleItemData, batchesUsed, totalCost, totalProfit } of processedResults) {

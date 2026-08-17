@@ -43,6 +43,8 @@ export default function PaymentsPage() {
     stats,
     payoutAccount,
     commissionBearer,
+    commissionRate,
+    minimumCommission,
     pagination,
     isLoading,
     isFetching,
@@ -195,9 +197,11 @@ export default function PaymentsPage() {
             <Percent className="w-5 h-5" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-gray-900">Platform commission</p>
+            <p className="text-sm font-semibold text-gray-900">
+              Platform commission -- {Math.round(commissionRate * 100)}% per order, minimum {formatCurrency(minimumCommission)}
+            </p>
             <p className="text-xs text-gray-500">
-              Who pays Stora&apos;s commission on your sales -- only applies to orders placed after you change this
+              Who pays it -- only applies to orders placed after you change this
             </p>
           </div>
           {isUpdatingCommissionBearer && <Loader2 className="w-4 h-4 text-gray-400 animate-spin ml-auto" />}
