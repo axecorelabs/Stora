@@ -7,6 +7,9 @@ export default function OrderModal({
   isOpen,
   onClose,
   onConfirm,
+  onResumeExistingOrder, // (orderId) => void -- navigates to an order the
+  // duplicate-checkout guard is blocking on; optional so callers that don't
+  // wire it up just fall back to plain error text.
   customer,
   storeGroup = null, // If provided, this is a per-store checkout
   storeCount, // Only meaningful (and only shown) for whole-cart checkout
@@ -31,6 +34,7 @@ export default function OrderModal({
   const [isValidatingWhatsApp, setIsValidatingWhatsApp] = useState(false);
   const [whatsAppValidated, setWhatsAppValidated] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [submitErrorOrderId, setSubmitErrorOrderId] = useState(null);
 
   const nigerianStates = [
     "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno",
@@ -78,6 +82,7 @@ export default function OrderModal({
   useEffect(() => {
     if (isOpen) {
       setSubmitError(null);
+      setSubmitErrorOrderId(null);
     }
   }, [isOpen]);
 
@@ -152,6 +157,7 @@ export default function OrderModal({
     if (!validateForm()) return;
 
     setSubmitError(null);
+    setSubmitErrorOrderId(null);
     setIsSubmitting(true);
     try {
       await onConfirm(formData);
@@ -164,6 +170,10 @@ export default function OrderModal({
       // failures look identical: the button spins, then goes back to
       // normal, with no indication anything went wrong or why.
       setSubmitError(error.message || "Failed to place order. Please try again.");
+      // The duplicate-checkout guard's error carries the order it's
+      // blocking on -- when present, offer a direct path to it instead of
+      // just naming an order number in plain text with nothing to click.
+      if (error.existingOrderId) setSubmitErrorOrderId(error.existingOrderId);
     } finally {
       setIsSubmitting(false);
     }
@@ -432,7 +442,18 @@ export default function OrderModal({
           {submitError && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-red-600 text-sm">{submitError}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-red-600 text-sm">{submitError}</p>
+                {submitErrorOrderId && onResumeExistingOrder && (
+                  <button
+                    type="button"
+                    onClick={() => onResumeExistingOrder(submitErrorOrderId)}
+                    className="text-red-700 text-sm font-semibold hover:underline mt-1"
+                  >
+                    Go to that order
+                  </button>
+                )}
+              </div>
             </div>
           )}
           <div className="flex flex-col sm:flex-row gap-3">

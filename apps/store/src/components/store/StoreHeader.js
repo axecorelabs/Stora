@@ -105,7 +105,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                   <img
                     src={currentStore.branding.logo}
                     alt={currentStore.storeName}
-                    className="h-8 w-auto object-contain shrink-0"
+                    className="h-8 w-auto object-contain rounded-lg shrink-0"
                   />
                 ) : (
                   <div
@@ -149,7 +149,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                   <img
                     src={currentStore.branding.logo}
                     alt={currentStore.storeName}
-                    className="h-8 w-auto object-contain shrink-0"
+                    className="h-8 w-auto object-contain rounded-lg shrink-0"
                   />
                 ) : (
                   <div
@@ -305,7 +305,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                   <img
                     src={currentStore.branding.logo}
                     alt={currentStore.storeName}
-                    className="h-8 w-auto object-contain shrink-0"
+                    className="h-8 w-auto object-contain rounded-lg shrink-0"
                   />
                 ) : (
                   <div

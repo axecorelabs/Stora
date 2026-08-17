@@ -13,6 +13,7 @@ import {
   AlertCircle,
   MessageCircle,
   Store,
+  Clock,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -365,6 +366,18 @@ export default function StoreCartPage({ params }) {
     });
   };
 
+  // Wraps orders/create's error body into a real Error, carrying
+  // existingOrderId through when present -- the duplicate-checkout guard
+  // returns it specifically so the customer can be sent straight to the
+  // order that's actually blocking them (see OrderModal's submitError
+  // handling) instead of just reading an order number in plain text with
+  // no way to act on it.
+  const orderCreateError = (data) => {
+    const err = new Error(data.message || "Failed to place order");
+    if (data.existingOrderId) err.existingOrderId = data.existingOrderId;
+    return err;
+  };
+
   // Whole-cart checkout, now routed through the same OrderModal component
   // as per-store checkout (handleStoreConfirmOrder below) instead of a
   // second, near-identical form living inline in this file -- formData is
@@ -454,7 +467,7 @@ export default function StoreCartPage({ params }) {
         router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
       }
     } else {
-      throw new Error(data.message || "Failed to place order");
+      throw orderCreateError(data);
     }
   };
 
@@ -562,7 +575,7 @@ export default function StoreCartPage({ params }) {
           router.push(`/${resolvedParams.slug}/orders/${data.order.id}`);
         }
       } else {
-        throw new Error(data.message || "Failed to place order");
+        throw orderCreateError(data);
       }
     } catch (error) {
       console.error("Error placing order:", error);
@@ -675,6 +688,33 @@ export default function StoreCartPage({ params }) {
 
                     return (
                       <div key={itemId} className="p-3 md:p-6 relative">
+                        {/* Payment-pending banner -- this item is already
+                            tied to a real order awaiting payment (see the
+                            duplicate-checkout guard in orders/create/route.js);
+                            surfacing that here, before they even attempt to
+                            check out again, beats letting them fill out the
+                            whole modal only to hit a 409 with no obvious next
+                            step. pending_order_id is reliably cleared back to
+                            null once that order resolves (paid, cancelled, or
+                            caught by the abandoned-payment cron), so this
+                            never goes stale. */}
+                        {item.pending_order_id && (
+                          <div className="flex items-center justify-between gap-3 mb-3 px-3 py-2 rounded-lg bg-gold-400/10 border border-gold-500/25">
+                            <span className="flex items-center gap-1.5 text-xs font-medium text-gold-700">
+                              <Clock className="w-3.5 h-3.5" />
+                              Payment pending
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/${resolvedParams.slug}/orders/${item.pending_order_id}`);
+                              }}
+                              className="text-xs font-semibold text-gold-700 hover:underline"
+                            >
+                              Resume payment
+                            </button>
+                          </div>
+                        )}
                         <div className="flex gap-2 md:gap-4">
                           {/* Product Image - Now uses variant image if available */}
                           <div className="flex-shrink-0">
@@ -1029,6 +1069,7 @@ export default function StoreCartPage({ params }) {
           isOpen={showOrderModal}
           onClose={() => setShowOrderModal(false)}
           onConfirm={handleConfirmOrder}
+          onResumeExistingOrder={(orderId) => router.push(`/${resolvedParams.slug}/orders/${orderId}`)}
           customer={customer}
           storeGroup={null}
           storeCount={storeGroups.length}
@@ -1100,6 +1141,7 @@ export default function StoreCartPage({ params }) {
             setSelectedStoreGroup(null);
           }}
           onConfirm={handleStoreConfirmOrder}
+          onResumeExistingOrder={(orderId) => router.push(`/${resolvedParams.slug}/orders/${orderId}`)}
           customer={customer}
           storeGroup={selectedStoreGroup}
           totalAmount={selectedStoreGroup?.items.reduce(

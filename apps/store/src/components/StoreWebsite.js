@@ -736,7 +736,7 @@ export default function StoreWebsite({ store }) {
                   >
                     {slide.type === 'store' && (
                       <div
-                        className="absolute inset-0 backdrop-blur-[2px]"
+                        className="absolute inset-0 backdrop-blur-md"
                         style={{ backgroundColor: `${primaryColor}25` }}
                       />
                     )}
