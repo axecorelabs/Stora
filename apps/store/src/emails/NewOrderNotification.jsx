@@ -1,14 +1,11 @@
 import {
   Body,
   Container,
-  Column,
   Head,
   Heading,
   Html,
-  Img,
   Link,
   Preview,
-  Row,
   Section,
   Text,
 } from '@react-email/components';
@@ -46,7 +43,7 @@ export const NewOrderNotification = ({
   },
   baseUrl = 'https://app.stora.com.ng',
 }) => {
-  const previewText = `New order #${order.orderNumber} from ${order.customerSnapshot.firstName} ${order.customerSnapshot.lastName}`;
+  const previewText = `New order #${order.orderNumber} from ${order.customerSnapshot.firstName} ${order.customerSnapshot.lastName} -- ${formatNaira(order.storeTotal)}`;
 
   return (
     <Html>
@@ -54,73 +51,64 @@ export const NewOrderNotification = ({
       <Preview>{previewText}</Preview>
       <Body style={main}>
         <Container style={container}>
-          {/* Header */}
+          {/* Header -- solid color, not a gradient/image: renders
+              identically everywhere, including Outlook desktop, with no
+              external asset to fetch or get blocked. */}
           <Section style={header}>
-            <Heading style={headerHeading}>🎉 New Order Received!</Heading>
+            <Text style={eyebrow}>STORA</Text>
+            <Heading style={headerHeading}>New order received</Heading>
           </Section>
 
-          {/* Content */}
           <Section style={content}>
-            <Text style={paragraph}>Hi {storeName},</Text>
             <Text style={paragraph}>
-              Great news! You have received a new order through your Stora store.
+              Hi {storeName}, you have a new order through your Stora store.
             </Text>
 
-            {/* Order Details Box */}
-            <Section style={orderDetailsBox}>
-              <Heading style={orderDetailsHeading}>Order Details</Heading>
-              <table style={detailsTable}>
+            {/* Order summary -- one card, not several competing boxes */}
+            <Section style={summaryCard}>
+              <table style={summaryTable}>
                 <tbody>
+                  <SummaryRow label="Order" value={`#${order.orderNumber}`} />
+                  <SummaryRow
+                    label="Customer"
+                    value={`${order.customerSnapshot.firstName} ${order.customerSnapshot.lastName}`}
+                  />
+                  <SummaryRow label="Phone" value={order.customerSnapshot.phone} />
+                  <SummaryRow
+                    label="Items"
+                    value={`${order.storeItemCount} ${order.storeItemCount === 1 ? 'item' : 'items'}`}
+                  />
                   <tr>
-                    <td style={detailsLabel}>Order Number:</td>
-                    <td style={detailsValue}>#{order.orderNumber}</td>
-                  </tr>
-                  <tr>
-                    <td style={detailsLabel}>Customer:</td>
-                    <td style={detailsValue}>
-                      {order.customerSnapshot.firstName} {order.customerSnapshot.lastName}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={detailsLabel}>Phone:</td>
-                    <td style={detailsValue}>{order.customerSnapshot.phone}</td>
-                  </tr>
-                  <tr>
-                    <td style={detailsLabel}>Total Items:</td>
-                    <td style={detailsValue}>{order.storeItemCount}</td>
-                  </tr>
-                  <tr>
-                    <td style={detailsLabel}>Order Total:</td>
-                    <td style={detailsTotal}>₦{order.storeTotal.toLocaleString()}</td>
+                    <td style={summaryTotalLabel}>Total</td>
+                    <td style={summaryTotalValue}>{formatNaira(order.storeTotal)}</td>
                   </tr>
                 </tbody>
               </table>
             </Section>
 
-            {/* Items List */}
-            <Heading style={sectionHeading}>Ordered Items:</Heading>
+            {/* Items */}
             <table style={itemsTable}>
               <thead>
-                <tr style={itemsTableHeader}>
-                  <th style={itemsTableHeaderCell}>Product</th>
-                  <th style={itemsTableHeaderCellCenter}>Qty</th>
-                  <th style={itemsTableHeaderCellRight}>Price</th>
+                <tr>
+                  <th style={cell({ align: 'left', header: true })}>Product</th>
+                  <th style={cell({ align: 'center', header: true })}>Qty</th>
+                  <th style={cell({ align: 'right', header: true })}>Price</th>
                 </tr>
               </thead>
               <tbody>
                 {order.storeItems.map((item, index) => (
-                  <tr key={index} style={itemsTableRow}>
-                    <td style={itemsTableCell}>{item.productSnapshot.productName}</td>
-                    <td style={itemsTableCellCenter}>{item.quantity}</td>
-                    <td style={itemsTableCellRight}>₦{item.subtotal.toLocaleString()}</td>
+                  <tr key={index} style={itemsRow}>
+                    <td style={cell({ align: 'left' })}>{item.productSnapshot.productName}</td>
+                    <td style={cell({ align: 'center' })}>{item.quantity}</td>
+                    <td style={cell({ align: 'right' })}>{formatNaira(item.subtotal)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
-            {/* Shipping Address */}
-            <Section style={addressBox}>
-              <Heading style={addressHeading}>📍 Delivery Address</Heading>
+            {/* Delivery address -- a labeled block, not a second heavy box */}
+            <Section style={addressSection}>
+              <Text style={label}>Delivery address</Text>
               <Text style={addressText}>
                 {order.shippingAddress.firstName} {order.shippingAddress.lastName}
                 <br />
@@ -132,58 +120,46 @@ export const NewOrderNotification = ({
                 )}
                 {order.shippingAddress.city}, {order.shippingAddress.state}
                 <br />
-                Phone: {order.shippingAddress.phone}
+                {order.shippingAddress.phone}
               </Text>
             </Section>
 
-            {/* Customer Notes */}
             {order.customerNotes && (
               <Section style={notesBox}>
-                <Heading style={notesHeading}>📝 Customer Notes:</Heading>
+                <Text style={notesLabel}>Note from the customer</Text>
                 <Text style={notesText}>{order.customerNotes}</Text>
               </Section>
             )}
 
-            {/* Action Button */}
             <Section style={buttonContainer}>
-              <Link
-                style={button}
-                href={`${baseUrl}/dashboard/orders/${order._id}`}
-              >
-                View Order Details
+              <Link style={button} href={`${baseUrl}/dashboard/orders/${order._id}`}>
+                View order
               </Link>
             </Section>
 
-            {/* Next Steps */}
-            <Section style={nextStepsBox}>
+            <Section style={nextSteps}>
+              <Text style={label}>Next steps</Text>
               <Text style={nextStepsText}>
-                <strong>💡 Next Steps:</strong>
+                1. Confirm the order with the customer via WhatsApp
                 <br />
-                1. Contact the customer via WhatsApp to confirm the order
-                <br />
-                2. Prepare the items for delivery
+                2. Prepare the items
                 <br />
                 3. Update the order status in your dashboard
                 <br />
-                4. Arrange delivery or pickup with the customer
+                4. Arrange delivery or pickup
               </Text>
             </Section>
-
-            <Text style={paragraph}>
-              Thank you for using Stora Store to manage your business!
-            </Text>
           </Section>
 
-          {/* Footer */}
           <Section style={footer}>
             <Text style={footerText}>
-              Need help? Contact us at{' '}
+              Need help? {' '}
               <Link href="mailto:support@stora.com.ng" style={footerLink}>
                 support@stora.com.ng
               </Link>
             </Text>
             <Text style={footerCopyright}>
-              © {new Date().getFullYear()} Stora Store. All rights reserved.
+              © {new Date().getFullYear()} Stora. All rights reserved.
             </Text>
           </Section>
         </Container>
@@ -194,254 +170,238 @@ export const NewOrderNotification = ({
 
 export default NewOrderNotification;
 
+const formatNaira = (amount) => `₦${Number(amount || 0).toLocaleString('en-NG')}`;
+
+function SummaryRow({ label: rowLabel, value }) {
+  return (
+    <tr>
+      <td style={summaryLabel}>{rowLabel}</td>
+      <td style={summaryValue}>{value}</td>
+    </tr>
+  );
+}
+
+// One shared cell style instead of six near-duplicate objects (header/body
+// x left/center/right) that only ever differed by textAlign and weight.
+function cell({ align, header = false }) {
+  return {
+    textAlign: align,
+    fontSize: header ? '12px' : '14px',
+    color: header ? '#4C8870' : '#0B3B2E',
+    fontWeight: header ? '600' : '400',
+    padding: '10px',
+    borderBottom: '1px solid #D2E3DC',
+  };
+}
+
+// Brand tokens (apps/store/src/app/globals.css) -- literal hex, since email
+// clients don't resolve CSS custom properties.
+const brand50 = '#EAF1EE';
+const brand100 = '#D2E3DC';
+const brand400 = '#4C8870';
+const brand600 = '#145C41';
+const brand700 = '#0F4A38';
+const brand800 = '#0B3B2E';
+const brand900 = '#082A20';
+const gold400 = '#D8BC85';
+const gold700 = '#8A6A36';
+
 // Styles
 const main = {
-  backgroundColor: '#f5f5f5',
+  backgroundColor: '#F5F5F0',
   fontFamily:
     '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
 };
 
 const container = {
   backgroundColor: '#ffffff',
-  margin: '0 auto',
-  padding: '0',
-  marginTop: '20px',
-  marginBottom: '20px',
-  borderRadius: '8px',
+  margin: '20px auto',
+  borderRadius: '12px',
   overflow: 'hidden',
-  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   maxWidth: '600px',
+  border: `1px solid ${brand100}`,
 };
 
 const header = {
-  background: 'linear-gradient(135deg, #0D9488 0%, #14B8A6 100%)',
-  backgroundColor: '#0D9488',
-  padding: '40px 30px',
+  backgroundColor: brand800,
+  padding: '32px 30px',
   textAlign: 'center',
+};
+
+const eyebrow = {
+  color: gold400,
+  fontSize: '12px',
+  fontWeight: '700',
+  letterSpacing: '3px',
+  margin: '0 0 8px',
 };
 
 const headerHeading = {
   color: '#ffffff',
-  fontSize: '28px',
-  fontWeight: 'bold',
+  fontSize: '22px',
+  fontWeight: '700',
   margin: '0',
   lineHeight: '1.3',
 };
 
 const content = {
-  padding: '40px 30px',
+  padding: '32px 30px',
 };
 
 const paragraph = {
-  fontSize: '16px',
+  fontSize: '15px',
   lineHeight: '1.6',
-  color: '#333333',
+  color: brand900,
   margin: '0 0 20px',
 };
 
-const orderDetailsBox = {
-  margin: '30px 0',
-  padding: '20px',
-  backgroundColor: '#F0FDFA',
-  borderLeft: '4px solid #0D9488',
-  borderRadius: '4px',
+const label = {
+  fontSize: '12px',
+  fontWeight: '700',
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  color: brand400,
+  margin: '0 0 10px',
 };
 
-const orderDetailsHeading = {
-  fontSize: '18px',
-  color: '#0D9488',
-  margin: '0 0 15px',
-  fontWeight: 'bold',
+const summaryCard = {
+  margin: '0 0 24px',
+  padding: '18px 20px',
+  backgroundColor: brand50,
+  borderLeft: `3px solid ${brand600}`,
+  borderRadius: '6px',
 };
 
-const detailsTable = {
+const summaryTable = {
   width: '100%',
   borderCollapse: 'collapse',
 };
 
-const detailsLabel = {
-  fontSize: '14px',
-  color: '#666666',
-  padding: '5px 0',
+const summaryLabel = {
+  fontSize: '13px',
+  color: brand400,
+  padding: '4px 0',
   width: '40%',
 };
 
-const detailsValue = {
-  fontSize: '14px',
-  color: '#333333',
-  padding: '5px 0',
+const summaryValue = {
+  fontSize: '13px',
+  color: brand900,
+  padding: '4px 0',
   fontWeight: '500',
 };
 
-const detailsTotal = {
-  fontSize: '18px',
-  color: '#0D9488',
-  padding: '5px 0',
-  fontWeight: 'bold',
+const summaryTotalLabel = {
+  fontSize: '15px',
+  color: brand900,
+  fontWeight: '700',
+  padding: '10px 0 0',
+  borderTop: `1px solid ${brand100}`,
 };
 
-const sectionHeading = {
-  fontSize: '16px',
-  color: '#333333',
-  margin: '20px 0 15px',
-  fontWeight: '600',
+const summaryTotalValue = {
+  fontSize: '17px',
+  color: brand800,
+  fontWeight: '700',
+  padding: '10px 0 0',
+  textAlign: 'right',
+  borderTop: `1px solid ${brand100}`,
 };
 
 const itemsTable = {
   width: '100%',
-  border: '1px solid #e5e5e5',
-  borderRadius: '4px',
   borderCollapse: 'collapse',
-  marginBottom: '20px',
+  marginBottom: '24px',
 };
 
-const itemsTableHeader = {
-  backgroundColor: '#f9f9f9',
+const itemsRow = {
+  borderTop: `1px solid ${brand100}`,
 };
 
-const itemsTableHeaderCell = {
-  textAlign: 'left',
-  fontSize: '12px',
-  color: '#666666',
-  padding: '10px',
-  fontWeight: '600',
-};
-
-const itemsTableHeaderCellCenter = {
-  textAlign: 'center',
-  fontSize: '12px',
-  color: '#666666',
-  padding: '10px',
-  fontWeight: '600',
-};
-
-const itemsTableHeaderCellRight = {
-  textAlign: 'right',
-  fontSize: '12px',
-  color: '#666666',
-  padding: '10px',
-  fontWeight: '600',
-};
-
-const itemsTableRow = {
-  borderTop: '1px solid #e5e5e5',
-};
-
-const itemsTableCell = {
-  fontSize: '14px',
-  color: '#333333',
-  padding: '10px',
-};
-
-const itemsTableCellCenter = {
-  fontSize: '14px',
-  color: '#333333',
-  padding: '10px',
-  textAlign: 'center',
-};
-
-const itemsTableCellRight = {
-  fontSize: '14px',
-  color: '#333333',
-  padding: '10px',
-  textAlign: 'right',
-};
-
-const addressBox = {
-  margin: '30px 0',
-  padding: '20px',
-  backgroundColor: '#f9f9f9',
-  borderRadius: '4px',
-};
-
-const addressHeading = {
-  fontSize: '16px',
-  color: '#333333',
-  margin: '0 0 10px',
-  fontWeight: '600',
+const addressSection = {
+  margin: '0 0 24px',
 };
 
 const addressText = {
   fontSize: '14px',
-  color: '#666666',
+  color: brand900,
   lineHeight: '1.6',
   margin: '0',
 };
 
 const notesBox = {
-  margin: '20px 0',
-  padding: '15px',
-  backgroundColor: '#FEF3C7',
-  borderLeft: '4px solid #F59E0B',
-  borderRadius: '4px',
+  margin: '0 0 24px',
+  padding: '14px 16px',
+  backgroundColor: '#FAF7F0',
+  borderLeft: `3px solid ${gold400}`,
+  borderRadius: '6px',
 };
 
-const notesHeading = {
-  fontSize: '14px',
-  color: '#92400E',
-  margin: '0 0 10px',
-  fontWeight: '600',
+const notesLabel = {
+  fontSize: '12px',
+  fontWeight: '700',
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  color: gold700,
+  margin: '0 0 6px',
 };
 
 const notesText = {
   fontSize: '14px',
-  color: '#92400E',
+  color: '#5C4A26',
   lineHeight: '1.6',
   margin: '0',
 };
 
 const buttonContainer = {
-  margin: '30px 0',
+  margin: '0 0 28px',
   textAlign: 'center',
 };
 
 const button = {
-  backgroundColor: '#0D9488',
+  backgroundColor: brand700,
   borderRadius: '8px',
   color: '#ffffff',
-  fontSize: '16px',
-  fontWeight: 'bold',
+  fontSize: '15px',
+  fontWeight: '700',
   textDecoration: 'none',
   textAlign: 'center',
   display: 'inline-block',
-  padding: '16px 40px',
+  padding: '14px 36px',
 };
 
-const nextStepsBox = {
-  margin: '30px 0',
-  padding: '16px',
-  backgroundColor: '#DBEAFE',
-  borderLeft: '4px solid #3B82F6',
-  borderRadius: '4px',
+const nextSteps = {
+  margin: '0 0 8px',
 };
 
 const nextStepsText = {
   fontSize: '14px',
-  color: '#1E40AF',
-  lineHeight: '1.6',
+  color: brand900,
+  lineHeight: '1.9',
   margin: '0',
 };
 
 const footer = {
-  backgroundColor: '#f5f5f5',
-  padding: '30px',
+  backgroundColor: brand50,
+  padding: '24px 30px',
   textAlign: 'center',
-  borderTop: '1px solid #e5e5e5',
+  borderTop: `1px solid ${brand100}`,
 };
 
 const footerText = {
-  fontSize: '14px',
-  color: '#666666',
-  margin: '0 0 10px',
+  fontSize: '13px',
+  color: brand400,
+  margin: '0 0 8px',
 };
 
 const footerLink = {
-  color: '#0D9488',
+  color: brand700,
   textDecoration: 'none',
+  fontWeight: '600',
 };
 
 const footerCopyright = {
-  fontSize: '12px',
-  color: '#999999',
+  fontSize: '11px',
+  color: brand400,
   margin: '0',
 };
