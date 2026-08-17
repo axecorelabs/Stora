@@ -54,26 +54,7 @@ const useStoreStore = create((set, get) => ({
     }
   },
 
-  clearStore: () => set({ currentStore: null, error: null }),
-
-  updateStoreMetrics: async (views = 1, isOrder = false) => {
-    const { currentStore } = get();
-    if (!currentStore) return;
-
-    try {
-      // This could be a separate endpoint for analytics
-      await fetch(`/api/stores/public/${currentStore.website.websitePath}/metrics`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ views, isOrder }),
-      });
-    } catch (error) {
-      console.log('Failed to update store metrics:', error);
-      // Don't throw error, just log it
-    }
-  }
+  clearStore: () => set({ currentStore: null, error: null })
 }));
 
 export default useStoreStore;

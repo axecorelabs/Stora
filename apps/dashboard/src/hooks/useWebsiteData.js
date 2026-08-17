@@ -46,6 +46,29 @@ export function useWebsiteData() {
     throwOnError: false,
   });
 
+  // Website visitor stats -- real numbers now (see
+  // api/stores/website/stats/route.js), not the store.website.metrics
+  // JSONB field this widget used to read, which nothing ever wrote to.
+  // Short staleTime since "today"'s count is live (read straight from
+  // Redis by the route), not waiting on the once-daily Postgres flush.
+  const statsQuery = useQuery({
+    queryKey: ['website-stats'],
+    queryFn: async () => {
+      try {
+        const response = await secureApiCall('/api/stores/website/stats');
+        return response;
+      } catch (error) {
+        console.error('Website stats query error:', error);
+        return { success: false };
+      }
+    },
+    enabled: !!(storeQuery.data?.success && storeQuery.data?.hasStore),
+    staleTime: 60 * 1000, // 1 minute
+    cacheTime: 5 * 60 * 1000,
+    retry: 1,
+    throwOnError: false,
+  });
+
   // Toggle website status mutation
   const toggleWebsiteMutation = useMutation({
     mutationFn: async (newStatus) => {
@@ -109,6 +132,10 @@ export function useWebsiteData() {
     previewProducts: previewProductsQuery.data || [],
     isLoadingPreviewProducts: previewProductsQuery.isLoading,
     previewProductsError: previewProductsQuery.error,
+
+    // Website stats
+    websiteStats: statsQuery.data?.success ? statsQuery.data.stats : null,
+    isLoadingWebsiteStats: statsQuery.isLoading,
     
     // Combined loading state
     isLoading: storeQuery.isLoading,

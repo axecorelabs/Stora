@@ -58,6 +58,7 @@ export default function WebsitePage() {
     isInitialLoading,
     previewProducts,
     isLoadingPreviewProducts,
+    websiteStats,
     toggleWebsite,
     isTogglingWebsite,
     refetchStore,
@@ -391,7 +392,7 @@ export default function WebsitePage() {
               <span className="text-sm text-gray-500">Total Views</span>
             </div>
             <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {store.website?.metrics?.totalViews || 0}
+              {websiteStats?.totalViews ?? 0}
             </p>
           </div>
           <div className="p-5">
@@ -402,7 +403,7 @@ export default function WebsitePage() {
               <span className="text-sm text-gray-500">Monthly Views</span>
             </div>
             <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {store.website?.metrics?.monthlyViews || 0}
+              {websiteStats?.monthlyViews ?? 0}
             </p>
           </div>
           <div className="p-5">
@@ -413,7 +414,7 @@ export default function WebsitePage() {
               <span className="text-sm text-gray-500">Total Orders</span>
             </div>
             <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {store.website?.metrics?.totalOrders || 0}
+              {websiteStats?.totalOrders ?? 0}
             </p>
           </div>
           <div className="p-5">
@@ -424,8 +425,8 @@ export default function WebsitePage() {
               <span className="text-sm text-gray-500">Last Visit</span>
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              {store.website?.metrics?.lastVisit
-                ? new Date(store.website.metrics.lastVisit).toLocaleDateString()
+              {websiteStats?.lastVisit
+                ? new Date(websiteStats.lastVisit).toLocaleDateString()
                 : '—'}
             </p>
           </div>

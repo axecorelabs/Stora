@@ -16,6 +16,9 @@ import VariantSelectionModal from "@/components/product/VariantSelectionModal";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import FloatingCartButton from "@/components/ui/FloatingCartButton";
 import Toast from "@/components/ui/Toast";
+import StarRating from "@/components/ui/StarRating";
+import ProductReviews from "@/components/product/ProductReviews";
+import ViewBeacon from "@/components/analytics/ViewBeacon";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -793,6 +796,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ViewBeacon type="product" productId={initialProduct.id} />
       {/* Header */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
@@ -993,6 +997,15 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                   {initialProduct.productName}
                 </h1>
 
+                {initialProduct.totalReviews > 0 && (
+                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                    <StarRating rating={initialProduct.averageRating} size={14} />
+                    <span className="text-xs sm:text-sm text-gray-500 tabular-nums">
+                      {initialProduct.averageRating.toFixed(1)} · {initialProduct.totalReviews} review{initialProduct.totalReviews === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                   <span>SKU: <span className="font-mono font-medium text-gray-700">{initialProduct.sku || 'N/A'}</span></span>
                   {initialProduct.brand && (
@@ -1146,6 +1159,15 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             )}
           </div>
         )}
+
+        <div className="mt-6 sm:mt-8 bg-white rounded-2xl sm:rounded-3xl shadow-[0_1px_3px_rgba(11,59,46,0.06)] border border-gray-100 p-4 sm:p-8">
+          <ProductReviews
+            productId={initialProduct.id}
+            averageRating={initialProduct.averageRating}
+            totalReviews={initialProduct.totalReviews}
+            primaryColor={primaryColor}
+          />
+        </div>
       </div>
 
       {/* Variant Selection Modal */}

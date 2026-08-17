@@ -3,6 +3,10 @@
     {
       "path": "/api/payments/cleanup-abandoned",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/analytics/flush",
+      "schedule": "0 4 * * *"
     }
   ]
 }

@@ -84,6 +84,8 @@ function transformInventoryToProduct(inventory) {
     quantityReserved: totalReserved,
     availableQuantity: totalAvailable,
     soldQuantity: totalSold,
+    averageRating: inventory.average_rating != null ? Number(inventory.average_rating) : 0,
+    totalReviews: inventory.total_reviews || 0,
     reorderLevel: inventory.minimum_stock,
     unitOfMeasure: inventory.unit_of_measure,
     location: inventory.location,
@@ -261,22 +263,6 @@ export async function searchVendorsPaginated({ search, sort = 'featured', limit 
     vendors: rows.map(row => buildPublicStoreData(row.vendor)),
     totalCount: rows[0]?.total_count ?? 0
   };
-}
-
-export async function updateStoreMetrics(storeId, updates) {
-  const { data, error } = await supabaseAdmin
-    .from('stores')
-    .update(updates)
-    .eq('id', storeId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating store metrics:', error);
-    throw new Error('Failed to update store metrics');
-  }
-
-  return data;
 }
 
 // ============ INVENTORY/PRODUCT OPERATIONS ============

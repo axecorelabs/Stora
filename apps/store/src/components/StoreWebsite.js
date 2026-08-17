@@ -49,6 +49,8 @@ import SignUpModal from "./auth/SignUpModal";
 import ForgotPasswordModal from "./auth/ForgotPasswordModal";
 import LoadingOverlay from "./ui/LoadingOverlay";
 import FloatingCartButton from "./ui/FloatingCartButton";
+import StarRating from "./ui/StarRating";
+import ViewBeacon from "./analytics/ViewBeacon";
 import { useProducts } from "@/hooks/useProducts";
 
 // Register GSAP plugins
@@ -641,6 +643,7 @@ export default function StoreWebsite({ store }) {
 
   return (
     <div className="min-h-screen bg-white relative">
+      <ViewBeacon type="store" storeId={store.id} />
       <StoreHeader
         store={store}
         onSignInClick={() => setShowSignInModal(true)}
@@ -697,6 +700,14 @@ export default function StoreWebsite({ store }) {
                 <h1 className="font-display text-[28px] lg:text-[34px] font-semibold text-white tracking-tight truncate drop-shadow-sm">
                   {store.storeName}
                 </h1>
+                {store.totalReviews > 0 && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <StarRating rating={store.averageRating} size={13} />
+                    <span className="text-white/80 text-[12.5px] tabular-nums drop-shadow-sm">
+                      {store.averageRating.toFixed(1)} · {store.totalReviews} review{store.totalReviews === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                )}
                 {store.storeDescription && (
                   <p className="text-white/85 text-[15px] mt-1.5 max-w-xl line-clamp-2 drop-shadow-sm">
                     {store.storeDescription}
