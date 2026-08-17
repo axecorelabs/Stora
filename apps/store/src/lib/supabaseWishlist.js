@@ -306,14 +306,29 @@ export async function enrichWishlistWithProductData(wishlist) {
     return wishlist;
   }
 
+  // Batched, not per-item -- items only ever carry a bare store_id, no
+  // name/slug snapshot (unlike cart_items/order_items, which do). The
+  // vendor-scoped wishlist page never needed this (it already knows which
+  // store it's on from the URL), but a cross-vendor view has to label and
+  // link each item's own store.
+  const storeIds = [...new Set(wishlist.items.map(item => item.store_id).filter(Boolean))];
+  const { data: stores } = storeIds.length > 0
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug').in('id', storeIds)
+    : { data: [] };
+  const storeById = new Map((stores || []).map(s => [s.id, s]));
+
   const enrichedItems = await Promise.all(
     wishlist.items.map(async (item) => {
+      const store = storeById.get(item.store_id);
+      const store_data = store ? { store_name: store.store_name, store_slug: store.store_slug } : null;
+
       try {
         const product = await findInventoryById(item.product_id);
 
         if (!product) {
           return {
             ...item,
+            store_data,
             is_available: false,
             error: 'Product not found'
           };
@@ -330,6 +345,7 @@ export async function enrichWishlistWithProductData(wishlist) {
 
         return {
           ...item,
+          store_data,
           product_data: {
             name: product.productName,
             base_price: currentPrice,
@@ -347,6 +363,7 @@ export async function enrichWishlistWithProductData(wishlist) {
         console.error(`Error enriching wishlist item ${item.product_id}:`, error);
         return {
           ...item,
+          store_data,
           is_available: false,
           error: 'Failed to load product data'
         };

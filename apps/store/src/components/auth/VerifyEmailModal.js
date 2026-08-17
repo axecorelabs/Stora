@@ -157,16 +157,16 @@ export default function VerifyEmailModal({ isOpen, email, onClose, onVerified, o
         <div className="p-6">
           {/* Email Icon */}
           <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-600 rounded-2xl mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-700 rounded-2xl mb-4">
               <Mail className="w-8 h-8 text-white" />
             </div>
-            
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
+
+            <h2 className="font-display text-xl font-bold text-gray-900 mb-2">
               Check your inbox!
             </h2>
             
             <p className="text-sm text-gray-600 leading-relaxed">
-              We've sent a 6-digit verification code to<br />
+              We&apos;ve sent a 6-digit verification code to<br />
               <strong>{email}</strong>
             </p>
           </div>
@@ -187,7 +187,7 @@ export default function VerifyEmailModal({ isOpen, email, onClose, onVerified, o
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   onPaste={index === 0 ? handlePaste : undefined}
                   disabled={isSubmitting}
-                  className="w-12 h-12 text-center text-lg font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all text-gray-900 disabled:opacity-50"
+                  className="w-12 h-12 text-center text-lg font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-700/30 focus:border-transparent outline-none transition-all text-gray-900 disabled:opacity-50"
                   autoComplete="off"
                 />
               ))}
@@ -210,7 +210,7 @@ export default function VerifyEmailModal({ isOpen, email, onClose, onVerified, o
             <button
               type="submit"
               disabled={isSubmitting || verificationCode.join("").length !== 6}
-              className="w-full bg-emerald-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full bg-brand-700 text-white py-3 px-4 rounded-lg font-medium hover:bg-brand-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? "Verifying..." : "Verify Email"}
             </button>
@@ -219,13 +219,13 @@ export default function VerifyEmailModal({ isOpen, email, onClose, onVerified, o
           {/* Resend Code */}
           <div className="text-center mt-6">
             <p className="text-sm text-gray-600">
-              Didn't receive it?{" "}
+              Didn&apos;t receive it?{" "}
               <button
                 onClick={handleResendCode}
                 disabled={!canResend}
                 className={`font-medium underline ${
                   canResend
-                    ? "text-emerald-600 hover:text-emerald-500"
+                    ? "text-brand-700 hover:text-brand-800"
                     : "text-gray-400 cursor-not-allowed"
                 }`}
               >

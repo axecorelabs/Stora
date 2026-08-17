@@ -6,6 +6,7 @@ import {
   findWishlistWithItems,
   enrichWishlistWithProductData
 } from "@/lib/supabaseWishlist";
+import { cacheSet, cacheKey, WISHLIST_CACHE_TTL_SECONDS } from "@/lib/redis";
 
 // DELETE - Remove item from wishlist
 export async function DELETE(request, { params }) {
@@ -24,9 +25,11 @@ export async function DELETE(request, { params }) {
 
     // Fetch updated wishlist with items
     let wishlist = await findWishlistWithItems(customerId);
-    
+
     // Enrich with fresh product data
     const enrichedWishlist = await enrichWishlistWithProductData(wishlist);
+
+    await cacheSet(cacheKey.wishlist(customerId), enrichedWishlist, WISHLIST_CACHE_TTL_SECONDS);
 
     return NextResponse.json({
       success: true,
@@ -69,9 +72,11 @@ export async function PUT(request, { params }) {
 
     // Fetch updated wishlist with items
     let wishlist = await findWishlistWithItems(customerId);
-    
+
     // Enrich with fresh product data
     const enrichedWishlist = await enrichWishlistWithProductData(wishlist);
+
+    await cacheSet(cacheKey.wishlist(customerId), enrichedWishlist, WISHLIST_CACHE_TTL_SECONDS);
 
     return NextResponse.json({
       success: true,

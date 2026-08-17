@@ -8,8 +8,14 @@ import {
   prepareWishlistItemData,
   enrichWishlistWithProductData
 } from "@/lib/supabaseWishlist";
+import { cacheGet, cacheSet, cacheDel, cacheKey, WISHLIST_CACHE_TTL_SECONDS } from "@/lib/redis";
 
-// GET - Fetch customer's wishlist
+// GET - Fetch customer's wishlist. Cached per-customer -- every reload of
+// the main storefront (and every "is this liked" check across vendor
+// pages) hits this, but it only ever changes via the mutations below, all
+// of which write the fresh result straight back into the cache. So a GET
+// only touches Postgres on a genuinely cold cache (first visit, or the TTL
+// backstop expiring), never as a matter of course.
 export async function GET(request) {
   try {
     const customerId = await verifyCustomerSession(request);
@@ -20,16 +26,24 @@ export async function GET(request) {
       );
     }
 
+    const key = cacheKey.wishlist(customerId);
+    const hit = await cacheGet(key);
+    if (hit) {
+      return NextResponse.json({ success: true, wishlist: hit });
+    }
+
     let wishlist = await findWishlistWithItems(customerId);
-    
+
     if (!wishlist) {
       // Create wishlist if it doesn't exist
       const newWishlist = await getOrCreateWishlist(customerId);
       wishlist = { ...newWishlist, items: [] };
     }
-    
+
     // Enrich with fresh product data
     wishlist = await enrichWishlistWithProductData(wishlist);
+
+    await cacheSet(key, wishlist, WISHLIST_CACHE_TTL_SECONDS);
 
     return NextResponse.json({
       success: true,
@@ -72,11 +86,21 @@ export async function POST(request) {
       notifications
     });
 
-    // Add to wishlist
-    const wishlist = await addItemToWishlist(customerId, itemData);
+    // Add to wishlist -- addItemToWishlist itself returns just the newly
+    // inserted item row (see supabaseWishlist.js), not the wishlist+items
+    // shape enrichWishlistWithProductData expects, so (like the DELETE/PUT
+    // item routes below) re-fetch the full wishlist afterward rather than
+    // passing its return value straight through.
+    await addItemToWishlist(customerId, itemData);
+    const wishlist = await findWishlistWithItems(customerId);
 
     // Enrich with fresh product data
     const enrichedWishlist = await enrichWishlistWithProductData(wishlist);
+
+    // Write-through: leaves the cache holding this fresh result rather than
+    // just invalidating it, so the next GET (e.g. the page re-rendering
+    // right after this call) doesn't force an avoidable Postgres round trip.
+    await cacheSet(cacheKey.wishlist(customerId), enrichedWishlist, WISHLIST_CACHE_TTL_SECONDS);
 
     return NextResponse.json({
       success: true,
@@ -132,6 +156,10 @@ export async function PUT(request) {
     if (error) {
       throw error;
     }
+
+    // Settings (name/description/visibility), not items -- simpler to just
+    // invalidate than to reconstruct the enriched items shape here.
+    await cacheDel(cacheKey.wishlist(customerId));
 
     return NextResponse.json({
       success: true,

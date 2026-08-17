@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
+import { invalidateStorefrontCache } from '@/lib/redis';
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -244,9 +245,11 @@ export async function PUT(req) {
       );
     }
 
+    await invalidateStorefrontCache(store.store_slug);
+
     return NextResponse.json({
       success: true,
-      message: updateData.storeType === 'physical' 
+      message: updateData.storeType === 'physical'
         ? 'Store converted to physical store successfully'
         : 'Store updated successfully',
       data: transformStore(store)

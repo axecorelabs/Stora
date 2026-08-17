@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
+import { invalidateStorefrontCache } from '@/lib/redis';
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -156,6 +157,13 @@ export async function PUT(req) {
         { status: 500 }
       );
     }
+
+    // Bust both: the slug the storefront was cached under before this
+    // change, and the (possibly newly-generated, on first activation)
+    // slug it's live at now. A disabled store especially must stop being
+    // served from cache immediately, not up to STORE_CACHE_TTL_SECONDS later.
+    await invalidateStorefrontCache(currentWebsite.websitePath);
+    await invalidateStorefrontCache(websitePath);
 
     return NextResponse.json({
       success: true,

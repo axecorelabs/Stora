@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Eye, EyeOff, X } from "lucide-react";
+import Image from "next/image";
+import { Eye, EyeOff, X, Mail } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import VerifyEmailModal from "./VerifyEmailModal";
@@ -157,10 +158,15 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
       <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Sign In</h2>
-            <p className="text-sm text-gray-600 mt-1">Welcome back to Stora Store</p>
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-700 flex items-center justify-center shrink-0">
+              <Image src="/stora-icon.png" alt="" width={18} height={21} className="h-5 w-auto" />
+            </div>
+            <div>
+              <h2 className="font-display text-xl font-bold text-gray-900">Sign In</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Welcome back to Stora</p>
+            </div>
           </div>
           <button
             onClick={handleClose}
@@ -193,14 +199,12 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
                   onChange={handleChange}
                   placeholder="john@example.com"
                   disabled={isSubmitting}
-                  className={`w-full px-3 py-2 border text-gray-900 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm pr-10 ${
+                  className={`w-full px-3 py-2 border text-gray-900 rounded-lg focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 text-sm pr-10 ${
                     errors.email ? 'border-red-300' : 'border-gray-300'
                   } disabled:opacity-50`}
                 />
                 <div className="absolute right-3 top-2.5">
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 7.89a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
+                  <Mail className="w-4 h-4 text-gray-400" />
                 </div>
               </div>
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
@@ -219,7 +223,7 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
                   onChange={handleChange}
                   placeholder="••••••••"
                   disabled={isSubmitting}
-                  className={`w-full px-3 py-2 border text-gray-900 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm pr-10 ${
+                  className={`w-full px-3 py-2 border text-gray-900 rounded-lg focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 text-sm pr-10 ${
                     errors.password ? 'border-red-300' : 'border-gray-300'
                   } disabled:opacity-50`}
                 />
@@ -244,19 +248,19 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
                   checked={formData.rememberMe}
                   onChange={handleChange}
                   disabled={isSubmitting}
-                  className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded disabled:opacity-50"
+                  className="h-4 w-4 text-brand-700 focus:ring-brand-700/30 border-gray-300 rounded disabled:opacity-50"
                 />
                 <label className="ml-2 block text-sm text-gray-700">
                   Remember me
                 </label>
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   onClose();
                   onForgotPassword();
                 }}
-                className="text-sm text-emerald-600 hover:text-emerald-500"
+                className="text-sm text-brand-700 hover:text-brand-800"
               >
                 Forgot Password?
               </button>
@@ -266,7 +270,7 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
+              className="w-full bg-brand-700 hover:bg-brand-800 text-white py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
             >
               {isSubmitting ? (
                 <>
@@ -322,12 +326,12 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
           </div>
 
           {/* Sign Up Link */}
-          <div className="text-center mt-4 pt-4 border-t">
+          <div className="text-center mt-4 pt-4 border-t border-gray-100">
             <p className="text-sm text-gray-600">
-              Don't have an account?{" "}
-              <button 
+              Don&apos;t have an account?{" "}
+              <button
                 onClick={onSwitchToSignUp}
-                className="text-emerald-600 font-medium hover:text-emerald-500"
+                className="text-brand-700 font-medium hover:text-brand-800"
               >
                 Sign up
               </button>

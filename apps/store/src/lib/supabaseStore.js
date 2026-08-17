@@ -208,6 +208,59 @@ export async function findStoreByWebsitePath(websitePath) {
   }
 }
 
+// Cross-vendor listing for the homepage's vendor showcase -- every other
+// store lookup in this file is scoped to one known store. Ordered by
+// total_orders/average_rating first (real differentiators once the
+// platform has volume), falling back to newest-first, since on a young
+// platform most stores are still tied at zero on both. Deliberately not
+// gated on is_verified: none of the real stores in production carry that
+// flag yet, so requiring it here would silently empty the whole section.
+export async function findFeaturedStores({ limit = 12 } = {}) {
+  const { data, error } = await supabaseAdmin
+    .from('stores')
+    .select('*')
+    .eq('is_active', true)
+    .order('total_orders', { ascending: false })
+    .order('average_rating', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error finding featured stores:', error);
+    throw new Error('Failed to find featured stores');
+  }
+
+  return (data || []).map(transformStoreFields);
+}
+
+// Paginated, indexed vendor search for the dedicated /vendors page --
+// distinct from findFeaturedStores (a small, cached homepage teaser with
+// no search or pagination). Backed by the search_vendors() Postgres
+// function (see 20260817000005_vendor_product_search.sql), which does the
+// ILIKE-over-trigram-index search, sort, and count(*) OVER() pagination
+// total in a single indexed query rather than pulling candidates into JS.
+export async function searchVendorsPaginated({ search, sort = 'featured', limit = 24, offset = 0 } = {}) {
+  const { data, error } = await supabaseAdmin.rpc('search_vendors', {
+    p_search: search || null,
+    p_sort: sort,
+    p_limit: limit,
+    p_offset: offset
+  });
+
+  if (error) {
+    console.error('Error searching vendors:', error);
+    throw new Error('Failed to search vendors');
+  }
+
+  const rows = data || [];
+  return {
+    // Public, unauthenticated endpoint -- buildPublicStoreData (not
+    // transformStoreFields) so owner_id/is_active never leak into the response.
+    vendors: rows.map(row => buildPublicStoreData(row.vendor)),
+    totalCount: rows[0]?.total_count ?? 0
+  };
+}
+
 export async function updateStoreMetrics(storeId, updates) {
   const { data, error } = await supabaseAdmin
     .from('stores')
@@ -304,6 +357,143 @@ export async function findInventoryByStoreId(storeId, filters = {}) {
     console.error('Exception in findInventoryByStoreId:', err);
     throw err;
   }
+}
+
+// Over-fetch bound for findDiscoverableProducts' candidate pool -- large
+// enough that a JS-side sold_quantity sort (see below) has a real pool to
+// work with, small enough to stay a single cheap query.
+const DISCOVERY_CANDIDATE_LIMIT = 80;
+
+// Cross-vendor listing for the homepage's discovery grid -- every other
+// product query in this file is scoped to one known store_id.
+// sold_quantity only exists per-variant (inventory_variants), not as a
+// column on inventory itself, so "trending" can't be a single SQL ORDER BY
+// -- fetch a candidate pool ordered by recency, transform (which sums each
+// product's variants into totalSold), then re-sort in JS for 'trending'.
+// 'new' just takes the already-recency-ordered pool as-is.
+export async function findDiscoverableProducts({ category, search, sort = 'trending', limit = 12 } = {}) {
+  let query = supabaseAdmin
+    .from('inventory')
+    .select('*')
+    .eq('is_active', true)
+    .eq('web_visibility', true)
+    .eq('is_deleted', false);
+
+  if (category) {
+    query = query.eq('category', category);
+  }
+
+  if (search) {
+    query = query.ilike('name', `%${search}%`);
+  }
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(DISCOVERY_CANDIDATE_LIMIT);
+
+  if (error) {
+    console.error('Error finding discoverable products:', error);
+    throw new Error('Failed to find discoverable products');
+  }
+
+  const items = data || [];
+  if (items.length === 0) return [];
+
+  const withVariants = await attachVariants(items);
+  let products = withVariants.map(transformInventoryToProduct);
+
+  if (sort === 'trending') {
+    products = products.sort((a, b) => (b.soldQuantity || 0) - (a.soldQuantity || 0));
+  }
+  products = products.slice(0, limit);
+
+  // Attach each product's own vendor info -- a cross-vendor card needs its
+  // own store's slug (to link to the right storefront) and brand colors
+  // (this platform's own two-layer brand rule: vendor-owned content stays
+  // in the vendor's own color, not Stora's), unlike a single-store page
+  // where that context is already implicit.
+  const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
+  const { data: stores, error: storesError } = storeIds.length > 0
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding').in('id', storeIds)
+    : { data: [], error: null };
+
+  if (storesError) {
+    console.error('Error fetching stores for discoverable products:', storesError);
+  }
+
+  const storeById = new Map((stores || []).map(s => [s.id, s]));
+
+  return await enrichProductsWithBatches(products.map(product => {
+    const store = storeById.get(product.storeId);
+    return {
+      ...product,
+      store: store ? {
+        storeName: store.store_name,
+        storeSlug: store.store_slug,
+        primaryColor: store.branding?.primaryColor || null,
+        secondaryColor: store.branding?.secondaryColor || null
+      } : null
+    };
+  }));
+}
+
+// Paginated, indexed product search for the dedicated /products page --
+// distinct from findDiscoverableProducts (a small, cached homepage teaser
+// capped at DISCOVERY_CANDIDATE_LIMIT with no real pagination). Backed by
+// the search_products() Postgres function (see
+// 20260817000005_vendor_product_search.sql), which does the ILIKE-over-
+// trigram-index search, category filter, trending-sort rollup join, and
+// count(*) OVER() pagination total in a single indexed query -- the sort
+// already happened in SQL, so (unlike findDiscoverableProducts) there's no
+// JS-side re-sort here.
+export async function searchProductsPaginated({ search, category, sort = 'trending', limit = 24, offset = 0 } = {}) {
+  const { data, error } = await supabaseAdmin.rpc('search_products', {
+    p_search: search || null,
+    p_category: category || null,
+    p_sort: sort,
+    p_limit: limit,
+    p_offset: offset
+  });
+
+  if (error) {
+    console.error('Error searching products:', error);
+    throw new Error('Failed to search products');
+  }
+
+  const rows = data || [];
+  const totalCount = rows[0]?.total_count ?? 0;
+  const items = rows.map(row => row.product);
+  if (items.length === 0) return { products: [], totalCount };
+
+  const withVariants = await attachVariants(items);
+  const products = withVariants.map(transformInventoryToProduct);
+
+  // Same per-product store attachment as findDiscoverableProducts, see its
+  // comment -- a cross-vendor card needs its own store's slug/colors.
+  const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
+  const { data: stores, error: storesError } = storeIds.length > 0
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding').in('id', storeIds)
+    : { data: [], error: null };
+
+  if (storesError) {
+    console.error('Error fetching stores for product search:', storesError);
+  }
+
+  const storeById = new Map((stores || []).map(s => [s.id, s]));
+  const withStores = products.map(product => {
+    const store = storeById.get(product.storeId);
+    return {
+      ...product,
+      store: store ? {
+        storeName: store.store_name,
+        storeSlug: store.store_slug,
+        primaryColor: store.branding?.primaryColor || null,
+        secondaryColor: store.branding?.secondaryColor || null
+      } : null
+    };
+  });
+
+  return { products: await enrichProductsWithBatches(withStores), totalCount };
 }
 
 export async function findInventoryById(inventoryId) {

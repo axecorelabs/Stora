@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { uploadToR2, generateFileKey, validateImageFile, deleteFromR2, extractKeyFromUrl } from '@/lib/r2';
+import { invalidateStorefrontCache } from '@/lib/redis';
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -166,6 +167,8 @@ export async function PUT(req) {
         { status: 500 }
       );
     }
+
+    await invalidateStorefrontCache(updatedStore.store_slug);
 
     return NextResponse.json({
       success: true,

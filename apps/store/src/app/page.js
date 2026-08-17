@@ -1,64 +1,118 @@
-import Image from "next/image";
-import Navbar from '../components/Navbar';
-import Hero from '../components/Hero';
-import Features from '../components/Features';
-import CallToAction from '../components/CallToAction';
+"use client";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import SiteHeader from "@/components/home/SiteHeader";
+import SiteFooter from "@/components/home/SiteFooter";
+import HeroSearch from "@/components/home/HeroSearch";
+import VendorShowcase from "@/components/home/VendorShowcase";
+import DiscoverySection from "@/components/home/DiscoverySection";
+import LiveActivityFeed from "@/components/home/LiveActivityFeed";
+
+const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
-      <Hero />
-      <Features />
-      <CallToAction />
-      
-      <footer className="bg-white border-t border-gray-200 py-16">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
-            <div>
-              <div className="flex items-center mb-4">
-                <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center mr-3">
-                  <span className="text-white font-bold text-sm">I</span>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900">Stora Store</h3>
-              </div>
-              <p className="text-gray-600 leading-relaxed">
-                Empowering small businesses and connecting communities through conscious commerce.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Shop</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">All Products</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Categories</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">New Arrivals</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Featured</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Support</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Shipping Info</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Returns</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact Us</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Connect</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Newsletter</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Social Media</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Community</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-200 mt-12 pt-8 text-center">
-            <p className="text-gray-500">&copy; 2025 Stora Store. All rights reserved. Made with ❤️ for small businesses.</p>
+      <SiteHeader />
+
+      {/* Hero */}
+      <section className="bg-brand-800 pt-14 pb-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto text-center">
+          <h1 className="font-display text-3xl sm:text-5xl font-bold text-white leading-tight mb-5">
+            Real vendors. Real products.
+            <br />
+            One place to find them.
+          </h1>
+          <p className="text-white/60 text-base sm:text-lg mb-8 max-w-xl mx-auto">
+            Stora brings together independent Nigerian sellers you can actually trust --
+            browse, order, and pay knowing exactly who you&apos;re buying from.
+          </p>
+          <div className="flex justify-center">
+            <HeroSearch />
           </div>
         </div>
-      </footer>
+      </section>
+
+      {/* Discover vendors */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-end justify-between mb-6 gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Discover</p>
+              <h2 className="font-display text-2xl font-bold text-brand-900">Vendors on Stora</h2>
+            </div>
+            <Link
+              href="/vendors"
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-800 transition-colors shrink-0"
+            >
+              See all vendors
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <VendorShowcase />
+          <div className="mt-6 flex justify-center sm:hidden">
+            <Link
+              href="/vendors"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-brand-100 text-sm font-semibold text-brand-800 hover:border-brand-300 hover:bg-brand-50/50 transition-colors"
+            >
+              See all vendors
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Discover products */}
+      <section id="discover" className="py-16 px-4 sm:px-6 lg:px-8 bg-brand-50/40 scroll-mt-16">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Discover</p>
+            <h2 className="font-display text-2xl font-bold text-brand-900">Products worth a look</h2>
+          </div>
+          <DiscoverySection />
+        </div>
+      </section>
+
+      {/* Why Stora */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-brand-900">
+        <div className="max-w-lg mx-auto text-center">
+          <span className="relative flex h-1.5 w-1.5 mx-auto mb-4">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-gold-400" />
+          </span>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
+            A record of real activity, not a claim.
+          </h2>
+          <p className="text-white/45 text-sm mb-10">
+            Verified vendors. Paid straight to their own accounts. A flat 2% fee -- nothing hidden.
+          </p>
+
+          <LiveActivityFeed />
+        </div>
+      </section>
+
+      {/* Sell on Stora */}
+      <section className="border-t-2 border-gold-500 bg-brand-800 py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-xs font-semibold uppercase tracking-widest text-gold-400 mb-1.5">For vendors</p>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-4">
+            Bring your own brand. We bring the infrastructure.
+          </h2>
+          <p className="text-white/60 text-sm sm:text-base mb-8 max-w-xl mx-auto">
+            Keep your own storefront, your own colors, your own customers -- Stora handles
+            payments, order tracking, and getting found.
+          </p>
+          <a
+            href={DASHBOARD_URL}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
+          >
+            Start selling
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      </section>
+
+      <SiteFooter />
     </div>
   );
 }
