@@ -96,6 +96,15 @@ export async function GET(req) {
     // must gate this ledger: an order whose payment never completed
     // (popup never opened, cancelled, declined) is not "money Stora
     // collected on your behalf" and has no business appearing here.
+    // 'completed' alone isn't the right gate though -- the refund route
+    // moves order_payments.status to 'partially_refunded'/'refunded' the
+    // moment any vendor's split on the order is reversed, so a hard
+    // .eq('completed') silently dropped the order from this whole ledger
+    // (for every vendor on it, not just the refunded one) instead of just
+    // reflecting its new status. Money that was genuinely collected stays
+    // collected regardless of a later refund -- only "never charged at
+    // all" should be excluded.
+    const CHARGED_STATUSES = ['completed', 'partially_refunded', 'refunded'];
     let query = supabaseAdmin
       .from('order_payment_splits')
       .select(
@@ -103,7 +112,7 @@ export async function GET(req) {
         { count: 'exact' }
       )
       .eq('store_id', store.id)
-      .eq('order_payments.status', 'completed');
+      .in('order_payments.status', CHARGED_STATUSES);
 
     if (status === 'paid') {
       query = query.eq('status', 'pending');
@@ -141,16 +150,22 @@ export async function GET(req) {
       commissionRate: parseFloat(split.platform_commission_rate),
       commissionAmount: parseFloat(split.platform_commission_amount),
       netAmount: parseFloat(split.net_amount_to_vendor),
+      // Exact, not approximated -- set once by the refund route at the
+      // moment a split is reversed (see the order_payment_splits
+      // migration adding this column). Zero for a split that's never been
+      // refunded.
+      refundedAmount: parseFloat(split.refunded_amount || 0),
       // Snapshotted at checkout time -- reflects the mode active when
       // THIS order was placed, not this vendor's current setting.
       commissionBearer: split.commission_bearer === 'customer' ? 'customer' : 'vendor',
       customerAmount: parseFloat(split.customer_amount ?? split.gross_amount),
-      // Every row reaching this point already passed the
-      // order_payments.status = 'completed' filter above, so 'pending'
-      // here can only mean "paid, not yet reversed" -- Paystack settles
-      // automatically (T+1) straight to the vendor's bank account, this
-      // app has no visibility into or control over that leg, so 'pending'
-      // is NOT "we haven't paid you yet". Surfaced to the UI as "Paid".
+      // Every row reaching this point already passed the CHARGED_STATUSES
+      // filter above (the charge itself succeeded, whether or not it was
+      // later refunded), so split.status='pending' here can only mean
+      // "paid, not yet reversed" -- Paystack settles automatically (T+1)
+      // straight to the vendor's bank account, this app has no visibility
+      // into or control over that leg, so 'pending' is NOT "we haven't
+      // paid you yet". Surfaced to the UI as "Paid".
       splitStatus: split.status,
       paymentStatus: split.order_payments?.status,
       paymentMethod: split.order_payments?.method,
@@ -163,30 +178,31 @@ export async function GET(req) {
 
     // Stats cover this store's full history, not just the current page --
     // a second, unpaginated, lightweight query scoped the same way. Same
-    // completed-payments-only gate as the main query above, for the same
-    // reason: an unpaid order's split must not inflate these totals.
+    // charged-payments gate as the main query above, for the same reason:
+    // an unpaid order's split must not inflate these totals (but a later
+    // refund on a paid one must not make it disappear from them either).
     const { data: allSplits } = await supabaseAdmin
       .from('order_payment_splits')
-      .select('gross_amount, platform_commission_amount, net_amount_to_vendor, status, order_payments!inner(status)')
+      .select('gross_amount, platform_commission_amount, net_amount_to_vendor, refunded_amount, status, order_payments!inner(status)')
       .eq('store_id', store.id)
-      .eq('order_payments.status', 'completed');
-
-    const nonReversed = (allSplits || []).filter(s => s.status !== 'reversed');
-    const reversed = (allSplits || []).filter(s => s.status === 'reversed');
+      .in('order_payments.status', CHARGED_STATUSES);
 
     const stats = {
-      totalGross: nonReversed.reduce((sum, s) => sum + parseFloat(s.gross_amount || 0), 0),
-      totalCommission: nonReversed.reduce((sum, s) => sum + parseFloat(s.platform_commission_amount || 0), 0),
-      totalNet: nonReversed.reduce((sum, s) => sum + parseFloat(s.net_amount_to_vendor || 0), 0),
-      // Approximation, not an exact figure: order_payment_splits has no
-      // per-split refund amount column, only a reversed/not-reversed
-      // status -- only order_payments.refund_amount tracks a dollar
-      // figure, and that's cumulative at the ORDER level (which can span
-      // more than one vendor's split on a multi-vendor order). Using the
-      // split's full gross_amount is exact for the common case
-      // (single-vendor order, full refund) and an overestimate only for a
-      // partial refund on a multi-vendor order.
-      totalRefunded: reversed.reduce((sum, s) => sum + parseFloat(s.gross_amount || 0), 0),
+      // Total sales volume -- what was actually charged, unaffected by a
+      // later refund (the sale still happened; the refund is its own line
+      // below, same as any standard sales/refunds/net breakdown).
+      totalGross: (allSplits || []).reduce((sum, s) => sum + parseFloat(s.gross_amount || 0), 0),
+      // Retained regardless of refund status -- the refund route's own
+      // policy is that the platform commission is never refunded, so every
+      // charged split contributes here, reversed or not.
+      totalCommission: (allSplits || []).reduce((sum, s) => sum + parseFloat(s.platform_commission_amount || 0), 0),
+      // This vendor's true current take-home: full net for an untouched
+      // split, net minus whatever was actually refunded for a reversed one
+      // -- not zero, since a partial refund still leaves them the
+      // remainder. refunded_amount is exact (see the order_payment_splits
+      // migration adding it), not an approximation.
+      totalNet: (allSplits || []).reduce((sum, s) => sum + parseFloat(s.net_amount_to_vendor || 0) - parseFloat(s.refunded_amount || 0), 0),
+      totalRefunded: (allSplits || []).reduce((sum, s) => sum + parseFloat(s.refunded_amount || 0), 0),
       transactionCount: (allSplits || []).length
     };
 

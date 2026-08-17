@@ -79,6 +79,15 @@ export async function GET(req, { params }) {
       success: true,
       data: {
         ...order,
+        // Camelcase to match /api/orders (the list endpoint) exactly --
+        // OrderDetailsModal is only ever fed by one of these two endpoints
+        // depending on whether it just opened (list) or just refreshed
+        // after a status update (this one). Returning a different field
+        // naming convention here silently blanked the order summary
+        // (total/shipping/order number/item count) the moment a vendor
+        // updated an order's status, since ...order alone only carries the
+        // raw snake_case columns.
+        orderNumber: order.order_number,
         customerSnapshot: {
           firstName: customer?.first_name || 'Guest',
           lastName: customer?.last_name || 'Customer',
@@ -89,13 +98,14 @@ export async function GET(req, { params }) {
         billingAddress: billingAddr,
         paymentInfo: payment || {},
         items,
+        itemCount: items.length,
         timeline: timeline || [],
         isMultiVendor,
         subtotal: isMultiVendor ? vendorItemsSubtotal : (order.subtotal || 0),
-        shipping_fee: isMultiVendor ? 0 : (order.shipping_fee || 0),
+        shippingFee: isMultiVendor ? 0 : (order.shipping_fee || 0),
         discount: isMultiVendor ? 0 : (order.discount || 0),
         tax: isMultiVendor ? 0 : (order.tax || 0),
-        total_amount: isMultiVendor ? vendorItemsSubtotal : order.total_amount
+        totalAmount: isMultiVendor ? vendorItemsSubtotal : order.total_amount
       }
     });
 

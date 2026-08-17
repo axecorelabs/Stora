@@ -95,9 +95,13 @@ export async function POST(req, { params }) {
     const isFullRefund = refundAmount >= netAmount;
     const now = new Date().toISOString();
 
+    // Persisted per-split so the Payments page can report an exact
+    // per-vendor refunded total instead of approximating from gross_amount
+    // -- a split can only ever be reversed once (see the status check
+    // above), so this is always a plain set, never an accumulation.
     await supabaseAdmin
       .from('order_payment_splits')
-      .update({ status: 'reversed', updated_at: now })
+      .update({ status: 'reversed', refunded_amount: refundAmount, updated_at: now })
       .eq('id', split.id);
 
     // order_payments.status must reflect how much money has actually been

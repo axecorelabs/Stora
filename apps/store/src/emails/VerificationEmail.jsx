@@ -1,21 +1,12 @@
-import {
-  Body,
-  Container,
-  Head,
-  Heading,
-  Html,
-  Link,
-  Preview,
-  Section,
-  Text,
-} from '@react-email/components';
+import { Body, Container, Head, Heading, Html, Preview, Section, Text } from '@react-email/components';
 import * as React from 'react';
+import { brand, main, container, header, eyebrow, headerHeading, content, paragraph, footer, footerText } from './shared/brand';
 
 export const VerificationEmail = ({
   firstName = 'User',
   verificationCode = '123456',
 }) => {
-  const previewText = `Verify your Stora Store account with code: ${verificationCode}`;
+  const previewText = `Verify your Stora account with code: ${verificationCode}`;
 
   return (
     <Html>
@@ -23,45 +14,33 @@ export const VerificationEmail = ({
       <Preview>{previewText}</Preview>
       <Body style={main}>
         <Container style={container}>
-          {/* Header */}
           <Section style={header}>
-            <Heading style={headerHeading}>Welcome to Stora Store! 🎉</Heading>
+            <Text style={eyebrow}>STORA</Text>
+            <Heading style={headerHeading}>Verify your email</Heading>
           </Section>
 
-          {/* Content */}
           <Section style={content}>
             <Text style={paragraph}>Hi {firstName},</Text>
             <Text style={paragraph}>
-              Thank you for signing up! To complete your registration, please verify your
-              email address using the code below:
+              Thanks for signing up. Use the code below to verify your email address.
             </Text>
 
-            {/* Code Box */}
             <Section style={codeBox}>
               <Text style={code}>{verificationCode}</Text>
             </Section>
 
             <Text style={paragraph}>
-              This code will expire in <strong>10 minutes</strong>.
+              This code expires in <strong>10 minutes</strong>.
             </Text>
 
             <Text style={paragraph}>
-              If you didn't create an account with Stora Store, please ignore this email.
-            </Text>
-
-            <Text style={paragraph}>
-              Best regards,
-              <br />
-              The Stora Store Team
+              If you didn&apos;t create a Stora account, you can safely ignore this email.
             </Text>
           </Section>
 
-          {/* Footer */}
           <Section style={footer}>
-            <Text style={footerText}>
-              © {new Date().getFullYear()} Stora Store. All rights reserved.
-            </Text>
-            <Text style={footerText}>This is an automated email. Please do not reply.</Text>
+            <Text style={footerText}>This is an automated email -- please don&apos;t reply.</Text>
+            <Text style={footerText}>© {new Date().getFullYear()} Stora. All rights reserved.</Text>
           </Section>
         </Container>
       </Body>
@@ -71,77 +50,19 @@ export const VerificationEmail = ({
 
 export default VerificationEmail;
 
-// Styles
-const main = {
-  backgroundColor: '#f5f5f5',
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-};
-
-const container = {
-  backgroundColor: '#ffffff',
-  margin: '0 auto',
-  padding: '0',
-  marginTop: '20px',
-  marginBottom: '20px',
-  borderRadius: '10px',
-  overflow: 'hidden',
-  maxWidth: '600px',
-};
-
-const header = {
-  background: 'linear-gradient(135deg, #0D9488 0%, #059669 100%)',
-  backgroundColor: '#0D9488',
-  padding: '30px',
-  textAlign: 'center',
-};
-
-const headerHeading = {
-  color: '#ffffff',
-  fontSize: '28px',
-  fontWeight: 'bold',
-  margin: '0',
-  lineHeight: '1.3',
-};
-
-const content = {
-  backgroundColor: '#f9f9f9',
-  padding: '30px',
-  borderRadius: '0 0 10px 10px',
-};
-
-const paragraph = {
-  fontSize: '16px',
-  lineHeight: '1.6',
-  color: '#333333',
-  margin: '0 0 20px',
-};
-
 const codeBox = {
-  backgroundColor: '#ffffff',
-  border: '2px solid #0D9488',
-  borderRadius: '8px',
+  backgroundColor: brand[50],
+  borderLeft: `3px solid ${brand[600]}`,
+  borderRadius: '6px',
   padding: '20px',
   textAlign: 'center',
-  margin: '20px 0',
+  margin: '0 0 20px',
 };
 
 const code = {
   fontSize: '32px',
-  fontWeight: 'bold',
+  fontWeight: '700',
   letterSpacing: '8px',
-  color: '#0D9488',
+  color: brand[800],
   margin: '0',
-};
-
-const footer = {
-  textAlign: 'center',
-  marginTop: '20px',
-  padding: '20px',
-};
-
-const footerText = {
-  fontSize: '12px',
-  color: '#666666',
-  margin: '5px 0',
 };

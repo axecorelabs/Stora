@@ -10,6 +10,23 @@ import {
   Text,
 } from '@react-email/components';
 import * as React from 'react';
+import {
+  brand,
+  gold,
+  main,
+  container,
+  header,
+  eyebrow,
+  headerHeading,
+  content,
+  paragraph,
+  label,
+  button,
+  footer,
+  footerText,
+  footerLink,
+  footerCopyright,
+} from './shared/brand';
 
 export const NewOrderNotification = ({
   storeName = 'Your Store',
@@ -51,9 +68,6 @@ export const NewOrderNotification = ({
       <Preview>{previewText}</Preview>
       <Body style={main}>
         <Container style={container}>
-          {/* Header -- solid color, not a gradient/image: renders
-              identically everywhere, including Outlook desktop, with no
-              external asset to fetch or get blocked. */}
           <Section style={header}>
             <Text style={eyebrow}>STORA</Text>
             <Heading style={headerHeading}>New order received</Heading>
@@ -183,92 +197,24 @@ function SummaryRow({ label: rowLabel, value }) {
 
 // One shared cell style instead of six near-duplicate objects (header/body
 // x left/center/right) that only ever differed by textAlign and weight.
-function cell({ align, header = false }) {
+function cell({ align, header: isHeader = false }) {
   return {
     textAlign: align,
-    fontSize: header ? '12px' : '14px',
-    color: header ? '#4C8870' : '#0B3B2E',
-    fontWeight: header ? '600' : '400',
+    fontSize: isHeader ? '12px' : '14px',
+    color: isHeader ? brand[400] : brand[900],
+    fontWeight: isHeader ? '600' : '400',
     padding: '10px',
-    borderBottom: '1px solid #D2E3DC',
+    borderBottom: `1px solid ${brand[100]}`,
   };
 }
 
-// Brand tokens (apps/store/src/app/globals.css) -- literal hex, since email
-// clients don't resolve CSS custom properties.
-const brand50 = '#EAF1EE';
-const brand100 = '#D2E3DC';
-const brand400 = '#4C8870';
-const brand600 = '#145C41';
-const brand700 = '#0F4A38';
-const brand800 = '#0B3B2E';
-const brand900 = '#082A20';
-const gold400 = '#D8BC85';
-const gold700 = '#8A6A36';
-
-// Styles
-const main = {
-  backgroundColor: '#F5F5F0',
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-};
-
-const container = {
-  backgroundColor: '#ffffff',
-  margin: '20px auto',
-  borderRadius: '12px',
-  overflow: 'hidden',
-  maxWidth: '600px',
-  border: `1px solid ${brand100}`,
-};
-
-const header = {
-  backgroundColor: brand800,
-  padding: '32px 30px',
-  textAlign: 'center',
-};
-
-const eyebrow = {
-  color: gold400,
-  fontSize: '12px',
-  fontWeight: '700',
-  letterSpacing: '3px',
-  margin: '0 0 8px',
-};
-
-const headerHeading = {
-  color: '#ffffff',
-  fontSize: '22px',
-  fontWeight: '700',
-  margin: '0',
-  lineHeight: '1.3',
-};
-
-const content = {
-  padding: '32px 30px',
-};
-
-const paragraph = {
-  fontSize: '15px',
-  lineHeight: '1.6',
-  color: brand900,
-  margin: '0 0 20px',
-};
-
-const label = {
-  fontSize: '12px',
-  fontWeight: '700',
-  letterSpacing: '0.5px',
-  textTransform: 'uppercase',
-  color: brand400,
-  margin: '0 0 10px',
-};
-
+// Template-specific styles -- shell/header/footer/button/label come from
+// ./shared/brand, reused across every email in this app.
 const summaryCard = {
   margin: '0 0 24px',
   padding: '18px 20px',
-  backgroundColor: brand50,
-  borderLeft: `3px solid ${brand600}`,
+  backgroundColor: brand[50],
+  borderLeft: `3px solid ${brand[600]}`,
   borderRadius: '6px',
 };
 
@@ -279,33 +225,33 @@ const summaryTable = {
 
 const summaryLabel = {
   fontSize: '13px',
-  color: brand400,
+  color: brand[400],
   padding: '4px 0',
   width: '40%',
 };
 
 const summaryValue = {
   fontSize: '13px',
-  color: brand900,
+  color: brand[900],
   padding: '4px 0',
   fontWeight: '500',
 };
 
 const summaryTotalLabel = {
   fontSize: '15px',
-  color: brand900,
+  color: brand[900],
   fontWeight: '700',
   padding: '10px 0 0',
-  borderTop: `1px solid ${brand100}`,
+  borderTop: `1px solid ${brand[100]}`,
 };
 
 const summaryTotalValue = {
   fontSize: '17px',
-  color: brand800,
+  color: brand[800],
   fontWeight: '700',
   padding: '10px 0 0',
   textAlign: 'right',
-  borderTop: `1px solid ${brand100}`,
+  borderTop: `1px solid ${brand[100]}`,
 };
 
 const itemsTable = {
@@ -315,7 +261,7 @@ const itemsTable = {
 };
 
 const itemsRow = {
-  borderTop: `1px solid ${brand100}`,
+  borderTop: `1px solid ${brand[100]}`,
 };
 
 const addressSection = {
@@ -324,7 +270,7 @@ const addressSection = {
 
 const addressText = {
   fontSize: '14px',
-  color: brand900,
+  color: brand[900],
   lineHeight: '1.6',
   margin: '0',
 };
@@ -333,7 +279,7 @@ const notesBox = {
   margin: '0 0 24px',
   padding: '14px 16px',
   backgroundColor: '#FAF7F0',
-  borderLeft: `3px solid ${gold400}`,
+  borderLeft: `3px solid ${gold[400]}`,
   borderRadius: '6px',
 };
 
@@ -342,7 +288,7 @@ const notesLabel = {
   fontWeight: '700',
   letterSpacing: '0.5px',
   textTransform: 'uppercase',
-  color: gold700,
+  color: gold[700],
   margin: '0 0 6px',
 };
 
@@ -353,21 +299,12 @@ const notesText = {
   margin: '0',
 };
 
+// Wider bottom margin than the shared default -- this template has a
+// "Next steps" section after the button, which needs more breathing room
+// than templates where the button is the last thing on the page.
 const buttonContainer = {
   margin: '0 0 28px',
   textAlign: 'center',
-};
-
-const button = {
-  backgroundColor: brand700,
-  borderRadius: '8px',
-  color: '#ffffff',
-  fontSize: '15px',
-  fontWeight: '700',
-  textDecoration: 'none',
-  textAlign: 'center',
-  display: 'inline-block',
-  padding: '14px 36px',
 };
 
 const nextSteps = {
@@ -376,32 +313,7 @@ const nextSteps = {
 
 const nextStepsText = {
   fontSize: '14px',
-  color: brand900,
+  color: brand[900],
   lineHeight: '1.9',
-  margin: '0',
-};
-
-const footer = {
-  backgroundColor: brand50,
-  padding: '24px 30px',
-  textAlign: 'center',
-  borderTop: `1px solid ${brand100}`,
-};
-
-const footerText = {
-  fontSize: '13px',
-  color: brand400,
-  margin: '0 0 8px',
-};
-
-const footerLink = {
-  color: brand700,
-  textDecoration: 'none',
-  fontWeight: '600',
-};
-
-const footerCopyright = {
-  fontSize: '11px',
-  color: brand400,
   margin: '0',
 };
