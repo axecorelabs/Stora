@@ -18,6 +18,9 @@ export async function GET(req) {
     const status = searchParams.get('status');
     const paymentStatus = searchParams.get('paymentStatus');
     const search = searchParams.get('search');
+    const createdFrom = searchParams.get('createdFrom');
+    const createdTo = searchParams.get('createdTo');
+    const skipStats = searchParams.get('skipStats') === 'true';
 
     // First get the user's store
     const { data: store } = await supabaseAdmin
@@ -88,6 +91,16 @@ export async function GET(req) {
     // Add search filter
     if (search) {
       query = query.or(`order_number.ilike.%${search}%`);
+    }
+
+    // Date-range filter -- on orders.created_at (indexed: idx_orders_created_at),
+    // not order_items, so it stays within the existing count('exact') query
+    // rather than adding a separate pass over order_items.
+    if (createdFrom) {
+      query = query.gte('created_at', createdFrom);
+    }
+    if (createdTo) {
+      query = query.lte('created_at', createdTo);
     }
 
     // Get paginated results
@@ -254,37 +267,44 @@ export async function GET(req) {
       };
     });
 
-    // Calculate stats using a separate query
-    // Get all orders for this store via order_items -- revenue uses this
-    // store's item subtotals, not the whole (possibly multi-vendor) order total.
-    const { data: allOrderItemsForStats } = await supabaseAdmin
-      .from('order_items')
-      .select('order_id, subtotal')
-      .eq('store_id', store.id);
+    // Calculate stats using a separate query -- re-fetches this store's
+    // entire order_items/orders history, so it's skipped for callers that
+    // only want the paginated list + count (e.g. the dashboard's
+    // today-orders/pending-orders polls, which never read `stats`),
+    // rather than paying this on every poll.
+    let stats = { totalOrders: 0, pendingOrders: 0, completedOrders: 0, totalRevenue: 0 };
+    if (!skipStats) {
+      // Get all orders for this store via order_items -- revenue uses this
+      // store's item subtotals, not the whole (possibly multi-vendor) order total.
+      const { data: allOrderItemsForStats } = await supabaseAdmin
+        .from('order_items')
+        .select('order_id, subtotal')
+        .eq('store_id', store.id);
 
-    const allOrderIdsForStore = [...new Set((allOrderItemsForStats || []).map(item => item.order_id))];
+      const allOrderIdsForStore = [...new Set((allOrderItemsForStats || []).map(item => item.order_id))];
 
-    let allOrders = [];
-    if (allOrderIdsForStore.length > 0) {
-      const { data: ordersData } = await supabaseAdmin
-        .from('orders')
-        .select('id, status')
-        .in('id', allOrderIdsForStore);
-      allOrders = ordersData || [];
+      let allOrders = [];
+      if (allOrderIdsForStore.length > 0) {
+        const { data: ordersData } = await supabaseAdmin
+          .from('orders')
+          .select('id, status')
+          .in('id', allOrderIdsForStore);
+        allOrders = ordersData || [];
+      }
+
+      const revenueOrderIds = new Set(
+        allOrders.filter(o => ['processed', 'shipped', 'delivered'].includes(o.status)).map(o => o.id)
+      );
+
+      stats = {
+        totalOrders: allOrders?.length || 0,
+        pendingOrders: allOrders?.filter(o => ['pending', 'confirmed'].includes(o.status))?.length || 0,
+        completedOrders: allOrders?.filter(o => o.status === 'delivered')?.length || 0,
+        totalRevenue: (allOrderItemsForStats || [])
+          .filter(i => revenueOrderIds.has(i.order_id))
+          .reduce((sum, i) => sum + (parseFloat(i.subtotal) || 0), 0)
+      };
     }
-
-    const revenueOrderIds = new Set(
-      allOrders.filter(o => ['processed', 'shipped', 'delivered'].includes(o.status)).map(o => o.id)
-    );
-
-    const stats = {
-      totalOrders: allOrders?.length || 0,
-      pendingOrders: allOrders?.filter(o => ['pending', 'confirmed'].includes(o.status))?.length || 0,
-      completedOrders: allOrders?.filter(o => o.status === 'delivered')?.length || 0,
-      totalRevenue: (allOrderItemsForStats || [])
-        .filter(i => revenueOrderIds.has(i.order_id))
-        .reduce((sum, i) => sum + (parseFloat(i.subtotal) || 0), 0)
-    };
 
     return NextResponse.json({
       success: true,

@@ -129,7 +129,7 @@ export function useDashboardData() {
         queryKey: ['pending-orders'],
         queryFn: async () => {
           try {
-            const response = await secureApiCall('/api/orders?status=pending&limit=7&sortBy=createdAt&sortOrder=desc');
+            const response = await secureApiCall('/api/orders?status=pending&limit=7&sortBy=createdAt&sortOrder=desc&skipStats=true');
             console.log('Pending orders response:', response); // Debug log
             if (response.success && response.data) {
               return {
@@ -155,7 +155,7 @@ export function useDashboardData() {
           try {
             const today = new Date();
             const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-            const response = await secureApiCall(`/api/orders?createdFrom=${startOfDay}&limit=1`);
+            const response = await secureApiCall(`/api/orders?createdFrom=${startOfDay}&limit=1&skipStats=true`);
             console.log('Today orders response:', response); // Debug log
             return Number(response.data?.pagination?.total) || 0;
           } catch (error) {
