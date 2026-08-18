@@ -53,9 +53,8 @@ function transformPublicReview(row) {
     id: row.id,
     rating: row.rating,
     comment: row.comment,
-    // First name + last initial only -- same PII-safe restraint as the
-    // homepage's public activity feed (supabaseActivity.js): enough for a
-    // review to feel like a real person, nothing that identifies them.
+    // First name + last initial only -- enough for a review to feel like
+    // a real person, nothing that identifies them.
     reviewerName: lastInitial ? `${firstName} ${lastInitial}.` : firstName,
     createdAt: row.created_at,
     updatedAt: row.updated_at

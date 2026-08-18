@@ -91,7 +91,6 @@ export const cacheKey = {
   featuredStores: (limit) => `${NS}:cache:featured:${limit}`,
   discover: (category, search, sort, limit) =>
     `${NS}:cache:discover:${category || '_'}:${search || '_'}:${sort}:${limit}`,
-  activity: (limit) => `${NS}:cache:activity:${limit}`,
   // The /products search page's default landing view (no query, no
   // category, page 1) -- the overwhelming majority of visits to that page,
   // unlike free-text search itself which is too varied to cache usefully.

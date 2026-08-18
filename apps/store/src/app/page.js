@@ -6,7 +6,6 @@ import SiteFooter from "@/components/home/SiteFooter";
 import HeroSearch from "@/components/home/HeroSearch";
 import VendorShowcase from "@/components/home/VendorShowcase";
 import DiscoverySection from "@/components/home/DiscoverySection";
-import LiveActivityFeed from "@/components/home/LiveActivityFeed";
 
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
 
@@ -70,24 +69,6 @@ export default function Home() {
             <h2 className="font-display text-2xl font-bold text-brand-900">Products worth a look</h2>
           </div>
           <DiscoverySection />
-        </div>
-      </section>
-
-      {/* Why Stora */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-brand-900">
-        <div className="max-w-lg mx-auto text-center">
-          <span className="relative flex h-1.5 w-1.5 mx-auto mb-4">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-gold-400" />
-          </span>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
-            A record of real activity, not a claim.
-          </h2>
-          <p className="text-white/45 text-sm mb-10">
-            Verified vendors. Paid straight to their own accounts. A flat 2% fee -- nothing hidden.
-          </p>
-
-          <LiveActivityFeed />
         </div>
       </section>
 
