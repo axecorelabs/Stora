@@ -31,33 +31,41 @@ export default function SearchConsole({
 
       {/* Category as pills, not a dropdown -- there are ~9 of them, and
           seeing every option at a glance beats digging through a hidden
-          list. Wraps to a second centered line rather than scrolling, so
-          nothing stays off-screen. */}
-      <div className="flex flex-wrap justify-center gap-2 mt-4">
-        <button
-          onClick={() => onCategoryChange("")}
-          className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
-            !category
-              ? "bg-brand-700 text-white border-brand-700"
-              : "bg-white text-brand-800 border-brand-100 hover:border-brand-300"
-          }`}
-        >
-          All categories
-        </button>
-        {CATEGORIES.map(({ value, icon: Icon }) => (
+          list. On desktop they wrap to a second centered line rather than
+          scrolling, so nothing stays off-screen. On mobile that wrap turns
+          into 4-5 rows of pills before any results are visible, so there
+          they scroll horizontally in one row instead -- edge-to-edge
+          (negative margin canceling the page gutter, so the row itself
+          isn't visually inset from the rest of the page) with no visible
+          scrollbar; the last pill sitting flush against the edge is enough
+          of an affordance that there's more to scroll to. */}
+      <div className="-mx-4 sm:mx-0 px-4 sm:px-0 sm:flex sm:flex-wrap sm:justify-center overflow-x-auto sm:overflow-visible scrollbar-hide">
+        <div className="flex sm:flex-wrap sm:justify-center gap-2 mt-4 w-max sm:w-auto pr-4 sm:pr-0">
           <button
-            key={value}
-            onClick={() => onCategoryChange(category === value ? "" : value)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
-              category === value
+            onClick={() => onCategoryChange("")}
+            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors border whitespace-nowrap ${
+              !category
                 ? "bg-brand-700 text-white border-brand-700"
                 : "bg-white text-brand-800 border-brand-100 hover:border-brand-300"
             }`}
           >
-            <Icon className="w-3.5 h-3.5" />
-            {value}
+            All categories
           </button>
-        ))}
+          {CATEGORIES.map(({ value, icon: Icon }) => (
+            <button
+              key={value}
+              onClick={() => onCategoryChange(category === value ? "" : value)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors border whitespace-nowrap ${
+                category === value
+                  ? "bg-brand-700 text-white border-brand-700"
+                  : "bg-white text-brand-800 border-brand-100 hover:border-brand-300"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {value}
+            </button>
+          ))}
+        </div>
       </div>
 
       <p className="text-center text-xs text-gray-400 mt-3 font-mono tabular-nums">
