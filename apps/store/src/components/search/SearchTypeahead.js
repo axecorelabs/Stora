@@ -179,9 +179,13 @@ export default function SearchTypeahead({ value, onChange, placeholder, variant 
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={
+            // text-base (16px) on mobile -- iOS Safari zooms the viewport in
+            // on focus for any input under 16px, which is the "zoom in
+            // effect" this is fixing. sm: drops back to the original
+            // text-sm once iOS zoom is no longer a concern.
             embedded
-              ? "w-full min-w-0 bg-transparent outline-none text-sm font-medium text-brand-900 placeholder-gray-400"
-              : "w-full pl-11 pr-10 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 transition-colors"
+              ? "w-full min-w-0 bg-transparent outline-none text-base sm:text-sm font-medium text-brand-900 placeholder-gray-400"
+              : "w-full pl-11 pr-10 py-3 rounded-xl border border-gray-200 text-base sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 transition-colors"
           }
         />
       </div>
@@ -210,7 +214,12 @@ export default function SearchTypeahead({ value, onChange, placeholder, variant 
           id="search-typeahead-listbox"
           role="listbox"
           className={`absolute top-full mt-2 bg-white rounded-2xl border border-gray-100 shadow-[0_12px_32px_rgba(11,59,46,0.12)] overflow-hidden z-30 max-h-[70vh] overflow-y-auto ${
-            embedded ? "left-0 w-[22rem]" : "left-0 right-0"
+            // Embedded dropdown matches the input's own width on mobile
+            // (left-0 right-0, same as the standalone variant) so it's
+            // centered under the search bar instead of a fixed 22rem box
+            // anchored to the left edge. Reverts to that fixed left-anchored
+            // width at sm: and up, unchanged from before.
+            embedded ? "left-0 right-0 sm:right-auto sm:w-[22rem]" : "left-0 right-0"
           }`}
         >
           {loadingPreview && !preview ? (

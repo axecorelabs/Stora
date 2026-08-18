@@ -14,12 +14,16 @@ export const PRICE_BUCKETS = [
 
 export default function PriceFilterPills({ activeKey, onChange }) {
   return (
-    <div className="flex gap-2 flex-wrap">
+    // Sits alongside the sort toggle in a justify-between row, so unlike the
+    // full-bleed category pills this one stays contained -- it scrolls
+    // horizontally within its own share of that row on mobile instead of
+    // wrapping to several lines, and reverts to the original wrap on desktop.
+    <div className="flex gap-2 flex-nowrap overflow-x-auto scrollbar-hide sm:flex-wrap sm:overflow-visible min-w-0 flex-1 sm:flex-initial">
       {PRICE_BUCKETS.map((bucket) => (
         <button
           key={bucket.key}
           onClick={() => onChange(activeKey === bucket.key ? null : bucket.key)}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+          className={`flex-shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors border ${
             activeKey === bucket.key
               ? "bg-brand-700 text-white border-brand-700"
               : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
