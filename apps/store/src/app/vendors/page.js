@@ -8,38 +8,47 @@ import SearchModeTabs from "@/components/search/SearchModeTabs";
 import SearchConsole from "@/components/search/SearchConsole";
 import ActiveFilters from "@/components/search/ActiveFilters";
 import VendorSearchCard from "@/components/search/VendorSearchCard";
+import StatePickerPopover from "@/components/ui/StatePickerPopover";
+import MobileFilterBar from "@/components/search/MobileFilterBar";
+import { useDeliveryState } from "@/contexts/DeliveryStateContext";
 
 const SORTS = [
   { key: "featured", label: "Featured" },
   { key: "newest", label: "Newest" },
   { key: "name", label: "Name (A-Z)" },
+  { key: "nearest", label: "Nearest to me" },
 ];
 
 function VendorsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { deliveryState, setDeliveryState } = useDeliveryState();
 
   const urlQ = searchParams.get("q") || "";
   const urlSort = SORTS.some((s) => s.key === searchParams.get("sort")) ? searchParams.get("sort") : "featured";
-  const urlCategory = searchParams.get("category") || "";
+  const urlCategories = searchParams.get("category")?.split(",").filter(Boolean) || [];
+  const urlState = searchParams.get("state") || "";
 
   const [q, setQ] = useState(urlQ);
   const [sort, setSort] = useState(urlSort);
-  const [category, setCategory] = useState(urlCategory);
+  const [categories, setCategories] = useState(urlCategories);
+  const [state, setState] = useState(urlState);
   const [vendors, setVendors] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showNearestPicker, setShowNearestPicker] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (sort !== "featured") params.set("sort", sort);
-    if (category) params.set("category", category);
+    if (categories.length) params.set("category", categories.join(","));
+    if (state) params.set("state", state);
     const qs = params.toString();
     router.replace(qs ? `/vendors?${qs}` : "/vendors", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, sort, category]);
+  }, [q, sort, categories, state]);
 
   const fetchPage = useCallback(async (pageNum, replace) => {
     if (replace) setLoading(true);
@@ -47,7 +56,9 @@ function VendorsPageInner() {
     try {
       const params = new URLSearchParams({ sort, page: String(pageNum) });
       if (q) params.set("q", q);
-      if (category) params.set("category", category);
+      if (categories.length) params.set("category", categories.join(","));
+      if (state) params.set("state", state);
+      if (sort === "nearest" && deliveryState) params.set("buyerState", deliveryState);
       const res = await fetch(`/api/vendors/search?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -60,7 +71,7 @@ function VendorsPageInner() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [q, sort, category]);
+  }, [q, sort, categories, state, deliveryState]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -72,8 +83,29 @@ function VendorsPageInner() {
   };
 
   const activeFilters = [
-    category && { key: "category", label: `Sells ${category}`, onRemove: () => setCategory("") }
+    ...categories.map((c) => ({
+      key: `category-${c}`,
+      label: `Sells ${c}`,
+      onRemove: () => setCategories((prev) => prev.filter((x) => x !== c))
+    })),
+    state && { key: "state", label: state, onRemove: () => setState("") }
   ].filter(Boolean);
+
+  const clearAll = () => {
+    setCategories([]);
+    setState("");
+  };
+
+  // "Nearest to me" needs a delivery state to sort against -- if none is
+  // set yet, open the picker right here instead of silently applying a
+  // no-op sort.
+  const handleSortClick = (key) => {
+    if (key === "nearest" && !deliveryState) {
+      setShowNearestPicker(true);
+      return;
+    }
+    setSort(key);
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -92,8 +124,10 @@ function VendorsPageInner() {
           query={q}
           onQueryChange={setQ}
           searchPlaceholder="Search vendors by name…"
-          category={category}
-          onCategoryChange={setCategory}
+          categories={categories}
+          onCategoriesChange={setCategories}
+          state={state}
+          onStateChange={setState}
           resultCount={pagination?.total}
           loading={loading}
           resultLabel="vendors"
@@ -101,16 +135,29 @@ function VendorsPageInner() {
 
         {activeFilters.length > 0 && (
           <div className="flex justify-center mb-6">
-            <ActiveFilters filters={activeFilters} onClearAll={() => setCategory("")} />
+            <ActiveFilters filters={activeFilters} onClearAll={clearAll} />
           </div>
         )}
 
-        {/* Sort -- top-right corner of the grid it controls. */}
-        <div className="flex items-center justify-end gap-1 mb-6">
+        <MobileFilterBar
+          categories={categories}
+          onCategoriesChange={setCategories}
+          state={state}
+          onStateChange={setState}
+          sort={sort}
+          onSortChange={setSort}
+          sortOptions={SORTS}
+          deliveryState={deliveryState}
+          onDeliveryStateChange={setDeliveryState}
+        />
+
+        {/* Sort -- top-right corner of the grid it controls. Desktop-only;
+            MobileFilterBar covers this below `sm`. */}
+        <div className="hidden sm:flex relative items-center justify-end gap-1 mb-6">
           {SORTS.map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setSort(key)}
+              onClick={() => handleSortClick(key)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 sort === key ? "bg-brand-50 text-brand-800" : "text-gray-500 hover:text-brand-700"
               }`}
@@ -118,6 +165,23 @@ function VendorsPageInner() {
               {label}
             </button>
           ))}
+
+          {showNearestPicker && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowNearestPicker(false)} />
+              <div className="absolute right-0 top-full mt-2 z-50">
+                <StatePickerPopover
+                  value={deliveryState}
+                  onChange={(value) => {
+                    setDeliveryState(value);
+                    if (value) setSort("nearest");
+                    setShowNearestPicker(false);
+                  }}
+                  onRequestClose={() => setShowNearestPicker(false)}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div id="search-results">
@@ -133,13 +197,13 @@ function VendorsPageInner() {
             <p className="text-gray-500 text-sm mb-4">
               {q
                 ? `No vendors match "${q}".`
-                : category
-                  ? `No vendors currently sell ${category}.`
+                : categories.length > 0
+                  ? `No vendors currently sell ${categories.join(", ")}.`
                   : "New vendors are joining Stora every week -- check back soon."}
             </p>
             {activeFilters.length > 0 && (
               <button
-                onClick={() => setCategory("")}
+                onClick={clearAll}
                 className="text-sm font-semibold text-brand-700 hover:text-brand-800"
               >
                 Clear filters

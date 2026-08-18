@@ -14,7 +14,7 @@ export default function VendorSearchCard({ store }) {
   const [logoErrored, setLogoErrored] = useState(false);
   const primaryColor = store.branding?.primaryColor || "#145C41";
   const initial = (store.storeName || "?").trim().charAt(0).toUpperCase();
-  const location = [store.address?.city, store.address?.state].filter(Boolean).join(", ");
+  const location = [store.address?.city, store.state || store.address?.state].filter(Boolean).join(", ");
   const hasWhatsapp = !!store.onlineStoreInfo?.socialMedia?.whatsapp;
   const showLogoImage = store.branding?.logo && !logoErrored;
 

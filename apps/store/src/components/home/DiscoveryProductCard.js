@@ -53,7 +53,10 @@ export default function DiscoveryProductCard({ product }) {
 
       <div className="px-3.5 pb-3.5">
         {product.store?.storeName && (
-          <p className="text-[11px] text-gray-400 truncate mb-1">{product.store.storeName}</p>
+          <p className="text-[11px] text-gray-400 truncate mb-1">
+            {product.store.storeName}
+            {product.store.state && <> · {product.store.state}</>}
+          </p>
         )}
         <h3 className="text-[14px] font-semibold text-gray-900 mb-1.5 line-clamp-1">
           {product.productName}

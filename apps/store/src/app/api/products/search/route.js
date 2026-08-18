@@ -18,9 +18,14 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("q")?.trim() || undefined;
-    const category = searchParams.get("category") || undefined;
+    const categories = searchParams.get("category")?.split(",").filter(Boolean) || undefined;
+    const state = searchParams.get("state") || undefined;
+    const buyerState = searchParams.get("buyerState") || undefined;
     const sortParam = searchParams.get("sort");
-    const sort = sortParam === "new" ? "new" : "trending";
+    // "nearest" with no buyer state to sort against is inert at the DB
+    // layer (it degrades to the default ordering) -- fall back explicitly
+    // here rather than forwarding a sort mode that can't do anything.
+    const sort = sortParam === "nearest" && buyerState ? "nearest" : sortParam === "new" ? "new" : "trending";
     const pageParam = parseInt(searchParams.get("page"), 10);
     const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
     const minPriceParam = parseFloat(searchParams.get("minPrice"));
@@ -28,10 +33,13 @@ export async function GET(request) {
     const minPrice = Number.isFinite(minPriceParam) ? minPriceParam : undefined;
     const maxPrice = Number.isFinite(maxPriceParam) ? maxPriceParam : undefined;
 
-    const isDefaultBrowse = !search && !category && page === 1 && minPrice === undefined && maxPrice === undefined;
+    const isDefaultBrowse = !search && !categories?.length && !state && sort !== "nearest"
+      && page === 1 && minPrice === undefined && maxPrice === undefined;
     const fetchResults = () => searchProductsPaginated({
       search,
-      category,
+      categories,
+      state,
+      buyerState,
       sort,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,

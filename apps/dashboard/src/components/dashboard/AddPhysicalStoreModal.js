@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Store, MapPin, X, Building } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CustomDropdown from "../ui/CustomDropdown";
+import { NIGERIAN_STATES } from "@stora/shared-constants";
 
 export default function AddPhysicalStoreModal({ isOpen, onClose, onStoreUpdated, store }) {
   const { secureApiCall } = useAuth();
@@ -19,46 +20,7 @@ export default function AddPhysicalStoreModal({ isOpen, onClose, onStoreUpdated,
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Nigerian states for dropdown
-  const nigerianStates = [
-    { value: '', label: 'Select State' },
-    { value: 'Abia', label: 'Abia' },
-    { value: 'Adamawa', label: 'Adamawa' },
-    { value: 'Akwa Ibom', label: 'Akwa Ibom' },
-    { value: 'Anambra', label: 'Anambra' },
-    { value: 'Bauchi', label: 'Bauchi' },
-    { value: 'Bayelsa', label: 'Bayelsa' },
-    { value: 'Benue', label: 'Benue' },
-    { value: 'Borno', label: 'Borno' },
-    { value: 'Cross River', label: 'Cross River' },
-    { value: 'Delta', label: 'Delta' },
-    { value: 'Ebonyi', label: 'Ebonyi' },
-    { value: 'Edo', label: 'Edo' },
-    { value: 'Ekiti', label: 'Ekiti' },
-    { value: 'Enugu', label: 'Enugu' },
-    { value: 'FCT', label: 'Federal Capital Territory' },
-    { value: 'Gombe', label: 'Gombe' },
-    { value: 'Imo', label: 'Imo' },
-    { value: 'Jigawa', label: 'Jigawa' },
-    { value: 'Kaduna', label: 'Kaduna' },
-    { value: 'Kano', label: 'Kano' },
-    { value: 'Katsina', label: 'Katsina' },
-    { value: 'Kebbi', label: 'Kebbi' },
-    { value: 'Kogi', label: 'Kogi' },
-    { value: 'Kwara', label: 'Kwara' },
-    { value: 'Lagos', label: 'Lagos' },
-    { value: 'Nasarawa', label: 'Nasarawa' },
-    { value: 'Niger', label: 'Niger' },
-    { value: 'Ogun', label: 'Ogun' },
-    { value: 'Ondo', label: 'Ondo' },
-    { value: 'Osun', label: 'Osun' },
-    { value: 'Oyo', label: 'Oyo' },
-    { value: 'Plateau', label: 'Plateau' },
-    { value: 'Rivers', label: 'Rivers' },
-    { value: 'Sokoto', label: 'Sokoto' },
-    { value: 'Taraba', label: 'Taraba' },
-    { value: 'Yobe', label: 'Yobe' },
-    { value: 'Zamfara', label: 'Zamfara' }
-  ];
+  const nigerianStates = [{ value: '', label: 'Select State' }, ...NIGERIAN_STATES];
 
   const handleChange = (e) => {
     const { name, value } = e.target;

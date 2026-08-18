@@ -319,6 +319,7 @@ export function sanitizeCustomer(customer) {
     // already silently biting call sites that didn't hedge for it).
     firstName: customer.first_name,
     lastName: customer.last_name,
-    fullName: [customer.first_name, customer.last_name].filter(Boolean).join(' ').trim() || null
+    fullName: [customer.first_name, customer.last_name].filter(Boolean).join(' ').trim() || null,
+    preferredState: customer.preferred_state
   };
 }

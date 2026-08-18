@@ -32,6 +32,7 @@ import AddPhysicalStoreModal from "@/components/dashboard/AddPhysicalStoreModal"
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import PayoutSettingsModal from "@/components/dashboard/PayoutSettingsModal";
 import { useRouter } from "next/navigation";
+import { NIGERIAN_STATES } from "@stora/shared-constants";
 
 export default function StorePage() {
   const { secureApiCall } = useAuth();
@@ -49,46 +50,7 @@ export default function StorePage() {
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
 
   // Nigerian states for dropdown
-  const nigerianStates = [
-    { value: '', label: 'Select State' },
-    { value: 'Abia', label: 'Abia' },
-    { value: 'Adamawa', label: 'Adamawa' },
-    { value: 'Akwa Ibom', label: 'Akwa Ibom' },
-    { value: 'Anambra', label: 'Anambra' },
-    { value: 'Bauchi', label: 'Bauchi' },
-    { value: 'Bayelsa', label: 'Bayelsa' },
-    { value: 'Benue', label: 'Benue' },
-    { value: 'Borno', label: 'Borno' },
-    { value: 'Cross River', label: 'Cross River' },
-    { value: 'Delta', label: 'Delta' },
-    { value: 'Ebonyi', label: 'Ebonyi' },
-    { value: 'Edo', label: 'Edo' },
-    { value: 'Ekiti', label: 'Ekiti' },
-    { value: 'Enugu', label: 'Enugu' },
-    { value: 'FCT', label: 'Federal Capital Territory' },
-    { value: 'Gombe', label: 'Gombe' },
-    { value: 'Imo', label: 'Imo' },
-    { value: 'Jigawa', label: 'Jigawa' },
-    { value: 'Kaduna', label: 'Kaduna' },
-    { value: 'Kano', label: 'Kano' },
-    { value: 'Katsina', label: 'Katsina' },
-    { value: 'Kebbi', label: 'Kebbi' },
-    { value: 'Kogi', label: 'Kogi' },
-    { value: 'Kwara', label: 'Kwara' },
-    { value: 'Lagos', label: 'Lagos' },
-    { value: 'Nasarawa', label: 'Nasarawa' },
-    { value: 'Niger', label: 'Niger' },
-    { value: 'Ogun', label: 'Ogun' },
-    { value: 'Ondo', label: 'Ondo' },
-    { value: 'Osun', label: 'Osun' },
-    { value: 'Oyo', label: 'Oyo' },
-    { value: 'Plateau', label: 'Plateau' },
-    { value: 'Rivers', label: 'Rivers' },
-    { value: 'Sokoto', label: 'Sokoto' },
-    { value: 'Taraba', label: 'Taraba' },
-    { value: 'Yobe', label: 'Yobe' },
-    { value: 'Zamfara', label: 'Zamfara' }
-  ];
+  const nigerianStates = [{ value: '', label: 'Select State' }, ...NIGERIAN_STATES];
 
   // Currency options
   const currencyOptions = [
@@ -166,6 +128,7 @@ export default function StorePage() {
       storeDescription: store.storeDescription,
       storePhone: store.storePhone,
       storeEmail: store.storeEmail,
+      state: store.state || '',
       address: { ...store.address },
       onlineStoreInfo: {
         website: store.onlineStoreInfo?.website || '',
@@ -255,7 +218,15 @@ export default function StorePage() {
     try {
       const response = await secureApiCall('/api/stores', {
         method: 'PUT',
-        body: JSON.stringify(editData)
+        body: JSON.stringify({
+          ...editData,
+          // Keep the canonical stores.state column in sync with whichever
+          // field is the active source for this store type -- physical
+          // stores edit address.state, online-only stores edit the
+          // standalone field below, but only one value should ever reach
+          // the DB as "the" operating state.
+          state: store.storeType === 'physical' ? editData.address.state : editData.state
+        })
       });
 
       if (response.success) {
@@ -607,6 +578,23 @@ export default function StorePage() {
               <SectionHeader icon={Globe} title="Online Presence" />
 
               <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Main Operating State</label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Where you&apos;re based -- shown to buyers so they can find vendors closer to them.
+                  </p>
+                  {isEditing ? (
+                    <CustomDropdown
+                      options={nigerianStates}
+                      value={editData.state}
+                      onChange={(value) => handleChange({ target: { name: 'state', value } })}
+                      placeholder="Select state"
+                    />
+                  ) : (
+                    <p className="text-gray-900 py-3">{store.state || 'Not set'}</p>
+                  )}
+                </div>
+
                 {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Website URL</label>
                   {isEditing ? (

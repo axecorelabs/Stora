@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Store, MapPin, Phone, Mail, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CustomDropdown from "../ui/CustomDropdown";
+import { NIGERIAN_STATES } from "@stora/shared-constants";
 
 export default function CreateStoreModal({ isOpen, onStoreCreated }) {
   const { secureApiCall } = useAuth();
@@ -13,6 +14,11 @@ export default function CreateStoreModal({ isOpen, onStoreCreated }) {
     storeType: 'physical', // NEW
     storePhone: '',
     storeEmail: '',
+    // Main operating state -- required for every store regardless of
+    // storeType. Physical stores keep using address.state (unchanged);
+    // this is only the online-only stores' home for it, since they never
+    // fill in `address` at all.
+    state: '',
     address: {
       street: '',
       city: '',
@@ -39,47 +45,8 @@ export default function CreateStoreModal({ isOpen, onStoreCreated }) {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Nigerian states for dropdown - NEW
-  const nigerianStates = [
-    { value: '', label: 'Select State' },
-    { value: 'Abia', label: 'Abia' },
-    { value: 'Adamawa', label: 'Adamawa' },
-    { value: 'Akwa Ibom', label: 'Akwa Ibom' },
-    { value: 'Anambra', label: 'Anambra' },
-    { value: 'Bauchi', label: 'Bauchi' },
-    { value: 'Bayelsa', label: 'Bayelsa' },
-    { value: 'Benue', label: 'Benue' },
-    { value: 'Borno', label: 'Borno' },
-    { value: 'Cross River', label: 'Cross River' },
-    { value: 'Delta', label: 'Delta' },
-    { value: 'Ebonyi', label: 'Ebonyi' },
-    { value: 'Edo', label: 'Edo' },
-    { value: 'Ekiti', label: 'Ekiti' },
-    { value: 'Enugu', label: 'Enugu' },
-    { value: 'FCT', label: 'Federal Capital Territory' },
-    { value: 'Gombe', label: 'Gombe' },
-    { value: 'Imo', label: 'Imo' },
-    { value: 'Jigawa', label: 'Jigawa' },
-    { value: 'Kaduna', label: 'Kaduna' },
-    { value: 'Kano', label: 'Kano' },
-    { value: 'Katsina', label: 'Katsina' },
-    { value: 'Kebbi', label: 'Kebbi' },
-    { value: 'Kogi', label: 'Kogi' },
-    { value: 'Kwara', label: 'Kwara' },
-    { value: 'Lagos', label: 'Lagos' },
-    { value: 'Nasarawa', label: 'Nasarawa' },
-    { value: 'Niger', label: 'Niger' },
-    { value: 'Ogun', label: 'Ogun' },
-    { value: 'Ondo', label: 'Ondo' },
-    { value: 'Osun', label: 'Osun' },
-    { value: 'Oyo', label: 'Oyo' },
-    { value: 'Plateau', label: 'Plateau' },
-    { value: 'Rivers', label: 'Rivers' },
-    { value: 'Sokoto', label: 'Sokoto' },
-    { value: 'Taraba', label: 'Taraba' },
-    { value: 'Yobe', label: 'Yobe' },
-    { value: 'Zamfara', label: 'Zamfara' }
-  ];
+  // Nigerian states for dropdown
+  const nigerianStates = [{ value: '', label: 'Select State' }, ...NIGERIAN_STATES];
 
   // Store type options - NEW
   const storeTypeOptions = [
@@ -151,7 +118,6 @@ export default function CreateStoreModal({ isOpen, onStoreCreated }) {
     }
     
     if (step === 2) {
-      // Only validate address for physical stores
       if (formData.storeType === 'physical') {
         if (!formData.address.city.trim()) {
           newErrors['address.city'] = 'City is required for physical stores';
@@ -159,6 +125,11 @@ export default function CreateStoreModal({ isOpen, onStoreCreated }) {
         if (!formData.address.state.trim()) {
           newErrors['address.state'] = 'State is required for physical stores';
         }
+      } else if (!formData.state) {
+        // Online-only stores skip the address block entirely, but every
+        // store still needs an operating state -- see CreateStoreModal's
+        // top-level `state` field.
+        newErrors.state = 'Operating state is required';
       }
     }
     
@@ -185,7 +156,10 @@ export default function CreateStoreModal({ isOpen, onStoreCreated }) {
     try {
       const response = await secureApiCall('/api/stores', {
         method: 'POST',
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          state: formData.storeType === 'physical' ? formData.address.state : formData.state
+        })
       });
 
       if (response.success) {
@@ -452,10 +426,29 @@ export default function CreateStoreModal({ isOpen, onStoreCreated }) {
                   <div className="space-y-4">
                     <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
                       <p className="text-blue-800 text-sm">
-                        <strong>Online Store Setup:</strong> Since you selected "Online Store Only", 
-                        you can skip physical address details. You can optionally provide your website 
+                        <strong>Online Store Setup:</strong> Since you selected &quot;Online Store Only&quot;,
+                        you can skip physical address details. You can optionally provide your website
                         and social media information below.
                       </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Main Operating State *
+                      </label>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Where you&apos;re based -- shown to buyers so they can find vendors closer to them.
+                      </p>
+                      <CustomDropdown
+                        options={nigerianStates}
+                        value={formData.state}
+                        onChange={(value) => handleChange({ target: { name: 'state', value } })}
+                        placeholder="Select state"
+                        error={!!errors.state}
+                      />
+                      {errors.state && (
+                        <p className="text-red-500 text-xs mt-1">{errors.state}</p>
+                      )}
                     </div>
 
                     <div>

@@ -9,24 +9,37 @@ import SearchConsole from "@/components/search/SearchConsole";
 import PriceFilterPills, { PRICE_BUCKETS } from "@/components/search/PriceFilterPills";
 import ActiveFilters from "@/components/search/ActiveFilters";
 import DiscoveryProductCard from "@/components/home/DiscoveryProductCard";
+import StatePickerPopover from "@/components/ui/StatePickerPopover";
+import MobileFilterBar from "@/components/search/MobileFilterBar";
+import { useDeliveryState } from "@/contexts/DeliveryStateContext";
+
+const SORTS = [
+  { key: "trending", label: "Trending" },
+  { key: "new", label: "New arrivals" },
+  { key: "nearest", label: "Nearest to me" },
+];
 
 function ProductsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { deliveryState, setDeliveryState } = useDeliveryState();
 
   const urlQ = searchParams.get("q") || "";
-  const urlCategory = searchParams.get("category") || "";
-  const urlSort = searchParams.get("sort") === "new" ? "new" : "trending";
+  const urlCategories = searchParams.get("category")?.split(",").filter(Boolean) || [];
+  const urlState = searchParams.get("state") || "";
+  const urlSort = SORTS.some((s) => s.key === searchParams.get("sort")) ? searchParams.get("sort") : "trending";
   const urlPriceKey = searchParams.get("price") || "";
 
   const [q, setQ] = useState(urlQ);
-  const [category, setCategory] = useState(urlCategory);
+  const [categories, setCategories] = useState(urlCategories);
+  const [state, setState] = useState(urlState);
   const [sort, setSort] = useState(urlSort);
   const [priceKey, setPriceKey] = useState(urlPriceKey);
   const [products, setProducts] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showNearestPicker, setShowNearestPicker] = useState(false);
 
   const priceBucket = PRICE_BUCKETS.find((b) => b.key === priceKey);
 
@@ -35,13 +48,14 @@ function ProductsPageInner() {
   useEffect(() => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
-    if (category) params.set("category", category);
+    if (categories.length) params.set("category", categories.join(","));
+    if (state) params.set("state", state);
     if (sort !== "trending") params.set("sort", sort);
     if (priceKey) params.set("price", priceKey);
     const qs = params.toString();
     router.replace(qs ? `/products?${qs}` : "/products", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, category, sort, priceKey]);
+  }, [q, categories, state, sort, priceKey]);
 
   const fetchPage = useCallback(async (pageNum, replace) => {
     if (replace) setLoading(true);
@@ -49,7 +63,9 @@ function ProductsPageInner() {
     try {
       const params = new URLSearchParams({ sort, page: String(pageNum) });
       if (q) params.set("q", q);
-      if (category) params.set("category", category);
+      if (categories.length) params.set("category", categories.join(","));
+      if (state) params.set("state", state);
+      if (sort === "nearest" && deliveryState) params.set("buyerState", deliveryState);
       if (priceBucket?.min !== undefined) params.set("minPrice", String(priceBucket.min));
       if (priceBucket?.max !== undefined) params.set("maxPrice", String(priceBucket.max));
       const res = await fetch(`/api/products/search?${params}`);
@@ -64,7 +80,7 @@ function ProductsPageInner() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [q, category, sort, priceBucket]);
+  }, [q, categories, state, sort, priceBucket, deliveryState]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -76,13 +92,30 @@ function ProductsPageInner() {
   };
 
   const activeFilters = [
-    category && { key: "category", label: category, onRemove: () => setCategory("") },
+    ...categories.map((c) => ({
+      key: `category-${c}`,
+      label: c,
+      onRemove: () => setCategories((prev) => prev.filter((x) => x !== c))
+    })),
+    state && { key: "state", label: state, onRemove: () => setState("") },
     priceBucket && { key: "price", label: priceBucket.label, onRemove: () => setPriceKey("") }
   ].filter(Boolean);
 
   const clearAll = () => {
-    setCategory("");
+    setCategories([]);
+    setState("");
     setPriceKey("");
+  };
+
+  // "Nearest to me" needs a delivery state to sort against -- if none is
+  // set yet, open the picker right here instead of silently applying a
+  // no-op sort (which would look identical to Trending and be confusing).
+  const handleSortClick = (key) => {
+    if (key === "nearest" && !deliveryState) {
+      setShowNearestPicker(true);
+      return;
+    }
+    setSort(key);
   };
 
   return (
@@ -102,8 +135,10 @@ function ProductsPageInner() {
           query={q}
           onQueryChange={setQ}
           searchPlaceholder="Search products by name…"
-          category={category}
-          onCategoryChange={setCategory}
+          categories={categories}
+          onCategoriesChange={setCategories}
+          state={state}
+          onStateChange={setState}
           resultCount={pagination?.total}
           loading={loading}
           resultLabel="products"
@@ -115,18 +150,30 @@ function ProductsPageInner() {
           </div>
         )}
 
-        {/* Price + sort -- opposite top corners of the grid they control. */}
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+        <MobileFilterBar
+          categories={categories}
+          onCategoriesChange={setCategories}
+          state={state}
+          onStateChange={setState}
+          priceKey={priceKey}
+          onPriceChange={setPriceKey}
+          sort={sort}
+          onSortChange={setSort}
+          sortOptions={SORTS}
+          deliveryState={deliveryState}
+          onDeliveryStateChange={setDeliveryState}
+        />
+
+        {/* Price + sort -- opposite top corners of the grid they control.
+            Desktop-only; MobileFilterBar covers this below `sm`. */}
+        <div className="hidden sm:flex items-start justify-between gap-4 flex-wrap mb-6">
           <PriceFilterPills activeKey={priceKey} onChange={setPriceKey} />
 
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {[
-              { key: "trending", label: "Trending" },
-              { key: "new", label: "New arrivals" },
-            ].map(({ key, label }) => (
+          <div className="relative flex items-center gap-1 flex-shrink-0">
+            {SORTS.map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => setSort(key)}
+                onClick={() => handleSortClick(key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   sort === key ? "bg-brand-50 text-brand-800" : "text-gray-500 hover:text-brand-700"
                 }`}
@@ -134,6 +181,23 @@ function ProductsPageInner() {
                 {label}
               </button>
             ))}
+
+            {showNearestPicker && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowNearestPicker(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50">
+                  <StatePickerPopover
+                    value={deliveryState}
+                    onChange={(value) => {
+                      setDeliveryState(value);
+                      if (value) setSort("nearest");
+                      setShowNearestPicker(false);
+                    }}
+                    onRequestClose={() => setShowNearestPicker(false)}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 

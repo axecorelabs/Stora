@@ -2,6 +2,7 @@ import { Inter, Space_Grotesk, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { DeliveryStateProvider } from "@/contexts/DeliveryStateContext";
 import QueryProvider from "@/providers/QueryProvider";
 import GoogleAuthErrorBanner from "@/components/auth/GoogleAuthErrorBanner";
 import Head from "next/head";
@@ -94,10 +95,12 @@ export default function RootLayout({ children }) {
       <body className={`${inter.variable} ${spaceGrotesk.variable} ${geistMono.variable} bg-gray-50 text-gray-900 font-sans`}>
         <QueryProvider>
           <AuthProvider>
-            <CartProvider>
-              <GoogleAuthErrorBanner />
-              {children}
-            </CartProvider>
+            <DeliveryStateProvider>
+              <CartProvider>
+                <GoogleAuthErrorBanner />
+                {children}
+              </CartProvider>
+            </DeliveryStateProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

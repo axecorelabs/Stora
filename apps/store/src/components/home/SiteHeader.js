@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { ShoppingBag, Heart, User, Menu, X, Package, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { useDeliveryState } from "@/contexts/DeliveryStateContext";
 import SignInModal from "@/components/auth/SignInModal";
 import SignUpModal from "@/components/auth/SignUpModal";
 import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
+import { DeliveryStatePickerDesktop, DeliveryStatePickerMobile } from "@/components/home/DeliveryStatePicker";
 
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
 const BRAND_PRIMARY = "#145C41";
@@ -24,6 +26,7 @@ export default function SiteHeader() {
   const { customer, isAuthenticated, isLoading: authLoading, logout, setRedirectAfterLogin } = useAuth();
   const { getCartCount } = useCart();
   const cartCount = getCartCount();
+  const { syncToProfileOnAuth } = useDeliveryState();
 
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
@@ -76,6 +79,8 @@ export default function SiteHeader() {
 
           {/* Desktop actions */}
           <div className="hidden sm:flex items-center gap-1">
+            <DeliveryStatePickerDesktop />
+
             <a
               href={DASHBOARD_URL}
               className="text-sm font-medium text-white/70 hover:text-white transition-colors px-3 py-2"
@@ -205,6 +210,8 @@ export default function SiteHeader() {
             </div>
 
             <div className="p-6 space-y-6">
+              <DeliveryStatePickerMobile />
+
               {isAuthenticated ? (
                 <div className="pb-6 border-b border-gray-100">
                   <div className="flex items-center gap-3 mb-4">
@@ -317,13 +324,19 @@ export default function SiteHeader() {
           setShowSignIn(false);
           setShowForgotPassword(true);
         }}
-        onSuccess={() => setShowSignIn(false)}
+        onSuccess={() => {
+          setShowSignIn(false);
+          syncToProfileOnAuth();
+        }}
       />
 
       <SignUpModal
         isOpen={showSignUp}
         onClose={() => setShowSignUp(false)}
-        onSuccess={() => setShowSignUp(false)}
+        onSuccess={() => {
+          setShowSignUp(false);
+          syncToProfileOnAuth();
+        }}
         onSwitchToSignIn={handleSwitchToSignIn}
       />
 

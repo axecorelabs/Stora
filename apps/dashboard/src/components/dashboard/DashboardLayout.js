@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardHeader from "./DashboardHeader";
+import IncompleteStoreNudge from "./IncompleteStoreNudge";
 
 const SIDEBAR_COLLAPSED_KEY = "stora-sidebar-collapsed";
 
@@ -63,6 +64,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
       {/* Main Content with margins for fixed sidebar and header */}
       <div className={`flex-1 pt-20 bg-white transition-[margin] duration-300 ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
         <main className="p-6">
+          <IncompleteStoreNudge />
           {children}
         </main>
       </div>

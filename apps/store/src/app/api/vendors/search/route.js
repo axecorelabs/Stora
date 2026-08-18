@@ -11,15 +11,23 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("q")?.trim() || undefined;
-    const category = searchParams.get("category") || undefined;
+    const categories = searchParams.get("category")?.split(",").filter(Boolean) || undefined;
+    const state = searchParams.get("state") || undefined;
+    const buyerState = searchParams.get("buyerState") || undefined;
     const sortParam = searchParams.get("sort");
-    const sort = ["featured", "newest", "name"].includes(sortParam) ? sortParam : "featured";
+    const sortRequested = ["featured", "newest", "name", "nearest"].includes(sortParam) ? sortParam : "featured";
+    // "nearest" with no buyer state to sort against is inert at the DB
+    // layer (it degrades to the default ordering) -- fall back explicitly
+    // here rather than forwarding a sort mode that can't do anything.
+    const sort = sortRequested === "nearest" && !buyerState ? "featured" : sortRequested;
     const pageParam = parseInt(searchParams.get("page"), 10);
     const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
     const { vendors, totalCount } = await searchVendorsPaginated({
       search,
-      category,
+      categories,
+      state,
+      buyerState,
       sort,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE

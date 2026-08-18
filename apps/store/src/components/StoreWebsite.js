@@ -700,12 +700,22 @@ export default function StoreWebsite({ store }) {
                 <h1 className="font-display text-[28px] lg:text-[34px] font-semibold text-white tracking-tight truncate drop-shadow-sm">
                   {store.storeName}
                 </h1>
-                {store.totalReviews > 0 && (
+                {(store.totalReviews > 0 || store.state) && (
                   <div className="flex items-center gap-1.5 mt-1">
-                    <StarRating rating={store.averageRating} size={13} />
-                    <span className="text-white/80 text-[12.5px] tabular-nums drop-shadow-sm">
-                      {store.averageRating.toFixed(1)} · {store.totalReviews} review{store.totalReviews === 1 ? '' : 's'}
-                    </span>
+                    {store.totalReviews > 0 && (
+                      <>
+                        <StarRating rating={store.averageRating} size={13} />
+                        <span className="text-white/80 text-[12.5px] tabular-nums drop-shadow-sm">
+                          {store.averageRating.toFixed(1)} · {store.totalReviews} review{store.totalReviews === 1 ? '' : 's'}
+                        </span>
+                      </>
+                    )}
+                    {store.state && (
+                      <span className="text-white/80 text-[12.5px] drop-shadow-sm">
+                        {store.totalReviews > 0 && <span className="text-white/40 mx-0.5">·</span>}
+                        Based in {store.state}
+                      </span>
+                    )}
                   </div>
                 )}
                 {store.storeDescription && (

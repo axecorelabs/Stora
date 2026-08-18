@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import VerifyEmailModal from "./VerifyEmailModal";
 
-export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgotPassword }) {
+export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgotPassword, onSuccess }) {
   const { login, setRedirectAfterLogin } = useAuth();
   const pathname = usePathname();
   const googleStartUrl = `/api/auth/google/start?returnTo=${encodeURIComponent(pathname || "/")}`;
@@ -77,10 +77,11 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
           rememberMe: false,
         });
         setSavedPassword("");
-        
+
         // Close modal
         onClose();
-        
+        onSuccess?.(result.customer);
+
         // Context will handle redirect if set
       } else if (result.needsVerification) {
         // User needs email verification - save credentials for auto-login after verification
@@ -132,9 +133,10 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
         });
         setSavedPassword("");
         setEmailToVerify("");
-        
+
         // Close the sign-in modal
         onClose();
+        onSuccess?.(result.customer);
       } else {
         // Show error if auto-login fails
         setErrors({ submit: result.error || "Login failed. Please try signing in again." });

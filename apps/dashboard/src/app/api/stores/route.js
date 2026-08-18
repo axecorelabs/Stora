@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { invalidateStorefrontCache } from '@/lib/redis';
+import { isValidNigerianState } from '@stora/shared-constants';
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -21,6 +22,7 @@ function transformStore(store) {
     storeType: store.store_type,
     storePhone: store.store_phone,
     storeEmail: store.store_email,
+    state: store.state,
     address: typeof store.address === 'string' ? JSON.parse(store.address) : store.address,
     onlineStoreInfo: typeof store.online_store_info === 'string' ? JSON.parse(store.online_store_info) : store.online_store_info,
     branding: typeof store.branding === 'string' ? JSON.parse(store.branding) : store.branding,
@@ -118,6 +120,17 @@ export async function POST(req) {
 
     const storeData = await req.json();
 
+    // Required going forward for every new store, regardless of storeType --
+    // online-only vendors used to skip location entirely, which is exactly
+    // why most existing stores have no state on record. Existing stores are
+    // never touched by this check (see PUT below), only new creations.
+    if (!isValidNigerianState(storeData.state)) {
+      return NextResponse.json(
+        { success: false, message: 'A valid operating state is required' },
+        { status: 400 }
+      );
+    }
+
     // Generate store slug
     const storeSlug = storeData.storeName
       .toLowerCase()
@@ -135,6 +148,7 @@ export async function POST(req) {
         store_type: storeData.storeType || 'physical',
         store_phone: storeData.storePhone || '',
         store_email: storeData.storeEmail || user.email,
+        state: storeData.state,
         address: storeData.address || {},
         online_store_info: storeData.onlineStoreInfo || {},
         branding: storeData.branding || {},
@@ -207,6 +221,16 @@ export async function PUT(req) {
       }
     }
 
+    // Not required here -- existing stores without a state are nudged, not
+    // blocked (see IncompleteStoreNudge). Only reject a value that's
+    // actively wrong, not a missing one.
+    if (updateData.state !== undefined && updateData.state !== null && !isValidNigerianState(updateData.state)) {
+      return NextResponse.json(
+        { success: false, message: 'Not a valid operating state' },
+        { status: 400 }
+      );
+    }
+
     // Build update object with snake_case keys
     const dbUpdate = {};
     if (updateData.storeName) dbUpdate.store_name = updateData.storeName;
@@ -214,6 +238,7 @@ export async function PUT(req) {
     if (updateData.storeType) dbUpdate.store_type = updateData.storeType;
     if (updateData.storePhone) dbUpdate.store_phone = updateData.storePhone;
     if (updateData.storeEmail) dbUpdate.store_email = updateData.storeEmail;
+    if (updateData.state !== undefined) dbUpdate.state = updateData.state;
     if (updateData.address) dbUpdate.address = updateData.address;
     if (updateData.onlineStoreInfo) dbUpdate.online_store_info = updateData.onlineStoreInfo;
     if (updateData.branding) dbUpdate.branding = updateData.branding;

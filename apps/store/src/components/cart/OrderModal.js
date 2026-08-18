@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { X, MapPin, Package, AlertCircle, CheckCircle } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import { NIGERIAN_STATES } from "@stora/shared-constants";
 
 export default function OrderModal({
   isOpen,
@@ -36,15 +37,7 @@ export default function OrderModal({
   const [submitError, setSubmitError] = useState(null);
   const [submitErrorOrderId, setSubmitErrorOrderId] = useState(null);
 
-  const nigerianStates = [
-    "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno",
-    "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT", "Gombe", "Imo",
-    "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa",
-    "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba",
-    "Yobe", "Zamfara"
-  ];
-
-  const stateOptions = nigerianStates.map(state => ({ value: state, label: state }));
+  const stateOptions = NIGERIAN_STATES;
 
   // Lock body scroll when modal is open
   useEffect(() => {
