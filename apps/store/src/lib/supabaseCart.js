@@ -369,6 +369,20 @@ export async function enrichCartWithProductData(cart) {
     return cart;
   }
 
+  // Which states each item's store actually ships to -- fetched fresh
+  // here, not trusted from cart_items.store_snapshot (which only ever
+  // held {store_name, store_slug} and is an add-time snapshot anyway).
+  // One batched query for the whole cart, not per item.
+  const distinctStoreIds = [...new Set(cart.items.map(item => item.store_id).filter(Boolean))];
+  let deliveryStatesByStore = {};
+  if (distinctStoreIds.length > 0) {
+    const { data: stores } = await supabaseAdmin
+      .from('stores')
+      .select('id, delivery_states')
+      .in('id', distinctStoreIds);
+    (stores || []).forEach(s => { deliveryStatesByStore[s.id] = s.delivery_states || null; });
+  }
+
   const enrichedItems = await Promise.all(
     cart.items.map(async (item) => {
       try {
@@ -412,14 +426,16 @@ export async function enrichCartWithProductData(cart) {
           available_stock: availableStock,
           isAvailable: product.isActive && availableStock >= item.quantity,
           price_changed: parseFloat(currentPrice) !== parseFloat(item.price),
-          stock_sufficient: availableStock >= item.quantity
+          stock_sufficient: availableStock >= item.quantity,
+          store_delivery_states: deliveryStatesByStore[item.store_id] ?? null
         };
       } catch (error) {
         console.error(`Error enriching cart item ${item.product_id}:`, error);
         return {
           ...item,
           isAvailable: false,
-          error: 'Failed to load product data'
+          error: 'Failed to load product data',
+          store_delivery_states: deliveryStatesByStore[item.store_id] ?? null
         };
       }
     })

@@ -14,6 +14,9 @@ export default function OrderModal({
   customer,
   storeGroup = null, // If provided, this is a per-store checkout
   storeCount, // Only meaningful (and only shown) for whole-cart checkout
+  deliverableStates, // null = nationwide/no restriction, [] = the stores
+  // in this checkout share no common deliverable state (only possible on
+  // a whole-cart, multi-vendor checkout), array = restricted to just these
   totalAmount,
   itemCount,
   primaryColor,
@@ -37,7 +40,10 @@ export default function OrderModal({
   const [submitError, setSubmitError] = useState(null);
   const [submitErrorOrderId, setSubmitErrorOrderId] = useState(null);
 
-  const stateOptions = NIGERIAN_STATES;
+  const noCommonDeliveryState = Array.isArray(deliverableStates) && deliverableStates.length === 0;
+  const stateOptions = Array.isArray(deliverableStates) && deliverableStates.length > 0
+    ? NIGERIAN_STATES.filter((s) => deliverableStates.includes(s.value))
+    : NIGERIAN_STATES;
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -366,19 +372,36 @@ export default function OrderModal({
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   State *
                 </label>
-                <CustomDropdown
-                  options={stateOptions}
-                  value={formData.state}
-                  onChange={(value) => handleChange({ target: { name: 'state', value } })}
-                  placeholder="Select your state"
-                  backgroundColor="#FFFFFF"
-                  error={!!errors.state}
-                />
-                {errors.state && (
-                  <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.state}
-                  </p>
+                {noCommonDeliveryState ? (
+                  <div className="rounded-lg sm:rounded-xl border border-red-200 bg-red-50 px-3 sm:px-4 py-3 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-red-700 text-xs sm:text-sm">
+                      These stores don&apos;t share a delivery region in common, so this cart can&apos;t be checked out together.
+                      Close this and use each store&apos;s own &ldquo;Place order&rdquo; button to check out separately.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <CustomDropdown
+                      options={stateOptions}
+                      value={formData.state}
+                      onChange={(value) => handleChange({ target: { name: 'state', value } })}
+                      placeholder="Select your state"
+                      backgroundColor="#FFFFFF"
+                      error={!!errors.state}
+                    />
+                    {errors.state && (
+                      <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.state}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      {Array.isArray(deliverableStates) && deliverableStates.length > 0
+                        ? `Delivers to: ${deliverableStates.join(', ')}`
+                        : 'Delivers nationwide'}
+                    </p>
+                  </>
                 )}
               </div>
 
@@ -460,7 +483,7 @@ export default function OrderModal({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || !whatsAppValidated || !formData.street || !formData.city || !formData.state}
+              disabled={isSubmitting || !whatsAppValidated || !formData.street || !formData.city || !formData.state || noCommonDeliveryState}
               className="w-full sm:flex-1 py-2.5 sm:py-3 text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold bg-brand-700 hover:bg-brand-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isSubmitting ? (

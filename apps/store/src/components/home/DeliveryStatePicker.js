@@ -17,7 +17,7 @@ export function DeliveryStatePickerDesktop() {
         className="flex items-center gap-1.5 text-sm font-medium text-white/70 hover:text-white transition-colors px-3 py-2"
       >
         <MapPin className="w-4 h-4 flex-shrink-0" />
-        <span className="hidden lg:inline">Deliver to: {deliveryState || "Nigeria"}</span>
+        <span className="hidden lg:inline">Deliver to: {deliveryState || "Pick state"}</span>
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -47,7 +47,7 @@ export function DeliveryStatePickerMobile() {
       >
         <div className="flex items-center gap-3">
           <MapPin className="w-5 h-5 text-gray-600" />
-          <span className="font-medium text-gray-900">Deliver to: {deliveryState || "Nigeria"}</span>
+          <span className="font-medium text-gray-900">Deliver to: {deliveryState || "Pick state"}</span>
         </div>
         <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>

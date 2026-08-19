@@ -6,6 +6,7 @@ import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supaba
 import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseCart";
 import { findInventoryByIds, findActiveBatchesByInventoryIds, resolveBatchPricing } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
+import { isValidNigerianState } from "@stora/shared-constants";
 
 const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
 // A flat 2% is too thin to be worth collecting on small orders (Paystack's
@@ -221,6 +222,12 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+    if (!isValidNigerianState(shippingAddress.state)) {
+      return NextResponse.json(
+        { success: false, message: "Not a valid Nigerian state" },
+        { status: 400 }
+      );
+    }
 
     // Paystack requires an email to initialize a transaction -- not
     // otherwise a required field on this form for cash_to_vendor orders.
@@ -296,6 +303,29 @@ export async function POST(request) {
           existingOrderId: liveOrders[0].id
         }, { status: 409 });
       }
+    }
+
+    // Deliverability check -- runs before anything is reserved, so a
+    // rejection here needs no compensating rollback (unlike a mid-Phase-1
+    // failure, which does). The client-side dropdown in OrderModal.js
+    // already filters to deliverable states, but that's trivially
+    // bypassable (a direct POST here, or a stale dropdown selection), so
+    // this is the actual enforcement point.
+    const checkoutStoreIds = [...new Set(itemsToProcess.map(item => item.store_id))];
+    const { data: checkoutStores } = await supabaseAdmin
+      .from('stores')
+      .select('id, store_name, delivery_states')
+      .in('id', checkoutStoreIds);
+    const undeliverableStores = (checkoutStores || []).filter(store => {
+      const states = store.delivery_states;
+      return states && states.length > 0 && !states.includes(shippingAddress.state);
+    });
+    if (undeliverableStores.length > 0) {
+      const names = undeliverableStores.map(s => s.store_name).join(', ');
+      return NextResponse.json({
+        success: false,
+        message: `${names} ${undeliverableStores.length === 1 ? "doesn't" : "don't"} deliver to ${shippingAddress.state}. Remove ${undeliverableStores.length === 1 ? 'their items' : 'those items'} or choose a different delivery state.`
+      }, { status: 400 });
     }
 
     // Phase 1: validate + atomically reserve stock for every item. Any

@@ -444,6 +444,11 @@ export default function CartPageContent({ slug }) {
         acc[storeId] = {
           store_id: item.store_id,
           storeSnapshot: item.store_snapshot,
+          // Same value across every item in this group -- carried
+          // per-item from the fresh (not snapshot) lookup in
+          // enrichCartWithProductData, same duplication convention as
+          // storeSnapshot itself.
+          deliveryStates: item.store_delivery_states ?? null,
           items: [],
         };
       }
@@ -452,6 +457,21 @@ export default function CartPageContent({ slug }) {
     }, {}) || {};
 
   const storeGroups = Object.values(itemsByStore);
+
+  // What to pass into OrderModal as `deliverableStates` for the whole-cart
+  // checkout: intersect every group's list. null/empty means "no
+  // restriction" and doesn't narrow the intersection. If every group is
+  // nationwide, result is null (no restriction at all). If some groups
+  // restrict and share no common state, the result is `[]` -- a real
+  // dead-end OrderModal renders as a blocking notice, not an empty/broken
+  // dropdown, since these vendors genuinely can't be checked out together.
+  const restrictedGroups = storeGroups.filter(g => g.deliveryStates && g.deliveryStates.length > 0);
+  const wholeCartDeliverableStates = restrictedGroups.length === 0
+    ? null
+    : restrictedGroups.reduce(
+        (acc, g) => acc.filter(s => g.deliveryStates.includes(s)),
+        restrictedGroups[0].deliveryStates
+      );
 
   // Per-store order handlers - simplified
   const handleStorePlaceOrder = (storeGroup) => {
@@ -1016,6 +1036,7 @@ export default function CartPageContent({ slug }) {
           storeCount={storeGroups.length}
           totalAmount={cart.total || 0}
           itemCount={getCartCount()}
+          deliverableStates={wholeCartDeliverableStates}
           primaryColor={BRAND_PRIMARY}
           secondaryColor={BRAND_LIGHT}
           formatPrice={formatPrice}
@@ -1091,6 +1112,7 @@ export default function CartPageContent({ slug }) {
             0
           )}
           itemCount={selectedStoreGroup?.items.reduce((sum, item) => sum + item.quantity, 0)}
+          deliverableStates={selectedStoreGroup?.deliveryStates ?? null}
           primaryColor={BRAND_PRIMARY}
           secondaryColor={BRAND_LIGHT}
           formatPrice={formatPrice}

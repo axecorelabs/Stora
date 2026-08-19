@@ -22,9 +22,11 @@ import {
   Save,
   X,
   AlertCircle,
-  Landmark
+  Landmark,
+  Truck
 } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import StateMultiSelect from "@/components/dashboard/StateMultiSelect";
 import Button from "@/components/ui/Button";
 import SectionHeader from "@/components/ui/SectionHeader";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
@@ -129,6 +131,8 @@ export default function StorePage() {
       storePhone: store.storePhone,
       storeEmail: store.storeEmail,
       state: store.state || '',
+      deliveryNationwide: store.deliveryNationwide,
+      deliveryStates: store.deliveryStates || [],
       address: { ...store.address },
       onlineStoreInfo: {
         website: store.onlineStoreInfo?.website || '',
@@ -192,11 +196,11 @@ export default function StorePage() {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!editData.storeName?.trim()) {
       newErrors.storeName = 'Store name is required';
     }
-    
+
     if (store.storeType === 'physical') {
       if (!editData.address?.city?.trim()) {
         newErrors['address.city'] = 'City is required for physical stores';
@@ -205,9 +209,23 @@ export default function StorePage() {
         newErrors['address.state'] = 'State is required for physical stores';
       }
     }
-    
+
+    if (!editData.deliveryNationwide && (editData.deliveryStates || []).length === 0) {
+      newErrors.deliveryStates = 'Select at least one state, or choose Nationwide';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const setDeliveryNationwide = (nationwide) => {
+    setEditData(prev => ({ ...prev, deliveryNationwide: nationwide }));
+    if (errors.deliveryStates) setErrors(prev => ({ ...prev, deliveryStates: '' }));
+  };
+
+  const toggleDeliveryState = (states) => {
+    setEditData(prev => ({ ...prev, deliveryStates: states }));
+    if (errors.deliveryStates) setErrors(prev => ({ ...prev, deliveryStates: '' }));
   };
 
   const handleSave = async () => {
@@ -225,7 +243,15 @@ export default function StorePage() {
           // stores edit address.state, online-only stores edit the
           // standalone field below, but only one value should ever reach
           // the DB as "the" operating state.
-          state: store.storeType === 'physical' ? editData.address.state : editData.state
+          // Falsy (never-set) state is omitted entirely, not sent as ''--
+          // JSON.stringify drops an `undefined` value's key, so the PUT
+          // handler's `updateData.state !== undefined` check correctly
+          // treats an unset state as "leave alone," not "reject as
+          // invalid." Physical stores already require address.state via
+          // validateForm() above, so this only ever matters for
+          // online-only stores that haven't set one yet.
+          state: (store.storeType === 'physical' ? editData.address.state : editData.state) || undefined,
+          deliveryStates: editData.deliveryNationwide ? null : editData.deliveryStates
         })
       });
 
@@ -653,6 +679,63 @@ export default function StorePage() {
               </div>
             </div>
           )}
+
+          {/* Delivery Regions -- distinct from the "Main Operating State"
+              above (where the vendor is based): this is which states
+              they'll actually ship to, so it applies the same way
+              regardless of storeType, not nested in either branch above. */}
+          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <SectionHeader icon={Truck} title="Delivery Regions" />
+            <p className="text-xs text-gray-500 mb-6">
+              Which states you&apos;ll ship to. Buyers outside this list won&apos;t be able to check out with you.
+            </p>
+
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryNationwide(true)}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
+                      editData.deliveryNationwide
+                        ? 'bg-brand-800 border-brand-800 text-white'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Nationwide
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryNationwide(false)}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
+                      !editData.deliveryNationwide
+                        ? 'bg-brand-800 border-brand-800 text-white'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Specific states
+                  </button>
+                </div>
+
+                {!editData.deliveryNationwide && (
+                  <StateMultiSelect value={editData.deliveryStates || []} onChange={toggleDeliveryState} />
+                )}
+
+                {errors.deliveryStates && (
+                  <p className="text-red-500 text-xs flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.deliveryStates}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-900 py-1">
+                {store.deliveryNationwide
+                  ? 'Nationwide'
+                  : (store.deliveryStates || []).join(', ')}
+              </p>
+            )}
+          </div>
 
           {/* Store Settings */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">

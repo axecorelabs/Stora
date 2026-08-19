@@ -700,24 +700,35 @@ export default function StoreWebsite({ store }) {
                 <h1 className="font-display text-[28px] lg:text-[34px] font-semibold text-white tracking-tight truncate drop-shadow-sm">
                   {store.storeName}
                 </h1>
-                {(store.totalReviews > 0 || store.state) && (
-                  <div className="flex items-center gap-1.5 mt-1">
-                    {store.totalReviews > 0 && (
-                      <>
-                        <StarRating rating={store.averageRating} size={13} />
-                        <span className="text-white/80 text-[12.5px] tabular-nums drop-shadow-sm">
-                          {store.averageRating.toFixed(1)} · {store.totalReviews} review{store.totalReviews === 1 ? '' : 's'}
-                        </span>
-                      </>
-                    )}
-                    {store.state && (
-                      <span className="text-white/80 text-[12.5px] drop-shadow-sm">
-                        {store.totalReviews > 0 && <span className="text-white/40 mx-0.5">·</span>}
-                        Based in {store.state}
+                {/* Always renders now (the delivery segment has no
+                    condition of its own -- every store either ships
+                    nationwide or to a specific list, always worth
+                    showing), where before this row only appeared once a
+                    review or a state existed. */}
+                <div className="flex items-center gap-1.5 mt-1">
+                  {store.totalReviews > 0 && (
+                    <>
+                      <StarRating rating={store.averageRating} size={13} />
+                      <span className="text-white/80 text-[12.5px] tabular-nums drop-shadow-sm">
+                        {store.averageRating.toFixed(1)} · {store.totalReviews} review{store.totalReviews === 1 ? '' : 's'}
                       </span>
-                    )}
-                  </div>
-                )}
+                    </>
+                  )}
+                  {store.state && (
+                    <span className="text-white/80 text-[12.5px] drop-shadow-sm">
+                      {store.totalReviews > 0 && <span className="text-white/40 mx-0.5">·</span>}
+                      Based in {store.state}
+                    </span>
+                  )}
+                  <span className="text-white/80 text-[12.5px] drop-shadow-sm">
+                    {(store.totalReviews > 0 || store.state) && <span className="text-white/40 mx-0.5">·</span>}
+                    {store.deliveryStates && store.deliveryStates.length > 0
+                      ? `Delivers to ${store.deliveryStates.length > 3
+                          ? `${store.deliveryStates.slice(0, 3).join(', ')} +${store.deliveryStates.length - 3} more`
+                          : store.deliveryStates.join(', ')}`
+                      : 'Delivers nationwide'}
+                  </span>
+                </div>
                 {store.storeDescription && (
                   <p className="text-white/85 text-[15px] mt-1.5 max-w-xl line-clamp-2 drop-shadow-sm">
                     {store.storeDescription}

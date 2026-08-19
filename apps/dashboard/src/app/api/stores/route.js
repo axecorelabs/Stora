@@ -23,6 +23,12 @@ function transformStore(store) {
     storePhone: store.store_phone,
     storeEmail: store.store_email,
     state: store.state,
+    // Distinct from `state` (where the vendor is based) -- this is which
+    // states they'll actually ship to. NULL/empty stored value means
+    // nationwide; deliveryNationwide is derived here so the dashboard UI
+    // doesn't need to re-derive the same null-check itself.
+    deliveryStates: store.delivery_states && store.delivery_states.length > 0 ? store.delivery_states : null,
+    deliveryNationwide: !store.delivery_states || store.delivery_states.length === 0,
     address: typeof store.address === 'string' ? JSON.parse(store.address) : store.address,
     onlineStoreInfo: typeof store.online_store_info === 'string' ? JSON.parse(store.online_store_info) : store.online_store_info,
     branding: typeof store.branding === 'string' ? JSON.parse(store.branding) : store.branding,
@@ -231,6 +237,33 @@ export async function PUT(req) {
       );
     }
 
+    // deliveryStates: which states this vendor ships to (distinct from
+    // `state`, where they're based). null/undefined leaves it untouched;
+    // an array must be all-valid states; an empty array is coerced to
+    // null (nationwide) rather than rejected -- the dashboard UI already
+    // requires >=1 state when "Specific states" is chosen, so this is
+    // just a defensive backstop against a store ending up deliverable to
+    // nowhere.
+    let deliveryStatesUpdate;
+    if (updateData.deliveryStates !== undefined && updateData.deliveryStates !== null) {
+      if (!Array.isArray(updateData.deliveryStates)) {
+        return NextResponse.json(
+          { success: false, message: 'deliveryStates must be an array of states' },
+          { status: 400 }
+        );
+      }
+      if (updateData.deliveryStates.some((s) => !isValidNigerianState(s))) {
+        return NextResponse.json(
+          { success: false, message: 'deliveryStates contains an invalid state' },
+          { status: 400 }
+        );
+      }
+      const deduped = [...new Set(updateData.deliveryStates)];
+      deliveryStatesUpdate = deduped.length > 0 ? deduped : null;
+    } else if (updateData.deliveryStates === null) {
+      deliveryStatesUpdate = null;
+    }
+
     // Build update object with snake_case keys
     const dbUpdate = {};
     if (updateData.storeName) dbUpdate.store_name = updateData.storeName;
@@ -239,6 +272,7 @@ export async function PUT(req) {
     if (updateData.storePhone) dbUpdate.store_phone = updateData.storePhone;
     if (updateData.storeEmail) dbUpdate.store_email = updateData.storeEmail;
     if (updateData.state !== undefined) dbUpdate.state = updateData.state;
+    if (deliveryStatesUpdate !== undefined) dbUpdate.delivery_states = deliveryStatesUpdate;
     if (updateData.address) dbUpdate.address = updateData.address;
     if (updateData.onlineStoreInfo) dbUpdate.online_store_info = updateData.onlineStoreInfo;
     if (updateData.branding) dbUpdate.branding = updateData.branding;
