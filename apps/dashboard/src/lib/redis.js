@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { Ratelimit } from '@upstash/ratelimit';
 
 export const redis = Redis.fromEnv();
 
@@ -28,6 +29,19 @@ export async function withTimeout(promise, ms = 750) {
 // possible between these two Next.js apps) -- if
 // apps/store/src/lib/redis.js's cacheKey.storeBySlug format ever changes,
 // this must change with it.
+// Keyed by store_id, not IP -- unlike the store app's authLimiters
+// (apps/store/src/proxy.js), which guard pre-auth flows where IP is the
+// only identity available. This route is post-auth and per-vendor, so
+// IP-keying would be the wrong scope (shared NAT wouldn't actually stop
+// one account retrying) and would also let one vendor exhaust a limit
+// shared with others behind the same IP. Called directly in the route,
+// not via middleware, since it needs the authenticated store_id.
+export const verificationLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '24 h'),
+  prefix: 'dashboard:rl:verification'
+});
+
 export async function invalidateStorefrontCache(slug) {
   if (!slug) return;
   try {

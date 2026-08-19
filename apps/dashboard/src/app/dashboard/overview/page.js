@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
+import SetupChecklist from "@/components/dashboard/SetupChecklist";
 import Button from "@/components/ui/Button";
 import RevenueTrendChart from "@/components/dashboard/charts/RevenueTrendChart";
 import OrdersTrendChart from "@/components/dashboard/charts/OrdersTrendChart";
@@ -248,6 +249,7 @@ export default function DashboardOverview() {
   return (
     <DashboardLayout title="Dashboard Overview" subtitle={getCurrentDate()}>
       <div className="space-y-6">
+        <SetupChecklist />
         {/* Hero — unchanged */}
         <div className="relative bg-gradient-to-br from-brand-900 via-brand-800 to-brand-900 rounded-3xl p-8 overflow-hidden shadow-xl">
           {/* Animated background elements */}

@@ -39,6 +39,7 @@ export async function GET(req) {
         isSubscribed: fullUser.is_subscribed,
         dateSubscribed: fullUser.date_subscribed,
         currentSubscription: fullUser.current_subscription_id,
+        onboardingCompletedAt: fullUser.onboarding_completed_at,
         createdAt: fullUser.created_at,
         updatedAt: fullUser.updated_at
       }

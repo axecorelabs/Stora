@@ -189,6 +189,17 @@ export async function POST(req) {
       );
     }
 
+    // Creating a store satisfies both onboarding hard-blockers (name is
+    // already on the users row by this point, whether from signup or the
+    // wizard's name-confirm step) -- this is the single point that marks
+    // onboarding done, true for the wizard and any other path that ever
+    // creates a store, rather than a call scattered across UI entry points.
+    await supabaseAdmin
+      .from('users')
+      .update({ onboarding_completed_at: new Date().toISOString() })
+      .eq('id', user.id)
+      .is('onboarding_completed_at', null);
+
     return NextResponse.json({
       success: true,
       message: 'Store created successfully',
@@ -228,7 +239,7 @@ export async function PUT(req) {
     }
 
     // Not required here -- existing stores without a state are nudged, not
-    // blocked (see IncompleteStoreNudge). Only reject a value that's
+    // blocked (see SetupChecklist). Only reject a value that's
     // actively wrong, not a missing one.
     if (updateData.state !== undefined && updateData.state !== null && !isValidNigerianState(updateData.state)) {
       return NextResponse.json(
