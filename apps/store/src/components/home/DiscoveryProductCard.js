@@ -98,7 +98,14 @@ export default function DiscoveryProductCard({ product }) {
   if (!storeSlug) return card;
 
   return (
-    <Link href={`/${storeSlug}/product/${product.id}`} className="block h-full">
+    // ?from=discover -- ProductDetailsClient reads this to know the visitor
+    // arrived from general Stora browsing, not this vendor's own storefront,
+    // so its back/continue-shopping actions return here instead of the
+    // vendor's storefront (which would strand a cross-vendor browsing
+    // session). No param at all (e.g. a direct link, or store/ProductCard.js
+    // within the storefront itself) is the correct default for "this really
+    // is a vendor-storefront visit."
+    <Link href={`/${storeSlug}/product/${product.id}?from=discover`} className="block h-full">
       {card}
     </Link>
   );

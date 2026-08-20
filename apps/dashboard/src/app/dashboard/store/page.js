@@ -5,13 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   Store,
   MapPin,
-  Phone,
-  Mail,
-  Globe,
-  Instagram,
-  MessageCircle,
   Edit3,
-  Settings,
   DollarSign,
   CheckCircle2,
   Sparkles,
@@ -23,18 +17,27 @@ import {
   X,
   AlertCircle,
   Landmark,
-  Truck
+  Truck,
+  Settings as SettingsIcon
 } from "lucide-react";
-import CustomDropdown from "@/components/ui/CustomDropdown";
-import StateMultiSelect from "@/components/dashboard/StateMultiSelect";
 import Button from "@/components/ui/Button";
-import SectionHeader from "@/components/ui/SectionHeader";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
 import AddPhysicalStoreModal from "@/components/dashboard/AddPhysicalStoreModal";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import PayoutSettingsModal from "@/components/dashboard/PayoutSettingsModal";
+import StoreGeneralTab from "@/components/dashboard/store/StoreGeneralTab";
+import StoreLocationTab from "@/components/dashboard/store/StoreLocationTab";
+import StoreDeliveryTab from "@/components/dashboard/store/StoreDeliveryTab";
+import StorePreferencesTab from "@/components/dashboard/store/StorePreferencesTab";
 import { useRouter } from "next/navigation";
 import { NIGERIAN_STATES } from "@stora/shared-constants";
+
+const STORE_TABS = [
+  { id: 'general', label: 'General', icon: Store },
+  { id: 'location', label: 'Location', icon: MapPin },
+  { id: 'delivery', label: 'Delivery', icon: Truck },
+  { id: 'preferences', label: 'Preferences', icon: SettingsIcon }
+];
 
 export default function StorePage() {
   const { secureApiCall } = useAuth();
@@ -50,6 +53,7 @@ export default function StorePage() {
   const [isAddPhysicalStoreModalOpen, setIsAddPhysicalStoreModalOpen] = useState(false);
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('general');
 
   // Nigerian states for dropdown
   const nigerianStates = [{ value: '', label: 'Select State' }, ...NIGERIAN_STATES];
@@ -424,377 +428,46 @@ export default function StorePage() {
         </div>
       </div>
 
+      {/* Section tabs */}
+      <div className="mb-8 bg-white rounded-2xl border border-gray-100">
+        <div className="flex border-b border-gray-200 overflow-x-auto">
+          {STORE_TABS.map((tab) => {
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'text-brand-800 border-b-2 border-brand-800'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <TabIcon className="w-4 h-4 inline mr-2" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Information */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Basic Information */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <SectionHeader icon={Store} title="Basic Information" />
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Store Name</label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="storeName"
-                      value={editData.storeName}
-                      onChange={handleChange}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
-                        errors.storeName ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    />
-                  ) : (
-                    <p className="text-gray-900 py-3">{store.storeName}</p>
-                  )}
-                  {errors.storeName && (
-                    <p className="text-red-500 text-xs mt-1">{errors.storeName}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Store Type</label>
-                  <p className="text-gray-900 py-3 capitalize">{store.storeType}</p>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                {isEditing ? (
-                  <textarea
-                    name="storeDescription"
-                    value={editData.storeDescription}
-                    onChange={handleChange}
-                    rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                  />
-                ) : (
-                  <p className="text-gray-900 py-3">{store.storeDescription || 'No description provided'}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Store Phone</label>
-                  {isEditing ? (
-                    <input
-                      type="tel"
-                      name="storePhone"
-                      value={editData.storePhone}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                    />
-                  ) : (
-                    <div className="flex items-center py-3">
-                      <Phone className="w-4 h-4 mr-2 text-gray-500" />
-                      <span className="text-gray-900">{store.storePhone || 'Not provided'}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Store Email</label>
-                  {isEditing ? (
-                    <input
-                      type="email"
-                      name="storeEmail"
-                      value={editData.storeEmail}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                    />
-                  ) : (
-                    <div className="flex items-center py-3">
-                      <Mail className="w-4 h-4 mr-2 text-gray-500" />
-                      <span className="text-gray-900">{store.storeEmail || 'Not provided'}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Location Information */}
-          {store.storeType === 'physical' ? (
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
-              <SectionHeader icon={MapPin} title="Location Information" />
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="address.street"
-                      value={editData.address.street}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                    />
-                  ) : (
-                    <p className="text-gray-900 py-3">{store.address.street || 'Not provided'}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        name="address.city"
-                        value={editData.address.city}
-                        onChange={handleChange}
-                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
-                          errors['address.city'] ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3">{store.address.city}</p>
-                    )}
-                    {errors['address.city'] && (
-                      <p className="text-red-500 text-xs mt-1">{errors['address.city']}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
-                    {isEditing ? (
-                      <CustomDropdown
-                        options={nigerianStates}
-                        value={editData.address.state}
-                        onChange={(value) => handleChange({ target: { name: 'address.state', value } })}
-                        placeholder="Select state"
-                        error={!!errors['address.state']}
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3">{store.address.state}</p>
-                    )}
-                    {errors['address.state'] && (
-                      <p className="text-red-500 text-xs mt-1">{errors['address.state']}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-                    <p className="text-gray-900 py-3">{store.address.country}</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        name="address.postalCode"
-                        value={editData.address.postalCode}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                      />
-                    ) : (
-                      <p className="text-gray-900 py-3">{store.address.postalCode || 'Not provided'}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Online Store Information */
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
-              <SectionHeader icon={Globe} title="Online Presence" />
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Main Operating State</label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Where you&apos;re based -- shown to buyers so they can find vendors closer to them.
-                  </p>
-                  {isEditing ? (
-                    <CustomDropdown
-                      options={nigerianStates}
-                      value={editData.state}
-                      onChange={(value) => handleChange({ target: { name: 'state', value } })}
-                      placeholder="Select state"
-                    />
-                  ) : (
-                    <p className="text-gray-900 py-3">{store.state || 'Not set'}</p>
-                  )}
-                </div>
-
-                {/* <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Website URL</label>
-                  {isEditing ? (
-                    <input
-                      type="url"
-                      name="onlineStoreInfo.website"
-                      value={editData.onlineStoreInfo.website}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                    />
-                  ) : (
-                    <div className="flex items-center py-3">
-                      <Globe className="w-4 h-4 mr-2 text-gray-500" />
-                      <span className="text-gray-900">{store.onlineStoreInfo?.website || 'Not provided'}</span>
-                    </div>
-                  )}
-                </div> */}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Handle</label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        name="onlineStoreInfo.socialMedia.instagram"
-                        value={editData.onlineStoreInfo.socialMedia.instagram}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                      />
-                    ) : (
-                      <div className="flex items-center py-3">
-                        <Instagram className="w-4 h-4 mr-2 text-gray-500" />
-                        <span className="text-gray-900">{store.onlineStoreInfo?.socialMedia?.instagram || 'Not provided'}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp Number</label>
-                    {isEditing ? (
-                      <input
-                        type="tel"
-                        name="onlineStoreInfo.socialMedia.whatsapp"
-                        value={editData.onlineStoreInfo.socialMedia.whatsapp}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                      />
-                    ) : (
-                      <div className="flex items-center py-3">
-                        <MessageCircle className="w-4 h-4 mr-2 text-gray-500" />
-                        <span className="text-gray-900">{store.onlineStoreInfo?.socialMedia?.whatsapp || 'Not provided'}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* Main Information -- one section per tab, each its own component
+            (apps/dashboard/src/components/dashboard/store/) rather than
+            four sections inlined in one file. */}
+        <div className="lg:col-span-2">
+          {activeTab === 'general' && (
+            <StoreGeneralTab store={store} isEditing={isEditing} editData={editData} errors={errors} handleChange={handleChange} />
           )}
-
-          {/* Delivery Regions -- distinct from the "Main Operating State"
-              above (where the vendor is based): this is which states
-              they'll actually ship to, so it applies the same way
-              regardless of storeType, not nested in either branch above. */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <SectionHeader icon={Truck} title="Delivery Regions" />
-            <p className="text-xs text-gray-500 mb-6">
-              Which states you&apos;ll ship to. Buyers outside this list won&apos;t be able to check out with you.
-            </p>
-
-            {isEditing ? (
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDeliveryNationwide(true)}
-                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
-                      editData.deliveryNationwide
-                        ? 'bg-brand-800 border-brand-800 text-white'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Nationwide
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeliveryNationwide(false)}
-                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
-                      !editData.deliveryNationwide
-                        ? 'bg-brand-800 border-brand-800 text-white'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Specific states
-                  </button>
-                </div>
-
-                {!editData.deliveryNationwide && (
-                  <StateMultiSelect value={editData.deliveryStates || []} onChange={toggleDeliveryState} />
-                )}
-
-                {errors.deliveryStates && (
-                  <p className="text-red-500 text-xs flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.deliveryStates}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-900 py-1">
-                {store.deliveryNationwide
-                  ? 'Nationwide'
-                  : (store.deliveryStates || []).join(', ')}
-              </p>
-            )}
-          </div>
-
-          {/* Store Settings */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
-            <SectionHeader icon={Settings} title="Store Settings" tone="gold" />
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
-                  {isEditing ? (
-                    <CustomDropdown
-                      options={currencyOptions}
-                      value={editData.settings.currency}
-                      onChange={(value) => handleChange({ target: { name: 'settings.currency', value } })}
-                      placeholder="Select currency"
-                    />
-                  ) : (
-                    <div className="flex items-center py-3">
-                      <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
-                      <span className="text-gray-900">{currencyOptions.find(opt => opt.value === store.settings.currency)?.label || store.settings.currency}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Default Tax Rate (%)</label>
-                  {isEditing ? (
-                    <input
-                      type="number"
-                      name="settings.taxRate"
-                      value={editData.settings.taxRate}
-                      onChange={handleChange}
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                    />
-                  ) : (
-                    <p className="text-gray-900 py-3">{store.settings.taxRate}%</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Receipt Footer Message</label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    name="settings.receiptFooter"
-                    value={editData.settings.receiptFooter}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                  />
-                ) : (
-                  <p className="text-gray-900 py-3">{store.settings.receiptFooter}</p>
-                )}
-              </div>
-            </div>
-          </div>
+          {activeTab === 'location' && (
+            <StoreLocationTab store={store} isEditing={isEditing} editData={editData} errors={errors} handleChange={handleChange} nigerianStates={nigerianStates} />
+          )}
+          {activeTab === 'delivery' && (
+            <StoreDeliveryTab store={store} isEditing={isEditing} editData={editData} errors={errors} setDeliveryNationwide={setDeliveryNationwide} toggleDeliveryState={toggleDeliveryState} />
+          )}
+          {activeTab === 'preferences' && (
+            <StorePreferencesTab store={store} isEditing={isEditing} editData={editData} handleChange={handleChange} currencyOptions={currencyOptions} />
+          )}
         </div>
 
         {/* Sidebar */}

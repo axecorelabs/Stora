@@ -89,7 +89,11 @@ export default function WishlistPage() {
 
   const handleView = (item) => {
     if (item.store_data?.store_slug) {
-      router.push(`/${item.store_data.store_slug}/product/${item.product_id}`);
+      // ?from=discover -- this page has no "current store" (see the
+      // file-level comment), so a product opened from here should send the
+      // visitor back to general browsing, not strand them on that vendor's
+      // storefront.
+      router.push(`/${item.store_data.store_slug}/product/${item.product_id}?from=discover`);
     }
   };
 

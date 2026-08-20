@@ -12,11 +12,26 @@ import SignInModal from "@/components/auth/SignInModal";
 import SignUpModal from "@/components/auth/SignUpModal";
 import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 import { useProducts } from "@/hooks/useProducts";
+import useStoreStore from "@/stores/storeStore";
 
 export default function ProductsPageClient({ store, products: initialProducts, slug }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
+  // StoreHeader/StoreFooter/FloatingCartButton all read the current store
+  // from this Zustand global, not from their own props -- it's normally
+  // seeded by StoreWebsite.js (the storefront homepage) when a visitor
+  // browses in from there. This page can be reached directly (a shared
+  // link, a bookmark, or a hard reload), which skips that seeding
+  // entirely, so the header/footer fell back to their generic
+  // placeholder ("Store", default logo) even though this page already
+  // has the real store data from its own SSR fetch -- same fix
+  // [slug]/wishlist/page.js already applies for the same reason.
+  const { setStore } = useStoreStore();
+  useEffect(() => {
+    if (store) setStore(store);
+  }, [store, setStore]);
+
   // Use TanStack Query, seeded with the SSR-fetched (already-enriched)
   // products so this doesn't immediately re-fetch the whole catalog again
   // on mount -- see useProducts.js.
@@ -26,6 +41,14 @@ export default function ProductsPageClient({ store, products: initialProducts, s
   const [sortBy, setSortBy] = useState("default");
   const [viewMode, setViewMode] = useState("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  // The whole catalog is already fetched in one shot (this page has no
+  // server-side pagination -- see the page.js comment on why: the search
+  // box and category/sort controls below all filter client-side over the
+  // full list). This just paginates what's rendered from that list, not
+  // what's fetched, so a large catalog doesn't render every product in
+  // one unbroken grid.
+  const PAGE_SIZE = 24;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isNavigating, setIsNavigating] = useState(false);
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
@@ -60,6 +83,12 @@ export default function ProductsPageClient({ store, products: initialProducts, s
       return () => window.removeEventListener('resize', checkMobile);
     }
   }, []);
+
+  // A new search/category/sort should restart pagination at the top of
+  // the (new) result set, not stay wherever it was in the previous one.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchQuery, selectedCategory, sortBy]);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -314,7 +343,7 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                 : 'space-y-4'
             }
           >
-            {filteredProducts.map((product) => (
+            {filteredProducts.slice(0, visibleCount).map((product) => (
               isMobile ? (
                 <ProductCardMobile
                   key={product.id}
@@ -398,6 +427,20 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                 </div>
               )
             ))}
+          </div>
+        )}
+
+        {/* Load More -- the whole catalog is already fetched (see the
+            PAGE_SIZE comment above), so this only reveals more of what's
+            already in hand, no extra request. */}
+        {visibleCount < filteredProducts.length && (
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+              className="px-6 py-3 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              {`Load more (${Math.min(visibleCount, filteredProducts.length)} of ${filteredProducts.length})`}
+            </button>
           </div>
         )}
       </div>

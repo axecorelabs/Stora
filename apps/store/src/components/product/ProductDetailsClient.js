@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { 
   ArrowLeft, Plus, Minus, ShoppingCart, Heart, MapPin, Tag, Package, Share2, Check, X,
   Shirt, Footprints, Watch, Droplets, UtensilsCrossed, Coffee, Smartphone, 
@@ -24,6 +24,14 @@ import Link from "next/link";
 
 export default function ProductDetailsClient({ store, product: initialProduct, slug }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Set only by entry points with no vendor in context (general /products,
+  // homepage discovery, site-wide search, the cross-vendor wishlist) -- see
+  // each one's own comment. Its absence (a direct link, a share, or
+  // genuinely browsing this vendor's own storefront) is the correct default
+  // for "back"/"continue shopping" returning to this vendor, unchanged from
+  // before this existed.
+  const cameFromDiscover = searchParams.get('from') === 'discover';
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
   const [quantity, setQuantity] = useState(1);
@@ -804,12 +812,14 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             <button
               onClick={() => {
                 setIsNavigating(true);
-                router.push(`/${slug}`);
+                router.push(cameFromDiscover ? '/products' : `/${slug}`);
               }}
               className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors group text-sm"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              <span className="font-medium">Back to {store?.storeName || 'Store'}</span>
+              <span className="font-medium">
+                {cameFromDiscover ? 'Back to shopping' : `Back to ${store?.storeName || 'Store'}`}
+              </span>
             </button>
 
             {store?.branding?.logo && (
@@ -1124,12 +1134,25 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                 </button>
 
                 <button
-                  onClick={() => router.push(`/${slug}`)}
+                  onClick={() => router.push(cameFromDiscover ? '/products' : `/${slug}`)}
                   className="w-full py-3.5 sm:py-4 px-6 border border-gray-200 rounded-xl text-gray-700 text-base font-semibold hover:bg-gray-50 transition-colors"
                 >
                   Continue shopping
                 </button>
               </div>
+
+              {/* Only shown when the visitor arrived via general browsing --
+                  if they came from this vendor's own storefront, the primary
+                  actions above already return there, so this would just be
+                  a redundant second link. */}
+              {cameFromDiscover && (
+                <button
+                  onClick={() => router.push(`/${slug}`)}
+                  className="text-sm text-gray-500 hover:text-gray-900 transition-colors mt-3 text-center sm:text-left"
+                >
+                  More from {store?.storeName || 'this store'} →
+                </button>
+              )}
             </div>
           </div>
         </div>

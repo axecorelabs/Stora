@@ -5,6 +5,7 @@ import { MapPin, X, ShieldCheck, Globe, ArrowRight, ListChecks } from "lucide-re
 import { useAuth } from "@/contexts/AuthContext";
 import { NIGERIAN_STATES, isValidNigerianState } from "@stora/shared-constants";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
 
 // Replaces the old IncompleteStoreNudge (which only ever covered the
 // operating-state case, as a banner on every dashboard page). This is
@@ -15,6 +16,7 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 export default function SetupChecklist() {
   const { secureApiCall } = useAuth();
   const router = useRouter();
+  const verificationEnabled = useVerificationEnabled();
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +45,10 @@ export default function SetupChecklist() {
   if (loading || !store) return null;
 
   const needsState = !isValidNigerianState(store.state);
-  const needsVerification = !store.isVerified;
+  // Only counted as a real task once QoreID's keys are actually
+  // configured (see useVerificationEnabled) -- otherwise this would show
+  // a "Get verified" row that's guaranteed to fail if clicked.
+  const needsVerification = verificationEnabled === true && !store.isVerified;
   const needsWebsite = !store.website?.isEnabled;
 
   if (!needsState && !needsVerification && !needsWebsite) return null;
@@ -65,8 +70,14 @@ export default function SetupChecklist() {
     setIsSavingState(false);
   };
 
-  const doneCount = [needsState, needsVerification, needsWebsite].filter((needed) => !needed).length;
-  const totalCount = 3;
+  // Verification only counts toward the total while it's actually
+  // available -- otherwise "1 of 3 done" would look permanently stuck on
+  // a task nobody can complete yet.
+  const applicableItems = verificationEnabled === true
+    ? [needsState, needsVerification, needsWebsite]
+    : [needsState, needsWebsite];
+  const doneCount = applicableItems.filter((needed) => !needed).length;
+  const totalCount = applicableItems.length;
 
   return (
     <div className="mb-6 bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -133,7 +144,7 @@ export default function SetupChecklist() {
 
         {needsVerification && (
           <button
-            onClick={() => router.push('/dashboard/verification')}
+            onClick={() => router.push('/dashboard/settings?tab=verification')}
             className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">

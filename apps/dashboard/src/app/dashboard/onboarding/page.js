@@ -1,9 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Globe, MapPin, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Globe, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWebsiteData } from "@/hooks/useWebsiteData";
+import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
+import VerificationForm from "@/components/dashboard/VerificationForm";
 import Button from "@/components/ui/Button";
 
 const GOOGLE_FALLBACK_NAMES = new Set(['Google', 'User']);
@@ -15,17 +18,31 @@ const GOOGLE_FALLBACK_NAMES = new Set(['Google', 'User']);
 export default function OnboardingPage() {
   const { user, loading, isAuthenticated, secureApiCall, checkAuth } = useAuth();
   const router = useRouter();
+  // Only the mutation is used from this hook, not its own `store` query --
+  // that query fetches on mount (during the 'name' step, before any store
+  // exists yet), caches a "no store" result for its 5-minute staleTime,
+  // and nothing here ever invalidates it once CreateStoreModal creates the
+  // store via a plain fetch call. The website URL preview below instead
+  // uses the store object CreateStoreModal already hands back on success.
+  const { toggleWebsite, isTogglingWebsite } = useWebsiteData();
+  const verificationEnabled = useVerificationEnabled();
+  const [createdStore, setCreatedStore] = useState(null);
 
-  // Steps: 'name' -> 'store' -> 'optional'. Always starts at 'name' --
-  // there's no persisted "step 1 done" flag, so re-entering the wizard
-  // (e.g. a refresh mid-flow) just re-shows a pre-filled, one-click
-  // confirm rather than needing its own progress column.
+  // Steps: 'name' -> 'store' -> 'verification' -> 'website' -> 'done'.
+  // Always starts at 'name' -- there's no persisted "step 1 done" flag,
+  // so re-entering the wizard (e.g. a refresh mid-flow) just re-shows a
+  // pre-filled, one-click confirm rather than needing its own progress
+  // column. Verification and website are skippable (that's unchanged),
+  // but they're real inline steps here, not links out to a page that
+  // leaves the vendor to figure out the rest alone -- and nothing here
+  // calls them "optional": they're skippable, not unimportant.
   const [step, setStep] = useState('name');
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [nameError, setNameError] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
+  const [websiteError, setWebsiteError] = useState(null);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -42,9 +59,9 @@ export default function OnboardingPage() {
   // Already onboarded on arrival (e.g. landed here directly via URL) --
   // nothing to do, send them where they were actually headed. Gated to
   // the 'name' step specifically: onboarding_completed_at flips true the
-  // moment step 2 creates a store, and without this guard that would
-  // immediately fire too, skipping the optional-steps screen entirely
-  // for every vendor who just went through the wizard for real.
+  // moment the store step creates a store, and without this guard that
+  // would immediately fire too, skipping every step after it for every
+  // vendor who just went through the wizard for real.
   useEffect(() => {
     if (!loading && step === 'name' && user?.onboardingCompletedAt) {
       router.push('/dashboard/overview');
@@ -80,21 +97,35 @@ export default function OnboardingPage() {
     setIsSavingName(false);
   };
 
-  const handleStoreCreated = async () => {
+  const handleStoreCreated = async (store) => {
+    setCreatedStore(store);
     // Refresh the AuthContext user object -- POST /api/stores just set
     // onboarding_completed_at server-side, but the client's cached user
     // object doesn't know that yet, and DashboardLayout's redirect effect
-    // reads it straight from context. Without this, navigating to
-    // /dashboard/overview would immediately bounce back here.
+    // reads it straight from context. Without this, navigating away
+    // later would immediately bounce back here.
     await checkAuth();
-    setStep('optional');
+    // Skip straight past the verification step while QoreID's keys aren't
+    // configured yet (see useVerificationEnabled) -- there's nothing to
+    // show that wouldn't just fail if submitted.
+    setStep(verificationEnabled === true ? 'verification' : 'website');
+  };
+
+  const handleTurnOnWebsite = async () => {
+    setWebsiteError(null);
+    try {
+      await toggleWebsite('active');
+      setStep('done');
+    } catch (error) {
+      setWebsiteError(error.message || 'Could not turn on your website -- try again');
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-10 sm:py-16">
       <img src="/stora.png" alt="Stora" className="w-12 h-12 object-contain mb-6" />
 
-      <div className="w-full max-w-lg">
+      <div className={`w-full ${step === 'store' ? 'max-w-2xl' : 'max-w-lg'}`}>
         {step === 'name' && (
           <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100">
             <h1 className="text-lg font-semibold text-gray-900 mb-1.5">Confirm your legal name</h1>
@@ -136,66 +167,77 @@ export default function OnboardingPage() {
         )}
 
         {step === 'store' && (
-          <CreateStoreModal isOpen={true} onStoreCreated={handleStoreCreated} />
+          <CreateStoreModal isOpen={true} onStoreCreated={handleStoreCreated} embedded />
         )}
 
-        {step === 'optional' && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100">
-            <h1 className="text-lg font-semibold text-gray-900 mb-1.5">You&apos;re in! A few optional things</h1>
-            <p className="text-sm text-gray-500 mb-6">
-              Your store is live. These aren&apos;t required to sell -- do them now or later from your dashboard.
-            </p>
-            <div className="space-y-3 mb-6">
-              <OptionalStepCard
-                icon={ShieldCheck}
-                title="Get verified"
-                description="Earn the “Verified by Stora” badge on your storefront"
-                onClick={() => router.push('/dashboard/verification')}
-              />
-              <OptionalStepCard
-                icon={Globe}
-                title="Set up your website"
-                description="Give buyers a link to your own branded storefront"
-                onClick={() => router.push('/dashboard/website')}
-              />
-              <OptionalStepCard
-                icon={MapPin}
-                title="Delivery regions"
-                description="You ship nationwide by default -- restrict this if you'd rather not"
-                onClick={() => router.push('/dashboard/store')}
-              />
+        {step === 'verification' && (
+          <div>
+            <VerificationForm onVerified={() => setStep('website')} />
+            <button
+              onClick={() => setStep('website')}
+              className="w-full text-center text-sm text-gray-500 hover:text-gray-700 mt-4"
+            >
+              Skip for now -- you can do this anytime from Settings
+            </button>
+          </div>
+        )}
+
+        {step === 'website' && (
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100 text-center">
+            <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
+              <Globe className="w-7 h-7 text-brand-800" />
             </div>
+            <h1 className="text-lg font-semibold text-gray-900 mb-1.5">Turn on your website</h1>
+            <p className="text-sm text-gray-500 mb-1">
+              Buyers can only find and order from you online once this is on -- you can customize
+              branding and settings anytime after.
+            </p>
+            {createdStore?.websiteFullPath && (
+              <p className="text-sm font-medium text-brand-800 mb-6">{createdStore.websiteFullPath}</p>
+            )}
+            {websiteError && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 flex items-start gap-2 text-left">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{websiteError}</p>
+              </div>
+            )}
+            <Button
+              variant="primary"
+              onClick={handleTurnOnWebsite}
+              disabled={isTogglingWebsite}
+              className="w-full mb-3"
+            >
+              {isTogglingWebsite ? 'Turning on…' : 'Turn on my website'}
+            </Button>
+            <button
+              onClick={() => setStep('done')}
+              className="w-full text-center text-sm text-gray-500 hover:text-gray-700"
+            >
+              Skip for now -- you can do this anytime from Website
+            </button>
+          </div>
+        )}
+
+        {step === 'done' && (
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100 text-center">
+            <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-7 h-7 text-brand-800" />
+            </div>
+            <h1 className="text-lg font-semibold text-gray-900 mb-1.5">You&apos;re all set</h1>
+            <p className="text-sm text-gray-500 mb-6">
+              Your store is live. You deliver nationwide by default -- restrict this anytime from
+              Store settings if you&apos;d rather not.
+            </p>
             <Button
               variant="primary"
               onClick={() => router.push('/dashboard/overview')}
               className="w-full"
             >
-              <span className="flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                Go to dashboard
-              </span>
+              Go to dashboard
             </Button>
           </div>
         )}
       </div>
     </div>
-  );
-}
-
-function OptionalStepCard({ icon: Icon, title, description, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-3.5 p-4 rounded-xl border border-gray-200 hover:border-brand-800 hover:bg-brand-50/50 transition-colors text-left"
-    >
-      <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-brand-100 text-brand-800 shrink-0">
-        <Icon className="w-4.5 h-4.5" />
-      </span>
-      <span className="flex-1 min-w-0">
-        <span className="block text-sm font-semibold text-gray-900">{title}</span>
-        <span className="block text-xs text-gray-500 mt-0.5">{description}</span>
-      </span>
-      <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
-    </button>
   );
 }

@@ -1,13 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import VerificationForm from "@/components/dashboard/VerificationForm";
 import { useAuth } from "@/contexts/AuthContext";
-import { 
-  Lock, 
-  User, 
-  Mail, 
-  Shield, 
-  Eye, 
+import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
+import {
+  Lock,
+  User,
+  Mail,
+  Shield,
+  ShieldCheck,
+  Eye,
   EyeOff,
   Check,
   AlertCircle,
@@ -16,7 +20,22 @@ import {
 
 export default function SettingsPage() {
   const { user, secureApiCall } = useAuth();
-  const [activeTab, setActiveTab] = useState('account');
+  const searchParams = useSearchParams();
+  const verificationEnabled = useVerificationEnabled();
+  // Deep-linkable via ?tab=verification -- SetupChecklist and the
+  // onboarding wizard's "skip for now" copy both point here. Only they
+  // (and the tab button below) ever produce this link, and both already
+  // hide themselves when verification's disabled -- this only matters for
+  // a stale bookmark/typed URL, corrected once the flag resolves.
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get('tab') === 'verification' ? 'verification' : 'account'
+  );
+
+  useEffect(() => {
+    if (activeTab === 'verification' && verificationEnabled === false) {
+      setActiveTab('account');
+    }
+  }, [activeTab, verificationEnabled]);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -191,6 +210,19 @@ export default function SettingsPage() {
             <Shield className="w-4 h-4 inline mr-2" />
             Security
           </button>
+          {verificationEnabled === true && (
+            <button
+              onClick={() => setActiveTab('verification')}
+              className={`px-6 py-4 text-sm font-medium transition-colors ${
+                activeTab === 'verification'
+                  ? 'text-brand-800 border-b-2 border-brand-800'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 inline mr-2" />
+              Verification
+            </button>
+          )}
         </div>
       </div>
 
@@ -474,6 +506,13 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Verification Tab */}
+      {activeTab === 'verification' && verificationEnabled === true && (
+        <div className="max-w-2xl">
+          <VerificationForm />
         </div>
       )}
     </DashboardLayout>

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import ProductDetailsClient from '@/components/product/ProductDetailsClient';
 import { findStoreBySlug, findInventoryById, findActiveBatchesByInventoryId, resolveBatchPricing } from '@/lib/supabaseStore';
@@ -236,5 +237,12 @@ export default async function ProductPage({ params }) {
   const storeData = JSON.parse(JSON.stringify(store));
   const productData = JSON.parse(JSON.stringify(enhancedProduct));
 
-  return <ProductDetailsClient store={storeData} product={productData} slug={slug} />;
+  // Suspense boundary is required here -- ProductDetailsClient reads
+  // ?from=discover via useSearchParams(), which Next.js otherwise refuses
+  // to prerender under ISR (see this file's own `revalidate` above).
+  return (
+    <Suspense fallback={null}>
+      <ProductDetailsClient store={storeData} product={productData} slug={slug} />
+    </Suspense>
+  );
 }
