@@ -352,6 +352,81 @@ export async function findInventoryByStoreId(storeId, filters = {}) {
   }
 }
 
+// A cheap, count-only check -- used once, server-side, to decide whether
+// a store's products page renders in "client" mode (fetch everything,
+// filter in memory -- fine for the vast majority of vendors) or "server"
+// mode (real search/filter/sort/pagination, once a catalog is genuinely
+// too large for that). Same store_id/is_active/web_visibility filter as
+// findInventoryByStoreId, covered by the same idx_inventory_store_active
+// index -- this is a single indexed round-trip, not a scan.
+export async function countStoreProducts(storeId) {
+  const { count, error } = await supabaseAdmin
+    .from('inventory')
+    .select('*', { count: 'exact', head: true })
+    .eq('store_id', storeId)
+    .eq('is_active', true)
+    .eq('web_visibility', true)
+    .eq('is_deleted', false);
+
+  if (error) {
+    console.error('Error counting store products:', error);
+    throw new Error('Failed to count products');
+  }
+
+  return count || 0;
+}
+
+// The category pill row's option list, for server mode specifically --
+// that mode never holds the full catalog in memory to derive this from
+// client-side the way today's client-mode useMemo does. A real DISTINCT
+// query (fn_store_categories), not "fetch everything and dedupe in JS,"
+// which would defeat the entire point for a large catalog.
+export async function getStoreCategories(storeId) {
+  const { data, error } = await supabaseAdmin.rpc('fn_store_categories', { p_store_id: storeId });
+
+  if (error) {
+    console.error('Error fetching store categories:', error);
+    throw new Error('Failed to fetch categories');
+  }
+
+  return (data || []).map(row => row.category);
+}
+
+// Server-side search/filter/sort/pagination for one store's own product
+// listing (fn_store_products_search) -- used only once countStoreProducts
+// crosses the size threshold where fetching everything client-side stops
+// being the right call. Mirrors searchProductsPaginated's exact shape
+// (attachVariants + transformInventoryToProduct + enrichProductsWithBatches
+// run on the returned page afterward) since the RPC returns the same
+// TABLE(product inventory, total_count BIGINT) shape search_products does
+// -- no per-product store attachment needed here, unlike the cross-vendor
+// version, since every result already belongs to the one known storeId.
+export async function searchStoreProducts(storeId, { search, category, sort = 'default', limit = 24, offset = 0 } = {}) {
+  const { data, error } = await supabaseAdmin.rpc('fn_store_products_search', {
+    p_store_id: storeId,
+    p_search: search || null,
+    p_category: category || null,
+    p_sort: sort,
+    p_limit: limit,
+    p_offset: offset
+  });
+
+  if (error) {
+    console.error('Error searching store products:', error);
+    throw new Error('Failed to search products');
+  }
+
+  const rows = data || [];
+  const totalCount = rows[0]?.total_count ?? 0;
+  const items = rows.map(row => row.product);
+  if (items.length === 0) return { products: [], totalCount };
+
+  const withVariants = await attachVariants(items);
+  const products = withVariants.map(transformInventoryToProduct);
+
+  return { products: await enrichProductsWithBatches(products), totalCount };
+}
+
 // Cross-vendor listing for the homepage's discovery grid -- every other
 // product query in this file is scoped to one known store_id.
 // inventory.sold_quantity is a trigger-maintained rollup of

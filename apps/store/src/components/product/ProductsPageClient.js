@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, SlidersHorizontal, Grid2X2, List, Search, SearchX, Package, X, AlertTriangle } from "lucide-react";
+import { ArrowLeft, SlidersHorizontal, Grid2X2, List, Search, SearchX, Package, X, AlertTriangle, Loader2 } from "lucide-react";
 import StoreHeader from "@/components/store/StoreHeader";
 import StoreFooter from "@/components/store/StoreFooter";
 import ProductCard from "@/components/store/ProductCard";
@@ -12,11 +12,20 @@ import SignInModal from "@/components/auth/SignInModal";
 import SignUpModal from "@/components/auth/SignUpModal";
 import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 import { useProducts } from "@/hooks/useProducts";
+import { useStoreProductsSearch } from "@/hooks/useStoreProductsSearch";
 import useStoreStore from "@/stores/storeStore";
 
-export default function ProductsPageClient({ store, products: initialProducts, slug }) {
+// mode: 'client' (default -- the vast majority of stores) fetches the
+// whole catalog once and does search/category/sort/pagination instantly
+// in memory, exactly as this component always has. 'server' (only for a
+// store whose catalog crosses page.js's SERVER_MODE_THRESHOLD) does real
+// network round-trips for each of those instead -- same visual filter
+// bar either way, only the data layer underneath differs. See
+// useStoreProductsSearch.js for the server-mode data source.
+export default function ProductsPageClient({ store, products: initialProducts, slug, mode = 'client', initialTotal, categories: serverCategories }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isServerMode = mode === 'server';
 
   // StoreHeader/StoreFooter/FloatingCartButton all read the current store
   // from this Zustand global, not from their own props -- it's normally
@@ -34,9 +43,15 @@ export default function ProductsPageClient({ store, products: initialProducts, s
 
   // Use TanStack Query, seeded with the SSR-fetched (already-enriched)
   // products so this doesn't immediately re-fetch the whole catalog again
-  // on mount -- see useProducts.js.
-  const { data: products = initialProducts, isLoading, error } = useProducts(store.id, initialProducts);
-  
+  // on mount -- see useProducts.js. Disabled entirely in server mode
+  // (storeId undefined -> useProducts' own `enabled: !!storeId` is false)
+  // -- harmless to still call the hook (rules of hooks), it just never
+  // fetches or gets read.
+  const { data: products = initialProducts, isLoading: clientIsLoading, error: clientError } = useProducts(
+    !isServerMode ? store.id : undefined,
+    initialProducts
+  );
+
   const [isMobile, setIsMobile] = useState(false);
   const [sortBy, setSortBy] = useState("default");
   const [viewMode, setViewMode] = useState("grid");
@@ -86,15 +101,50 @@ export default function ProductsPageClient({ store, products: initialProducts, s
 
   // A new search/category/sort should restart pagination at the top of
   // the (new) result set, not stay wherever it was in the previous one.
+  // Inert (but harmless) in server mode -- visibleCount is only read on
+  // the client-mode render path below.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [searchQuery, selectedCategory, sortBy]);
 
-  // Get unique categories
+  // Debounced 250ms before it reaches the server-mode query -- same
+  // DEBOUNCE_MS convention SearchTypeahead.js already uses for exactly
+  // this concern (typing shouldn't fire a request per keystroke). Client
+  // mode's useMemo filter below reads the raw, un-debounced searchQuery
+  // directly, same as it always has -- debouncing only matters once a
+  // keystroke triggers a real network request.
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearchQuery(searchQuery), 250);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  // Server mode's data source -- disabled entirely (storeId undefined)
+  // in client mode. See useStoreProductsSearch.js.
+  const serverQuery = useStoreProductsSearch(isServerMode ? store.id : undefined, {
+    search: debouncedSearchQuery,
+    category: selectedCategory,
+    sort: sortBy,
+    initialProducts,
+    initialTotal
+  });
+  const serverProducts = useMemo(
+    () => (serverQuery.data?.pages || []).flatMap((p) => p.products),
+    [serverQuery.data]
+  );
+  // The most recent page's total is authoritative (a filter change can
+  // change it); every accumulated page carries the same value regardless,
+  // this just avoids depending on array order.
+  const serverTotal = serverQuery.data?.pages?.at(-1)?.pagination?.total ?? initialTotal ?? 0;
+
+  // Get unique categories -- server mode can't derive this from `products`
+  // (it never holds the full catalog), so it uses the list page.js
+  // fetched separately (fn_store_categories) instead.
   const categories = useMemo(() => {
+    if (isServerMode) return ['all', ...(serverCategories || [])];
     const cats = [...new Set(products.map(p => p.category))];
     return ['all', ...cats];
-  }, [products]);
+  }, [isServerMode, serverCategories, products]);
 
   // Filter and sort products - NOW INCLUDING SEARCH
   const filteredProducts = useMemo(() => {
@@ -138,6 +188,29 @@ export default function ProductsPageClient({ store, products: initialProducts, s
 
     return filtered;
   }, [products, searchQuery, selectedCategory, sortBy]);
+
+  // Unified view of "what's on screen right now" -- everything below this
+  // point renders from these, not from filteredProducts/serverProducts
+  // directly, so the JSX doesn't need its own mode branches.
+  const displayProducts = isServerMode ? serverProducts : filteredProducts.slice(0, visibleCount);
+  const totalMatched = isServerMode ? serverTotal : filteredProducts.length;
+  const isLoading = isServerMode ? serverQuery.isLoading : clientIsLoading;
+  const error = isServerMode ? serverQuery.error : clientError;
+  const hasMoreToLoad = isServerMode ? !!serverQuery.hasNextPage : visibleCount < filteredProducts.length;
+  const isLoadingMore = isServerMode && serverQuery.isFetchingNextPage;
+  // True only for a filter/search/sort change re-fetching in the
+  // background (placeholderData keeps the previous results visible) --
+  // deliberately excludes the initial load (isLoading, full-page spinner)
+  // and "Load more" (isLoadingMore, its own button state) so the grid only
+  // dims for the one case it actually applies to.
+  const isRefetching = isServerMode && serverQuery.isFetching && !serverQuery.isLoading && !isLoadingMore;
+  const handleLoadMore = () => {
+    if (isServerMode) {
+      serverQuery.fetchNextPage();
+    } else {
+      setVisibleCount((prev) => prev + PAGE_SIZE);
+    }
+  };
 
   const formatPrice = (price) => {
     const currency = store.settings?.currency || 'NGN';
@@ -218,11 +291,21 @@ export default function ProductsPageClient({ store, products: initialProducts, s
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            {isServerMode && isRefetching ? (
+              <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 animate-spin pointer-events-none" />
+            ) : (
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            )}
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setSearchQuery('');
+                  e.target.blur();
+                }
+              }}
               placeholder="Search products, brands, categories…"
               className="w-full pl-10 pr-10 py-3 text-gray-900 placeholder-gray-400 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-sm sm:text-base bg-gray-50/70 focus:bg-white"
               style={{ '--tw-ring-color': primaryColor }}
@@ -241,9 +324,9 @@ export default function ProductsPageClient({ store, products: initialProducts, s
           {searchQuery && (
             <div className="mt-3 flex items-center justify-between px-1">
               <p className="text-sm text-gray-500">
-                {filteredProducts.length} {filteredProducts.length === 1 ? 'result' : 'results'} for &ldquo;{searchQuery}&rdquo;
+                {totalMatched} {totalMatched === 1 ? 'result' : 'results'} for &ldquo;{searchQuery}&rdquo;
               </p>
-              {filteredProducts.length > 0 && (
+              {totalMatched > 0 && (
                 <button
                   onClick={() => setSearchQuery("")}
                   className="text-xs font-medium hover:underline"
@@ -280,8 +363,8 @@ export default function ProductsPageClient({ store, products: initialProducts, s
         <div className="mb-6">
           <p className="text-sm text-gray-600">
             Showing <span className="font-semibold" style={{ color: primaryColor }}>
-              {filteredProducts.length}
-            </span> {filteredProducts.length === 1 ? 'product' : 'products'}
+              {totalMatched}
+            </span> {totalMatched === 1 ? 'product' : 'products'}
             {selectedCategory !== 'all' && ` in ${selectedCategory}`}
             {searchQuery && ` matching "${searchQuery}"`}
           </p>
@@ -307,7 +390,7 @@ export default function ProductsPageClient({ store, products: initialProducts, s
               Try again
             </button>
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : totalMatched === 0 ? (
           <div className="text-center py-20">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-brand-50 flex items-center justify-center">
               {searchQuery ? (
@@ -334,16 +417,16 @@ export default function ProductsPageClient({ store, products: initialProducts, s
             )}
           </div>
         ) : (
-          <div 
-            className={
-              isMobile 
+          <div
+            className={`${
+              isMobile
                 ? 'grid grid-cols-2 gap-3'
                 : viewMode === 'grid'
                 ? 'grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
                 : 'space-y-4'
-            }
+            } ${isRefetching ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}`}
           >
-            {filteredProducts.slice(0, visibleCount).map((product) => (
+            {displayProducts.map((product) => (
               isMobile ? (
                 <ProductCardMobile
                   key={product.id}
@@ -430,16 +513,18 @@ export default function ProductsPageClient({ store, products: initialProducts, s
           </div>
         )}
 
-        {/* Load More -- the whole catalog is already fetched (see the
-            PAGE_SIZE comment above), so this only reveals more of what's
-            already in hand, no extra request. */}
-        {visibleCount < filteredProducts.length && (
+        {/* Load More -- client mode: the whole catalog is already fetched
+            (see the PAGE_SIZE comment above), so this only reveals more of
+            what's already in hand, no extra request. Server mode: a real
+            fetch for the next page, appended to what's already loaded. */}
+        {hasMoreToLoad && (
           <div className="flex justify-center mt-8">
             <button
-              onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
-              className="px-6 py-3 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="px-6 py-3 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {`Load more (${Math.min(visibleCount, filteredProducts.length)} of ${filteredProducts.length})`}
+              {isLoadingMore ? 'Loading…' : `Load more (${displayProducts.length} of ${totalMatched})`}
             </button>
           </div>
         )}

@@ -1,7 +1,23 @@
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import ProductsPageClient from '@/components/product/ProductsPageClient';
-import { findStoreBySlug, findInventoryByStoreId, enrichProductsWithBatches } from '@/lib/supabaseStore';
+import {
+  findStoreBySlug,
+  findInventoryByStoreId,
+  enrichProductsWithBatches,
+  countStoreProducts,
+  searchStoreProducts,
+  getStoreCategories
+} from '@/lib/supabaseStore';
+
+// Below this, fetch-everything-and-filter-client-side (today's behavior)
+// stays instant and is genuinely the right call. Above it, real
+// server-side search/filter/sort/pagination -- see
+// ProductsPageClient.js's `mode` prop. Decided here, server-side, as part
+// of this same request (one cheap indexed count), never as a separate
+// client round-trip to "find out" which mode to use.
+const SERVER_MODE_THRESHOLD = 170;
+const SERVER_MODE_PAGE_SIZE = 24;
 
 // ISR: a 1-minute window for the listing itself. ProductsPageClient already
 // re-syncs live via useProducts() (TanStack Query, 5-min staleTime) on top
@@ -49,18 +65,38 @@ export default async function ProductsPage({ params }) {
     notFound();
   }
 
-  // Fetch all active products for this store (already returns camelCase),
-  // then apply the same batch-price/stock enrichment the client-side fetch
-  // (useProducts -> /api/stores/[storeId]/products) already applies -- SSR
-  // and client must render identical data, since useProducts is now seeded
-  // with this SSR result as its initialData (see ProductsPageClient.js).
-  const rawProducts = await findInventoryByStoreId(store.id, {
-    webVisibility: true
-  });
-  const products = await enrichProductsWithBatches(rawProducts);
-
+  const totalCount = await countStoreProducts(store.id);
   const storeData = JSON.parse(JSON.stringify(store));
-  const productsData = JSON.parse(JSON.stringify(products));
+
+  let clientProps;
+  if (totalCount <= SERVER_MODE_THRESHOLD) {
+    // Fetch all active products for this store (already returns camelCase),
+    // then apply the same batch-price/stock enrichment the client-side fetch
+    // (useProducts -> /api/stores/[storeId]/products) already applies -- SSR
+    // and client must render identical data, since useProducts is now seeded
+    // with this SSR result as its initialData (see ProductsPageClient.js).
+    const rawProducts = await findInventoryByStoreId(store.id, {
+      webVisibility: true
+    });
+    const products = await enrichProductsWithBatches(rawProducts);
+    clientProps = { mode: 'client', products: JSON.parse(JSON.stringify(products)) };
+  } else {
+    // Server mode: only ever fetch one page server-side -- the point of
+    // this branch is that the full catalog is never pulled into memory,
+    // client or server. `categories` has to be fetched separately here
+    // (fn_store_categories) since there's no full product array to derive
+    // it from client-side the way client mode's useMemo does.
+    const [{ products, totalCount: initialTotal }, categories] = await Promise.all([
+      searchStoreProducts(store.id, { sort: 'default', limit: SERVER_MODE_PAGE_SIZE, offset: 0 }),
+      getStoreCategories(store.id)
+    ]);
+    clientProps = {
+      mode: 'server',
+      products: JSON.parse(JSON.stringify(products)),
+      initialTotal,
+      categories: JSON.parse(JSON.stringify(categories))
+    };
+  }
 
   // ProductsPageClient reads useSearchParams() (for ?category=) with no
   // Suspense boundary of its own -- pre-existing, but harmless under pure
@@ -71,7 +107,7 @@ export default async function ProductsPage({ params }) {
   // the server parent, not inside the client component itself.
   return (
     <Suspense fallback={null}>
-      <ProductsPageClient store={storeData} products={productsData} slug={slug} />
+      <ProductsPageClient store={storeData} slug={slug} {...clientProps} />
     </Suspense>
   );
 }
