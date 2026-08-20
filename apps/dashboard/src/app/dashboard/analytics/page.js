@@ -333,7 +333,7 @@ function AnalyticsContent() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                             <div>
                               <p className="text-gray-600">Revenue</p>
                               <p className="font-semibold text-gray-900">{formatCurrency(revenue)}</p>
@@ -410,7 +410,7 @@ function AnalyticsContent() {
                 <p className="text-sm text-gray-500 mt-1">Batch-based calculations</p>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Total Investment</p>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(analytics.totalInvestment)}</p>

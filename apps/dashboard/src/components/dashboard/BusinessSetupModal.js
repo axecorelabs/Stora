@@ -103,10 +103,10 @@ export default function BusinessSetupModal({ isOpen, onClose, storeData }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl w-full max-w-3xl my-8">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-6 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-2xl font-semibold text-gray-900">Business Setup</h3>
@@ -143,7 +143,7 @@ export default function BusinessSetupModal({ isOpen, onClose, storeData }) {
         </div>
 
         {/* Form Content */}
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
+        <div className="p-6 flex-1 min-h-0 overflow-y-auto">
           {/* Step 1: Business Info */}
           {currentStep === 1 && (
             <div className="space-y-4">
@@ -178,7 +178,7 @@ export default function BusinessSetupModal({ isOpen, onClose, storeData }) {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Portfolio Images (Max 10)
                 </label>
-                <div className="grid grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   {formData.portfolioImages.map((img, index) => (
                     <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
                       <img src={img} alt="" className="w-full h-full object-cover" />
@@ -210,7 +210,7 @@ export default function BusinessSetupModal({ isOpen, onClose, storeData }) {
           {/* Step 2: Availability */}
           {currentStep === 2 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Time Slot Duration</label>
                   <CustomDropdown
@@ -261,7 +261,7 @@ export default function BusinessSetupModal({ isOpen, onClose, storeData }) {
                     </div>
 
                     {day.isAvailable && (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs text-gray-600 mb-1">Opening Time</label>
                           <input
@@ -298,7 +298,7 @@ export default function BusinessSetupModal({ isOpen, onClose, storeData }) {
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-100 flex items-center justify-between">
+        <div className="p-6 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
           <button
             onClick={prevStep}
             disabled={currentStep === 1}

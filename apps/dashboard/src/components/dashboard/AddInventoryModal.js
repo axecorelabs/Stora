@@ -970,7 +970,7 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-[75vw] max-h-[95vh] overflow-hidden">
+      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
@@ -1490,32 +1490,32 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
           </div>
 
           {/* Navigation Footer */}
-          <div className="flex items-center justify-between pt-6 border-t border-gray-200 mt-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-6 border-t border-gray-200 mt-8">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+              className="w-full sm:w-auto order-last sm:order-first px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
-            
-            <div className="flex items-center space-x-4">
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {currentStep > 1 && (
                 <button
                   type="button"
                   onClick={handlePreviousStep}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors flex items-center"
+                  className="w-full sm:w-auto px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center"
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" />
                   Previous
                 </button>
               )}
-              
+
               {currentStep < 4 ? (
                 <button
                   type="button"
                   onClick={handleNextStep}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors flex items-center"
+                  className="w-full sm:w-auto px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors flex items-center justify-center"
                 >
                   Next
                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -1525,7 +1525,7 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting || isUploadingImage}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                  className="w-full sm:w-auto px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                 >
                   {isSubmitting || isUploadingImage ? (
                     <>

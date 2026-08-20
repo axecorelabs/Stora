@@ -1,6 +1,6 @@
 "use client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardHeader from "./DashboardHeader";
@@ -19,7 +19,16 @@ function getInitialCollapsedState() {
 export default function DashboardLayout({ children, title, subtitle }) {
   const { user, isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialCollapsedState);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Safety net alongside the sidebar's own close-on-navigate -- covers any
+  // navigation that doesn't go through DashboardSidebar's nav buttons (e.g.
+  // a link inside page content).
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -67,15 +76,31 @@ export default function DashboardLayout({ children, title, subtitle }) {
 
   return (
     <div className="flex min-h-screen bg-white">
-      {/* Fixed Sidebar */}
-      <DashboardSidebar isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebar} />
+      {/* Sidebar -- fixed on desktop, an off-canvas drawer below lg */}
+      <DashboardSidebar
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+      />
 
       {/* Fixed Header */}
-      <DashboardHeader title={title} subtitle={subtitle} isSidebarCollapsed={isSidebarCollapsed} />
+      <DashboardHeader
+        title={title}
+        subtitle={subtitle}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+      />
 
-      {/* Main Content with margins for fixed sidebar and header */}
-      <div className={`flex-1 pt-20 bg-white transition-[margin] duration-300 ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
-        <main className="p-6">
+      {/* Main content -- no left margin below lg, since the sidebar is
+          off-canvas there instead of pushing content over. min-w-0 is load
+          bearing: without it, a flex child refuses to shrink below its
+          content's min-content size, so any page with a wide table (which
+          scrolls internally via its own overflow-x-auto wrapper) silently
+          stretches this whole column -- and the page itself, not just the
+          table -- wider than the viewport. */}
+      <div className={`flex-1 min-w-0 pt-20 bg-white transition-[margin] duration-300 ml-0 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+        <main className="p-4 lg:p-6">
           {children}
         </main>
       </div>

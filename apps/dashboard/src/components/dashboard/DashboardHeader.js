@@ -1,12 +1,12 @@
 "use client";
-import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import NotificationPanel from "./NotificationPanel";
 
-export default function DashboardHeader({ title = "Inventory Management", subtitle = "Today, August 16th 2024", isSidebarCollapsed = false }) {
+export default function DashboardHeader({ title = "Inventory Management", subtitle = "Today, August 16th 2024", isSidebarCollapsed = false, onOpenMobileSidebar }) {
   const { user, signOut, secureApiCall } = useAuth();
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -48,14 +48,23 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
 
   return (
     <>
-      <header className={`fixed top-0 right-0 bg-white px-6 py-5 border-b border-gray-200 z-20 transition-[left] duration-300 ${isSidebarCollapsed ? 'left-20' : 'left-64'}`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+      <header className={`fixed top-0 left-0 right-0 bg-white px-4 lg:px-6 py-5 border-b border-gray-200 z-20 transition-[left] duration-300 ${isSidebarCollapsed ? 'lg:left-20' : 'lg:left-64'}`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={onOpenMobileSidebar}
+              className="lg:hidden p-2 -ml-2 text-gray-500 hover:text-gray-700 rounded-xl hover:bg-gray-50 transition-colors shrink-0"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 truncate">{title}</h1>
+              <p className="text-sm text-gray-500 mt-1 truncate">{subtitle}</p>
+            </div>
           </div>
-          
-          <div className="flex items-center space-x-4">
+
+          <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
             {/* Notifications */}
             <button 
               onClick={() => setIsNotificationPanelOpen(true)}
@@ -81,7 +90,7 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="hidden sm:inline text-sm font-medium text-gray-900">
                     {user?.firstName} {user?.lastName}
                   </span>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />

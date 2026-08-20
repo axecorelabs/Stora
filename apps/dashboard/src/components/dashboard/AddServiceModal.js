@@ -391,10 +391,10 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl w-full max-w-4xl my-8">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-6 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-2xl font-semibold text-gray-900">Add New Service</h3>
@@ -431,11 +431,11 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
         </div>
 
         {/* Form Content */}
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
+        <div className="p-6 flex-1 min-h-0 overflow-y-auto">
           {/* Step 1: Service Details */}
           {currentStep === 1 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Service Name *</label>
                   <input
@@ -461,7 +461,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
                   <CustomDropdown
@@ -506,7 +506,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Service Duration *</label>
                   <div className="grid grid-cols-2 gap-2">
@@ -682,7 +682,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                           {!state.coverAllCities && (
                             <div>
                               <label className="block text-xs font-medium text-gray-700 mb-2">Select Cities</label>
-                              <div className="grid grid-cols-3 gap-2 max-h-32 overflow-y-auto">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
                                 {NIGERIAN_STATES[state.stateName]?.map((city) => (
                                   <label
                                     key={city}
@@ -718,7 +718,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
           {/* Step 3: Availability */}
           {currentStep === 3 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Time Slot Duration</label>
                   <CustomDropdown
@@ -771,7 +771,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                     </div>
 
                     {day.isAvailable && (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs text-gray-600 mb-1">Opening Time</label>
                           <input
@@ -814,7 +814,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                   Service Images (Max 5)
                 </label>
                 <p className="text-xs text-gray-500 mb-3">Upload images showcasing this specific service</p>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {formData.portfolioImages.map((img, index) => (
                     <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
                       <img src={img} alt="" className="w-full h-full object-cover" />
@@ -845,7 +845,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-100 flex items-center justify-between">
+        <div className="p-6 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
           <button
             onClick={prevStep}
             disabled={currentStep === 1}

@@ -95,7 +95,7 @@ function PayoutSettingsForm({ onClose, onPayoutUpdated, store }) {
               : "Set up your bank account to accept online payments"}
           </p>
         </div>
-        <button onClick={onClose} disabled={isSubmitting} className="text-gray-400 hover:text-gray-600 disabled:opacity-50">
+        <button onClick={onClose} disabled={isSubmitting} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50">
           <X size={24} />
         </button>
       </div>

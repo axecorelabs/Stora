@@ -301,7 +301,7 @@ export default function OrderDetailsModal({
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between px-8 py-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex flex-wrap items-center justify-between gap-4 px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
             <div className="flex items-center space-x-4">
               <div className="p-3 bg-brand-100 rounded-xl">
                 <ShoppingBag className="w-6 h-6 text-brand-800" />
@@ -337,7 +337,7 @@ export default function OrderDetailsModal({
               </div>
             </div>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center flex-wrap gap-2">
               {canUpdateStatus() && (
                 <button
                   onClick={handleOpenStatusUpdate}

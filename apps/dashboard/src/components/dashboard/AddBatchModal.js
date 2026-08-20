@@ -923,7 +923,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent"
                               />
                               <div className="mt-2 max-h-32 overflow-y-auto">
-                                <div className="grid grid-cols-4 gap-1.5">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                                   {commonColors.map(color => (
                                     <button
                                       key={color}
@@ -955,7 +955,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-black placeholder-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent"
                               />
                               <div className="mt-2">
-                                <div className="grid grid-cols-4 gap-1.5">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                                   {commonSizes.map(size => (
                                     <button
                                       key={size}
@@ -975,7 +975,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                             </div>
 
                             {/* Quantity and Reorder Level */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                   Quantity *
@@ -1050,7 +1050,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                 
                 {expandedSections.pricing && (
                   <div className="p-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Cost Price per Unit *</label>
                         <input
@@ -1088,7 +1088,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
 
                     {formData.costPrice && formData.sellingPrice && (
                       <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                           <div>
                             <div className="text-lg font-bold text-gray-900">{calculateProfitMargin()}%</div>
                             <div className="text-xs text-gray-500">Profit Margin</div>
@@ -1124,7 +1124,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                 
                 {expandedSections.dates && (
                   <div className="p-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Date Received *</label>
                         <input
@@ -1285,7 +1285,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                 />
                 
                 {getAvailableSizesForColor(selectedColorForQuickSize).length > 0 ? (
-                  <div className="mt-2 grid grid-cols-4 gap-1.5">
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     {getAvailableSizesForColor(selectedColorForQuickSize).map(size => (
                       <button
                         key={size}
@@ -1309,7 +1309,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
               </div>
 
               {/* Quantity and Reorder Level */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Quantity *

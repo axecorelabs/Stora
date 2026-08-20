@@ -187,10 +187,10 @@ function SettingsPageInner() {
     <DashboardLayout title="Settings" subtitle="Manage your account settings">
       {/* Tabs */}
       <div className="mb-8 bg-white rounded-2xl border border-gray-100">
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 overflow-x-auto">
           <button
             onClick={() => setActiveTab('account')}
-            className={`px-6 py-4 text-sm font-medium transition-colors ${
+            className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === 'account'
                 ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
@@ -201,7 +201,7 @@ function SettingsPageInner() {
           </button>
           <button
             onClick={() => setActiveTab('security')}
-            className={`px-6 py-4 text-sm font-medium transition-colors ${
+            className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === 'security'
                 ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
@@ -213,7 +213,7 @@ function SettingsPageInner() {
           {verificationEnabled === true && (
             <button
               onClick={() => setActiveTab('verification')}
-              className={`px-6 py-4 text-sm font-medium transition-colors ${
+              className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === 'verification'
                   ? 'text-brand-800 border-b-2 border-brand-800'
                   : 'text-gray-500 hover:text-gray-700'

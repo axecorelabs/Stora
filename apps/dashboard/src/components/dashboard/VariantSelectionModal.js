@@ -144,7 +144,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
             <label className="block text-sm font-medium text-gray-700 mb-3">
               Select Color *
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {Object.keys(variantsByColor).map(color => {
                 const totalStock = variantsByColor[color].reduce((sum, v) => sum + v.quantityInStock, 0);
                 const isOutOfStock = totalStock === 0;
@@ -190,7 +190,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Select Size *
               </label>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {availableSizes.map(({ size, stock, sku }) => {
                   const isOutOfStock = stock === 0;
                   

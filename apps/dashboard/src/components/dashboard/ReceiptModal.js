@@ -463,9 +463,9 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden">
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <h3 className="text-lg font-semibold text-gray-900">Receipt Details</h3>
           <button
             onClick={onClose}
@@ -474,9 +474,9 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
-        
+
         {/* Receipt Content */}
-        <div className="p-6 max-h-96 overflow-y-auto">
+        <div className="p-6 flex-1 min-h-0 overflow-y-auto">
           <div className="text-center mb-6">
             <h4 className="text-xl font-bold text-gray-900">{store?.storeName || 'Stora STORE'}</h4>
             {store?.storeType === 'physical' && store?.fullAddress && (
@@ -581,7 +581,7 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
         </div>
 
         {/* Action Buttons */}
-        <div className="p-6 border-t border-gray-200 space-y-3">
+        <div className="p-6 border-t border-gray-200 space-y-3 flex-shrink-0">
           {/* Primary: the action taken after nearly every sale */}
           <button
             onClick={printReceipt}

@@ -565,7 +565,7 @@ export default function WebsitePage() {
                     <div className="max-w-4xl mx-auto">
                       {isLoadingPreviewProducts ? (
                         // Products loading skeleton
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                           {[1, 2, 3].map((i) => (
                             <div key={i} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 animate-pulse">
                               <div className="bg-gray-200 aspect-square"></div>
@@ -579,7 +579,7 @@ export default function WebsitePage() {
                           ))}
                         </div>
                       ) : previewProducts.length > 0 ? (
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                           {previewProducts.map((product, index) => (
                             <div key={product._id || index} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-100">
                               {/* Product Image */}
@@ -642,7 +642,7 @@ export default function WebsitePage() {
                         </div>
                       ) : (
                         // Empty State
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                           {[1, 2, 3].map((i) => (
                             <div key={i} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
                               <div className="bg-gray-100 aspect-square flex items-center justify-center">
