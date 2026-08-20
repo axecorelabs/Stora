@@ -929,7 +929,7 @@ export default function StoreWebsite({ store }) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search products, brands, categories…"
-                  className="w-full pl-10 pr-10 py-3 text-gray-900 placeholder-gray-400 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-sm sm:text-base bg-gray-50/70 focus:bg-white"
+                  className="w-full pl-10 pr-10 py-3 text-gray-900 placeholder-gray-400 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-base bg-gray-50/70 focus:bg-white"
                   style={{ '--tw-ring-color': primaryColor }}
                 />
                 {searchQuery && (
