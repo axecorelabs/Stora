@@ -134,7 +134,7 @@ export async function GET(req) {
       const [{ data: orderItems }, { data: allStoreLinks }] = await Promise.all([
         supabaseAdmin
           .from('order_items')
-          .select('order_id, id, product_id, product_name, product_sku, product_image, product_category, variant_color, variant_size, quantity, unit_price, subtotal, item_status')
+          .select('order_id, id, product_id, product_name, product_sku, product_image, product_category, variant_color, variant_size, quantity, unit_price, subtotal, item_status, notes')
           .in('order_id', orderIds)
           .eq('store_id', store.id),
         supabaseAdmin
@@ -243,7 +243,8 @@ export async function GET(req) {
           quantity: item.quantity,
           unitPrice: item.unit_price,
           subtotal: item.subtotal,
-          status: item.item_status
+          status: item.item_status,
+          notes: item.notes || null
         })),
         itemCount: items.length,
         stores: storeIds.map(id => ({ id })),

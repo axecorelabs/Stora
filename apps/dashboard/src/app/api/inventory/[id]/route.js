@@ -185,8 +185,20 @@ export async function PUT(request, { params }) {
     if (updateData.category) {
       dbUpdate.category = updateData.category;
     }
+    // The edit form (EditInventoryModal.js) sends the flat per-category
+    // objects it also uses internally (foodDetails, beveragesDetails,
+    // booksDetails), the same shape the add flow sends -- not a pre-wrapped
+    // `categoryDetails`, which nothing actually ever sends. Nest it the
+    // same way POST does (see /api/inventory/route.js) so it lands under
+    // category_details.food, matching what the storefront reads.
     if (updateData.categoryDetails) {
       dbUpdate.category_details = updateData.categoryDetails;
+    } else if (updateData.category === 'Food' && updateData.foodDetails) {
+      dbUpdate.category_details = { food: updateData.foodDetails };
+    } else if (updateData.category === 'Beverages' && updateData.beveragesDetails) {
+      dbUpdate.category_details = { beverages: updateData.beveragesDetails };
+    } else if (updateData.category === 'Books' && updateData.booksDetails) {
+      dbUpdate.category_details = { books: updateData.booksDetails };
     }
     if (updateData.sku) {
       dbUpdate.sku = updateData.sku;

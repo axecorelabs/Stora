@@ -188,20 +188,25 @@ export default async function ProductPage({ params }) {
     quantityInStock: totalAvailableQuantity,
     availableQuantity: totalAvailableQuantity,
 
-    // Include ALL category-specific details
+    // Include ALL category-specific details -- sourced from
+    // product.categoryDetails (the real shape transformInventoryToProduct
+    // sets, straight from inventory.category_details), not the flat
+    // product.xDetails fields this used to read, none of which were ever
+    // set on `product` -- every category's detail section was silently
+    // rendering nothing on this page as a result.
     categoryDetails: {
-      clothing: product.clothingDetails,
-      shoes: product.shoesDetails,
-      accessories: product.accessoriesDetails,
-      perfume: product.perfumeDetails,
-      food: product.foodDetails,
-      beverages: product.beveragesDetails,
-      electronics: product.electronicsDetails,
-      books: product.booksDetails,
-      homeGarden: product.homeGardenDetails,
-      sports: product.sportsDetails,
-      automotive: product.automotiveDetails,
-      healthBeauty: product.healthBeautyDetails
+      clothing: product.categoryDetails?.clothing,
+      shoes: product.categoryDetails?.shoes,
+      accessories: product.categoryDetails?.accessories,
+      perfume: product.categoryDetails?.perfume,
+      food: product.categoryDetails?.food,
+      beverages: product.categoryDetails?.beverages,
+      electronics: product.categoryDetails?.electronics,
+      books: product.categoryDetails?.books,
+      homeGarden: product.categoryDetails?.homeGarden,
+      sports: product.categoryDetails?.sports,
+      automotive: product.categoryDetails?.automotive,
+      healthBeauty: product.categoryDetails?.healthBeauty
     },
     
     // Batch information - only include batches with actual stock

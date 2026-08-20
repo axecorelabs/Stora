@@ -307,6 +307,12 @@ export default function OrderDetailsPanel({
                           SKU: {item.variant.sku}
                         </p>
                       )}
+
+                      {item.notes && (
+                        <p className="text-[11px] text-amber-700 mt-1.5 bg-amber-50 border border-amber-100 rounded px-2 py-1">
+                          Note: {item.notes}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}

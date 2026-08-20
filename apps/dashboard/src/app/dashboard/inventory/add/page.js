@@ -264,7 +264,8 @@ export default function AddInventoryPage() {
           servingSize: '',
           ingredients: [],
           allergens: [],
-          spiceLevel: ''
+          spiceLevel: '',
+          extras: []
         }
       }));
     } else if (value === 'Beverages' && !formData.beveragesDetails) {

@@ -316,14 +316,17 @@ export async function POST(req) {
 
     const inventoryData = await req.json();
 
-    // Prepare category details based on category
+    // Prepare category details based on category. Stored (and read back by
+    // the storefront's ProductDetailsClient.js) keyed under the category
+    // name -- category_details.food, not the flat food-details object
+    // itself -- so this must nest it the same way, not assign it directly.
     let categoryDetails = null;
     if (inventoryData.category === 'Food' && inventoryData.foodDetails) {
-      categoryDetails = inventoryData.foodDetails;
+      categoryDetails = { food: inventoryData.foodDetails };
     } else if (inventoryData.category === 'Beverages' && inventoryData.beveragesDetails) {
-      categoryDetails = inventoryData.beveragesDetails;
+      categoryDetails = { beverages: inventoryData.beveragesDetails };
     } else if (inventoryData.category === 'Books' && inventoryData.booksDetails) {
-      categoryDetails = inventoryData.booksDetails;
+      categoryDetails = { books: inventoryData.booksDetails };
     }
 
     // The public storefront (apps/store) looks products up by store_id, so

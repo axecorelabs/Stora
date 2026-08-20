@@ -458,6 +458,15 @@ export default function OrderDetailsModal({
                                     <span className="text-gray-600">{item.storeSnapshot.storeName}</span>
                                   </div>
                                 )}
+
+                                {/* Note the customer left when adding this item -- e.g. "no onions" */}
+                                {item.notes && (
+                                  <div className="mt-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg">
+                                    <p className="text-xs text-amber-800">
+                                      <span className="font-semibold">Note:</span> {item.notes}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
 
                               {/* Price */}
