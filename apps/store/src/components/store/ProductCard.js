@@ -103,23 +103,25 @@ export default function ProductCard({ product, primaryColor, currency, secondary
       return;
     }
 
+    // Flip the heart immediately so it feels instant, then reconcile with
+    // the server in the background -- only roll it back if the request
+    // actually fails, instead of making every tap wait on a round trip.
+    const wasLiked = liked;
+    setLiked(!wasLiked);
     setAddingToWishlist(true);
-    
+
     try {
-      if (liked) {
-        // Remove from wishlist
+      if (wasLiked) {
         const response = await fetch(`/api/wishlist/${product.id}`, {
           method: 'DELETE',
           credentials: 'include'
         });
-        
-        if (response.ok) {
-          setLiked(false);
-        } else {
+
+        if (!response.ok) {
+          setLiked(true);
           console.error('Failed to remove from wishlist');
         }
       } else {
-        // Add to wishlist
         const response = await fetch('/api/wishlist', {
           method: 'POST',
           headers: {
@@ -136,14 +138,14 @@ export default function ProductCard({ product, primaryColor, currency, secondary
             }
           })
         });
-        
-        if (response.ok) {
-          setLiked(true);
-        } else {
+
+        if (!response.ok) {
+          setLiked(false);
           console.error('Failed to add to wishlist');
         }
       }
     } catch (error) {
+      setLiked(wasLiked);
       console.error('Error updating wishlist:', error);
     } finally {
       setAddingToWishlist(false);
@@ -204,7 +206,7 @@ export default function ProductCard({ product, primaryColor, currency, secondary
               disabled={addingToWishlist || checkingWishlist}
               className="absolute top-2.5 right-2.5 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:bg-white transition-all duration-200 disabled:opacity-50"
             >
-              {addingToWishlist || checkingWishlist ? (
+              {checkingWishlist ? (
                 <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <Heart
