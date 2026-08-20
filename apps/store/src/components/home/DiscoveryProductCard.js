@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Package } from "lucide-react";
+import { Package, Heart } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useIsInWishlist, useWishlistMutations } from "@/hooks/useWishlist";
 
 // Deliberately lighter than store/ProductCard.js -- that card's job is
 // browsing and transacting inside one already-chosen vendor's storefront
@@ -14,12 +16,35 @@ import { Package } from "lucide-react";
 export default function DiscoveryProductCard({ product }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const liked = useIsInWishlist(product.id);
+  const { addToWishlist, removeFromWishlist } = useWishlistMutations();
+  const isUpdatingWishlist = addToWishlist.isPending || removeFromWishlist.isPending;
   const accentColor = product.store?.primaryColor || "#145C41";
   const storeSlug = product.store?.storeSlug;
   const storeInitial = (product.store?.storeName || "?").trim().charAt(0).toUpperCase();
   const showLogoImage = product.store?.logo && !logoErrored;
 
   const formatPrice = (price) => `₦${Number(price || 0).toLocaleString("en-NG")}`;
+
+  // The card itself is a Link (see bottom) -- without preventDefault this
+  // would also navigate to the product instead of just toggling the heart.
+  // Optimistic via useWishlistMutations (see hooks/useWishlist.js), so the
+  // heart flips the instant it's tapped rather than waiting on the round trip.
+  const handleWishlistToggle = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      if (liked) {
+        await removeFromWishlist.mutateAsync(product.id);
+      } else {
+        await addToWishlist.mutateAsync({ productId: product.id, priority: "medium", notes: "" });
+      }
+    } catch (error) {
+      console.error("Error updating wishlist:", error);
+    }
+  };
 
   const card = (
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200 group h-full">
@@ -47,6 +72,25 @@ export default function DiscoveryProductCard({ product }) {
             <div className="absolute inset-0 flex items-center justify-center">
               <Package className="w-8 h-8 text-gray-300" strokeWidth={1.5} />
             </div>
+          )}
+
+          {/* Wishlist -- same top-right placement/behavior as
+              store/ProductCard.js's heart, just cross-vendor. Only shown
+              once signed in (an anonymous tap has no account to save to). */}
+          {isAuthenticated && (
+            <button
+              onClick={handleWishlistToggle}
+              disabled={isUpdatingWishlist}
+              className="absolute top-2.5 right-2.5 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:bg-white transition-all duration-200 disabled:opacity-50 z-10"
+              aria-label={liked ? "Remove from wishlist" : "Add to wishlist"}
+            >
+              <Heart
+                className={`w-4 h-4 transition-all duration-200 ${liked ? "fill-current scale-110" : ""}`}
+                style={liked ? { color: accentColor } : { color: "#6B7280" }}
+                strokeWidth={liked ? 0 : 2}
+                fill={liked ? accentColor : "none"}
+              />
+            </button>
           )}
         </div>
       </div>

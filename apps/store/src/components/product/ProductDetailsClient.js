@@ -317,14 +317,18 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       return;
     }
 
+    // Flip immediately for an instant-feeling toggle; only roll back if the
+    // request actually fails, rather than making the tap wait on the round trip.
+    const wasLiked = liked;
+    setLiked(!wasLiked);
     setAddingToWishlist(true);
     try {
-      if (liked) {
+      if (wasLiked) {
         const response = await fetch(`/api/wishlist/${initialProduct.id}`, {
           method: 'DELETE',
           credentials: 'include'
         });
-        if (response.ok) setLiked(false);
+        if (!response.ok) setLiked(true);
       } else {
         const response = await fetch('/api/wishlist', {
           method: 'POST',
@@ -336,9 +340,10 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             notifications: { priceDropAlert: true, backInStockAlert: true }
           })
         });
-        if (response.ok) setLiked(true);
+        if (!response.ok) setLiked(false);
       }
     } catch (error) {
+      setLiked(wasLiked);
       console.error('Error updating wishlist:', error);
     } finally {
       setAddingToWishlist(false);
@@ -928,10 +933,10 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                     className="w-10 h-10 sm:w-14 sm:h-14 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:scale-110 hover:bg-white transition-all disabled:opacity-50"
                     title={isAuthenticated ? (liked ? "Remove from wishlist" : "Add to wishlist") : "Sign in to add to wishlist"}
                   >
-                    {addingToWishlist || checkingWishlist ? (
+                    {checkingWishlist ? (
                       <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <Heart 
+                      <Heart
                         className={`w-5 h-5 sm:w-6 sm:h-6 transition-all duration-200 ${liked ? 'fill-current scale-110' : ''}`}
                         style={liked ? { color: primaryColor } : { color: '#6B7280' }}
                         strokeWidth={liked ? 0 : 2}
