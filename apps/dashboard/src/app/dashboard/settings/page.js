@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VerificationForm from "@/components/dashboard/VerificationForm";
@@ -18,7 +18,7 @@ import {
   Save
 } from "lucide-react";
 
-export default function SettingsPage() {
+function SettingsPageInner() {
   const { user, secureApiCall } = useAuth();
   const searchParams = useSearchParams();
   const verificationEnabled = useVerificationEnabled();
@@ -516,5 +516,13 @@ export default function SettingsPage() {
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageInner />
+    </Suspense>
   );
 }
