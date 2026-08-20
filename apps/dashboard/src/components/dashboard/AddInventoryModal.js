@@ -223,7 +223,8 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
           endTime: '21:00'
         })),
         deliveryTime: { value: 30, unit: 'minutes' },
-        maxOrdersPerDay: ''
+        maxOrdersPerDay: '',
+        extras: []
       };
     } else if (value === 'Beverages') {
       newFormData.beveragesDetails = {

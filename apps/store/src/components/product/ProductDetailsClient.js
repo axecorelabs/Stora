@@ -36,6 +36,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   const { isAuthenticated } = useAuth();
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [selectedExtras, setSelectedExtras] = useState([]);
+  const [itemNote, setItemNote] = useState('');
   const [liked, setLiked] = useState(false);
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
@@ -175,6 +177,19 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
     setQuantity(newQuantity);
   };
 
+  // Extras + freeform note both fold into the one notes column
+  // cart_items/order_items already carry (see hooks/useWishlist.js's
+  // neighbor, lib/supabaseCart.js's prepareCartItemData) -- picked extras
+  // read as a plain list up front, followed by whatever the shopper typed,
+  // so "Extra cheese, No onions -- less spicy please" is one string a
+  // vendor can just read, not a second structure they need new UI for.
+  const composeItemNotes = () => {
+    const parts = [];
+    if (selectedExtras.length > 0) parts.push(selectedExtras.join(', '));
+    if (itemNote.trim()) parts.push(itemNote.trim());
+    return parts.join(' -- ');
+  };
+
   // Simple add to cart for non-variant products
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
@@ -191,13 +206,15 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
     // Simple product add to cart
     setIsAddingToCart(true);
     try {
-      const result = await addToCart(initialProduct.id, quantity);
+      const result = await addToCart(initialProduct.id, quantity, { notes: composeItemNotes() });
       if (result.success) {
         setToast({
           message: `${quantity} ${quantity === 1 ? 'item' : 'items'} added to cart successfully!`,
           type: 'success'
         });
         setQuantity(1);
+        setSelectedExtras([]);
+        setItemNote('');
       } else {
         setToast({
           message: result.error || "Failed to add item to cart",
@@ -1094,6 +1111,59 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                         In stock
                       </p>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Extras (vendor-defined quick picks, e.g. Food's "Extra cheese")
+                  and a freeform note -- both fold into the one notes string
+                  cart_items/order_items carry (see composeItemNotes above).
+                  Only for non-variant products, same gating as Quantity above. */}
+              {!initialProduct.hasVariants && (
+                <div className="mb-6 sm:mb-8 space-y-4">
+                  {Array.isArray(initialProduct.categoryDetails?.food?.extras) && initialProduct.categoryDetails.food.extras.length > 0 && (
+                    <div>
+                      <label className="text-sm font-semibold text-gray-900 mb-2 block">
+                        Extras <span className="text-gray-400 font-normal">(optional)</span>
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {initialProduct.categoryDetails.food.extras.map((extra) => {
+                          const isSelected = selectedExtras.includes(extra);
+                          return (
+                            <button
+                              key={extra}
+                              type="button"
+                              onClick={() => setSelectedExtras((prev) =>
+                                isSelected ? prev.filter((e) => e !== extra) : [...prev, extra]
+                              )}
+                              className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                isSelected
+                                  ? 'text-white border-transparent'
+                                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                              }`}
+                              style={isSelected ? { backgroundColor: primaryColor } : undefined}
+                            >
+                              {extra}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label htmlFor="item-note" className="text-sm font-semibold text-gray-900 mb-2 block">
+                      Note for the seller <span className="text-gray-400 font-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      id="item-note"
+                      value={itemNote}
+                      onChange={(e) => setItemNote(e.target.value)}
+                      placeholder="e.g. no onions, extra spicy…"
+                      rows={2}
+                      maxLength={300}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 transition-colors resize-none"
+                    />
                   </div>
                 </div>
               )}

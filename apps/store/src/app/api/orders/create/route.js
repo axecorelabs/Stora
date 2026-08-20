@@ -429,6 +429,7 @@ export async function POST(request) {
         quantity: cartItem.quantity,
         price: cartItem.price,
         subtotal: cartItem.subtotal,
+        notes: cartItem.notes || null,
         productSnapshot: cartItem.product_snapshot,
         storeSnapshot: completeStoreData ? {
           store_name: completeStoreData.store_name,

@@ -162,10 +162,15 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
         shoesDetails: item.shoesDetails || null,
         accessoriesDetails: item.accessoriesDetails || null,
         perfumeDetails: item.perfumeDetails || null,
-        foodDetails: item.foodDetails || null,
-        beveragesDetails: item.beveragesDetails || null,
+        // These three are the ones /api/inventory actually persists
+        // category_details for (see route.js) -- stored nested under
+        // categoryDetails.food/.beverages/.books, not as a flat field on
+        // item, so that's what a previously-saved edit needs to read back
+        // from or it'd silently reset to blank on the next save.
+        foodDetails: item.categoryDetails?.food || item.foodDetails || null,
+        beveragesDetails: item.categoryDetails?.beverages || item.beveragesDetails || null,
         electronicsDetails: item.electronicsDetails || null,
-        booksDetails: item.booksDetails || null,
+        booksDetails: item.categoryDetails?.books || item.booksDetails || null,
         homeGardenDetails: item.homeGardenDetails || null,
         sportsDetails: item.sportsDetails || null,
         automotiveDetails: item.automotiveDetails || null,

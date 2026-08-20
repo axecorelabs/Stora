@@ -142,6 +142,7 @@ export async function findOrderById(orderId, customerId = null) {
     unitPrice: parseFloat(item.unit_price || 0),
     subtotal: parseFloat(item.subtotal || 0),
     itemStatus: item.item_status,
+    notes: item.notes || null,
     // Product snapshot
     productSnapshot: {
       productName: item.product_name,
@@ -527,6 +528,7 @@ export async function createOrder(orderData) {
         quantity: item.quantity,
         unit_price: item.price,
         subtotal: item.subtotal,
+        notes: item.notes || null,
         item_status: 'pending',
         batch_id: item.batchId || null,
         batch_code: item.batchCode || null,
@@ -807,6 +809,7 @@ export function transformOrderItemFields(item) {
     unitPrice: parseFloat(item.unit_price || 0),
     subtotal: parseFloat(item.subtotal || 0),
     itemStatus: item.item_status,
+    notes: item.notes || null,
     productSnapshot: {
       productName: item.product_name,
       sku: item.product_sku,
