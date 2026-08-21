@@ -245,7 +245,7 @@ export async function findFeaturedStores({ limit = 12 } = {}) {
 // function (see 20260817000005_vendor_product_search.sql), which does the
 // ILIKE-over-trigram-index search, sort, and count(*) OVER() pagination
 // total in a single indexed query rather than pulling candidates into JS.
-export async function searchVendorsPaginated({ search, sort = 'featured', limit = 24, offset = 0, categories, state, buyerState } = {}) {
+export async function searchVendorsPaginated({ search, sort = 'featured', limit = 24, offset = 0, categories, state, buyerState, deliverableOnly } = {}) {
   const { data, error } = await supabaseAdmin.rpc('search_vendors', {
     p_search: search || null,
     p_sort: sort,
@@ -253,7 +253,8 @@ export async function searchVendorsPaginated({ search, sort = 'featured', limit 
     p_offset: offset,
     p_categories: categories?.length ? categories : null,
     p_state: state || null,
-    p_buyer_state: buyerState || null
+    p_buyer_state: buyerState || null,
+    p_deliverable_only: !!deliverableOnly
   });
 
   if (error) {
@@ -530,7 +531,7 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
 // count(*) OVER() pagination total in a single indexed query -- the sort
 // already happened in SQL, so (unlike findDiscoverableProducts) there's no
 // JS-side re-sort here.
-export async function searchProductsPaginated({ search, categories, sort = 'trending', limit = 24, offset = 0, minPrice, maxPrice, state, buyerState } = {}) {
+export async function searchProductsPaginated({ search, categories, sort = 'trending', limit = 24, offset = 0, minPrice, maxPrice, state, buyerState, deliverableOnly } = {}) {
   const { data, error } = await supabaseAdmin.rpc('search_products', {
     p_search: search || null,
     p_categories: categories?.length ? categories : null,
@@ -540,7 +541,8 @@ export async function searchProductsPaginated({ search, categories, sort = 'tren
     p_min_price: minPrice ?? null,
     p_max_price: maxPrice ?? null,
     p_state: state || null,
-    p_buyer_state: buyerState || null
+    p_buyer_state: buyerState || null,
+    p_deliverable_only: !!deliverableOnly
   });
 
   if (error) {

@@ -1,6 +1,53 @@
 import { NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { redis, withTimeout } from '@/lib/redis';
+import { isValidNigerianState } from '@stora/shared-constants';
+
+const DELIVER_STATE_COOKIE = 'stora_deliver_state';
+// Marks a state cookie written from a bare IP guess, not a URL param or
+// anything DeliveryStateContext.js itself confirmed -- see its own
+// GUESS_COOKIE_NAME comment for why that distinction has to survive past
+// this write (a guess must never outrank the customer's real saved
+// preference once that resolves client-side).
+const DELIVER_STATE_GUESS_COOKIE = 'stora_deliver_state_is_guess';
+const DELIVER_STATE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year, mirrors DeliveryStateContext.js's own cookie
+
+// Standard ISO 3166-2:NG subdivision codes -- Vercel's x-vercel-ip-country-region
+// header returns exactly this (the region half, country stripped), e.g. "LA"
+// for Lagos. Best-effort only: geo-IP accuracy for Nigerian ranges is
+// spotty (VPNs, mobile carrier NAT), which is exactly why this is only ever
+// a quiet fallback below a URL param or an already-set cookie, never
+// authoritative, and an unrecognized code is simply ignored rather than
+// guessed at.
+const NG_REGION_CODE_TO_STATE = {
+  AB: 'Abia', AD: 'Adamawa', AK: 'Akwa Ibom', AN: 'Anambra', BA: 'Bauchi', BY: 'Bayelsa',
+  BE: 'Benue', BO: 'Borno', CR: 'Cross River', DE: 'Delta', EB: 'Ebonyi', ED: 'Edo',
+  EK: 'Ekiti', EN: 'Enugu', FC: 'FCT', GO: 'Gombe', IM: 'Imo', JI: 'Jigawa', KD: 'Kaduna',
+  KN: 'Kano', KT: 'Katsina', KE: 'Kebbi', KO: 'Kogi', KW: 'Kwara', LA: 'Lagos',
+  NA: 'Nasarawa', NI: 'Niger', OG: 'Ogun', ON: 'Ondo', OS: 'Osun', OY: 'Oyo',
+  PL: 'Plateau', RI: 'Rivers', SO: 'Sokoto', TA: 'Taraba', YO: 'Yobe', ZA: 'Zamfara'
+};
+
+// Resolves what (if anything) the "deliver to" cookie should become for
+// this request -- a URL param always wins outright (explicit marketing-
+// link intent overrides whatever's already set, guess or not), otherwise
+// a guess from Vercel's geo headers fills in only when no cookie exists
+// yet at all, so it never clobbers a real manual choice or a previously-
+// adopted profile value. Returns null when nothing should change.
+function resolveDeliverStateCookie(req) {
+  const urlState = req.nextUrl.searchParams.get('deliverTo');
+  if (urlState && isValidNigerianState(urlState)) return { value: urlState, isGuess: false };
+
+  if (req.cookies.get(DELIVER_STATE_COOKIE)?.value) return null;
+
+  const country = req.headers.get('x-vercel-ip-country');
+  const region = req.headers.get('x-vercel-ip-country-region');
+  if (country === 'NG' && region && NG_REGION_CODE_TO_STATE[region]) {
+    return { value: NG_REGION_CODE_TO_STATE[region], isGuess: true };
+  }
+
+  return null;
+}
 
 // Sliding-window per-route limiters, keyed by client IP. Each is a
 // standalone Ratelimit instance (Upstash's recommended pattern) so
@@ -100,7 +147,30 @@ export async function proxy(req) {
     console.error('Rate limit check failed, allowing request:', error);
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  const resolved = resolveDeliverStateCookie(req);
+  if (resolved) {
+    response.cookies.set(DELIVER_STATE_COOKIE, resolved.value, {
+      path: '/',
+      maxAge: DELIVER_STATE_COOKIE_MAX_AGE,
+      sameSite: 'lax'
+    });
+    if (resolved.isGuess) {
+      response.cookies.set(DELIVER_STATE_GUESS_COOKIE, '1', {
+        path: '/',
+        maxAge: DELIVER_STATE_COOKIE_MAX_AGE,
+        sameSite: 'lax'
+      });
+    } else {
+      // A URL param is a real, confirmed value -- clear any stale guess
+      // flag so DeliveryStateContext.js's rule 2 doesn't later treat it
+      // as one it should still override once the real profile resolves.
+      response.cookies.set(DELIVER_STATE_GUESS_COOKIE, '', { path: '/', maxAge: 0, sameSite: 'lax' });
+    }
+  }
+
+  return response;
 }
 
 export const config = {

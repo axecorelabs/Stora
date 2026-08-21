@@ -14,6 +14,7 @@ export async function GET(request) {
     const categories = searchParams.get("category")?.split(",").filter(Boolean) || undefined;
     const state = searchParams.get("state") || undefined;
     const buyerState = searchParams.get("buyerState") || undefined;
+    const deliverableOnly = searchParams.get("deliverableOnly") === "true" && !!buyerState;
     const sortParam = searchParams.get("sort");
     const sortRequested = ["featured", "newest", "name", "nearest"].includes(sortParam) ? sortParam : "featured";
     // "nearest" with no buyer state to sort against is inert at the DB
@@ -28,6 +29,7 @@ export async function GET(request) {
       categories,
       state,
       buyerState,
+      deliverableOnly,
       sort,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE

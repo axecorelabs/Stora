@@ -21,6 +21,7 @@ export async function GET(request) {
     const categories = searchParams.get("category")?.split(",").filter(Boolean) || undefined;
     const state = searchParams.get("state") || undefined;
     const buyerState = searchParams.get("buyerState") || undefined;
+    const deliverableOnly = searchParams.get("deliverableOnly") === "true" && !!buyerState;
     const sortParam = searchParams.get("sort");
     // "nearest" with no buyer state to sort against is inert at the DB
     // layer (it degrades to the default ordering) -- fall back explicitly
@@ -34,12 +35,13 @@ export async function GET(request) {
     const maxPrice = Number.isFinite(maxPriceParam) ? maxPriceParam : undefined;
 
     const isDefaultBrowse = !search && !categories?.length && !state && sort !== "nearest"
-      && page === 1 && minPrice === undefined && maxPrice === undefined;
+      && !deliverableOnly && page === 1 && minPrice === undefined && maxPrice === undefined;
     const fetchResults = () => searchProductsPaginated({
       search,
       categories,
       state,
       buyerState,
+      deliverableOnly,
       sort,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
