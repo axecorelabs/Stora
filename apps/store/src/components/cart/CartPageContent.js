@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { useDeliveryState } from "@/contexts/DeliveryStateContext";
 import WhatsAppContactModal from "@/components/orders/WhatsAppContactModal";
 import OrderModal from "@/components/cart/OrderModal";
 
@@ -49,6 +50,7 @@ export default function CartPageContent({ slug }) {
     getCartCount,
     refreshCart,
   } = useCart();
+  const { deliveryState } = useDeliveryState();
 
   const homeHref = slug ? `/${slug}` : "/";
   const orderHref = (orderId) => (slug ? `/${slug}/orders/${orderId}` : `/orders/${orderId}`);
@@ -1037,6 +1039,7 @@ export default function CartPageContent({ slug }) {
           totalAmount={cart.total || 0}
           itemCount={getCartCount()}
           deliverableStates={wholeCartDeliverableStates}
+          deliveryState={deliveryState}
           primaryColor={BRAND_PRIMARY}
           secondaryColor={BRAND_LIGHT}
           formatPrice={formatPrice}
@@ -1113,6 +1116,7 @@ export default function CartPageContent({ slug }) {
           )}
           itemCount={selectedStoreGroup?.items.reduce((sum, item) => sum + item.quantity, 0)}
           deliverableStates={selectedStoreGroup?.deliveryStates ?? null}
+          deliveryState={deliveryState}
           primaryColor={BRAND_PRIMARY}
           secondaryColor={BRAND_LIGHT}
           formatPrice={formatPrice}

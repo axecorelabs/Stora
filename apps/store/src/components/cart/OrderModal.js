@@ -17,6 +17,9 @@ export default function OrderModal({
   deliverableStates, // null = nationwide/no restriction, [] = the stores
   // in this checkout share no common deliverable state (only possible on
   // a whole-cart, multi-vendor checkout), array = restricted to just these
+  deliveryState, // The buyer's browse-time "this is where I am" (DeliveryStateContext)
+  // -- used only to pre-fill the state field below, never trusted as the
+  // real shipping address itself.
   totalAmount,
   itemCount,
   primaryColor,
@@ -84,6 +87,22 @@ export default function OrderModal({
       setSubmitErrorOrderId(null);
     }
   }, [isOpen]);
+
+  // Pre-fill delivery state from the buyer's already-set browse-time
+  // preference (DeliveryStateContext) -- most of the time that's exactly
+  // where they want this delivered too, and it's still a normal editable
+  // field afterward, never locked. Only applied while the field is still
+  // empty (never overwrites a value the customer already picked), and
+  // only when it's actually among this checkout's valid options --
+  // deliverableStates may restrict the dropdown to a subset, and setting
+  // a value that isn't one of the options would look like a phantom
+  // selection nothing in stateOptions actually matches.
+  useEffect(() => {
+    if (!isOpen || !deliveryState) return;
+    if (!stateOptions.some((s) => s.value === deliveryState)) return;
+    setFormData((prev) => (prev.state ? prev : { ...prev, state: deliveryState }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, deliveryState]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
