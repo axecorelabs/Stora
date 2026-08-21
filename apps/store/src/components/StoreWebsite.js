@@ -43,6 +43,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useDeliveryState } from "@/contexts/DeliveryStateContext";
 import useStoreStore from "@/stores/storeStore";
 import SignInModal from "./auth/SignInModal";
 import SignUpModal from "./auth/SignUpModal";
@@ -63,7 +64,8 @@ export default function StoreWebsite({ store }) {
   
   // Replace products fetch with TanStack Query
   const { data: products = [], isLoading: loading, error } = useProducts(store.id);
-  
+  const { deliveryState } = useDeliveryState();
+
   const [isMobile, setIsMobile] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   
@@ -741,6 +743,26 @@ export default function StoreWebsite({ store }) {
       )}
 
       <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8 relative z-10 min-h-screen">
+        {/* Proactive heads-up, not a hard block -- this store still takes
+            the order, delivery just needs to be worked out directly (same
+            spirit as store.deliveryStates elsewhere: a real list is a
+            declared preference, not a platform-enforced eligibility gate).
+            Only shows once the buyer's delivery state is known AND the
+            vendor's declared list doesn't include it -- silent for
+            nationwide vendors (deliveryStates null/empty) and silent until
+            the buyer's state is known at all. */}
+        {deliveryState && store.deliveryStates && store.deliveryStates.length > 0 &&
+          !store.deliveryStates.includes(deliveryState) && (
+          <div className="mb-6 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800">
+              <span className="font-semibold">{store.storeName}</span> delivers to {store.deliveryStates.length > 3
+                ? `${store.deliveryStates.slice(0, 3).join(', ')} +${store.deliveryStates.length - 3} more`
+                : store.deliveryStates.join(', ')}, not listed for {deliveryState}. Contact the vendor to confirm before ordering.
+            </p>
+          </div>
+        )}
+
         {/* Enhanced Mobile Store Banner with Carousel */}
         {isMobile && (
           <div className="mb-6 -mx-6 mx-auto relative overflow-hidden" ref={mainRef}>

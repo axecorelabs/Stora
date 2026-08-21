@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Store, Loader2 } from "lucide-react";
+import { Store, Loader2, Truck } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import SearchModeTabs from "@/components/search/SearchModeTabs";
@@ -28,16 +28,19 @@ function VendorsPageInner() {
   const urlSort = SORTS.some((s) => s.key === searchParams.get("sort")) ? searchParams.get("sort") : "featured";
   const urlCategories = searchParams.get("category")?.split(",").filter(Boolean) || [];
   const urlState = searchParams.get("state") || "";
+  const urlDeliverableOnly = searchParams.get("deliverableOnly") === "true";
 
   const [q, setQ] = useState(urlQ);
   const [sort, setSort] = useState(urlSort);
   const [categories, setCategories] = useState(urlCategories);
   const [state, setState] = useState(urlState);
+  const [deliverableOnly, setDeliverableOnly] = useState(urlDeliverableOnly);
   const [vendors, setVendors] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showNearestPicker, setShowNearestPicker] = useState(false);
+  const [showDeliverablePicker, setShowDeliverablePicker] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -45,10 +48,11 @@ function VendorsPageInner() {
     if (sort !== "featured") params.set("sort", sort);
     if (categories.length) params.set("category", categories.join(","));
     if (state) params.set("state", state);
+    if (deliverableOnly) params.set("deliverableOnly", "true");
     const qs = params.toString();
     router.replace(qs ? `/vendors?${qs}` : "/vendors", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, sort, categories, state]);
+  }, [q, sort, categories, state, deliverableOnly]);
 
   const fetchPage = useCallback(async (pageNum, replace) => {
     if (replace) setLoading(true);
@@ -58,7 +62,11 @@ function VendorsPageInner() {
       if (q) params.set("q", q);
       if (categories.length) params.set("category", categories.join(","));
       if (state) params.set("state", state);
-      if (sort === "nearest" && deliveryState) params.set("buyerState", deliveryState);
+      // buyerState powers both "nearest" (soft, reorders only) and
+      // deliverableOnly (hard filter) -- either needs it sent regardless
+      // of which triggered it.
+      if ((sort === "nearest" || deliverableOnly) && deliveryState) params.set("buyerState", deliveryState);
+      if (deliverableOnly && deliveryState) params.set("deliverableOnly", "true");
       const res = await fetch(`/api/vendors/search?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -71,7 +79,7 @@ function VendorsPageInner() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [q, sort, categories, state, deliveryState]);
+  }, [q, sort, categories, state, deliverableOnly, deliveryState]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -88,12 +96,14 @@ function VendorsPageInner() {
       label: `Sells ${c}`,
       onRemove: () => setCategories((prev) => prev.filter((x) => x !== c))
     })),
-    state && { key: "state", label: state, onRemove: () => setState("") }
+    state && { key: "state", label: state, onRemove: () => setState("") },
+    deliverableOnly && { key: "deliverable", label: `Delivers to ${deliveryState}`, onRemove: () => setDeliverableOnly(false) }
   ].filter(Boolean);
 
   const clearAll = () => {
     setCategories([]);
     setState("");
+    setDeliverableOnly(false);
   };
 
   // "Nearest to me" needs a delivery state to sort against -- if none is
@@ -105,6 +115,20 @@ function VendorsPageInner() {
       return;
     }
     setSort(key);
+  };
+
+  // Same "need a state first" gate as the sort above -- this filter is a
+  // no-op without one to filter against.
+  const handleDeliverableToggle = () => {
+    if (deliverableOnly) {
+      setDeliverableOnly(false);
+      return;
+    }
+    if (!deliveryState) {
+      setShowDeliverablePicker(true);
+      return;
+    }
+    setDeliverableOnly(true);
   };
 
   return (
@@ -149,39 +173,75 @@ function VendorsPageInner() {
           sortOptions={SORTS}
           deliveryState={deliveryState}
           onDeliveryStateChange={setDeliveryState}
+          deliverableOnly={deliverableOnly}
+          onDeliverableOnlyChange={setDeliverableOnly}
         />
 
-        {/* Sort -- top-right corner of the grid it controls. Desktop-only;
+        {/* Delivery toggle + sort -- opposite top corners. Desktop-only;
             MobileFilterBar covers this below `sm`. */}
-        <div className="hidden sm:flex relative items-center justify-end gap-1 mb-6">
-          {SORTS.map(({ key, label }) => (
+        <div className="hidden sm:flex items-center justify-between gap-4 flex-wrap mb-6">
+          <div className="relative">
             <button
-              key={key}
-              onClick={() => handleSortClick(key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                sort === key ? "bg-brand-50 text-brand-800" : "text-gray-500 hover:text-brand-700"
+              onClick={handleDeliverableToggle}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                deliverableOnly
+                  ? "bg-brand-700 text-white border-brand-700"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
               }`}
+              title={deliveryState ? `Only vendors that deliver to ${deliveryState}` : "Set your delivery state to filter by it"}
             >
-              {label}
+              <Truck className="w-3.5 h-3.5" />
+              Deliverable to me
             </button>
-          ))}
 
-          {showNearestPicker && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowNearestPicker(false)} />
-              <div className="absolute right-0 top-full mt-2 z-50">
-                <StatePickerPopover
-                  value={deliveryState}
-                  onChange={(value) => {
-                    setDeliveryState(value);
-                    if (value) setSort("nearest");
-                    setShowNearestPicker(false);
-                  }}
-                  onRequestClose={() => setShowNearestPicker(false)}
-                />
-              </div>
-            </>
-          )}
+            {showDeliverablePicker && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowDeliverablePicker(false)} />
+                <div className="absolute left-0 top-full mt-2 z-50">
+                  <StatePickerPopover
+                    value={deliveryState}
+                    onChange={(value) => {
+                      setDeliveryState(value);
+                      if (value) setDeliverableOnly(true);
+                      setShowDeliverablePicker(false);
+                    }}
+                    onRequestClose={() => setShowDeliverablePicker(false)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="relative flex items-center gap-1 flex-shrink-0">
+            {SORTS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => handleSortClick(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  sort === key ? "bg-brand-50 text-brand-800" : "text-gray-500 hover:text-brand-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+
+            {showNearestPicker && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowNearestPicker(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50">
+                  <StatePickerPopover
+                    value={deliveryState}
+                    onChange={(value) => {
+                      setDeliveryState(value);
+                      if (value) setSort("nearest");
+                      setShowNearestPicker(false);
+                    }}
+                    onRequestClose={() => setShowNearestPicker(false)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <div id="search-results">

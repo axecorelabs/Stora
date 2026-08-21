@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { SlidersHorizontal, ArrowUpDown, Check, Search as SearchIcon } from "lucide-react";
+import { SlidersHorizontal, ArrowUpDown, Check, Search as SearchIcon, Truck } from "lucide-react";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { CATEGORIES } from "@/lib/categories";
 import { PRICE_BUCKETS } from "./PriceFilterPills";
@@ -20,11 +20,13 @@ export default function MobileFilterBar({
   priceKey, onPriceChange,
   sort, onSortChange, sortOptions,
   deliveryState, onDeliveryStateChange,
+  deliverableOnly, onDeliverableOnlyChange,
 }) {
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [stateQuery, setStateQuery] = useState("");
   const [pickingNearestState, setPickingNearestState] = useState(false);
+  const [pickingDeliverableState, setPickingDeliverableState] = useState(false);
 
   const toggleCategory = (value) => {
     onCategoriesChange(
@@ -32,14 +34,31 @@ export default function MobileFilterBar({
     );
   };
 
-  const activeCount = categories.length + [state, priceKey].filter(Boolean).length;
+  // Same "need a state first" gate the desktop toggle uses -- this filter
+  // is a no-op without one to filter against.
+  const toggleDeliverable = () => {
+    if (deliverableOnly) {
+      onDeliverableOnlyChange(false);
+      return;
+    }
+    if (!deliveryState) {
+      setPickingDeliverableState(true);
+      return;
+    }
+    onDeliverableOnlyChange(true);
+  };
+
+  const activeCount = categories.length + [state, priceKey, deliverableOnly ? true : null].filter(Boolean).length;
   const activeSortLabel = sortOptions.find((s) => s.key === sort)?.label || sortOptions[0]?.label;
 
   const filteredStates = stateQuery.trim()
     ? NIGERIAN_STATES.filter((s) => s.label.toLowerCase().includes(stateQuery.trim().toLowerCase()))
     : NIGERIAN_STATES;
 
-  const closeFilters = () => setShowFilters(false);
+  const closeFilters = () => {
+    setShowFilters(false);
+    setPickingDeliverableState(false);
+  };
   const closeSort = () => {
     setShowSort(false);
     setPickingNearestState(false);
@@ -88,6 +107,7 @@ export default function MobileFilterBar({
                   onCategoriesChange([]);
                   onStateChange("");
                   onPriceChange?.("");
+                  onDeliverableOnlyChange(false);
                 }}
                 className="text-sm font-semibold text-gray-500 flex-shrink-0"
               >
@@ -132,6 +152,43 @@ export default function MobileFilterBar({
               </div>
             </div>
           )}
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2.5">Delivery</p>
+            {pickingDeliverableState ? (
+              <div>
+                <p className="text-sm text-gray-500 mb-2.5">Pick your state to filter by it.</p>
+                <div className="max-h-52 overflow-y-auto -mx-1 px-1">
+                  {NIGERIAN_STATES.map((s) => (
+                    <button
+                      key={s.value}
+                      onClick={() => {
+                        onDeliveryStateChange(s.value);
+                        onDeliverableOnlyChange(true);
+                        setPickingDeliverableState(false);
+                      }}
+                      className="w-full flex items-center px-3 py-2.5 rounded-lg text-sm text-left text-gray-900 hover:bg-gray-50"
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={toggleDeliverable}
+                className={`w-full flex items-center gap-2.5 px-3.5 py-3 rounded-xl text-sm font-medium border transition-colors ${
+                  deliverableOnly ? "bg-brand-50 border-brand-300 text-brand-900" : "bg-white border-gray-200 text-gray-700"
+                }`}
+              >
+                <Truck className="w-4 h-4 flex-shrink-0" />
+                <span className="flex-1 text-left">
+                  {deliveryState ? `Only stores that deliver to ${deliveryState}` : "Only stores that deliver to me"}
+                </span>
+                {deliverableOnly && <Check className="w-4 h-4 text-brand-700 flex-shrink-0" />}
+              </button>
+            )}
+          </div>
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2.5">State</p>
