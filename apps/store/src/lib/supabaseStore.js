@@ -246,16 +246,25 @@ export async function findFeaturedStores({ limit = 12 } = {}) {
 // ILIKE-over-trigram-index search, sort, and count(*) OVER() pagination
 // total in a single indexed query rather than pulling candidates into JS.
 export async function searchVendorsPaginated({ search, sort = 'featured', limit = 24, offset = 0, categories, state, buyerState, deliverableOnly } = {}) {
-  const { data, error } = await supabaseAdmin.rpc('search_vendors', {
+  const rpcParams = {
     p_search: search || null,
     p_sort: sort,
     p_limit: limit,
     p_offset: offset,
     p_categories: categories?.length ? categories : null,
     p_state: state || null,
-    p_buyer_state: buyerState || null,
-    p_deliverable_only: !!deliverableOnly
-  });
+    p_buyer_state: buyerState || null
+  };
+  // Only sent when actually true -- app deploys and DB migrations aren't
+  // applied atomically together here (no CI step runs the SQL migrations),
+  // so there's a real window where this code ships before the DB function
+  // knows about p_deliverable_only. Omitting the key when unused means
+  // the RPC call still matches the OLD function signature during that
+  // window, so ordinary browsing keeps working; only the deliverable-only
+  // filter itself is unavailable until the migration actually runs.
+  if (deliverableOnly) rpcParams.p_deliverable_only = true;
+
+  const { data, error } = await supabaseAdmin.rpc('search_vendors', rpcParams);
 
   if (error) {
     console.error('Error searching vendors:', error);
@@ -532,7 +541,7 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
 // already happened in SQL, so (unlike findDiscoverableProducts) there's no
 // JS-side re-sort here.
 export async function searchProductsPaginated({ search, categories, sort = 'trending', limit = 24, offset = 0, minPrice, maxPrice, state, buyerState, deliverableOnly } = {}) {
-  const { data, error } = await supabaseAdmin.rpc('search_products', {
+  const rpcParams = {
     p_search: search || null,
     p_categories: categories?.length ? categories : null,
     p_sort: sort,
@@ -541,9 +550,13 @@ export async function searchProductsPaginated({ search, categories, sort = 'tren
     p_min_price: minPrice ?? null,
     p_max_price: maxPrice ?? null,
     p_state: state || null,
-    p_buyer_state: buyerState || null,
-    p_deliverable_only: !!deliverableOnly
-  });
+    p_buyer_state: buyerState || null
+  };
+  // Only sent when actually true -- see searchVendorsPaginated's comment
+  // on why this has to degrade gracefully rather than always being sent.
+  if (deliverableOnly) rpcParams.p_deliverable_only = true;
+
+  const { data, error } = await supabaseAdmin.rpc('search_products', rpcParams);
 
   if (error) {
     console.error('Error searching products:', error);
