@@ -135,6 +135,39 @@ export async function verifySession(req) {
   }
 }
 
+// Reads just the session cookie's value, for callers (change-password) that
+// need to identify the calling session without parsing cookies themselves.
+export function getSessionIdFromRequest(req) {
+  const cookies = parseCookies(req.headers.get('cookie') || '');
+  return cookies.session || null;
+}
+
+// Deletes every session for a user (optionally leaving one alive) --
+// used after a password change/reset so a stolen session cookie doesn't
+// survive it. Evicts each deleted session's Redis cache entry too, same
+// fail-open contract as the rest of this file: a change/reset must still
+// succeed even if this cleanup fails, the sessions will just expire on
+// their own instead of being revoked immediately.
+export async function invalidateSessions(userId, { exceptSessionId } = {}) {
+  try {
+    let query = supabaseAdmin.from('sessions').select('session_id').eq('user_id', userId);
+    if (exceptSessionId) query = query.neq('session_id', exceptSessionId);
+    const { data: sessionsToRevoke } = await query;
+
+    if (!sessionsToRevoke || sessionsToRevoke.length === 0) return;
+
+    await Promise.all(
+      sessionsToRevoke.map(s => withTimeout(redis.del(sessionKey(s.session_id))).catch(() => {}))
+    );
+
+    let deleteQuery = supabaseAdmin.from('sessions').delete().eq('user_id', userId);
+    if (exceptSessionId) deleteQuery = deleteQuery.neq('session_id', exceptSessionId);
+    await deleteQuery;
+  } catch (error) {
+    console.error('Error invalidating sessions:', error);
+  }
+}
+
 // Delete session
 export async function deleteSession(sessionId) {
   try {

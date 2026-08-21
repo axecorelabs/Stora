@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
-import { hashPassword, validatePassword } from '@/lib/auth';
+import { hashPassword, validatePassword, invalidateSessions } from '@/lib/auth';
 
 export async function POST(req) {
   try {
@@ -52,6 +52,11 @@ export async function POST(req) {
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id);
+
+    // No active session to preserve here (this flow isn't authenticated) --
+    // if this reset was prompted by a compromised account, every existing
+    // session (including whatever an attacker was using) needs to die.
+    await invalidateSessions(user.id);
 
     return NextResponse.json({
       success: true,

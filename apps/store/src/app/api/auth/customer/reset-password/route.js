@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { hashPassword } from "@/lib/supabaseAuth";
+import { hashPassword, invalidateSessions } from "@/lib/supabaseAuth";
 import { supabaseAdmin } from "@/lib/supabase";
 import crypto from "crypto";
 
@@ -56,6 +56,11 @@ export async function POST(request) {
         password_reset_expiry: null,
       })
       .eq('id', customer.id);
+
+    // No active session to preserve here (this flow isn't authenticated) --
+    // if this reset was prompted by a compromised account, every existing
+    // session (including whatever an attacker was using) needs to die.
+    await invalidateSessions(customer.id);
 
     return NextResponse.json(
       { 

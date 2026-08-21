@@ -130,17 +130,6 @@ function SignInInner({ onToggleMode }) {
             {errors.submit && (
               <div className="mb-5 border-l-2 border-red-500 bg-red-50 pl-3 pr-3 py-2.5 rounded-r-md">
                 <p className="text-red-700 text-sm">{errors.submit}</p>
-                {errors.errorType === "USER_NOT_FOUND" && (
-                  <p className="text-gray-600 text-xs mt-1.5">
-                    Don't have an account?{" "}
-                    <button
-                      onClick={onToggleMode}
-                      className="text-[#0B3B2E] font-semibold hover:underline"
-                    >
-                      Create one here
-                    </button>
-                  </p>
-                )}
               </div>
             )}
 

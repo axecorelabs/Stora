@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession, verifyPassword, hashPassword } from '@/lib/auth';
+import { verifySession, verifyPassword, hashPassword, getSessionIdFromRequest, invalidateSessions } from '@/lib/auth';
 
 export async function POST(req) {
   try {
@@ -70,6 +70,12 @@ export async function POST(req) {
       .eq('id', user.id);
 
     if (updateError) throw updateError;
+
+    // Every other session for this account is now revoked -- a stolen
+    // session cookie must not survive a password change. The session that
+    // just proved the current password stays alive, so changing your own
+    // password doesn't immediately log you out.
+    await invalidateSessions(user.id, { exceptSessionId: getSessionIdFromRequest(req) });
 
     return NextResponse.json({
       success: true,

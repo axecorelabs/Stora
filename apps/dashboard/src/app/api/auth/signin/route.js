@@ -37,6 +37,19 @@ async function clearFailedAttempts(email) {
   }
 }
 
+// Deliberately non-enumerating: this exact message + status is returned for
+// "no such account," "wrong password," "account deactivated," "Google-only
+// account," and "locked out" alike -- matches the store app's customer
+// login (apps/store/.../auth/customer/login/route.js), which this route
+// previously didn't. A fresh NextResponse is built each call since a
+// Response body can only be consumed once.
+function genericInvalidCredentials() {
+  return NextResponse.json(
+    { success: false, message: 'Invalid email or password' },
+    { status: 401 }
+  );
+}
+
 export async function POST(req) {
   try {
     const { email, password, rememberMe } = await req.json();
@@ -67,51 +80,36 @@ export async function POST(req) {
       .single();
 
     if (error || !user) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: 'No account found with this email address',
-          errorType: 'USER_NOT_FOUND'
-        },
-        { status: 404 }
-      );
+      return genericInvalidCredentials();
     }
 
-    // Check if user is active
+    // Check if user is active -- same generic response as everything else
+    // below; a distinct message here would tell an attacker the email is
+    // registered just as surely as a distinct "no account" message would.
     if (!user.is_active) {
-      return NextResponse.json(
-        { success: false, message: 'Account is deactivated' },
-        { status: 401 }
-      );
+      return genericInvalidCredentials();
     }
 
-    // Account lockout: too many recent failed attempts for this email
+    // Account lockout: too many recent failed attempts for this email.
+    // Response is byte-identical to the generic invalid-credentials
+    // response -- locking must not create a new enumeration channel.
     if (await isLockedOut(normalizedEmail)) {
-      return NextResponse.json(
-        { success: false, message: 'Too many failed attempts. Please try again in 15 minutes.' },
-        { status: 423 }
-      );
+      return genericInvalidCredentials();
     }
 
-    // Google-only account (password_hash is null) -- dashboard already
-    // enumerates account existence via the 404/401 split above, so naming
-    // the auth method here costs nothing new and avoids a dead-end "wrong
-    // password" loop for a user who never had a password.
+    // Google-only account (password_hash is null). Same response and same
+    // recordFailedAttempt side effect as a genuine wrong password -- naming
+    // the auth method here would be a new enumeration channel.
     if (!user.password_hash) {
-      return NextResponse.json(
-        { success: false, message: 'This account uses Google Sign-In. Please continue with Google.', errorType: 'GOOGLE_ONLY_ACCOUNT' },
-        { status: 401 }
-      );
+      await recordFailedAttempt(normalizedEmail);
+      return genericInvalidCredentials();
     }
 
     // Verify password
     const isValidPassword = await verifyPassword(password, user.password_hash);
     if (!isValidPassword) {
       await recordFailedAttempt(normalizedEmail);
-      return NextResponse.json(
-        { success: false, message: 'Invalid password' },
-        { status: 401 }
-      );
+      return genericInvalidCredentials();
     }
 
     await clearFailedAttempts(normalizedEmail);

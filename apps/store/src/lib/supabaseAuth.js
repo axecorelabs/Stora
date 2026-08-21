@@ -190,6 +190,46 @@ export async function logoutCustomer(req) {
   }
 }
 
+// Reads just the session cookie's value -- for a future caller that needs
+// to identify the calling session (e.g. a "change password while logged
+// in" flow) without parsing cookies itself. Not currently used: today's
+// only password-change path (reset-password) has no active session to
+// begin with.
+export function getSessionIdFromRequest(req) {
+  const cookies = parseCookies(req.headers.get('cookie') || '');
+  return cookies.session || null;
+}
+
+// Deactivates every session for a customer (optionally leaving one alive)
+// -- used after a password reset so a stolen session cookie doesn't
+// survive it. Same soft-invalidate (is_active=false) as deleteSession
+// above, not a hard delete, and evicts each one's Redis cache entry too.
+// Best-effort: a reset must still succeed even if this cleanup fails, the
+// sessions will just expire on their own instead of being revoked
+// immediately.
+export async function invalidateSessions(customerId, { exceptSessionId } = {}) {
+  try {
+    let query = supabaseAdmin.from('customer_sessions').select('session_id').eq('customer_id', customerId).eq('is_active', true);
+    if (exceptSessionId) query = query.neq('session_id', exceptSessionId);
+    const { data: sessionsToRevoke } = await query;
+
+    if (!sessionsToRevoke || sessionsToRevoke.length === 0) return;
+
+    await Promise.all(
+      sessionsToRevoke.map(s => withTimeout(redis.del(sessionKey(s.session_id))).catch(() => {}))
+    );
+
+    let updateQuery = supabaseAdmin
+      .from('customer_sessions')
+      .update({ is_active: false, logout_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('customer_id', customerId);
+    if (exceptSessionId) updateQuery = updateQuery.neq('session_id', exceptSessionId);
+    await updateQuery;
+  } catch (error) {
+    console.error('Error invalidating sessions:', error);
+  }
+}
+
 // Customer operations
 export async function findCustomerByEmail(email) {
   const { data, error } = await supabaseAdmin
