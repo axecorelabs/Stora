@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, Package, Tag, DollarSign } from "lucide-react";
 import CustomDropdown from "../ui/CustomDropdown";
 import { useAuth } from "@/contexts/AuthContext";
+import { compressImageIfNeeded } from "@/lib/imageCompression";
 
 // Import modular components
 import ImageUploadSection from "./Inventory/ImageUploadSection";
@@ -362,21 +363,23 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
   };
 
   // Image handling
-  const handleMultiImageSelect = (e) => {
+  const handleMultiImageSelect = async (e) => {
     const files = Array.from(e.target.files);
-    
+
     if (imagePreviews.length + files.length > 10) {
       setErrors(prev => ({ ...prev, images: 'Maximum 10 images allowed' }));
       return;
     }
 
-    const validFiles = files.filter(file => {
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      // Matches lib/r2.js's validateImageFile limit -- see its comment on
-      // why 2MB, not 5MB (Vercel's request-body cap is ~4.5MB per request).
-      const maxSize = 2 * 1024 * 1024;
-      return allowedTypes.includes(file.type) && file.size <= maxSize;
-    });
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const typeValidFiles = files.filter(file => allowedTypes.includes(file.type));
+    // Shrinks large source photos client-side before the size check below
+    // -- see imageCompression.js.
+    const compressedFiles = await Promise.all(typeValidFiles.map(compressImageIfNeeded));
+    // Matches lib/r2.js's validateImageFile limit -- see its comment on
+    // why 2MB, not 5MB (Vercel's request-body cap is ~4.5MB per request).
+    const maxSize = 2 * 1024 * 1024;
+    const validFiles = compressedFiles.filter(file => file.size <= maxSize);
 
     if (validFiles.length !== files.length) {
       setErrors(prev => ({ ...prev, images: 'Some files were invalid (max 2MB, JPEG/PNG/WebP only)' }));
