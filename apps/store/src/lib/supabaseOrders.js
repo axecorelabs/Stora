@@ -457,10 +457,48 @@ export async function createOrder(orderData) {
   }
 
   try {
-    // Create order customer snapshot
-    const { error: customerError } = await supabaseAdmin
-      .from('order_customers')
-      .insert({
+    // Create order items with full snapshots -- built up front so its
+    // insert can run in the same parallel batch as the other four writes
+    // below, all of which only depend on order.id/now and not on each
+    // other.
+    const orderItemsData = items.map(item => ({
+      id: crypto.randomUUID(),
+      order_id: order.id,
+      product_id: item.productId,
+      store_id: item.storeId,
+      quantity: item.quantity,
+      unit_price: item.price,
+      subtotal: item.subtotal,
+      notes: item.notes || null,
+      item_status: 'pending',
+      batch_id: item.batchId || null,
+      batch_code: item.batchCode || null,
+      // Product snapshot fields
+      product_name: item.productSnapshot?.product_name || item.productSnapshot?.productName,
+      product_sku: item.productSnapshot?.sku,
+      product_image: item.productSnapshot?.primary_image || item.productSnapshot?.image,
+      product_category: item.productSnapshot?.category,
+      product_brand: item.productSnapshot?.brand,
+      // Variant fields -- sourced from the real variant identity the
+      // caller resolved (item.variantId etc.), not a nonexistent
+      // cartItem.variant column (see orders/create/route.js)
+      variant_id: item.variantId || null,
+      variant_color: item.variantColor || null,
+      variant_size: item.variantSize || null,
+      variant_sku: item.variantSku || null,
+      variant_image: item.variantImage || null,
+      created_at: now,
+      updated_at: now
+    }));
+
+    // Five independent writes, each keyed only off order.id/now -- none
+    // reads another's result, so they run as one round trip's worth of
+    // latency instead of five sequential ones. order_customers/
+    // order_addresses/order_payments/order_timeline stay non-fatal
+    // (logged, not thrown) exactly as before; order_items is the one that
+    // still throws, which still triggers the outer catch's order rollback.
+    const [, , , , itemsResult] = await Promise.all([
+      supabaseAdmin.from('order_customers').insert({
         id: crypto.randomUUID(),
         order_id: order.id,
         first_name: shippingAddress.firstName,
@@ -469,16 +507,9 @@ export async function createOrder(orderData) {
         phone: shippingAddress.phone,
         created_at: now,
         updated_at: now
-      });
+      }).then(({ error }) => { if (error) console.error('Error creating order customer:', error); }),
 
-    if (customerError) {
-      console.error('Error creating order customer:', customerError);
-    }
-
-    // Create shipping address
-    const { error: addressError } = await supabaseAdmin
-      .from('order_addresses')
-      .insert({
+      supabaseAdmin.from('order_addresses').insert({
         id: crypto.randomUUID(),
         order_id: order.id,
         address_type: 'shipping',
@@ -493,16 +524,9 @@ export async function createOrder(orderData) {
         landmark: shippingAddress.landmark || '',
         created_at: now,
         updated_at: now
-      });
+      }).then(({ error }) => { if (error) console.error('Error creating order address:', error); }),
 
-    if (addressError) {
-      console.error('Error creating order address:', addressError);
-    }
-
-    // Create payment record
-    const { error: paymentError } = await supabaseAdmin
-      .from('order_payments')
-      .insert({
+      supabaseAdmin.from('order_payments').insert({
         id: crypto.randomUUID(),
         order_id: order.id,
         method: paymentMethod,
@@ -511,56 +535,26 @@ export async function createOrder(orderData) {
         amount: totalAmount,
         created_at: now,
         updated_at: now
-      });
+      }).then(({ error }) => { if (error) console.error('Error creating order payment:', error); }),
 
-    if (paymentError) {
-      console.error('Error creating order payment:', paymentError);
-    }
-
-    // Create order items with full snapshots
-    const orderItemsData = [];
-    for (const item of items) {
-      const orderItemData = {
+      supabaseAdmin.from('order_timeline').insert({
         id: crypto.randomUUID(),
         order_id: order.id,
-        product_id: item.productId,
-        store_id: item.storeId,
-        quantity: item.quantity,
-        unit_price: item.price,
-        subtotal: item.subtotal,
-        notes: item.notes || null,
-        item_status: 'pending',
-        batch_id: item.batchId || null,
-        batch_code: item.batchCode || null,
-        // Product snapshot fields
-        product_name: item.productSnapshot?.product_name || item.productSnapshot?.productName,
-        product_sku: item.productSnapshot?.sku,
-        product_image: item.productSnapshot?.primary_image || item.productSnapshot?.image,
-        product_category: item.productSnapshot?.category,
-        product_brand: item.productSnapshot?.brand,
-        // Variant fields -- sourced from the real variant identity the
-        // caller resolved (item.variantId etc.), not a nonexistent
-        // cartItem.variant column (see orders/create/route.js)
-        variant_id: item.variantId || null,
-        variant_color: item.variantColor || null,
-        variant_size: item.variantSize || null,
-        variant_sku: item.variantSku || null,
-        variant_image: item.variantImage || null,
-        created_at: now,
-        updated_at: now
-      };
-      orderItemsData.push(orderItemData);
-    }
+        status: 'pending',
+        from_status: null,
+        note: 'Order created',
+        updated_by: 'customer',
+        timestamp: now
+      }).then(({ error }) => { if (error) console.error('Error creating order timeline entry:', error); }),
 
-    const { data: orderItems, error: itemsError } = await supabaseAdmin
-      .from('order_items')
-      .insert(orderItemsData)
-      .select();
+      supabaseAdmin.from('order_items').insert(orderItemsData).select()
+    ]);
 
-    if (itemsError) {
-      console.error('Error creating order items:', itemsError);
+    if (itemsResult.error) {
+      console.error('Error creating order items:', itemsResult.error);
       throw new Error('Failed to create order items');
     }
+    const orderItems = itemsResult.data;
 
     // Create order stores snapshots -- one bulk insert instead of one
     // round trip per item (mirrors the order_items insert above, which
@@ -611,19 +605,6 @@ export async function createOrder(orderData) {
     } else {
       console.log('Successfully inserted order_stores:', insertedStores.length);
     }
-
-    // Create initial timeline entry
-    await supabaseAdmin
-      .from('order_timeline')
-      .insert({
-        id: crypto.randomUUID(),
-        order_id: order.id,
-        status: 'pending',
-        from_status: null,
-        note: 'Order created',
-        updated_by: 'customer',
-        timestamp: now
-      });
 
     return { ...order, order_items: orderItems };
   } catch (error) {

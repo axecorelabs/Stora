@@ -283,26 +283,38 @@ export async function POST(request) {
       }
     }
 
+    // Everything below is a read with no cross-dependency on the others --
+    // the pending-order conflict check, the deliverability check, and the
+    // product/batch lookups needed for Phase 1 -- so they run as one round
+    // trip's worth of latency instead of four sequential ones. None of them
+    // mutate anything, so there's nothing to unwind if a later one fails;
+    // the (rare) cost is a wasted product/batch fetch on the failure path,
+    // traded for a real latency win on the common (success) path.
+    const pendingOrderIds = [...new Set(itemsToProcess.map(item => item.pending_order_id).filter(Boolean))];
+    const checkoutStoreIds = [...new Set(itemsToProcess.map(item => item.store_id))];
+    const productIds = [...new Set(itemsToProcess.map(item => item.product_id))];
+
+    const [liveOrders, checkoutStores, products, batchesByProduct] = await Promise.all([
+      pendingOrderIds.length > 0
+        ? supabaseAdmin.from('orders').select('id, order_number').in('id', pendingOrderIds).not('status', 'in', '(cancelled,refunded)').then(r => r.data)
+        : Promise.resolve(null),
+      supabaseAdmin.from('stores').select('id, store_name, delivery_states').in('id', checkoutStoreIds).then(r => r.data),
+      findInventoryByIds(productIds),
+      findActiveBatchesByInventoryIds(productIds)
+    ]);
+
     // Block re-checking-out an item that's already tied to a still-unpaid
     // order. Cart items now stay in the cart (flagged via pending_order_id)
     // while their payment is unresolved instead of being cleared at order
     // creation -- see the cart-handling block below -- so without this
     // guard, a customer could reserve stock twice for the same item by
     // just clicking "place order" again before the first attempt resolves.
-    const pendingOrderIds = [...new Set(itemsToProcess.map(item => item.pending_order_id).filter(Boolean))];
-    if (pendingOrderIds.length > 0) {
-      const { data: liveOrders } = await supabaseAdmin
-        .from('orders')
-        .select('id, order_number')
-        .in('id', pendingOrderIds)
-        .not('status', 'in', '(cancelled,refunded)');
-      if (liveOrders && liveOrders.length > 0) {
-        return NextResponse.json({
-          success: false,
-          message: `You already have an order (${liveOrders[0].order_number}) awaiting payment for one or more of these items. Complete or cancel that payment first.`,
-          existingOrderId: liveOrders[0].id
-        }, { status: 409 });
-      }
+    if (liveOrders && liveOrders.length > 0) {
+      return NextResponse.json({
+        success: false,
+        message: `You already have an order (${liveOrders[0].order_number}) awaiting payment for one or more of these items. Complete or cancel that payment first.`,
+        existingOrderId: liveOrders[0].id
+      }, { status: 409 });
     }
 
     // Deliverability check -- runs before anything is reserved, so a
@@ -311,11 +323,6 @@ export async function POST(request) {
     // already filters to deliverable states, but that's trivially
     // bypassable (a direct POST here, or a stale dropdown selection), so
     // this is the actual enforcement point.
-    const checkoutStoreIds = [...new Set(itemsToProcess.map(item => item.store_id))];
-    const { data: checkoutStores } = await supabaseAdmin
-      .from('stores')
-      .select('id, store_name, delivery_states')
-      .in('id', checkoutStoreIds);
     const undeliverableStores = (checkoutStores || []).filter(store => {
       const states = store.delivery_states;
       return states && states.length > 0 && !states.includes(shippingAddress.state);
@@ -328,24 +335,18 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Phase 1: validate + atomically reserve stock for every item. Any
-    // failure releases everything reserved so far and returns -- no order
-    // is created until every item has cleared this phase.
-    const orderItemsInput = [];
-    const storeDataCache = new Map();
-
-    // One batched lookup for every cart item's product instead of a query
-    // per item -- the loop below reads from this map.
-    const productIds = [...new Set(itemsToProcess.map(item => item.product_id))];
-    const products = await findInventoryByIds(productIds);
+    // Phase 1: validate every item first (no DB calls -- product/batches
+    // are already fetched above, and resolveBatchPricing is pure
+    // computation over that data), then reserve stock for every item that
+    // passed, in parallel. Validating everything up front means a rejected
+    // item costs zero reservations/rollbacks, instead of releasing
+    // whatever the sequential loop had already reserved before hitting it.
     const productById = new Map(products.map(p => [p.id, p]));
-    const batchesByProduct = await findActiveBatchesByInventoryIds(productIds);
-
+    const validated = [];
     for (const cartItem of itemsToProcess) {
       const product = productById.get(cartItem.product_id);
 
       if (!product) {
-        await releaseAll();
         return NextResponse.json(
           { success: false, message: `Product not found` },
           { status: 404 }
@@ -353,7 +354,6 @@ export async function POST(request) {
       }
 
       if (!product.isActive) {
-        await releaseAll();
         return NextResponse.json(
           { success: false, message: `Product ${product.productName} is not available` },
           { status: 400 }
@@ -371,7 +371,6 @@ export async function POST(request) {
       const variant = cartItem.product_snapshot?.variant || null;
       const variantId = variant?.variant_id || null;
       if (!variantId) {
-        await releaseAll();
         return NextResponse.json(
           { success: false, message: `${product.productName} needs to be re-added to your cart before checkout.` },
           { status: 400 }
@@ -388,7 +387,6 @@ export async function POST(request) {
       const currentBatches = (batchesByProduct[cartItem.product_id] || []).filter(b => b.variant_id === variantId);
       const { sellingPrice: currentPrice } = await resolveBatchPricing(product, currentBatches, variantId);
       if (parseFloat(currentPrice) !== parseFloat(cartItem.price)) {
-        await releaseAll();
         return NextResponse.json(
           {
             success: false,
@@ -402,28 +400,53 @@ export async function POST(request) {
         );
       }
 
-      let reserveResult;
-      try {
-        reserveResult = await reserveStock(variantId, cartItem.quantity);
-      } catch (stockError) {
-        await releaseAll();
-        return NextResponse.json(
-          { success: false, message: `Insufficient stock for ${product.productName}: ${stockError.message}` },
-          { status: 400 }
-        );
-      }
+      validated.push({ cartItem, product, variant, variantId });
+    }
 
+    // Every distinct store's full record, fetched once each in parallel --
+    // replaces the old per-item "fetch if not already cached" pattern,
+    // which still awaited each new store's fetch inline in loop order.
+    const uniqueStoreIds = [...new Set(validated.map(v => v.cartItem.store_id))];
+    const storeDataList = await Promise.all(uniqueStoreIds.map(id => fetchStoreData(id)));
+    const storeDataById = new Map(uniqueStoreIds.map((id, i) => [id, storeDataList[i]]));
+
+    // Reserve stock for every validated item in parallel -- each is an
+    // atomic RPC call (fn_reserve_stock) scoped to its own variant_id row,
+    // so concurrent calls are safe even in the (unexpected) case two items
+    // share a variant: Postgres's own row locking serializes those two
+    // specific calls, it just no longer costs every *other* item a
+    // sequential round trip while it does.
+    const settlements = await Promise.allSettled(
+      validated.map(({ variantId, cartItem }) => reserveStock(variantId, cartItem.quantity))
+    );
+
+    const firstFailureIndex = settlements.findIndex(s => s.status === 'rejected');
+    if (firstFailureIndex !== -1) {
+      // Release whatever DID succeed -- unlike the old sequential loop,
+      // a failure here doesn't mean "only what came before it reserved,"
+      // it means "some subset across the whole batch reserved," so every
+      // fulfilled settlement needs releasing, not just the earlier ones.
+      settlements.forEach((s, i) => {
+        if (s.status === 'fulfilled') {
+          reservations.push({ variantId: validated[i].variantId, quantity: validated[i].cartItem.quantity });
+        }
+      });
+      await releaseAll();
+      const failedProduct = validated[firstFailureIndex].product;
+      const failureError = settlements[firstFailureIndex].reason;
+      return NextResponse.json(
+        { success: false, message: `Insufficient stock for ${failedProduct.productName}: ${failureError.message}` },
+        { status: 400 }
+      );
+    }
+
+    const orderItemsInput = validated.map(({ cartItem, product, variant, variantId }, i) => {
+      const reserveResult = settlements[i].value;
       reservations.push({ variantId, quantity: cartItem.quantity });
-
-      // Fetch complete store data if not cached
-      if (!storeDataCache.has(cartItem.store_id)) {
-        const storeData = await fetchStoreData(cartItem.store_id);
-        storeDataCache.set(cartItem.store_id, storeData);
-      }
-      const completeStoreData = storeDataCache.get(cartItem.store_id);
+      const completeStoreData = storeDataById.get(cartItem.store_id);
       const firstBatch = reserveResult.batches?.[0];
 
-      orderItemsInput.push({
+      return {
         productId: cartItem.product_id,
         storeId: cartItem.store_id,
         quantity: cartItem.quantity,
@@ -453,8 +476,8 @@ export async function POST(request) {
         batchId: firstBatch?.batch_id || null,
         batchCode: firstBatch?.batch_code || null,
         reservedBatches: reserveResult.batches || []
-      });
-    }
+      };
+    });
 
     // Calculate totals. For a scoped (per-store) checkout this is
     // recomputed from just the items being ordered -- cart.subtotal/total
