@@ -46,6 +46,16 @@ function ProductsPageInner() {
 
   const priceBucket = PRICE_BUCKETS.find((b) => b.key === priceKey);
 
+  // A hand-edited/stale URL (?deliverableOnly=true with no delivery state
+  // ever set, e.g. no cookie and IP geo didn't resolve) would otherwise
+  // leave the toggle showing "on" while silently filtering nothing --
+  // fetchPage's own buyerState/deliverableOnly guards already no-op the
+  // request itself, but this keeps the UI (active-filter chip, toggle
+  // highlight) from lying about having a state to filter by.
+  useEffect(() => {
+    if (deliverableOnly && !deliveryState) setDeliverableOnly(false);
+  }, [deliverableOnly, deliveryState]);
+
   // Keep the URL in sync (shallow, no scroll jump) so results are
   // shareable/bookmarkable and survive a refresh or back-navigation.
   useEffect(() => {
