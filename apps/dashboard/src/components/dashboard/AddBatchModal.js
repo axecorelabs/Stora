@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, Package, DollarSign, Calendar, Truck, Plus, AlertCircle, Copy, ChevronDown, ChevronUp, Upload, Image as ImageIcon } from "lucide-react";
 import CustomDropdown from "../ui/CustomDropdown";
 import { useAuth } from "@/contexts/AuthContext";
+import { compressImageIfNeeded } from "@/lib/imageCompression";
 
 export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
   const { secureFormDataCall } = useAuth();
@@ -239,18 +240,23 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
   const newVariantImageInputRef = useRef(null);
 
   // Handle new variant image selection
-  const handleNewVariantImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
+  const handleNewVariantImageSelect = async (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      // Matches lib/r2.js's validateImageFile limit -- see its comment on
-      // why 2MB, not 5MB (Vercel's request-body cap is ~4.5MB per request).
-      const maxSize = 2 * 1024 * 1024; // 2MB
 
-      if (!allowedTypes.includes(file.type)) {
+      if (!allowedTypes.includes(selectedFile.type)) {
         setNewVariantError('Only JPEG, PNG, and WebP images are allowed');
         return;
       }
+
+      // Shrinks a large source photo client-side before the size check
+      // below -- see imageCompression.js.
+      const file = await compressImageIfNeeded(selectedFile);
+
+      // Matches lib/r2.js's validateImageFile limit -- see its comment on
+      // why 2MB, not 5MB (Vercel's request-body cap is ~4.5MB per request).
+      const maxSize = 2 * 1024 * 1024; // 2MB
 
       if (file.size > maxSize) {
         setNewVariantError('Image size must be less than 2MB');
@@ -899,7 +905,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                 >
                                   <Upload className="w-8 h-8 text-gray-400 mb-2" />
                                   <p className="text-sm text-gray-500">Click to upload variant image</p>
-                                  <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP (max 2MB)</p>
+                                  <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP — large photos resize automatically</p>
                                 </div>
                               )}
                               
