@@ -127,14 +127,24 @@ function detectImageMimeType(buffer) {
 // the bytes, never the client's (unverified) claim.
 export async function validateImageFile(file) {
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  // Vercel's Node.js serverless functions hard-cap the request BODY at
+  // ~4.5MB, enforced at the platform edge before the function even runs --
+  // a file (or, for a route that accepts two at once like branding's
+  // logo+banner, two files together) anywhere near the old 5MB-per-file
+  // limit blew straight through that cap. The connection just gets reset,
+  // which surfaces client-side as a bare "Failed to fetch" with no HTTP
+  // response to show a real error for -- this validation never even runs
+  // in that case, since the request never reaches it. 2MB per file keeps
+  // any single request (including two files together) comfortably under
+  // the platform limit, with room for multipart overhead.
+  const maxSize = 2 * 1024 * 1024; // 2MB
 
   if (!allowedTypes.includes(file.type)) {
     throw new Error('Only JPEG, PNG, and WebP images are allowed');
   }
 
   if (file.size > maxSize) {
-    throw new Error('Image size must be less than 5MB');
+    throw new Error('Image size must be less than 2MB');
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

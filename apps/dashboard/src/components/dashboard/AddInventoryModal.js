@@ -491,12 +491,14 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
 
     const validFiles = files.filter(file => {
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      const maxSize = 5 * 1024 * 1024;
+      // Matches lib/r2.js's validateImageFile limit -- see its comment on
+      // why 2MB, not 5MB (Vercel's request-body cap is ~4.5MB per request).
+      const maxSize = 2 * 1024 * 1024;
       return allowedTypes.includes(file.type) && file.size <= maxSize;
     });
 
     if (validFiles.length !== files.length) {
-      setErrors(prev => ({ ...prev, images: 'Some files were invalid (max 5MB, JPEG/PNG/WebP only)' }));
+      setErrors(prev => ({ ...prev, images: 'Some files were invalid (max 2MB, JPEG/PNG/WebP only)' }));
     }
 
     setSelectedImages(prev => [...prev, ...validFiles]);
