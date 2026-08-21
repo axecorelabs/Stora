@@ -46,7 +46,13 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
   const handleFileSelect = (type, file) => {
     // Validate file
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Must match lib/r2.js's own validateImageFile limit (see its comment
+    // on why 2MB, not 5MB) -- this form can submit logo AND banner in one
+    // request, and Vercel's ~4.5MB request-body cap applies to the whole
+    // request, not per file. Catching an oversized file here, before any
+    // upload attempt, is what turns that into a clear message instead of
+    // a bare "Failed to fetch" once the request hits the platform limit.
+    const maxSize = 2 * 1024 * 1024; // 2MB
 
     if (!allowedTypes.includes(file.type)) {
       setErrors(prev => ({ ...prev, [type]: 'Only JPEG, PNG, and WebP images are allowed' }));
@@ -54,7 +60,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
     }
 
     if (file.size > maxSize) {
-      setErrors(prev => ({ ...prev, [type]: 'Image size must be less than 5MB' }));
+      setErrors(prev => ({ ...prev, [type]: 'Image size must be less than 2MB' }));
       return;
     }
 
@@ -237,7 +243,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                       >
                         <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600 mb-1">Click to upload logo</p>
-                        <p className="text-xs text-gray-400">PNG, JPG, WebP up to 5MB</p>
+                        <p className="text-xs text-gray-400">PNG, JPG, WebP up to 2MB</p>
                       </div>
                     )}
                   </div>
@@ -301,7 +307,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                       >
                         <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600 mb-1">Click to upload banner</p>
-                        <p className="text-xs text-gray-400">PNG, JPG, WebP up to 5MB</p>
+                        <p className="text-xs text-gray-400">PNG, JPG, WebP up to 2MB</p>
                       </div>
                     )}
                   </div>

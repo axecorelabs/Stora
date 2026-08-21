@@ -243,7 +243,9 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
     const file = e.target.files[0];
     if (file) {
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      const maxSize = 5 * 1024 * 1024; // 5MB
+      // Matches lib/r2.js's validateImageFile limit -- see its comment on
+      // why 2MB, not 5MB (Vercel's request-body cap is ~4.5MB per request).
+      const maxSize = 2 * 1024 * 1024; // 2MB
 
       if (!allowedTypes.includes(file.type)) {
         setNewVariantError('Only JPEG, PNG, and WebP images are allowed');
@@ -251,7 +253,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
       }
 
       if (file.size > maxSize) {
-        setNewVariantError('Image size must be less than 5MB');
+        setNewVariantError('Image size must be less than 2MB');
         return;
       }
 
@@ -897,7 +899,7 @@ export default function AddBatchModal({ isOpen, onClose, onSubmit, item }) {
                                 >
                                   <Upload className="w-8 h-8 text-gray-400 mb-2" />
                                   <p className="text-sm text-gray-500">Click to upload variant image</p>
-                                  <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP (max 5MB)</p>
+                                  <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP (max 2MB)</p>
                                 </div>
                               )}
                               
