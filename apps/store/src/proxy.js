@@ -5,8 +5,9 @@ import { redis, withTimeout } from '@/lib/redis';
 // Sliding-window per-route limiters, keyed by client IP. Each is a
 // standalone Ratelimit instance (Upstash's recommended pattern) so
 // different routes don't share a budget. Despite the name, also covers
-// the exact-path payment routes below -- same "explicit map keyed by
-// exact pathname" mechanism as the auth routes, just not auth itself.
+// the exact-path payment/checkout routes below -- same "explicit map
+// keyed by exact pathname" mechanism as the auth routes, just not auth
+// itself.
 const authLimiters = {
   '/api/auth/customer/login': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '5 m'), prefix: 'store:rl:login' }),
   '/api/auth/customer/register': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 h'), prefix: 'store:rl:register' }),
@@ -23,6 +24,14 @@ const authLimiters = {
   // just need a generous bound so they're never starved by browseLimiter.
   '/api/payments/webhook': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(120, '1 m'), prefix: 'store:rl:payments-webhook' }),
   '/api/payments/cleanup-abandoned': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m'), prefix: 'store:rl:payments-cleanup' }),
+  // Neither of these was covered by the matcher at all until now -- both
+  // were completely unlimited. Sized like the payment routes above rather
+  // than the generous browse bucket below: placing an order is a rare,
+  // meaningful-per-session action (payments/initiate-level sensitivity),
+  // and even genuine rapid shopping rarely adds more than a handful of
+  // items to cart in five minutes.
+  '/api/orders/create': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '5 m'), prefix: 'store:rl:orders-create' }),
+  '/api/cart/add': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '5 m'), prefix: 'store:rl:cart-add' }),
 };
 
 // Real navigations, genuine API calls, AND Next.js's own silent <Link>
@@ -103,6 +112,8 @@ export const config = {
     '/api/stores/:path*',
     '/api/products/:path*',
     '/api/search/:path*',
+    '/api/orders/:path*',
+    '/api/cart/:path*',
     '/((?!api|_next/static|_next/image|favicon\\.ico|cart|wishlist|orders|reset-password).*)',
   ],
 };
