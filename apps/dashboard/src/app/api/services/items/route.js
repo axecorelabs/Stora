@@ -39,9 +39,9 @@ export async function POST(request) {
     for (const file of portfolioFiles) {
       if (file && file.size > 0) {
         try {
-          validateImageFile(file);
+          const { buffer, contentType } = await validateImageFile(file);
           const fileKey = generateFileKey(user.id.toString(), file.name);
-          const imageUrl = await uploadToR2(file, fileKey);
+          const imageUrl = await uploadToR2(buffer, fileKey, contentType);
           portfolioUrls.push(imageUrl);
         } catch (error) {
           console.error('Error uploading portfolio image:', error);

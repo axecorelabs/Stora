@@ -25,8 +25,9 @@ export async function POST(req) {
     }
 
     // Validate the image file
+    let buffer, contentType;
     try {
-      validateImageFile(file);
+      ({ buffer, contentType } = await validateImageFile(file));
     } catch (error) {
       return NextResponse.json(
         { success: false, message: error.message },
@@ -38,7 +39,7 @@ export async function POST(req) {
     const fileKey = generateFileKey(user.id, file.name);
 
     // Upload to R2
-    const imageUrl = await uploadToR2(file, fileKey);
+    const imageUrl = await uploadToR2(buffer, fileKey, contentType);
 
     return NextResponse.json({
       success: true,

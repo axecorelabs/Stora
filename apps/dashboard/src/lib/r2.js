@@ -23,8 +23,11 @@ const BUCKET_NAME = process.env.R2_BUCKET_NAME;
 // Base URL the bucket is publicly reachable at (custom domain or r2.dev), no trailing slash.
 const PUBLIC_URL_BASE = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
 
-// Upload file to R2
-export async function uploadToR2(file, key) {
+// Upload file to R2. `contentTypeOverride` -- pass the value validateImageFile
+// already verified against the actual file bytes, rather than falling back
+// to file.type (the browser-reported Content-Type, which a raw multipart
+// request can set to anything regardless of the real file contents).
+export async function uploadToR2(file, key, contentTypeOverride) {
   try {
     let buffer;
     if (file instanceof Buffer) {
@@ -38,7 +41,7 @@ export async function uploadToR2(file, key) {
       Bucket: BUCKET_NAME,
       Key: key,
       Body: buffer,
-      ContentType: file.type || 'application/octet-stream',
+      ContentType: contentTypeOverride || file.type || 'application/octet-stream',
       Metadata: {
         'upload-timestamp': Date.now().toString()
       }
@@ -91,8 +94,38 @@ export function generateFileKey(userId, originalName) {
   return `inventory/${userId}/${timestamp}-${randomString}.${extension}`;
 }
 
-// Validate image file
-export function validateImageFile(file) {
+// The browser-reported file.type checked below is trivially spoofable in a
+// raw multipart request (it's just a Content-Type string the uploader
+// chose) -- this sniffs the actual leading bytes of each allowed format
+// instead of trusting that claim. No library for this that a repo-wide
+// check turned up, and only three signatures are needed, so a small
+// dependency-free check beats pulling one in.
+function detectImageMimeType(buffer) {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47 &&
+    buffer[4] === 0x0d && buffer[5] === 0x0a && buffer[6] === 0x1a && buffer[7] === 0x0a
+  ) {
+    return 'image/png';
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+  return null;
+}
+
+// Validate image file. Returns { buffer, contentType } on success -- the
+// buffer so callers don't need to read the file a second time, and
+// contentType so uploadToR2 stores/serves the format actually verified from
+// the bytes, never the client's (unverified) claim.
+export async function validateImageFile(file) {
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   const maxSize = 5 * 1024 * 1024; // 5MB
 
@@ -104,7 +137,13 @@ export function validateImageFile(file) {
     throw new Error('Image size must be less than 5MB');
   }
 
-  return true;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const contentType = detectImageMimeType(buffer);
+  if (!contentType) {
+    throw new Error('This file does not appear to be a valid JPEG, PNG, or WebP image');
+  }
+
+  return { buffer, contentType };
 }
 
 // Generate presigned URL for private access (if needed)

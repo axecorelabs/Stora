@@ -91,8 +91,8 @@ export async function PUT(req) {
     // Handle logo upload
     if (logoFile && logoFile.size > 0) {
       try {
-        validateImageFile(logoFile);
-        
+        const { buffer, contentType } = await validateImageFile(logoFile);
+
         // Delete old logo if exists
         if (currentBranding.logo) {
           try {
@@ -107,7 +107,7 @@ export async function PUT(req) {
 
         // Upload new logo
         const logoKey = generateFileKey(user.id, `logo-${logoFile.name}`);
-        const logoUrl = await uploadToR2(logoFile, logoKey);
+        const logoUrl = await uploadToR2(buffer, logoKey, contentType);
         updatedBranding.logo = logoUrl;
         
       } catch (uploadError) {
@@ -121,8 +121,8 @@ export async function PUT(req) {
     // Handle banner upload
     if (bannerFile && bannerFile.size > 0) {
       try {
-        validateImageFile(bannerFile);
-        
+        const { buffer, contentType } = await validateImageFile(bannerFile);
+
         // Delete old banner if exists
         if (currentBranding.banner) {
           try {
@@ -137,7 +137,7 @@ export async function PUT(req) {
 
         // Upload new banner
         const bannerKey = generateFileKey(user.id, `banner-${bannerFile.name}`);
-        const bannerUrl = await uploadToR2(bannerFile, bannerKey);
+        const bannerUrl = await uploadToR2(buffer, bannerKey, contentType);
         updatedBranding.banner = bannerUrl;
         
       } catch (uploadError) {
