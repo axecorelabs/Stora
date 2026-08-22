@@ -40,6 +40,27 @@ function formatShortDate(dateString) {
   return new Date(dateString).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+// order_payments.status -- did the customer's charge itself succeed, as
+// opposed to split.status (Processing/Paid out/Refunded below), which is
+// about whether THIS vendor has been paid out yet. Every row reaching this
+// page already passed the CHARGED_STATUSES gate in the API route, so this
+// is always one of these three, never 'pending'/'failed'. On a multi-vendor
+// order, 'partially_refunded'/'refunded' here reflects the whole order --
+// it can say refunded even when this vendor's own split wasn't the one
+// reversed, if another vendor on the same order was.
+function getPaymentStatusBadge(paymentStatus) {
+  switch (paymentStatus) {
+    case 'completed':
+      return { label: 'Paid', className: 'bg-green-100 text-green-800', Icon: CheckCircle2 };
+    case 'partially_refunded':
+      return { label: 'Partially refunded', className: 'bg-amber-100 text-amber-700', Icon: Undo2 };
+    case 'refunded':
+      return { label: 'Refunded', className: 'bg-gray-100 text-gray-700', Icon: Undo2 };
+    default:
+      return { label: paymentStatus || 'Unknown', className: 'bg-gray-100 text-gray-700', Icon: Clock };
+  }
+}
+
 export default function PaymentsPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
@@ -129,6 +150,20 @@ export default function PaymentsPage() {
     { title: 'Refunded', value: formatCurrency(stats.totalRefunded), icon: Undo2, tone: 'gold', description: 'Recorded refunds/disputes' },
     { title: 'Transactions', value: stats.transactionCount.toString(), icon: Receipt, tone: 'gold', description: 'All-time paid orders' }
   ] : [];
+
+  // statusFilter here is the Payout filter (paid/processing/refunded) --
+  // called out by name since "Refunded" now means two different things on
+  // this page (payment refunded vs. payout reversed) and the empty state
+  // should be specific about which one an active filter is asking about.
+  const emptyStateMessage = searchTerm
+    ? 'Try adjusting your search'
+    : statusFilter === 'paid'
+      ? 'No paid-out transactions yet'
+      : statusFilter === 'processing'
+        ? 'No transactions awaiting payout'
+        : statusFilter === 'refunded'
+          ? 'No payouts have been reversed'
+          : "Paid orders will show up here, with both the customer's payment and your payout status";
 
   if (isLoading) {
     return (
@@ -340,7 +375,8 @@ export default function PaymentsPage() {
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Gross</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Net</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payout</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 w-10"></th>
               </tr>
@@ -348,13 +384,11 @@ export default function PaymentsPage() {
             <tbody className="bg-white divide-y divide-gray-100">
               {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-4 lg:px-6 py-12 text-center">
+                  <td colSpan="8" className="px-4 lg:px-6 py-12 text-center">
                     <div className="flex flex-col items-center">
                       <Wallet className="w-12 h-12 text-gray-300 mb-4" />
                       <p className="text-gray-500 text-lg font-medium mb-2">No transactions found</p>
-                      <p className="text-gray-400 text-sm">
-                        {statusFilter || searchTerm ? 'Try adjusting your search or filter' : 'Paid orders will show up here'}
-                      </p>
+                      <p className="text-gray-400 text-sm">{emptyStateMessage}</p>
                     </div>
                   </td>
                 </tr>
@@ -393,6 +427,17 @@ export default function PaymentsPage() {
                           <div className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(tx.netAmount)}</div>
                         </td>
                         <td className="px-4 lg:px-6 py-3">
+                          {(() => {
+                            const { label, className, Icon } = getPaymentStatusBadge(tx.paymentStatus);
+                            return (
+                              <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap ${className}`}>
+                                <Icon className="w-3 h-3 mr-1" />
+                                {label}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-4 lg:px-6 py-3">
                           <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
                             isRefunded ? 'bg-gray-100 text-gray-700' : isSettled ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-700'
                           }`}>
@@ -415,7 +460,7 @@ export default function PaymentsPage() {
 
                       {isExpanded && (
                         <tr>
-                          <td colSpan="7" className="px-4 md:px-8 py-4 md:py-6 bg-gray-50/60 border-b border-gray-100">
+                          <td colSpan="8" className="px-4 md:px-8 py-4 md:py-6 bg-gray-50/60 border-b border-gray-100">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div>
                                 <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Payment method</p>
