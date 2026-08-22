@@ -8,11 +8,7 @@ export {
   createSession,
   verifyCustomerSession,
   deleteSession,
-  logoutCustomer,
-  isValidEmail,
-  validatePassword,
-  generateSessionId,
-  parseCookies
+  logoutCustomer
 } from './supabaseAuth';
 function generateSessionId() {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);

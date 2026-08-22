@@ -21,6 +21,41 @@ import { useCart } from "@/contexts/CartContext";
 import { useDeliveryState } from "@/contexts/DeliveryStateContext";
 import WhatsAppContactModal from "@/components/orders/WhatsAppContactModal";
 import OrderModal from "@/components/cart/OrderModal";
+import { computeStoreCheckoutAmount, estimatePaystackFee } from "@stora/shared-constants";
+
+// Mirrors the fee/commission math computePaymentSplit uses server-side
+// (apps/store/src/app/api/orders/create/route.js) via the same shared
+// functions, so what's previewed here can never drift from what actually
+// gets charged. Additive to whatever total the caller already displays
+// (never recomputes it) -- deliberately excludes delivery fee and
+// contact-only (non-Paystack) stores, since neither factors into
+// computePaymentSplit's own calculation either.
+function computeCheckoutFeePreview(groups, commissionRate, minimumCommission) {
+  const payableGroups = (groups || []).filter(g => g.paystackReady);
+  if (payableGroups.length === 0 || !commissionRate) {
+    return { commissionPassThrough: 0, estimatedPaystackFee: 0 };
+  }
+
+  let payableSubtotal = 0;
+  let commissionPassThrough = 0;
+
+  for (const group of payableGroups) {
+    const grossAmount = group.items.reduce((sum, item) => sum + (item.subtotal || item.price * item.quantity), 0);
+    const { commissionAmount, customerAmount, bearer } = computeStoreCheckoutAmount({
+      grossAmount,
+      commissionBearer: group.commissionBearer,
+      commissionRate,
+      minimumCommission
+    });
+    payableSubtotal += customerAmount;
+    if (bearer === 'customer') commissionPassThrough += commissionAmount;
+  }
+
+  return {
+    commissionPassThrough,
+    estimatedPaystackFee: estimatePaystackFee(payableSubtotal)
+  };
+}
 
 // Shared by both /cart (no vendor in context -- e.g. the homepage header's
 // cart icon) and /[slug]/cart (reached while browsing one vendor's store).
@@ -449,8 +484,11 @@ export default function CartPageContent({ slug }) {
           // Same value across every item in this group -- carried
           // per-item from the fresh (not snapshot) lookup in
           // enrichCartWithProductData, same duplication convention as
-          // storeSnapshot itself.
+          // storeSnapshot itself. paystackReady/commissionBearer feed the
+          // checkout fee preview below (computeCheckoutFeePreview).
           deliveryStates: item.store_delivery_states ?? null,
+          paystackReady: item.store_paystack_ready ?? false,
+          commissionBearer: item.store_commission_bearer ?? 'vendor',
           items: [],
         };
       }
@@ -474,6 +512,11 @@ export default function CartPageContent({ slug }) {
         (acc, g) => acc.filter(s => g.deliveryStates.includes(s)),
         restrictedGroups[0].deliveryStates
       );
+
+  const wholeCartFeePreview = computeCheckoutFeePreview(storeGroups, cart.commissionRate, cart.minimumCommission);
+  const selectedStoreFeePreview = selectedStoreGroup
+    ? computeCheckoutFeePreview([selectedStoreGroup], cart.commissionRate, cart.minimumCommission)
+    : { commissionPassThrough: 0, estimatedPaystackFee: 0 };
 
   // Per-store order handlers - simplified
   const handleStorePlaceOrder = (storeGroup) => {
@@ -1037,6 +1080,8 @@ export default function CartPageContent({ slug }) {
           storeGroup={null}
           storeCount={storeGroups.length}
           totalAmount={cart.total || 0}
+          commissionPassThrough={wholeCartFeePreview.commissionPassThrough}
+          estimatedPaystackFee={wholeCartFeePreview.estimatedPaystackFee}
           itemCount={getCartCount()}
           deliverableStates={wholeCartDeliverableStates}
           deliveryState={deliveryState}
@@ -1114,6 +1159,8 @@ export default function CartPageContent({ slug }) {
             (sum, item) => sum + (item.subtotal || item.price * item.quantity),
             0
           )}
+          commissionPassThrough={selectedStoreFeePreview.commissionPassThrough}
+          estimatedPaystackFee={selectedStoreFeePreview.estimatedPaystackFee}
           itemCount={selectedStoreGroup?.items.reduce((sum, item) => sum + item.quantity, 0)}
           deliverableStates={selectedStoreGroup?.deliveryStates ?? null}
           deliveryState={deliveryState}

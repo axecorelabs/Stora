@@ -372,15 +372,25 @@ export async function enrichCartWithProductData(cart) {
   // Which states each item's store actually ships to -- fetched fresh
   // here, not trusted from cart_items.store_snapshot (which only ever
   // held {store_name, store_slug} and is an add-time snapshot anyway).
-  // One batched query for the whole cart, not per item.
+  // One batched query for the whole cart, not per item. paystack_ready and
+  // commission_bearer ride along on the same query -- both needed by the
+  // cart page's checkout-total preview (CartPageContent.js) to mirror
+  // computePaymentSplit's real math (orders/create/route.js) without a
+  // second round trip.
   const distinctStoreIds = [...new Set(cart.items.map(item => item.store_id).filter(Boolean))];
   let deliveryStatesByStore = {};
+  let paystackReadyByStore = {};
+  let commissionBearerByStore = {};
   if (distinctStoreIds.length > 0) {
     const { data: stores } = await supabaseAdmin
       .from('stores')
-      .select('id, delivery_states')
+      .select('id, delivery_states, paystack_ready, commission_bearer')
       .in('id', distinctStoreIds);
-    (stores || []).forEach(s => { deliveryStatesByStore[s.id] = s.delivery_states || null; });
+    (stores || []).forEach(s => {
+      deliveryStatesByStore[s.id] = s.delivery_states || null;
+      paystackReadyByStore[s.id] = Boolean(s.paystack_ready);
+      commissionBearerByStore[s.id] = s.commission_bearer === 'customer' ? 'customer' : 'vendor';
+    });
   }
 
   const enrichedItems = await Promise.all(
@@ -427,7 +437,9 @@ export async function enrichCartWithProductData(cart) {
           isAvailable: product.isActive && availableStock >= item.quantity,
           price_changed: parseFloat(currentPrice) !== parseFloat(item.price),
           stock_sufficient: availableStock >= item.quantity,
-          store_delivery_states: deliveryStatesByStore[item.store_id] ?? null
+          store_delivery_states: deliveryStatesByStore[item.store_id] ?? null,
+          store_paystack_ready: paystackReadyByStore[item.store_id] ?? false,
+          store_commission_bearer: commissionBearerByStore[item.store_id] ?? 'vendor'
         };
       } catch (error) {
         console.error(`Error enriching cart item ${item.product_id}:`, error);
@@ -435,7 +447,9 @@ export async function enrichCartWithProductData(cart) {
           ...item,
           isAvailable: false,
           error: 'Failed to load product data',
-          store_delivery_states: deliveryStatesByStore[item.store_id] ?? null
+          store_delivery_states: deliveryStatesByStore[item.store_id] ?? null,
+          store_paystack_ready: paystackReadyByStore[item.store_id] ?? false,
+          store_commission_bearer: commissionBearerByStore[item.store_id] ?? 'vendor'
         };
       }
     })
@@ -629,6 +643,14 @@ export function sanitizeCart(cart) {
     last_updated: cart.last_updated,
     expires_at: cart.expires_at,
     created_at: cart.created_at,
-    updated_at: cart.updated_at
+    updated_at: cart.updated_at,
+    // Rides along on the cart response so the checkout-total preview
+    // (CartPageContent.js, via computeStoreCheckoutAmount in
+    // @stora/shared-constants) uses the exact same constants
+    // computePaymentSplit does server-side at order-creation time --
+    // reading from the one real env var here rather than a separate
+    // NEXT_PUBLIC_-prefixed copy that could drift out of sync with it.
+    commissionRate: parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02'),
+    minimumCommission: parseFloat(process.env.PLATFORM_MINIMUM_COMMISSION || '200')
   };
 }

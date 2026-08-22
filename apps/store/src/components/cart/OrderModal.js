@@ -21,6 +21,12 @@ export default function OrderModal({
   // -- used only to pre-fill the state field below, never trusted as the
   // real shipping address itself.
   totalAmount,
+  commissionPassThrough = 0, // Platform commission passed to the customer
+  // (commission_bearer: 'customer'), already excluded from totalAmount --
+  // shown as its own line, then folded into the final total below.
+  estimatedPaystackFee = 0, // Paystack's own processing fee, passed to the
+  // customer -- see packages/shared-constants/checkoutFees.js. Same
+  // treatment: shown separately, then included in the final total.
   itemCount,
   primaryColor,
   secondaryColor,
@@ -460,11 +466,23 @@ export default function OrderModal({
                     <span className="font-semibold text-gray-900 tabular-nums">{storeCount}</span>
                   </div>
                 )}
+                {commissionPassThrough > 0 && (
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-gray-600">Platform fee:</span>
+                    <span className="font-semibold text-gray-900 tabular-nums">{formatPrice(commissionPassThrough)}</span>
+                  </div>
+                )}
+                {estimatedPaystackFee > 0 && (
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-gray-600">Payment processing fee:</span>
+                    <span className="font-semibold text-gray-900 tabular-nums">{formatPrice(estimatedPaystackFee)}</span>
+                  </div>
+                )}
                 <div className="border-t border-dashed border-brand-200/70 my-2"></div>
                 <div className="flex justify-between items-end">
                   <span className="text-sm sm:text-base font-semibold text-gray-900">Total amount:</span>
                   <span className="text-lg sm:text-xl font-bold text-brand-800 tabular-nums">
-                    {formatPrice(totalAmount)}
+                    {formatPrice(totalAmount + commissionPassThrough + estimatedPaystackFee)}
                   </span>
                 </div>
               </div>
