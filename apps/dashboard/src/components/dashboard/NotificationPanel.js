@@ -140,10 +140,12 @@ export default function NotificationPanel({ isOpen, onClose }) {
         onClick={onClose}
       />
       
-      {/* Notification Panel */}
-      <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col">
+      {/* Notification Panel -- full-width on mobile (w-96 would overflow off
+          the edge of most phone screens), capped back to its original
+          width at lg: and up. */}
+      <div className="fixed right-0 top-0 h-full w-full lg:w-96 bg-white shadow-2xl z-50 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <Bell className="w-6 h-6 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
@@ -160,7 +162,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
         <div className="flex border-b border-gray-200">
           <button
             onClick={() => setFilter('all')}
-            className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 lg:px-6 py-3 text-sm font-medium transition-colors ${
               filter === 'all'
                 ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
@@ -170,7 +172,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
           </button>
           <button
             onClick={() => setFilter('unread')}
-            className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 lg:px-6 py-3 text-sm font-medium transition-colors ${
               filter === 'unread'
                 ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
@@ -239,10 +241,13 @@ export default function NotificationPanel({ isOpen, onClose }) {
                     </div>
                   </div>
 
-                  {/* Dismiss */}
+                  {/* Dismiss -- opacity-0 + hover-reveal never fires on
+                      touch, so it was invisible and unreachable below lg:.
+                      Always visible on mobile, hover-reveal only where
+                      hover actually works. */}
                   <button
                     onClick={(e) => { e.stopPropagation(); dismissNotification(notification._id); }}
-                    className="absolute top-4 right-4 p-1 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-4 right-4 p-1 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-md opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
                     title="Dismiss"
                   >
                     <X className="w-3.5 h-3.5" />

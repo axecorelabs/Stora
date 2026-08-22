@@ -97,13 +97,13 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-teal-100 rounded-xl">
               <Package className="w-6 h-6 text-teal-600" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Select Variant</h2>
+              <h2 className="text-lg lg:text-xl font-semibold text-gray-900">Select Variant</h2>
               <p className="text-sm text-gray-500">{item.productName}</p>
             </div>
           </div>
@@ -116,9 +116,9 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+        <div className="p-4 lg:p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
           {/* Product Info */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-xl">
+          <div className="mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-50 rounded-xl">
             <div className="flex items-center space-x-4">
               {item.image && (
                 <div className="w-20 h-20 bg-white rounded-lg overflow-hidden">
@@ -140,7 +140,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
           </div>
 
           {/* Color Selection */}
-          <div className="mb-6">
+          <div className="mb-4 lg:mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-3">
               Select Color *
             </label>
@@ -148,7 +148,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
               {Object.keys(variantsByColor).map(color => {
                 const totalStock = variantsByColor[color].reduce((sum, v) => sum + v.quantityInStock, 0);
                 const isOutOfStock = totalStock === 0;
-                
+
                 return (
                   <button
                     key={color}
@@ -160,7 +160,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
                       }
                     }}
                     disabled={isOutOfStock}
-                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    className={`p-3 lg:p-4 rounded-xl border-2 text-left transition-all ${
                       selectedColor === color
                         ? 'border-teal-500 bg-teal-50'
                         : isOutOfStock
@@ -186,14 +186,14 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
 
           {/* Size Selection */}
           {selectedColor && (
-            <div className="mb-6">
+            <div className="mb-4 lg:mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Select Size *
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {availableSizes.map(({ size, stock, sku }) => {
                   const isOutOfStock = stock === 0;
-                  
+
                   return (
                     <button
                       key={sku}
@@ -204,7 +204,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
                         }
                       }}
                       disabled={isOutOfStock}
-                      className={`p-4 rounded-xl border-2 text-center transition-all ${
+                      className={`p-3 lg:p-4 rounded-xl border-2 text-center transition-all ${
                         selectedSize === size
                           ? 'border-teal-500 bg-teal-50'
                           : isOutOfStock
@@ -229,7 +229,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
 
           {/* Quantity Selection */}
           {selectedVariant && (
-            <div className="mb-6">
+            <div className="mb-4 lg:mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Quantity
               </label>
@@ -272,7 +272,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
 
           {/* Selection Summary */}
           {selectedVariant && (
-            <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+            <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 lg:p-4">
               <div className="flex items-start space-x-3">
                 <AlertCircle className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
@@ -294,7 +294,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
 
           {/* Low Stock Warning */}
           {selectedVariant && selectedVariant.quantityInStock <= selectedVariant.reorderLevel && (
-            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 lg:p-4">
               <div className="flex items-start space-x-3">
                 <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
@@ -309,18 +309,18 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 bg-gray-50">
+        <div className="p-4 lg:p-6 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center space-x-3">
             <button
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-white transition-colors font-medium"
+              className="flex-1 px-4 lg:px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-white transition-colors font-medium"
             >
               Cancel
             </button>
             <button
               onClick={handleAddToCart}
               disabled={!selectedVariant}
-              className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center space-x-2"
+              className="flex-1 px-4 lg:px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center space-x-2"
             >
               <ShoppingCart className="w-5 h-5" />
               <span>Add to Cart</span>
