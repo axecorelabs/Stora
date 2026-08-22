@@ -14,6 +14,8 @@ import {
   Banknote,
   Undo2,
   CheckCircle2,
+  Clock,
+  Calendar,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
@@ -26,9 +28,17 @@ import {
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Transactions' },
-  { value: 'paid', label: 'Paid' },
+  { value: 'paid', label: 'Paid out' },
+  { value: 'processing', label: 'Processing' },
   { value: 'refunded', label: 'Refunded' }
 ];
+
+// Nigerian date, no year for the "next payout" banner -- always near-term
+// (the pipeline behind it is a rolling T+1 estimate), so a bare year adds
+// noise without adding information.
+function formatShortDate(dateString) {
+  return new Date(dateString).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
 
 export default function PaymentsPage() {
   const router = useRouter();
@@ -45,6 +55,7 @@ export default function PaymentsPage() {
     commissionBearer,
     commissionRate,
     minimumCommission,
+    nextPayout,
     pagination,
     isLoading,
     isFetching,
@@ -114,7 +125,7 @@ export default function PaymentsPage() {
   // vendor couldn't already get by summing the rows themselves.
   const statsCards = stats ? [
     { title: 'Total Collected', value: formatCurrency(stats.totalGross), icon: TrendingUp, tone: 'brand', description: 'Gross sales through Stora' },
-    { title: 'Net Earnings', value: formatCurrency(stats.totalNet), icon: Banknote, tone: 'brand', description: 'Settled to your bank via Paystack' },
+    { title: 'Net Earnings', value: formatCurrency(stats.totalNet), icon: Banknote, tone: 'brand', description: 'Your take-home, paid out or pending' },
     { title: 'Refunded', value: formatCurrency(stats.totalRefunded), icon: Undo2, tone: 'gold', description: 'Recorded refunds/disputes' },
     { title: 'Transactions', value: stats.transactionCount.toString(), icon: Receipt, tone: 'gold', description: 'All-time paid orders' }
   ] : [];
@@ -189,6 +200,25 @@ export default function PaymentsPage() {
           {payoutAccount?.ready ? 'Manage payout account' : 'Set up payouts'}
         </button>
       </div>
+
+      {/* Next payout forecast -- only shown once there's actually something
+          pending; a store with nothing unsettled has nothing to forecast. */}
+      {nextPayout && (
+        <div className="bg-brand-50 rounded-2xl border border-brand-100 p-4 lg:p-5 mb-4 lg:mb-6 flex items-center gap-3 flex-wrap">
+          <span className="flex items-center justify-center w-10 h-10 rounded-xl shrink-0 bg-brand-100 text-brand-800">
+            <Calendar className="w-5 h-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-gray-900">
+              Next payout: {new Date(nextPayout.date).getTime() <= Date.now() ? 'any day now' : formatShortDate(nextPayout.date)}
+              <span className="font-normal text-gray-600"> — ~{formatCurrency(nextPayout.amount)} across {nextPayout.count} transaction{nextPayout.count === 1 ? '' : 's'}</span>
+            </p>
+            <p className="text-xs text-gray-500">
+              Estimated from Paystack's usual next-business-day payout -- confirmed automatically once it lands
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Commission bearer */}
       <div className="bg-white rounded-2xl border border-gray-200 p-4 lg:p-5 mb-4 lg:mb-6">
@@ -331,6 +361,7 @@ export default function PaymentsPage() {
               ) : (
                 transactions.map((tx) => {
                   const isRefunded = tx.splitStatus === 'reversed';
+                  const isSettled = tx.splitStatus === 'settled';
                   const isExpanded = expandedId === tx.id;
 
                   return (
@@ -363,11 +394,16 @@ export default function PaymentsPage() {
                         </td>
                         <td className="px-4 lg:px-6 py-3">
                           <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
-                            isRefunded ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-800'
+                            isRefunded ? 'bg-gray-100 text-gray-700' : isSettled ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-700'
                           }`}>
-                            {isRefunded ? <Undo2 className="w-3 h-3 mr-1" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
-                            {isRefunded ? 'Refunded' : 'Paid'}
+                            {isRefunded ? <Undo2 className="w-3 h-3 mr-1" /> : isSettled ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
+                            {isRefunded ? 'Refunded' : isSettled ? 'Paid out' : 'Processing'}
                           </span>
+                          {!isRefunded && !isSettled && tx.estimatedPayoutDate && (
+                            <div className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">
+                              Est. {formatShortDate(tx.estimatedPayoutDate)}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 lg:px-6 py-3">
                           <div className="text-sm text-gray-600 whitespace-nowrap">{formatDate(tx.createdAt)}</div>
@@ -405,6 +441,18 @@ export default function PaymentsPage() {
                                 <div>
                                   <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Refunded at</p>
                                   <p className="text-sm font-medium text-gray-900">{tx.refundedAt ? formatDate(tx.refundedAt) : '—'}</p>
+                                </div>
+                              )}
+                              {!isRefunded && (
+                                <div>
+                                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">
+                                    {isSettled ? 'Paid out' : 'Est. payout'}
+                                  </p>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {isSettled
+                                      ? (tx.settledAt ? formatDate(tx.settledAt) : '—')
+                                      : (tx.estimatedPayoutDate ? formatShortDate(tx.estimatedPayoutDate) : '—')}
+                                  </p>
                                 </div>
                               )}
                             </div>

@@ -74,6 +74,7 @@ export function usePayments({ page = 1, status = '', search = '' }) {
     commissionBearer: paymentsQuery.data?.commissionBearer || 'vendor',
     commissionRate: paymentsQuery.data?.commissionRate ?? 0.02,
     minimumCommission: paymentsQuery.data?.minimumCommission ?? 200,
+    nextPayout: paymentsQuery.data?.nextPayout || null,
     pagination: paymentsQuery.data?.pagination || { current: 1, pages: 1, total: 0, limit: 20, hasMore: false },
 
     isLoading: paymentsQuery.isLoading,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
+import { estimateSettlementDate } from '@/lib/settlementSchedule';
 
 // Same values apps/store's checkout math reads (PLATFORM_COMMISSION_RATE,
 // PLATFORM_MINIMUM_COMMISSION in orders/create/route.js) -- surfaced here
@@ -16,6 +17,7 @@ const EMPTY_DATA = (page, limit) => ({
   commissionBearer: 'vendor',
   commissionRate: PLATFORM_COMMISSION_RATE,
   minimumCommission: PLATFORM_MINIMUM_COMMISSION,
+  nextPayout: null,
   pagination: { current: page, pages: 0, total: 0, limit, hasMore: false }
 });
 
@@ -115,6 +117,8 @@ export async function GET(req) {
       .in('order_payments.status', CHARGED_STATUSES);
 
     if (status === 'paid') {
+      query = query.eq('status', 'settled');
+    } else if (status === 'processing') {
       query = query.eq('status', 'pending');
     } else if (status === 'refunded') {
       query = query.eq('status', 'reversed');
@@ -161,12 +165,17 @@ export async function GET(req) {
       customerAmount: parseFloat(split.customer_amount ?? split.gross_amount),
       // Every row reaching this point already passed the CHARGED_STATUSES
       // filter above (the charge itself succeeded, whether or not it was
-      // later refunded), so split.status='pending' here can only mean
-      // "paid, not yet reversed" -- Paystack settles automatically (T+1)
-      // straight to the vendor's bank account, this app has no visibility
-      // into or control over that leg, so 'pending' is NOT "we haven't
-      // paid you yet". Surfaced to the UI as "Paid".
+      // later refunded). split.status is now a real settlement state:
+      // 'pending' means Paystack hasn't confirmed the payout to this
+      // vendor's bank account yet, 'settled' means the daily sync cron
+      // (apps/store/src/app/api/payments/sync-settlements/route.js) found
+      // it in a real Paystack settlement, 'reversed' means refunded.
       splitStatus: split.status,
+      settledAt: split.settled_at || null,
+      // Only meaningful while still pending -- a floor on the real payout
+      // date (see settlementSchedule.js), not a confirmation. Once settled,
+      // settledAt above is the real answer and this is no longer shown.
+      estimatedPayoutDate: split.status === 'pending' ? estimateSettlementDate(split.order_payments?.paid_at) : null,
       paymentStatus: split.order_payments?.status,
       paymentMethod: split.order_payments?.method,
       paymentProvider: split.order_payments?.provider,
@@ -206,6 +215,34 @@ export async function GET(req) {
       transactionCount: (allSplits || []).length
     };
 
+    // Next payout forecast -- every still-pending (not yet settled, not
+    // reversed) split from a charged order, reduced to the earliest
+    // estimated date among them plus the total amount riding on it. This
+    // is a forecast, not a promise: it disappears for a given transaction
+    // the moment the sync cron confirms it (split.status flips to
+    // 'settled'), and a transaction with no resolvable paid_at is dropped
+    // rather than guessed at.
+    const { data: pendingForPayout } = await supabaseAdmin
+      .from('order_payment_splits')
+      .select('net_amount_to_vendor, refunded_amount, order_payments!inner(paid_at, status)')
+      .eq('store_id', store.id)
+      .eq('status', 'pending')
+      .in('order_payments.status', CHARGED_STATUSES);
+
+    const pendingRows = pendingForPayout || [];
+    const estimatedDates = pendingRows
+      .map(row => estimateSettlementDate(row.order_payments?.paid_at))
+      .filter(Boolean)
+      .sort();
+
+    const nextPayout = estimatedDates.length > 0
+      ? {
+          date: estimatedDates[0],
+          amount: pendingRows.reduce((sum, row) => sum + parseFloat(row.net_amount_to_vendor || 0) - parseFloat(row.refunded_amount || 0), 0),
+          count: pendingRows.length
+        }
+      : null;
+
     return NextResponse.json({
       success: true,
       data: {
@@ -215,6 +252,7 @@ export async function GET(req) {
         commissionBearer: store.commission_bearer === 'customer' ? 'customer' : 'vendor',
         commissionRate: PLATFORM_COMMISSION_RATE,
         minimumCommission: PLATFORM_MINIMUM_COMMISSION,
+        nextPayout,
         pagination: {
           current: page,
           pages: Math.ceil((totalCount || 0) / limit),
