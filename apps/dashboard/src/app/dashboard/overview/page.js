@@ -118,15 +118,17 @@ export default function DashboardOverview() {
   if (isLoading) {
     return (
       <DashboardLayout title="Dashboard Overview" subtitle={getCurrentDate()}>
-        <div className="space-y-6">
-          {/* Hero Skeleton */}
-          <div className="relative bg-gray-200 rounded-3xl p-8 h-64 animate-pulse overflow-hidden">
+        <div className="space-y-4 lg:space-y-6">
+          {/* Hero Skeleton -- sized to match the real hero's mobile-first
+              dimensions below, so the loading -> loaded transition doesn't
+              visibly jump. */}
+          <div className="relative bg-gray-200 rounded-2xl lg:rounded-3xl p-5 lg:p-8 h-52 lg:h-64 animate-pulse overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skeleton-shimmer"></div>
-            <div className="relative z-10 space-y-4">
+            <div className="relative z-10 space-y-3 lg:space-y-4">
               <div className="h-4 w-32 bg-gray-300 rounded"></div>
-              <div className="h-10 w-64 bg-gray-300 rounded"></div>
-              <div className="h-4 w-96 bg-gray-300 rounded"></div>
-              <div className="h-12 w-40 bg-gray-300 rounded-xl mt-6"></div>
+              <div className="h-8 lg:h-10 w-48 lg:w-64 bg-gray-300 rounded"></div>
+              <div className="h-4 w-72 lg:w-96 bg-gray-300 rounded"></div>
+              <div className="h-11 lg:h-12 w-36 lg:w-40 bg-gray-300 rounded-xl mt-4 lg:mt-6"></div>
             </div>
           </div>
 
@@ -134,9 +136,9 @@ export default function DashboardOverview() {
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
             <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="p-5 animate-pulse">
+                <div key={i} className="p-4 lg:p-5 animate-pulse">
                   <div className="h-3 w-16 bg-gray-200 rounded"></div>
-                  <div className="h-7 w-12 bg-gray-200 rounded mt-3 mb-2"></div>
+                  <div className="h-6 lg:h-7 w-12 bg-gray-200 rounded mt-3 mb-2"></div>
                   <div className="h-3 w-24 bg-gray-200 rounded"></div>
                 </div>
               ))}
@@ -144,28 +146,28 @@ export default function DashboardOverview() {
           </div>
 
           {/* Revenue + categories Skeleton */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-200 animate-pulse">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+            <div className="lg:col-span-2 bg-white rounded-2xl p-4 lg:p-6 border border-gray-200 animate-pulse">
               <div className="h-4 w-20 bg-gray-200 rounded"></div>
-              <div className="h-7 w-24 bg-gray-200 rounded mt-4"></div>
-              <div className="h-56 mt-4 bg-gray-100 rounded-xl"></div>
+              <div className="h-6 lg:h-7 w-24 bg-gray-200 rounded mt-4"></div>
+              <div className="h-48 lg:h-56 mt-4 bg-gray-100 rounded-xl"></div>
             </div>
-            <div className="bg-white rounded-2xl p-6 border border-gray-200 animate-pulse">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-200 animate-pulse">
               <div className="h-4 w-28 bg-gray-200 rounded mb-4"></div>
-              <div className="h-56 bg-gray-100 rounded-xl"></div>
+              <div className="h-48 lg:h-56 bg-gray-100 rounded-xl"></div>
             </div>
           </div>
 
           {/* Orders + pending Skeleton */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl p-6 border border-gray-200 animate-pulse">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-200 animate-pulse">
               <div className="h-4 w-16 bg-gray-200 rounded"></div>
-              <div className="h-7 w-16 bg-gray-200 rounded mt-4"></div>
-              <div className="h-56 mt-4 bg-gray-100 rounded-xl"></div>
+              <div className="h-6 lg:h-7 w-16 bg-gray-200 rounded mt-4"></div>
+              <div className="h-48 lg:h-56 mt-4 bg-gray-100 rounded-xl"></div>
             </div>
-            <div className="bg-white rounded-2xl p-6 border border-gray-200 h-[420px] animate-pulse">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-200 h-[380px] lg:h-[420px] animate-pulse">
               <div className="h-4 w-28 bg-gray-200 rounded"></div>
-              <div className="h-7 w-12 bg-gray-200 rounded mt-4"></div>
+              <div className="h-6 lg:h-7 w-12 bg-gray-200 rounded mt-4"></div>
               <div className="h-40 mt-4 bg-gray-100 rounded-xl"></div>
             </div>
           </div>
@@ -196,7 +198,7 @@ export default function DashboardOverview() {
             <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Store className="w-8 h-8 text-brand-800" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Stora!</h2>
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-900 mb-2">Welcome to Stora!</h2>
             <p className="text-gray-500 mb-6">
               To get started with your dashboard and inventory management, you'll need to create your store first.
             </p>
@@ -248,10 +250,10 @@ export default function DashboardOverview() {
 
   return (
     <DashboardLayout title="Dashboard Overview" subtitle={getCurrentDate()}>
-      <div className="space-y-6">
+      <div className="space-y-4 lg:space-y-6">
         <SetupChecklist />
-        {/* Hero — unchanged */}
-        <div className="relative bg-gradient-to-br from-brand-900 via-brand-800 to-brand-900 rounded-3xl p-8 overflow-hidden shadow-xl">
+        {/* Hero */}
+        <div className="relative bg-gradient-to-br from-brand-900 via-brand-800 to-brand-900 rounded-2xl lg:rounded-3xl p-5 lg:p-8 overflow-hidden shadow-xl">
           {/* Animated background elements */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-gold-500/10 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-gold-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
@@ -261,26 +263,26 @@ export default function DashboardOverview() {
             src="/stora.png"
             alt=""
             aria-hidden="true"
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-80 h-80 object-contain opacity-10 pointer-events-none select-none"
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-48 h-48 lg:w-80 lg:h-80 object-contain opacity-10 pointer-events-none select-none"
           />
 
           <div className="relative z-10">
-            <div className="flex items-center space-x-2 mb-4">
+            <div className="flex items-center space-x-2 mb-3 lg:mb-4">
               <Sparkles className="w-5 h-5 text-gold-500" />
               <p className="text-gold-500 text-sm font-semibold tracking-wide">
                 {getGreeting()}, {user?.firstName || 'User'}
               </p>
             </div>
-            <h1 className="text-4xl font-bold text-white mb-3 leading-tight">
+            <h1 className="text-2xl lg:text-4xl font-bold text-white mb-2 lg:mb-3 leading-tight">
               Your Business<br />
               <span className="text-gold-500">Dashboard</span>
             </h1>
-            <p className="text-gray-300 text-base mb-8 max-w-md">
+            <p className="text-sm lg:text-base text-gray-300 mb-6 lg:mb-8 max-w-md">
               Track performance, manage operations, and grow your business with real-time insights
             </p>
             <button
               onClick={handleNavigateToReports}
-              className="group bg-gold-500 text-brand-900 px-8 py-3.5 rounded-xl text-sm font-semibold hover:bg-gold-400 transition-all shadow-lg hover:shadow-xl flex items-center space-x-2"
+              className="group bg-gold-500 text-brand-900 px-6 py-3 lg:px-8 lg:py-3.5 rounded-xl text-sm font-semibold hover:bg-gold-400 transition-all shadow-lg hover:shadow-xl flex items-center space-x-2"
             >
               <span>View Reports</span>
               <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -297,7 +299,7 @@ export default function DashboardOverview() {
                 <button
                   key={row.key}
                   onClick={row.onClick}
-                  className="text-left p-5 hover:bg-gray-50 transition-colors"
+                  className="text-left p-4 lg:p-5 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${row.tone === 'gold' ? 'bg-gold-500/15 text-gold-600' : 'bg-brand-100 text-brand-800'}`}>
@@ -308,7 +310,7 @@ export default function DashboardOverview() {
                   {row.value === null ? (
                     <span className="inline-block w-12 h-7 bg-gray-100 animate-pulse rounded"></span>
                   ) : (
-                    <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    <p className="text-xl lg:text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
                       {row.value}
                     </p>
                   )}
@@ -320,7 +322,7 @@ export default function DashboardOverview() {
         </div>
 
         {/* Revenue + top categories */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
           <div className="lg:col-span-2 h-full">
             <RevenueTrendChart data={salesTrend} growth={revenueGrowth} onViewMore={handleNavigateToSales} />
           </div>
@@ -328,13 +330,13 @@ export default function DashboardOverview() {
         </div>
 
         {/* Orders + pending orders */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           <OrdersTrendChart data={salesTrend} onViewMore={handleNavigateToOrders} />
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 h-[420px] flex flex-col">
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 lg:p-6 h-[380px] lg:h-[420px] flex flex-col">
             <ChartCardHeader icon={Clock} title="Pending orders" onViewMore={handleNavigateToPendingOrders} tone="gold" />
 
-            <p className="text-2xl font-bold text-gray-900 mt-4">{totalPendingOrders}</p>
+            <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-4">{totalPendingOrders}</p>
             <p className="text-xs text-gray-400 mt-1 mb-4">{todayOrders} orders placed today</p>
 
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar divide-y divide-gray-50">
