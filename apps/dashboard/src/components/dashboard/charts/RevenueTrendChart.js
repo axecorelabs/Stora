@@ -22,11 +22,11 @@ export default function RevenueTrendChart({ data = [], growth = 0, onViewMore, r
   const isUp = growth >= 0;
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-200 h-full flex flex-col">
       <ChartCardHeader icon={TrendingUp} title="Revenue" onViewMore={onViewMore} />
 
       <div className="flex items-baseline gap-2 mt-4">
-        <p className="text-2xl font-bold text-gray-900">{formatCompactNaira(total)}</p>
+        <p className="text-xl lg:text-2xl font-bold text-gray-900">{formatCompactNaira(total)}</p>
         {growth !== 0 && (
           <span className={`flex items-center text-xs font-semibold ${isUp ? "text-green-600" : "text-red-500"}`}>
             {isUp ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
@@ -36,7 +36,7 @@ export default function RevenueTrendChart({ data = [], growth = 0, onViewMore, r
         <span className="text-xs text-gray-400">{rangeLabel}</span>
       </div>
 
-      <div className="flex-1 min-h-56 mt-4 -ml-2">
+      <div className="flex-1 min-h-48 lg:min-h-56 mt-4 -ml-2">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>

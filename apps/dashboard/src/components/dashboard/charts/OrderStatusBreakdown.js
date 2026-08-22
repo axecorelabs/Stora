@@ -23,16 +23,16 @@ export default function OrderStatusBreakdown({ stats, onViewMore }) {
   const total = Number(stats?.totalOrders) || 0;
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-200 h-full flex flex-col">
       <ChartCardHeader icon={ClipboardList} title="Order status" onViewMore={onViewMore} tone="gold" />
 
       {rows.length > 0 ? (
         <>
-          <p className="text-2xl font-bold text-gray-900 mt-4">
+          <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-4">
             {total}
             <span className="text-sm font-normal text-gray-400 ml-1.5">total orders</span>
           </p>
-          <div className="flex-1 flex flex-col justify-center gap-3 mt-5">
+          <div className="flex-1 flex flex-col justify-center gap-3 mt-4 lg:mt-5">
             {rows.map((row) => (
               <div key={row.key}>
                 <div className="flex items-baseline justify-between mb-1.5">

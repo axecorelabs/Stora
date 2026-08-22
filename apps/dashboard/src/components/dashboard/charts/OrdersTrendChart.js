@@ -16,15 +16,15 @@ export default function OrdersTrendChart({ data = [], onViewMore }) {
   const average = data.length > 0 ? total / data.length : 0;
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-200 h-full flex flex-col">
       <ChartCardHeader icon={ShoppingCart} title="Orders" onViewMore={onViewMore} tone="gold" />
 
       <div className="flex items-baseline gap-2 mt-4">
-        <p className="text-2xl font-bold text-gray-900">{total}</p>
+        <p className="text-xl lg:text-2xl font-bold text-gray-900">{total}</p>
         <span className="text-xs text-gray-400">last 14 days</span>
       </div>
 
-      <div className="flex-1 min-h-56 mt-4 -ml-2">
+      <div className="flex-1 min-h-48 lg:min-h-56 mt-4 -ml-2">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="20%">
             <CartesianGrid vertical={false} stroke="#e5e7eb" strokeDasharray="0" />

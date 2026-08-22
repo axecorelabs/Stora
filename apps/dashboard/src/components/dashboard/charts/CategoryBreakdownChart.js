@@ -25,11 +25,11 @@ export default function CategoryBreakdownChart({ categories = [], onViewMore }) 
   const hasData = rows.some((r) => r.value > 0);
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-200 h-full flex flex-col">
       <ChartCardHeader icon={Package} title="Top categories" onViewMore={onViewMore} />
 
       {hasData ? (
-        <div className="flex-1 flex flex-col justify-center gap-4 mt-5">
+        <div className="flex-1 flex flex-col justify-center gap-4 mt-4 lg:mt-5">
           {rows.map((row) => (
             <div key={row.name}>
               <div className="flex items-baseline justify-between mb-1.5">

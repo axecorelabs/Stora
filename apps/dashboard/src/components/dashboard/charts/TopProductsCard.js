@@ -12,11 +12,11 @@ export default function TopProductsCard({ products = [], onViewMore }) {
   const max = Math.max(...products.map((p) => p.revenue || 0), 1);
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-200 h-full flex flex-col">
+    <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-200 h-full flex flex-col">
       <ChartCardHeader icon={Award} title="Top selling products" onViewMore={onViewMore} />
 
       {products.length > 0 ? (
-        <div className="flex-1 flex flex-col gap-4 mt-5">
+        <div className="flex-1 flex flex-col gap-4 mt-4 lg:mt-5">
           {products.map((product, index) => (
             <div key={product.inventoryId || product.sku || index} className="flex items-center gap-3">
               <span className="flex items-center justify-center w-6 h-6 rounded-md bg-brand-50 text-brand-800 text-xs font-bold shrink-0">
