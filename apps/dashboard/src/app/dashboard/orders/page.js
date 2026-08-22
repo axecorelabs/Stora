@@ -329,12 +329,12 @@ function OrdersPageContent() {
 
       {/* Stats Strip - Show cached data while loading */}
       {orderStats && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 lg:mb-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
           {statsCards.map((stat, index) => {
             const IconComponent = stat.icon;
             return (
-              <div key={index} className="p-5">
+              <div key={index} className="p-4 lg:p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${
                     stat.tone === 'gold' ? 'bg-gold-500/15 text-gold-600' : 'bg-brand-100 text-brand-800'
@@ -343,7 +343,7 @@ function OrdersPageContent() {
                   </span>
                   <span className="text-sm text-gray-500">{stat.title}</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+                <p className="text-xl lg:text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
                   {stat.value}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">{stat.description}</p>
@@ -356,10 +356,10 @@ function OrdersPageContent() {
 
       {/* Orders Table */}
       <div className="bg-white rounded-2xl border border-gray-100">
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-4 lg:p-6 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-3">
-              <span className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 bg-brand-100 text-brand-800">
+            <h2 className="text-lg lg:text-xl font-semibold text-gray-900 flex items-center gap-3">
+              <span className="flex items-center justify-center w-8 h-8 lg:w-9 lg:h-9 rounded-xl shrink-0 bg-brand-100 text-brand-800">
                 <ShoppingBag className="w-4.5 h-4.5" />
               </span>
               Customer Orders
@@ -456,18 +456,18 @@ function OrdersPageContent() {
           <table className="w-full">
             <thead className="bg-gray-50/50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-4 w-10"></th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 w-10"></th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center">
+                  <td colSpan="6" className="px-4 lg:px-6 py-12 text-center">
                     <div className="flex flex-col items-center">
                       <ShoppingBag className="w-12 h-12 text-gray-300 mb-4" />
                       <p className="text-gray-500 text-lg font-medium mb-2">No orders found</p>
@@ -491,7 +491,7 @@ function OrdersPageContent() {
                         onClick={() => toggleExpanded(order.id)}
                         className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50/80' : ''}`}
                       >
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           <div className="text-sm font-medium text-gray-900">#{order.orderNumber}</div>
                           <div className="text-xs text-gray-500 flex items-center gap-1">
                             {order.isMultiVendor && (
@@ -508,7 +508,7 @@ function OrdersPageContent() {
                             {order.itemCount} item{order.itemCount !== 1 ? 's' : ''}
                           </div>
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           <div className="text-sm font-medium text-gray-900 truncate max-w-[220px]">
                             {order.customerSnapshot.firstName} {order.customerSnapshot.lastName}
                           </div>
@@ -516,22 +516,22 @@ function OrdersPageContent() {
                             {order.customerSnapshot.email}
                           </div>
                         </td>
-                        <td className="px-6 py-3 text-right">
+                        <td className="px-4 lg:px-6 py-3 text-right">
                           <div className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(order.totalAmount)}</div>
                           <div className={`text-xs whitespace-nowrap ${getPaymentStatusColor(order.paymentInfo.status)}`}>
                             {order.paymentInfo.status.charAt(0).toUpperCase() + order.paymentInfo.status.slice(1)}
                           </div>
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap ${statusInfo.color}`}>
                             <StatusIcon className="w-3 h-3 mr-1" />
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </span>
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           <div className="text-sm text-gray-600 whitespace-nowrap">{formatDate(order.createdAt)}</div>
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           {isExpanded
                             ? <ChevronUp className="w-4 h-4 text-gray-400" />
                             : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -541,7 +541,7 @@ function OrdersPageContent() {
                       {/* Expanded detail panel — items + quick contact + fulfillment actions */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan="6" className="px-6 md:px-8 py-5 md:py-6 bg-gray-50/60 border-b border-gray-100">
+                          <td colSpan="6" className="px-4 md:px-8 py-4 md:py-6 bg-gray-50/60 border-b border-gray-100">
                             {order.admin_notes && (
                               <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs md:text-sm text-amber-900">
                                 <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
@@ -551,7 +551,7 @@ function OrdersPageContent() {
                                 </div>
                               </div>
                             )}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                               {/* Items */}
                               <div className="lg:col-span-2">
                                 <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-2">
@@ -659,7 +659,7 @@ function OrdersPageContent() {
 
         {/* Pagination Controls */}
         {orders.length > 0 && pagination.pages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+          <div className="px-4 lg:px-6 py-4 border-t border-gray-100 bg-gray-50">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <span>
@@ -736,7 +736,7 @@ function OrdersPageContent() {
 
         {/* Results Summary (only show when no pagination) */}
         {orders.length > 0 && pagination.pages <= 1 && (
-          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+          <div className="px-4 lg:px-6 py-4 border-t border-gray-100 bg-gray-50">
             <p className="text-sm text-gray-600">
               Showing {filteredOrders.length} of {orders.length} orders
               {searchTerm && ` matching "${searchTerm}"`}
