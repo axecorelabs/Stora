@@ -151,6 +151,20 @@ export default function PaymentsPage() {
     { title: 'Transactions', value: stats.transactionCount.toString(), icon: Receipt, tone: 'gold', description: 'All-time paid orders' }
   ] : [];
 
+  // statusFilter here is the Payout filter (paid/processing/refunded) --
+  // called out by name since "Refunded" now means two different things on
+  // this page (payment refunded vs. payout reversed) and the empty state
+  // should be specific about which one an active filter is asking about.
+  const emptyStateMessage = searchTerm
+    ? 'Try adjusting your search'
+    : statusFilter === 'paid'
+      ? 'No paid-out transactions yet'
+      : statusFilter === 'processing'
+        ? 'No transactions awaiting payout'
+        : statusFilter === 'refunded'
+          ? 'No payouts have been reversed'
+          : "Paid orders will show up here, with both the customer's payment and your payout status";
+
   if (isLoading) {
     return (
       <DashboardLayout title="Payments" subtitle="Track what Stora has collected and paid out on your behalf">
@@ -374,9 +388,7 @@ export default function PaymentsPage() {
                     <div className="flex flex-col items-center">
                       <Wallet className="w-12 h-12 text-gray-300 mb-4" />
                       <p className="text-gray-500 text-lg font-medium mb-2">No transactions found</p>
-                      <p className="text-gray-400 text-sm">
-                        {statusFilter || searchTerm ? 'Try adjusting your search or filter' : 'Paid orders will show up here'}
-                      </p>
+                      <p className="text-gray-400 text-sm">{emptyStateMessage}</p>
                     </div>
                   </td>
                 </tr>
