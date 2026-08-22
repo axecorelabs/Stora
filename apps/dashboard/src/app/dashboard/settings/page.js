@@ -186,11 +186,11 @@ function SettingsPageInner() {
   return (
     <DashboardLayout title="Settings" subtitle="Manage your account settings">
       {/* Tabs */}
-      <div className="mb-8 bg-white rounded-2xl border border-gray-100">
+      <div className="mb-6 lg:mb-8 bg-white rounded-2xl border border-gray-100">
         <div className="flex border-b border-gray-200 overflow-x-auto">
           <button
             onClick={() => setActiveTab('account')}
-            className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`px-4 lg:px-6 py-3 lg:py-4 text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === 'account'
                 ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
@@ -201,7 +201,7 @@ function SettingsPageInner() {
           </button>
           <button
             onClick={() => setActiveTab('security')}
-            className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`px-4 lg:px-6 py-3 lg:py-4 text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === 'security'
                 ? 'text-brand-800 border-b-2 border-brand-800'
                 : 'text-gray-500 hover:text-gray-700'
@@ -213,7 +213,7 @@ function SettingsPageInner() {
           {verificationEnabled === true && (
             <button
               onClick={() => setActiveTab('verification')}
-              className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`px-4 lg:px-6 py-3 lg:py-4 text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === 'verification'
                   ? 'text-brand-800 border-b-2 border-brand-800'
                   : 'text-gray-500 hover:text-gray-700'
@@ -228,10 +228,10 @@ function SettingsPageInner() {
 
       {/* Account Info Tab */}
       {activeTab === 'account' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">Account Information</h2>
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 lg:mb-6">Account Information</h2>
               
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -281,7 +281,7 @@ function SettingsPageInner() {
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Status</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -310,10 +310,10 @@ function SettingsPageInner() {
 
       {/* Security Tab */}
       {activeTab === 'security' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 lg:mb-6 flex items-center">
                 <Lock className="w-5 h-5 mr-2" />
                 Change Password
               </h2>
@@ -467,7 +467,7 @@ function SettingsPageInner() {
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Password Requirements</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex items-start">
@@ -493,7 +493,7 @@ function SettingsPageInner() {
               </div>
             </div>
 
-            <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
+            <div className="bg-blue-50 rounded-2xl p-4 lg:p-6 border border-blue-200">
               <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
                 <Shield className="w-4 h-4 mr-2" />
                 Security Tips

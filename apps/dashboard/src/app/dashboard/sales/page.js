@@ -282,12 +282,12 @@ export default function SalesPage() {
   return (
     <DashboardLayout title="Sales Management" subtitle="View and manage all sales transactions">
       {/* Stats Strip */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 lg:mb-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
           {statsCards.map((stat, index) => {
             const IconComponent = stat.icon;
             return (
-              <div key={index} className="p-5">
+              <div key={index} className="p-4 lg:p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${
                     stat.tone === 'gold' ? 'bg-gold-500/15 text-gold-600' : 'bg-brand-100 text-brand-800'
@@ -296,7 +296,7 @@ export default function SalesPage() {
                   </span>
                   <span className="text-sm text-gray-500">{stat.title}</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+                <p className="text-xl lg:text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
                   {stat.value}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">{stat.description}</p>
@@ -308,10 +308,10 @@ export default function SalesPage() {
 
       {/* Sales Overview */}
       <div className="bg-white rounded-2xl border border-gray-100">
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-4 lg:p-6 border-b border-gray-100">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-3">
-              <span className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 bg-brand-100 text-brand-800">
+            <h2 className="text-lg lg:text-xl font-semibold text-gray-900 flex items-center gap-3">
+              <span className="flex items-center justify-center w-8 h-8 lg:w-9 lg:h-9 rounded-xl shrink-0 bg-brand-100 text-brand-800">
                 <Receipt className="w-4.5 h-4.5" />
               </span>
               Sales Transactions
@@ -419,18 +419,18 @@ export default function SalesPage() {
           <table className="w-full">
             <thead className="bg-gray-50/50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 w-10"></th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 w-10"></th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {getFilteredSales().length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center">
+                  <td colSpan="6" className="px-4 lg:px-6 py-12 text-center">
                     <div className="flex flex-col items-center">
                       <Receipt className="w-12 h-12 text-gray-300 mb-4" />
                       <p className="text-gray-500 text-lg font-medium mb-2">No sales found</p>
@@ -451,11 +451,11 @@ export default function SalesPage() {
                         onClick={() => toggleExpanded(sale.id)}
                         className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50/80' : ''}`}
                       >
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           <div className="text-sm font-mono text-gray-900">{sale.transactionId}</div>
                           <div className="text-xs text-gray-500">{formatDate(sale.saleDate)}</div>
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           <div className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
                             {sale.customer.name || 'Walk-in Customer'}
                           </div>
@@ -463,16 +463,16 @@ export default function SalesPage() {
                             <div className="text-xs text-gray-500">{sale.customer.phone}</div>
                           )}
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           <div className="flex items-center gap-1.5 text-sm text-gray-700 capitalize">
                             <span className="text-gray-400">{getPaymentMethodIcon(sale.paymentMethod)}</span>
                             {sale.paymentMethod}
                           </div>
                         </td>
-                        <td className="px-6 py-3 text-right">
+                        <td className="px-4 lg:px-6 py-3 text-right">
                           <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(sale.total)}</span>
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
                             sale.status === 'completed' ? 'bg-green-100 text-green-800' :
                             sale.status === 'refunded' ? 'bg-red-100 text-red-800' :
@@ -481,7 +481,7 @@ export default function SalesPage() {
                             {sale.status}
                           </span>
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-4 lg:px-6 py-3">
                           {isExpanded
                             ? <ChevronUp className="w-4 h-4 text-gray-400" />
                             : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -491,8 +491,8 @@ export default function SalesPage() {
                       {/* Expanded detail panel — itemized breakdown + receipt action */}
                       {isExpanded && (
                         <tr>
-                          <td colSpan="6" className="px-6 md:px-8 py-5 md:py-6 bg-gray-50/60 border-b border-gray-100">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          <td colSpan="6" className="px-4 md:px-8 py-4 md:py-6 bg-gray-50/60 border-b border-gray-100">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                               <div className="lg:col-span-2">
                                 <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-2">
                                   Items

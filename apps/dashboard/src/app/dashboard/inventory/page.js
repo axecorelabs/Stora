@@ -381,12 +381,12 @@ export default function InventoryPage() {
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 md:mb-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="p-5 animate-pulse">
+              <div key={i} className="p-3 md:p-4 lg:p-5 animate-pulse">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-7 h-7 bg-gray-200 rounded-lg"></div>
                   <div className="h-3 w-20 bg-gray-200 rounded"></div>
                 </div>
-                <div className="h-7 w-16 bg-gray-200 rounded mb-2"></div>
+                <div className="h-6 md:h-7 w-16 bg-gray-200 rounded mb-2"></div>
                 <div className="h-3 w-24 bg-gray-200 rounded"></div>
               </div>
             ))}
@@ -477,14 +477,14 @@ export default function InventoryPage() {
           {statsCards.map((stat, index) => {
             const IconComponent = stat.icon;
             return (
-              <div key={index} className="p-5">
+              <div key={index} className="p-3 md:p-4 lg:p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${stat.iconBg} ${stat.iconColor}`}>
                     <IconComponent className="w-4 h-4" />
                   </span>
                   <span className="text-sm text-gray-500">{stat.title}</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+                <p className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
                   {isLoadingStats ? (
                     <span className="inline-block w-16 h-7 bg-gray-100 animate-pulse rounded"></span>
                   ) : (
