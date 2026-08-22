@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
-async function paystackRequest(path, { method = 'GET', body } = {}) {
+async function paystackFetch(path, { method = 'GET', body } = {}) {
   const response = await fetch(`${PAYSTACK_BASE_URL}${path}`, {
     method,
     headers: {
@@ -20,6 +20,11 @@ async function paystackRequest(path, { method = 'GET', body } = {}) {
     throw error;
   }
 
+  return data;
+}
+
+async function paystackRequest(path, options) {
+  const data = await paystackFetch(path, options);
   return data.data;
 }
 
@@ -67,4 +72,27 @@ export function verifyWebhookSignature(rawBody, signatureHeader) {
 
   if (expectedBuf.length !== actualBuf.length) return false;
   return crypto.timingSafeEqual(expectedBuf, actualBuf);
+}
+
+// GET /settlement -- settlements Paystack has actually paid out (or
+// attempted to), used by the settlement-sync cron. `subaccount` narrows
+// this to one vendor's settlements when passed, but the cron never trusts
+// that filter alone -- it always confirms membership via
+// listSettlementTransactions below, so this stays correct even if the
+// filter is ever ignored or behaves differently than documented.
+export function listSettlements({ from, to, subaccount, page = 1, perPage = 50 } = {}) {
+  const params = new URLSearchParams({ page: String(page), perPage: String(perPage) });
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  if (subaccount) params.set('subaccount', subaccount);
+  return paystackFetch(`/settlement?${params.toString()}`);
+}
+
+// GET /settlement/:id/transactions -- the actual transactions bundled into
+// one settlement. This, not the settlement record itself, is what proves a
+// specific charge was paid out -- a settlement batches many transactions
+// together, so listSettlements alone can't say which order it covers.
+export function listSettlementTransactions(settlementId, { page = 1, perPage = 100 } = {}) {
+  const params = new URLSearchParams({ page: String(page), perPage: String(perPage) });
+  return paystackFetch(`/settlement/${encodeURIComponent(settlementId)}/transactions?${params.toString()}`);
 }
