@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardHeader from "./DashboardHeader";
+import MobileBottomNav from "./MobileBottomNav";
 
 const SIDEBAR_COLLAPSED_KEY = "stora-sidebar-collapsed";
 
@@ -89,7 +90,6 @@ export default function DashboardLayout({ children, title, subtitle }) {
         title={title}
         subtitle={subtitle}
         isSidebarCollapsed={isSidebarCollapsed}
-        onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
       />
 
       {/* Main content -- no left margin below lg, since the sidebar is
@@ -100,10 +100,17 @@ export default function DashboardLayout({ children, title, subtitle }) {
           stretches this whole column -- and the page itself, not just the
           table -- wider than the viewport. */}
       <div className={`flex-1 min-w-0 pt-20 bg-white transition-[margin] duration-300 ml-0 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
-        <main className="p-4 lg:p-6">
+        {/* pb-24 clears the fixed bottom nav (its own height plus the
+            safe-area inset on a notched phone) -- irrelevant at lg: and
+            up, where that nav doesn't render at all. */}
+        <main className="p-4 pb-24 lg:p-6 lg:pb-6">
           {children}
         </main>
       </div>
+
+      {/* Primary mobile nav -- replaces the header hamburger entirely
+          below lg (see DashboardHeader.js), not an addition alongside it. */}
+      <MobileBottomNav onOpenMore={() => setIsMobileSidebarOpen(true)} />
     </div>
   );
 }

@@ -56,3 +56,20 @@ body {
     animation: none;
   }
 }
+
+/* Touch press feedback -- every interactive element in the dashboard uses
+   hover: states, which give zero visual response to a tap (hover doesn't
+   fire on touch). Gated to (hover: none) so this only applies on actual
+   touch devices, never adds a mouse-click flicker on desktop. Opacity
+   rather than a scale transform -- safe on any element shape (full-width
+   list rows, cards, icon buttons) with no risk of clipping/reflow a
+   transform can cause on a wide row. */
+@media (hover: none) {
+  button:not(:disabled):active,
+  a:active,
+  [role="button"]:active,
+  summary:active {
+    opacity: 0.6;
+    transition: opacity 0.1s ease;
+  }
+}
