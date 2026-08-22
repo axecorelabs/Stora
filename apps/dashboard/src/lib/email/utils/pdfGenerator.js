@@ -1,5 +1,3 @@
-import { formatDateTime } from './formatters.js';
-
 export const generateReceiptPDF = async (orderData, saleData, storeName = 'Stora Store', storeLogoUrl = null, brandingColors = null) => {
   try {
     const { jsPDF } = await import('jspdf');

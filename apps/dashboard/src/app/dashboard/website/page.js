@@ -189,9 +189,9 @@ export default function WebsitePage() {
   if (isInitialLoading) {
     return (
       <DashboardLayout title="Website Management" subtitle="Manage your online store presence">
-        <div className="space-y-8">
+        <div className="space-y-4 lg:space-y-8">
           {/* Header Skeleton */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 animate-pulse">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100 animate-pulse">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="w-14 h-14 bg-gray-200 rounded-2xl"></div>
@@ -208,16 +208,16 @@ export default function WebsitePage() {
           </div>
 
           {/* Content Grid Skeleton */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
             <div className="lg:col-span-2">
-              <div className="bg-white rounded-2xl p-6 border border-gray-100 animate-pulse">
+              <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100 animate-pulse">
                 <div className="h-6 w-40 bg-gray-200 rounded mb-6"></div>
                 <div className="h-96 bg-gray-200 rounded-xl"></div>
               </div>
             </div>
             <div className="space-y-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white rounded-2xl p-6 border border-gray-100 animate-pulse">
+                <div key={i} className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100 animate-pulse">
                   <div className="h-6 w-32 bg-gray-200 rounded mb-4"></div>
                   <div className="space-y-3">
                     <div className="h-4 bg-gray-200 rounded"></div>
@@ -288,14 +288,14 @@ export default function WebsitePage() {
   return (
     <DashboardLayout title="Website Management" subtitle="Manage your online store presence">
       {/* Website Header */}
-      <div className="mb-6 bg-white rounded-2xl p-6 border border-gray-100">
+      <div className="mb-4 lg:mb-6 bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center space-x-4">
-            <div className="p-3 bg-brand-100 rounded-2xl">
+            <div className="p-2.5 lg:p-3 bg-brand-100 rounded-2xl">
               <Globe className="w-8 h-8 text-brand-800" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{store.storeName}</h1>
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-900">{store.storeName}</h1>
               <div className="flex items-center flex-wrap gap-2 mt-1">
                 <span className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${websiteStatus.badge}`}>
                   {websiteStatus.text}
@@ -382,49 +382,49 @@ export default function WebsitePage() {
       </div>
 
       {/* Website Stats Strip */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 lg:mb-8">
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-          <div className="p-5">
+          <div className="p-4 lg:p-5">
             <div className="flex items-center gap-2 mb-3">
               <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand-100 text-brand-800">
                 <Eye className="w-4 h-4" />
               </span>
               <span className="text-sm text-gray-500">Total Views</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <p className="text-xl lg:text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
               {websiteStats?.totalViews ?? 0}
             </p>
           </div>
-          <div className="p-5">
+          <div className="p-4 lg:p-5">
             <div className="flex items-center gap-2 mb-3">
               <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-gold-500/15 text-gold-600">
                 <Users className="w-4 h-4" />
               </span>
               <span className="text-sm text-gray-500">Monthly Views</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <p className="text-xl lg:text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
               {websiteStats?.monthlyViews ?? 0}
             </p>
           </div>
-          <div className="p-5">
+          <div className="p-4 lg:p-5">
             <div className="flex items-center gap-2 mb-3">
               <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-brand-100 text-brand-800">
                 <BarChart3 className="w-4 h-4" />
               </span>
               <span className="text-sm text-gray-500">Total Orders</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <p className="text-xl lg:text-2xl font-bold text-gray-900" style={{ fontVariantNumeric: "tabular-nums" }}>
               {websiteStats?.totalOrders ?? 0}
             </p>
           </div>
-          <div className="p-5">
+          <div className="p-4 lg:p-5">
             <div className="flex items-center gap-2 mb-3">
               <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-gold-500/15 text-gold-600">
                 <Clock className="w-4 h-4" />
               </span>
               <span className="text-sm text-gray-500">Last Visit</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-xl lg:text-2xl font-bold text-gray-900">
               {websiteStats?.lastVisit
                 ? new Date(websiteStats.lastVisit).toLocaleDateString()
                 : '—'}
@@ -434,11 +434,11 @@ export default function WebsitePage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
         {/* Left Column - Website Preview & Info */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-4 lg:space-y-8">
           {/* Website Preview */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
             <SectionHeader
               icon={Globe}
               title="Website Preview"
@@ -726,7 +726,7 @@ export default function WebsitePage() {
           </div>
 
           {/* Store Information Display */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
             <SectionHeader icon={Store} title="Store Information" tone="gold" />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -811,7 +811,7 @@ export default function WebsitePage() {
         {/* Right Column - Social & Tips */}
         <div className="space-y-6">
           {/* Social Media Links */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
             <SectionHeader icon={Share2} title="Social Media Links" />
             {socialMediaLinks.length > 0 ? (
               <>
@@ -867,7 +867,7 @@ export default function WebsitePage() {
           </div>
 
           {/* Customization Tips */}
-          <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
+          <div className="bg-blue-50 rounded-2xl p-4 lg:p-6 border border-blue-200">
             <h4 className="text-sm font-medium text-blue-900 mb-2 flex items-center">
               <Info className="w-4 h-4 mr-2" />
               Customization Tips
@@ -889,7 +889,7 @@ export default function WebsitePage() {
 
           {/* Timeline -- only shown once there's something to report */}
           {(store.website?.activatedAt || store.website?.lastPublishedAt) && (
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h3>
               <div className="space-y-4">
                 {store.website?.activatedAt && (

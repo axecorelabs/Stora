@@ -275,12 +275,12 @@ export default function DeliveriesPage() {
     <DashboardLayout title="Delivery Calendar" subtitle="Manage your delivery schedule">
       {/* Stats Strip */}
       {stats && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-4 lg:mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
             {statsCards.map((stat, index) => {
               const IconComponent = stat.icon;
               return (
-                <div key={index} className="p-5">
+                <div key={index} className="p-4 lg:p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${
                       stat.tone === 'danger' ? 'bg-red-100 text-red-600' :
@@ -290,7 +290,7 @@ export default function DeliveriesPage() {
                     </span>
                     <span className="text-sm text-gray-500">{stat.title}</span>
                   </div>
-                  <p className={`text-2xl font-bold ${stat.tone === 'danger' ? 'text-red-600' : 'text-gray-900'}`} style={{ fontVariantNumeric: "tabular-nums" }}>
+                  <p className={`text-xl lg:text-2xl font-bold ${stat.tone === 'danger' ? 'text-red-600' : 'text-gray-900'}`} style={{ fontVariantNumeric: "tabular-nums" }}>
                     {stat.value}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">{stat.description}</p>
@@ -301,18 +301,18 @@ export default function DeliveriesPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* Calendar Section */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             {/* Calendar Header */}
-            <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-r from-brand-50 to-white border-b border-gray-100">
+            <div className="flex items-center justify-between px-4 lg:px-6 py-4 lg:py-5 bg-gradient-to-r from-brand-50 to-white border-b border-gray-100">
               <div className="flex items-center gap-3">
-                <span className="flex items-center justify-center w-10 h-10 rounded-xl shrink-0 bg-brand-100 text-brand-800">
+                <span className="flex items-center justify-center w-9 h-9 lg:w-10 lg:h-10 rounded-xl shrink-0 bg-brand-100 text-brand-800">
                   <Calendar className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">
+                  <h3 className="text-lg lg:text-xl font-bold text-gray-900">
                     {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">Select a date to view deliveries</p>
@@ -342,7 +342,7 @@ export default function DeliveriesPage() {
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 lg:p-6">
               {/* Weekday labels */}
               <div className="grid grid-cols-7 gap-1.5 mb-2">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
@@ -415,8 +415,8 @@ export default function DeliveriesPage() {
 
         {/* Selected Date Deliveries - Minimalistic */}
         <div>
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 sticky top-6">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100 sticky top-6">
+            <div className="flex items-center justify-between mb-4 lg:mb-6 pb-4 border-b border-gray-100">
               <div>
                 <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
                   {selectedDate.toLocaleDateString('en-US', {

@@ -637,11 +637,11 @@ export default function POSPage() {
   if (isLoading || hasStore === null) {
     return (
       <DashboardLayout title="Store Mode (POS)" subtitle="Point of Sale System">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
           {/* Product Selection Skeleton - Left Side */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 lg:space-y-6">
             {/* Search and Filters Skeleton */}
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
               <div className="flex items-center space-x-4 mb-4">
                 <div className="flex-1 h-12 bg-gray-200 rounded-xl animate-pulse"></div>
                 <div className="w-12 h-12 bg-gray-200 rounded-xl animate-pulse"></div>
@@ -656,7 +656,7 @@ export default function POSPage() {
             </div>
 
             {/* Product Grid Skeleton */}
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
               <div className="h-6 w-32 bg-gray-200 rounded mb-4 animate-pulse"></div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -675,9 +675,9 @@ export default function POSPage() {
           </div>
 
           {/* Cart and Checkout Skeleton - Right Side */}
-          <div className="space-y-6">
+          <div className="space-y-4 lg:space-y-6">
             {/* Cart Skeleton */}
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
               <div className="flex items-center justify-between mb-4">
                 <div className="h-6 w-32 bg-gray-200 rounded animate-pulse"></div>
                 <div className="h-8 w-20 bg-gray-200 rounded animate-pulse"></div>
@@ -706,7 +706,7 @@ export default function POSPage() {
             </div>
 
             {/* Customer Info Skeleton */}
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
               <div className="h-6 w-40 bg-gray-200 rounded mb-4 animate-pulse"></div>
               <div className="space-y-3">
                 <div className="h-11 bg-gray-200 rounded-lg animate-pulse"></div>
@@ -715,7 +715,7 @@ export default function POSPage() {
             </div>
 
             {/* Payment and Totals Skeleton */}
-            <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
               <div className="h-6 w-44 bg-gray-200 rounded mb-4 animate-pulse"></div>
 
               {/* Discount and Tax Skeleton */}
@@ -832,11 +832,11 @@ export default function POSPage() {
       )}
 
       {/* Existing POS content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* Product Selection - Left Side */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 lg:space-y-6">
           {/* Search and Filters */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
             <div className="flex items-center space-x-4 mb-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -888,7 +888,7 @@ export default function POSPage() {
           </div>
 
           {/* Product Grid - Modified to show variant badge */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
             <SectionHeader icon={Package} title="Products" tone="gold" />
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredItems.map(item => {
@@ -982,9 +982,9 @@ export default function POSPage() {
         </div>
 
         {/* Cart and Checkout - Right Side */}
-        <div className="space-y-6 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1">
+        <div className="space-y-4 lg:space-y-6 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1">
           {/* Cart - Modified to show variant info */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-100 text-brand-800 mr-2">
@@ -1069,7 +1069,7 @@ export default function POSPage() {
           </div>
 
           {/* Customer Info */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
             <SectionHeader icon={User} title={`Customer Info ${isProcessingOrder ? '(From Order)' : ''}`} />
             <div className="space-y-3">
               <input
@@ -1106,7 +1106,7 @@ export default function POSPage() {
           </div>
 
           {/* Payment and Totals */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
             <SectionHeader icon={Calculator} title="Payment & Totals" tone="gold" />
 
             {/* Discount and Tax */}
