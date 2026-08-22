@@ -6,7 +6,7 @@ import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supaba
 import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseCart";
 import { findInventoryByIds, findActiveBatchesByInventoryIds, resolveBatchPricing } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
-import { isValidNigerianState } from "@stora/shared-constants";
+import { isValidNigerianState, computeStoreCheckoutAmount, estimatePaystackFee } from "@stora/shared-constants";
 
 const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
 // A flat 2% is too thin to be worth collecting on small orders (Paystack's
@@ -93,25 +93,26 @@ async function computePaymentSplit(order, storeGroupedItems) {
 
   for (const storeId of payableStoreIds) {
     const grossAmount = storeGroupedItems[storeId].total;
-    const rateBasedCommission = Math.round(grossAmount * PLATFORM_COMMISSION_RATE * 100) / 100;
-    // Floored at PLATFORM_MINIMUM_COMMISSION, but never above grossAmount
-    // itself -- without that cap, an item priced under NGN200 would push
-    // netAmount negative below in 'vendor'-bearer mode (Stora can't take
-    // more commission than the order is actually worth).
-    const commissionAmount = Math.min(Math.max(rateBasedCommission, PLATFORM_MINIMUM_COMMISSION), grossAmount);
     const bearer = commissionBearerByStoreId.get(storeId);
 
     // Snapshotted per split at checkout time -- a vendor flipping their
     // toggle later must not retroactively change an already-placed order.
-    // netAmount is "what the vendor keeps" either way: gross minus
-    // commission when the vendor bears it, the full gross when the
-    // customer does (since the customer's extra payment covers it
-    // instead). It's also -- by the "commission is never refunded to
-    // anyone" policy applied consistently in both directions -- exactly
-    // the correct refundable ceiling in both modes too, which is why the
-    // refund route needs no changes for this feature.
-    const netAmount = bearer === 'customer' ? grossAmount : grossAmount - commissionAmount;
-    const customerAmount = bearer === 'customer' ? grossAmount + commissionAmount : grossAmount;
+    // Shared with the cart page's checkout-total preview
+    // (CartPageContent.js) via computeStoreCheckoutAmount in
+    // @stora/shared-constants, so the two can never drift apart. netAmount
+    // is "what the vendor keeps" either way: gross minus commission when
+    // the vendor bears it, the full gross when the customer does (since
+    // the customer's extra payment covers it instead). It's also -- by the
+    // "commission is never refunded to anyone" policy applied consistently
+    // in both directions -- exactly the correct refundable ceiling in both
+    // modes too, which is why the refund route needs no changes for this
+    // feature.
+    const { commissionAmount, netAmount, customerAmount } = computeStoreCheckoutAmount({
+      grossAmount,
+      commissionBearer: bearer,
+      commissionRate: PLATFORM_COMMISSION_RATE,
+      minimumCommission: PLATFORM_MINIMUM_COMMISSION
+    });
     payableSubtotal += customerAmount;
 
     splitRows.push({
@@ -129,6 +130,32 @@ async function computePaymentSplit(order, storeGroupedItems) {
     });
   }
 
+  // Paystack's own processing fee, passed to the customer -- see
+  // packages/shared-constants/checkoutFees.js for the rate/cap and why a
+  // single blended estimate is exact for local (NGN) payments regardless
+  // of the channel the customer ends up choosing. Credited to whichever
+  // split already has the largest net_amount_to_vendor -- the same store
+  // apps/store/src/app/api/payments/initiate/route.js separately picks as
+  // `bearer_subaccount` (the one subaccount Paystack actually deducts its
+  // real fee from during settlement). Without this credit, the extra
+  // amount collected here from the customer would just become unassigned
+  // remainder flowing to Stora's main account, while the vendor's
+  // settlement still absorbed Paystack's real fee unchanged -- the
+  // opposite of "customer bears it". Only ever *adds* to whichever split
+  // was already largest, so it necessarily remains the largest afterward,
+  // meaning initiate/route.js's own largest-share selection (computed
+  // later, from these already-persisted rows) still lands on the same
+  // store without needing to know anything changed here.
+  const estimatedPaystackFee = estimatePaystackFee(payableSubtotal);
+  if (estimatedPaystackFee > 0) {
+    const feeBearingSplit = splitRows.reduce((largest, s) =>
+      s.net_amount_to_vendor > largest.net_amount_to_vendor ? s : largest
+    );
+    feeBearingSplit.net_amount_to_vendor += estimatedPaystackFee;
+    feeBearingSplit.customer_amount += estimatedPaystackFee;
+    payableSubtotal += estimatedPaystackFee;
+  }
+
   const { error: splitInsertError } = await supabaseAdmin.from('order_payment_splits').insert(splitRows);
   if (splitInsertError) throw splitInsertError;
 
@@ -137,7 +164,13 @@ async function computePaymentSplit(order, storeGroupedItems) {
   // asked to collect what it's actually splitting to a subaccount.
   const { error: paymentUpdateError } = await supabaseAdmin
     .from('order_payments')
-    .update({ amount: payableSubtotal, provider: 'paystack', method: 'paystack', updated_at: new Date().toISOString() })
+    .update({
+      amount: payableSubtotal,
+      estimated_paystack_fee: estimatedPaystackFee,
+      provider: 'paystack',
+      method: 'paystack',
+      updated_at: new Date().toISOString()
+    })
     .eq('id', orderPayment.id);
 
   if (paymentUpdateError) throw paymentUpdateError;
