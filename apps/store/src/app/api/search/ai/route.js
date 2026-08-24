@@ -1,0 +1,166 @@
+import { NextResponse } from "next/server";
+import { extractSearchIntent, embedText } from "@/lib/openrouter";
+import {
+  searchProductsByEmbedding,
+  searchVendorsByEmbedding,
+  searchProductsPaginated,
+  searchVendorsPaginated
+} from "@/lib/supabaseStore";
+import { cached, cacheKey } from "@/lib/redis";
+
+const PAGE_SIZE = 24;
+// The *other* result type (vendors on /products, products on /vendors) is
+// a small supplementary strip, not a paginated grid -- always this many,
+// regardless of `page`.
+const SECONDARY_LIMIT = 6;
+// Cost/abuse control -- capped well before it ever reaches OpenRouter, not
+// just for token cost but to shrink the prompt-injection surface (a
+// customer's query is DATA passed to the extraction model, never
+// instructions it follows -- see openrouter.js's system prompt -- but a
+// hard length cap is a cheap second layer regardless).
+const MAX_QUERY_LENGTH = 300;
+// Long TTL: a given phrase's meaning doesn't drift, and many different
+// customers type near-identical natural-language queries.
+const AI_SEARCH_CACHE_TTL_SECONDS = 60 * 60 * 24;
+
+async function resolveQueryUnderstanding(query) {
+  const [intent, embedding] = await Promise.all([
+    extractSearchIntent(query),
+    embedText(query)
+  ]);
+  // Both steps have to succeed -- a filter with no embedding to rank by, or
+  // an embedding with no filters, isn't useful on its own. Either failing
+  // means the caller falls back to plain keyword search instead.
+  if (!intent || !embedding) return null;
+  return { intent, embedding };
+}
+
+// Public, unauthenticated -- the natural-language ("I'm looking for a
+// vendor that sells X") entry point, additive to the existing keyword
+// search (/api/products/search, /api/vendors/search, SearchTypeahead's
+// preview). Never errors out to the customer: any failure in the
+// extraction/embedding steps below falls back to a plain keyword search on
+// the raw query, so this endpoint always returns real results.
+//
+// `primary` (products|vendors) picks which result type gets real pagination
+// (`page`/`pagination` in the response) -- the /products page pages
+// through products and shows a small fixed-size vendor strip alongside,
+// /vendors does the reverse. Both result arrays are always present in the
+// response either way; only which one is paginated changes.
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const rawQuery = searchParams.get("q")?.trim() || "";
+    // The vendor's own operating state -- independent of buyerState/
+    // deliverableOnly below (that's the *customer's* address, used for the
+    // hard "only vendors that deliver to me" filter). This one narrows to
+    // vendors physically based in a given state, same as the keyword
+    // search's `state` param already does.
+    const state = searchParams.get("state") || undefined;
+    const buyerState = searchParams.get("buyerState") || undefined;
+    const deliverableOnly = searchParams.get("deliverableOnly") === "true" && !!buyerState;
+    const primary = searchParams.get("primary") === "vendors" ? "vendors" : "products";
+    const pageParam = parseInt(searchParams.get("page"), 10);
+    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+    const offset = (page - 1) * PAGE_SIZE;
+
+    if (!rawQuery) {
+      return NextResponse.json(
+        { success: false, message: "A search query is required" },
+        { status: 400 }
+      );
+    }
+
+    const query = rawQuery.slice(0, MAX_QUERY_LENGTH);
+
+    const understanding = await cached(
+      cacheKey.aiSearch(query),
+      AI_SEARCH_CACHE_TTL_SECONDS,
+      () => resolveQueryUnderstanding(query)
+    );
+
+    let products, productTotal, vendors, vendorTotal, mode;
+
+    if (understanding) {
+      mode = "ai";
+      const { intent, embedding } = understanding;
+      const [productResult, vendorResult] = await Promise.all([
+        searchProductsByEmbedding({
+          embedding,
+          categories: intent.category ? [intent.category] : undefined,
+          minPrice: intent.priceMin ?? undefined,
+          maxPrice: intent.priceMax ?? undefined,
+          state,
+          buyerState,
+          deliverableOnly,
+          limit: primary === "products" ? PAGE_SIZE : SECONDARY_LIMIT,
+          offset: primary === "products" ? offset : 0
+        }),
+        searchVendorsByEmbedding({
+          embedding,
+          categories: intent.category ? [intent.category] : undefined,
+          state,
+          buyerState,
+          deliverableOnly,
+          limit: primary === "vendors" ? PAGE_SIZE : SECONDARY_LIMIT,
+          offset: primary === "vendors" ? offset : 0
+        })
+      ]);
+      ({ products, totalCount: productTotal } = productResult);
+      ({ vendors, totalCount: vendorTotal } = vendorResult);
+    } else {
+      // Fallback: extraction or embedding failed (bad/missing API key,
+      // provider timeout, invalid model output) -- degrade to the same
+      // plain keyword search /api/products/search and /api/vendors/search
+      // already use, rather than surfacing an error for something the
+      // customer has no way to fix.
+      mode = "keyword-fallback";
+      const [productResult, vendorResult] = await Promise.all([
+        searchProductsPaginated({
+          search: query,
+          state,
+          buyerState,
+          deliverableOnly,
+          limit: primary === "products" ? PAGE_SIZE : SECONDARY_LIMIT,
+          offset: primary === "products" ? offset : 0
+        }),
+        searchVendorsPaginated({
+          search: query,
+          state,
+          buyerState,
+          deliverableOnly,
+          limit: primary === "vendors" ? PAGE_SIZE : SECONDARY_LIMIT,
+          offset: primary === "vendors" ? offset : 0
+        })
+      ]);
+      ({ products, totalCount: productTotal } = productResult);
+      ({ vendors, totalCount: vendorTotal } = vendorResult);
+    }
+
+    const primaryTotal = primary === "products" ? productTotal : vendorTotal;
+
+    return NextResponse.json({
+      success: true,
+      mode,
+      query: rawQuery,
+      interpretedAs: understanding?.intent || null,
+      products,
+      productTotal,
+      vendors,
+      vendorTotal,
+      pagination: {
+        page,
+        limit: PAGE_SIZE,
+        total: primaryTotal,
+        totalPages: Math.max(1, Math.ceil(primaryTotal / PAGE_SIZE)),
+        hasMore: page * PAGE_SIZE < primaryTotal
+      }
+    });
+  } catch (error) {
+    console.error("Error in AI search:", error);
+    return NextResponse.json(
+      { success: false, message: "Failed to search" },
+      { status: 500 }
+    );
+  }
+}

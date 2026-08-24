@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { generateSKU, backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
+import { embedProductById } from '@/lib/openrouter';
 
 // Helper to transform inventory data for response (snake_case to camelCase).
 // Every product has >=1 real inventory_variants row now (see
@@ -471,6 +472,11 @@ export async function POST(req) {
       .from('inventory_variants')
       .select('*')
       .eq('inventory_id', newItem.id);
+
+    // Deferred -- embedText is a real OpenRouter round trip, and a vendor
+    // saving a product must never wait on (or fail because of) it. AI
+    // search just won't surface this item until the embedding lands.
+    after(() => embedProductById(newItem.id));
 
     return NextResponse.json({
       success: true,

@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
+import { embedProductById } from '@/lib/openrouter';
 
 // Helper to transform inventory data for response. Every product has >=1
 // real inventory_variants row now -- stock/price are always derived from
@@ -322,6 +323,13 @@ export async function PUT(request, { params }) {
           .in('id', toDeactivate.map(v => v.id));
         if (deactErr) console.error('Variant deactivation error:', deactErr);
       }
+    }
+
+    // Only re-embed when the text an AI-search match is actually judged
+    // against changed -- a stock/price/variant-only edit doesn't need a
+    // new OpenRouter round trip. Deferred, same as the create route.
+    if (dbUpdate.name !== undefined || dbUpdate.description !== undefined || dbUpdate.category !== undefined) {
+      after(() => embedProductById(id));
     }
 
     const finalVariants = await fetchVariants(id);

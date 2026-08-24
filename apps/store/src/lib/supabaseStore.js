@@ -280,6 +280,35 @@ export async function searchVendorsPaginated({ search, sort = 'featured', limit 
   };
 }
 
+// AI search's retrieval step -- ranks by embedding similarity
+// (search_vendors_ai) instead of ILIKE, otherwise the same shape/response
+// as searchVendorsPaginated above so callers (the AI search route) can
+// treat both result sets identically.
+export async function searchVendorsByEmbedding({ embedding, categories, state, buyerState, deliverableOnly, limit = 24, offset = 0 } = {}) {
+  const rpcParams = {
+    p_embedding: embedding,
+    p_categories: categories?.length ? categories : null,
+    p_state: state || null,
+    p_buyer_state: buyerState || null,
+    p_limit: limit,
+    p_offset: offset
+  };
+  if (deliverableOnly) rpcParams.p_deliverable_only = true;
+
+  const { data, error } = await supabaseAdmin.rpc('search_vendors_ai', rpcParams);
+
+  if (error) {
+    console.error('Error searching vendors by embedding:', error);
+    throw new Error('Failed to search vendors');
+  }
+
+  const rows = data || [];
+  return {
+    vendors: rows.map(row => buildPublicStoreData(row.vendor)),
+    totalCount: rows[0]?.total_count ?? 0
+  };
+}
+
 // ============ INVENTORY/PRODUCT OPERATIONS ============
 
 // Defensive cap, not real pagination UI -- a typical Nigerian SME catalog on
@@ -580,6 +609,66 @@ export async function searchProductsPaginated({ search, categories, sort = 'tren
 
   if (storesError) {
     console.error('Error fetching stores for product search:', storesError);
+  }
+
+  const storeById = new Map((stores || []).map(s => [s.id, s]));
+  const withStores = products.map(product => {
+    const store = storeById.get(product.storeId);
+    return {
+      ...product,
+      store: store ? {
+        storeName: store.store_name,
+        storeSlug: store.store_slug,
+        logo: store.branding?.logo || null,
+        primaryColor: store.branding?.primaryColor || null,
+        secondaryColor: store.branding?.secondaryColor || null,
+        state: store.state
+      } : null
+    };
+  });
+
+  return { products: await enrichProductsWithBatches(withStores), totalCount };
+}
+
+// AI search's retrieval step -- ranks by embedding similarity
+// (search_products_ai) instead of ILIKE, otherwise identical post-
+// processing (variants, store attachment, batch pricing) to
+// searchProductsPaginated above.
+export async function searchProductsByEmbedding({ embedding, categories, minPrice, maxPrice, state, buyerState, deliverableOnly, limit = 24, offset = 0 } = {}) {
+  const rpcParams = {
+    p_embedding: embedding,
+    p_categories: categories?.length ? categories : null,
+    p_min_price: minPrice ?? null,
+    p_max_price: maxPrice ?? null,
+    p_state: state || null,
+    p_buyer_state: buyerState || null,
+    p_limit: limit,
+    p_offset: offset
+  };
+  if (deliverableOnly) rpcParams.p_deliverable_only = true;
+
+  const { data, error } = await supabaseAdmin.rpc('search_products_ai', rpcParams);
+
+  if (error) {
+    console.error('Error searching products by embedding:', error);
+    throw new Error('Failed to search products');
+  }
+
+  const rows = data || [];
+  const totalCount = rows[0]?.total_count ?? 0;
+  const items = rows.map(row => row.product);
+  if (items.length === 0) return { products: [], totalCount };
+
+  const withVariants = await attachVariants(items);
+  const products = withVariants.map(transformInventoryToProduct);
+
+  const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
+  const { data: stores, error: storesError } = storeIds.length > 0
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding, state').in('id', storeIds)
+    : { data: [], error: null };
+
+  if (storesError) {
+    console.error('Error fetching stores for AI product search:', storesError);
   }
 
   const storeById = new Map((stores || []).map(s => [s.id, s]));

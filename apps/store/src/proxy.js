@@ -79,6 +79,9 @@ const authLimiters = {
   // items to cart in five minutes.
   '/api/orders/create': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '5 m'), prefix: 'store:rl:orders-create' }),
   '/api/cart/add': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '5 m'), prefix: 'store:rl:cart-add' }),
+  // Tighter than plain browsing on purpose -- each request has a real
+  // OpenRouter cost behind it on a cache miss, unlike free keyword search.
+  '/api/search/ai': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '5 m'), prefix: 'store:rl:search-ai' }),
 };
 
 // Real navigations, genuine API calls, AND Next.js's own silent <Link>

@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { invalidateStorefrontCache } from '@/lib/redis';
 import { isValidNigerianState } from '@stora/shared-constants';
+import { embedStoreById } from '@/lib/openrouter';
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -200,6 +201,9 @@ export async function POST(req) {
       .eq('id', user.id)
       .is('onboarding_completed_at', null);
 
+    // Deferred -- same non-blocking pattern as the inventory routes.
+    after(() => embedStoreById(store.id));
+
     return NextResponse.json({
       success: true,
       message: 'Store created successfully',
@@ -316,6 +320,13 @@ export async function PUT(req) {
     }
 
     await invalidateStorefrontCache(store.store_slug);
+
+    // Only re-embed when the text an AI-search match is judged against
+    // actually changed -- most store edits (branding, hours, bank details)
+    // don't need a new OpenRouter round trip.
+    if (dbUpdate.store_name !== undefined || dbUpdate.store_description !== undefined) {
+      after(() => embedStoreById(store.id));
+    }
 
     return NextResponse.json({
       success: true,

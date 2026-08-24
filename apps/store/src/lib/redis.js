@@ -85,6 +85,19 @@ export async function cached(key, ttlSeconds, fetcher) {
   return fresh;
 }
 
+// Strips cosmetic punctuation and collapses whitespace/casing so trivially
+// different phrasings of the same question hash to the same cache key.
+// Deliberately conservative -- only punctuation that never changes meaning
+// for a search phrase, leaving numbers, currency symbols (₦), and hyphens
+// (e.g. "long-sleeve") untouched.
+function normalizeSearchQuery(q) {
+  return q
+    .toLowerCase()
+    .replace(/[!?.,;:'"()[\]{}]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export const cacheKey = {
   // TTL-only -- see comment above.
   storeBySlug: (slug) => `${NS}:cache:store:${slug}`,
@@ -101,6 +114,17 @@ export const cacheKey = {
   // search results, this one has a real, exploitable hit rate. Lowercased
   // since the underlying ILIKE match is already case-insensitive.
   searchPreview: (q) => `${NS}:cache:search-preview:${q.toLowerCase()}`,
+  // AI search's query-understanding step (extraction + embedding) is a real
+  // OpenRouter cost per miss, unlike the plain-keyword routes above -- a
+  // long TTL is safe since a given phrase's meaning doesn't drift, and
+  // many different customers type near-identical phrases. Normalized
+  // harder than the other keys here on purpose: "Shoes for wedding!",
+  // "shoes for wedding", and "shoes for wedding??" all mean the same thing
+  // to the extraction/embedding steps, so they should share one cache
+  // entry, not pay for three separate OpenRouter round trips. Only the
+  // cache key is normalized -- the original query text is still what
+  // actually gets sent to OpenRouter on a miss.
+  aiSearch: (q) => `${NS}:cache:ai-search:${normalizeSearchQuery(q)}`,
   // TTL + explicit invalidation on add/remove -- see comment above.
   wishlist: (customerId) => `${NS}:cache:wishlist:${customerId}`,
 };
