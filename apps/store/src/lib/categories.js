@@ -11,6 +11,7 @@ import {
   Dumbbell,
   Car,
   Sparkles,
+  Scissors,
 } from "lucide-react";
 
 // Mirrors the dashboard's own "Add inventory" category dropdown
@@ -32,4 +33,5 @@ export const CATEGORIES = [
   { value: "Sports", icon: Dumbbell },
   { value: "Automotive", icon: Car },
   { value: "Health & Beauty", icon: Sparkles },
+  { value: "Wigs & Hair", icon: Scissors },
 ];

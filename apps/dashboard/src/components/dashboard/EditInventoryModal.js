@@ -88,6 +88,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
     { value: 'Sports', label: 'Sports' },
     { value: 'Automotive', label: 'Automotive' },
     { value: 'Health & Beauty', label: 'Health & Beauty' },
+    { value: 'Wigs & Hair', label: 'Wigs & Hair' },
     { value: 'Other', label: 'Other' }
   ];
 
