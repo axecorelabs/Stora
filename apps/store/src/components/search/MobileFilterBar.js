@@ -21,6 +21,7 @@ export default function MobileFilterBar({
   sort, onSortChange, sortOptions,
   deliveryState, onDeliveryStateChange,
   deliverableOnly, onDeliverableOnlyChange,
+  aiMode = false,
 }) {
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
@@ -48,7 +49,11 @@ export default function MobileFilterBar({
     onDeliverableOnlyChange(true);
   };
 
-  const activeCount = categories.length + [state, priceKey, deliverableOnly ? true : null].filter(Boolean).length;
+  // Category/price are keyword-mode concepts (AI mode extracts its own
+  // category/price signal from the sentence itself) -- excluded from the
+  // count here the same way their sections below are hidden entirely.
+  const activeCount = (aiMode ? 0 : categories.length)
+    + [state, aiMode ? null : priceKey, deliverableOnly ? true : null].filter(Boolean).length;
   const activeSortLabel = sortOptions.find((s) => s.key === sort)?.label || sortOptions[0]?.label;
 
   const filteredStates = stateQuery.trim()
@@ -86,13 +91,18 @@ export default function MobileFilterBar({
             </span>
           )}
         </button>
-        <button
-          onClick={() => setShowSort(true)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-200 bg-white text-brand-800"
-        >
-          <ArrowUpDown className="w-4 h-4 flex-shrink-0" />
-          <span className="truncate">{activeSortLabel}</span>
-        </button>
+        {/* Sort has no equivalent in AI mode -- search_products_ai/
+            search_vendors_ai always rank by embedding similarity, there's
+            no sort key to pick between. */}
+        {!aiMode && (
+          <button
+            onClick={() => setShowSort(true)}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-200 bg-white text-brand-800"
+          >
+            <ArrowUpDown className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">{activeSortLabel}</span>
+          </button>
+        )}
       </div>
 
       <BottomSheet
@@ -121,26 +131,30 @@ export default function MobileFilterBar({
         }
       >
         <div className="space-y-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2.5">Category</p>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => onCategoriesChange([])} className={pillClass(categories.length === 0)}>
-                All
-              </button>
-              {CATEGORIES.map(({ value, icon: Icon }) => (
-                <button
-                  key={value}
-                  onClick={() => toggleCategory(value)}
-                  className={`flex items-center gap-1.5 ${pillClass(categories.includes(value))}`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {value}
+          {/* Category/price are keyword-mode concepts -- AI mode already
+              extracts both straight out of the sentence itself. */}
+          {!aiMode && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2.5">Category</p>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => onCategoriesChange([])} className={pillClass(categories.length === 0)}>
+                  All
                 </button>
-              ))}
+                {CATEGORIES.map(({ value, icon: Icon }) => (
+                  <button
+                    key={value}
+                    onClick={() => toggleCategory(value)}
+                    className={`flex items-center gap-1.5 ${pillClass(categories.includes(value))}`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {value}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {onPriceChange && (
+          {!aiMode && onPriceChange && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2.5">Price</p>
               <div className="flex flex-wrap gap-2">

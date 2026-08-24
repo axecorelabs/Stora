@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Package, Loader2, Truck } from "lucide-react";
+import { Package, Loader2, Truck, Sparkles } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import SearchModeTabs from "@/components/search/SearchModeTabs";
@@ -9,6 +9,7 @@ import SearchConsole from "@/components/search/SearchConsole";
 import PriceFilterPills, { PRICE_BUCKETS } from "@/components/search/PriceFilterPills";
 import ActiveFilters from "@/components/search/ActiveFilters";
 import DiscoveryProductCard from "@/components/home/DiscoveryProductCard";
+import VendorCard from "@/components/home/VendorCard";
 import StatePickerPopover from "@/components/ui/StatePickerPopover";
 import MobileFilterBar from "@/components/search/MobileFilterBar";
 import { useDeliveryState } from "@/contexts/DeliveryStateContext";
@@ -30,6 +31,7 @@ function ProductsPageInner() {
   const urlSort = SORTS.some((s) => s.key === searchParams.get("sort")) ? searchParams.get("sort") : "trending";
   const urlPriceKey = searchParams.get("price") || "";
   const urlDeliverableOnly = searchParams.get("deliverableOnly") === "true";
+  const urlAiMode = searchParams.get("mode") === "ai";
 
   const [q, setQ] = useState(urlQ);
   const [categories, setCategories] = useState(urlCategories);
@@ -37,7 +39,12 @@ function ProductsPageInner() {
   const [sort, setSort] = useState(urlSort);
   const [priceKey, setPriceKey] = useState(urlPriceKey);
   const [deliverableOnly, setDeliverableOnly] = useState(urlDeliverableOnly);
+  const [aiMode, setAiMode] = useState(urlAiMode);
   const [products, setProducts] = useState([]);
+  // AI mode's supplementary strip -- the vendors /api/search/ai returns
+  // alongside products, capped small (see the route's SECONDARY_LIMIT),
+  // never paginated on its own.
+  const [aiVendors, setAiVendors] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -66,15 +73,44 @@ function ProductsPageInner() {
     if (sort !== "trending") params.set("sort", sort);
     if (priceKey) params.set("price", priceKey);
     if (deliverableOnly) params.set("deliverableOnly", "true");
+    if (aiMode) params.set("mode", "ai");
     const qs = params.toString();
     router.replace(qs ? `/products?${qs}` : "/products", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, categories, state, sort, priceKey, deliverableOnly]);
+  }, [q, categories, state, sort, priceKey, deliverableOnly, aiMode]);
 
   const fetchPage = useCallback(async (pageNum, replace) => {
+    // AI mode needs a real query to search against -- toggling it on with
+    // nothing typed yet isn't "show me something," it's "I haven't asked
+    // anything," so there's nothing to fetch until the customer submits one.
+    if (aiMode && !q) {
+      setProducts([]);
+      setAiVendors([]);
+      setPagination(null);
+      setLoading(false);
+      return;
+    }
+
     if (replace) setLoading(true);
     else setLoadingMore(true);
     try {
+      if (aiMode) {
+        const params = new URLSearchParams({ q, primary: "products", page: String(pageNum) });
+        if (state) params.set("state", state);
+        if (deliverableOnly && deliveryState) {
+          params.set("buyerState", deliveryState);
+          params.set("deliverableOnly", "true");
+        }
+        const res = await fetch(`/api/search/ai?${params}`);
+        const data = await res.json();
+        if (data.success) {
+          setProducts((prev) => (replace ? data.products : [...prev, ...data.products]));
+          setAiVendors(data.vendors || []);
+          setPagination(data.pagination);
+        }
+        return;
+      }
+
       const params = new URLSearchParams({ sort, page: String(pageNum) });
       if (q) params.set("q", q);
       if (categories.length) params.set("category", categories.join(","));
@@ -98,7 +134,7 @@ function ProductsPageInner() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [q, categories, state, sort, priceBucket, deliverableOnly, deliveryState]);
+  }, [q, categories, state, sort, priceBucket, deliverableOnly, deliveryState, aiMode]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -176,6 +212,8 @@ function ProductsPageInner() {
           resultCount={pagination?.total}
           loading={loading}
           resultLabel="products"
+          aiMode={aiMode}
+          onAiModeChange={setAiMode}
         />
 
         {activeFilters.length > 0 && (
@@ -198,14 +236,19 @@ function ProductsPageInner() {
           onDeliveryStateChange={setDeliveryState}
           deliverableOnly={deliverableOnly}
           onDeliverableOnlyChange={setDeliverableOnly}
+          aiMode={aiMode}
         />
 
         {/* Price + delivery toggle + sort -- opposite top corners of the
             grid they control. Desktop-only; MobileFilterBar covers this
-            below `sm`. */}
+            below `sm`. Price/sort are keyword-mode concepts (AI mode
+            ranks by embedding similarity, not a sort key, and derives its
+            own price range from the sentence itself) -- only the
+            deliverable-to-me hard filter still applies, and still works,
+            in AI mode. */}
         <div className="hidden sm:flex items-start justify-between gap-4 flex-wrap mb-6">
           <div className="flex items-center gap-2 flex-wrap">
-            <PriceFilterPills activeKey={priceKey} onChange={setPriceKey} />
+            {!aiMode && <PriceFilterPills activeKey={priceKey} onChange={setPriceKey} />}
 
             <div className="relative">
               <button
@@ -241,7 +284,7 @@ function ProductsPageInner() {
           </div>
 
           <div className="relative flex items-center gap-1 flex-shrink-0">
-            {SORTS.map(({ key, label }) => (
+            {!aiMode && SORTS.map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => handleSortClick(key)}
@@ -253,7 +296,7 @@ function ProductsPageInner() {
               </button>
             ))}
 
-            {showNearestPicker && (
+            {!aiMode && showNearestPicker && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNearestPicker(false)} />
                 <div className="absolute right-0 top-full mt-2 z-50">
@@ -274,7 +317,12 @@ function ProductsPageInner() {
 
         {/* Results */}
         <div id="search-results">
-        {loading ? (
+        {aiMode && !q ? (
+          <div className="text-center py-20">
+            <Sparkles className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
+            <p className="text-gray-500 text-sm">Describe what you&apos;re looking for above to get AI-matched results.</p>
+          </div>
+        ) : loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="rounded-2xl border border-gray-100 aspect-[3/4] animate-pulse bg-gray-50" />
@@ -297,6 +345,19 @@ function ProductsPageInner() {
           </div>
         ) : (
           <>
+            {aiMode && aiVendors.length > 0 && (
+              <div className="mb-8">
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Vendors worth checking out</p>
+                <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                  {aiVendors.map((vendor) => (
+                    <div key={vendor.id} className="w-48 flex-shrink-0">
+                      <VendorCard store={vendor} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {products.map((product) => (
                 <DiscoveryProductCard key={product.id} product={product} />

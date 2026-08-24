@@ -1,13 +1,14 @@
 "use client";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Store, Loader2, Truck } from "lucide-react";
+import { Store, Loader2, Truck, Sparkles } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import SearchModeTabs from "@/components/search/SearchModeTabs";
 import SearchConsole from "@/components/search/SearchConsole";
 import ActiveFilters from "@/components/search/ActiveFilters";
 import VendorSearchCard from "@/components/search/VendorSearchCard";
+import DiscoveryProductCard from "@/components/home/DiscoveryProductCard";
 import StatePickerPopover from "@/components/ui/StatePickerPopover";
 import MobileFilterBar from "@/components/search/MobileFilterBar";
 import { useDeliveryState } from "@/contexts/DeliveryStateContext";
@@ -29,13 +30,18 @@ function VendorsPageInner() {
   const urlCategories = searchParams.get("category")?.split(",").filter(Boolean) || [];
   const urlState = searchParams.get("state") || "";
   const urlDeliverableOnly = searchParams.get("deliverableOnly") === "true";
+  const urlAiMode = searchParams.get("mode") === "ai";
 
   const [q, setQ] = useState(urlQ);
   const [sort, setSort] = useState(urlSort);
   const [categories, setCategories] = useState(urlCategories);
   const [state, setState] = useState(urlState);
   const [deliverableOnly, setDeliverableOnly] = useState(urlDeliverableOnly);
+  const [aiMode, setAiMode] = useState(urlAiMode);
   const [vendors, setVendors] = useState([]);
+  // AI mode's supplementary strip -- the products /api/search/ai returns
+  // alongside vendors, capped small, never paginated on its own.
+  const [aiProducts, setAiProducts] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -59,15 +65,43 @@ function VendorsPageInner() {
     if (categories.length) params.set("category", categories.join(","));
     if (state) params.set("state", state);
     if (deliverableOnly) params.set("deliverableOnly", "true");
+    if (aiMode) params.set("mode", "ai");
     const qs = params.toString();
     router.replace(qs ? `/vendors?${qs}` : "/vendors", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, sort, categories, state, deliverableOnly]);
+  }, [q, sort, categories, state, deliverableOnly, aiMode]);
 
   const fetchPage = useCallback(async (pageNum, replace) => {
+    // AI mode needs a real query to search against -- see the equivalent
+    // guard in /products/page.js.
+    if (aiMode && !q) {
+      setVendors([]);
+      setAiProducts([]);
+      setPagination(null);
+      setLoading(false);
+      return;
+    }
+
     if (replace) setLoading(true);
     else setLoadingMore(true);
     try {
+      if (aiMode) {
+        const params = new URLSearchParams({ q, primary: "vendors", page: String(pageNum) });
+        if (state) params.set("state", state);
+        if (deliverableOnly && deliveryState) {
+          params.set("buyerState", deliveryState);
+          params.set("deliverableOnly", "true");
+        }
+        const res = await fetch(`/api/search/ai?${params}`);
+        const data = await res.json();
+        if (data.success) {
+          setVendors((prev) => (replace ? data.vendors : [...prev, ...data.vendors]));
+          setAiProducts(data.products || []);
+          setPagination(data.pagination);
+        }
+        return;
+      }
+
       const params = new URLSearchParams({ sort, page: String(pageNum) });
       if (q) params.set("q", q);
       if (categories.length) params.set("category", categories.join(","));
@@ -89,7 +123,7 @@ function VendorsPageInner() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [q, sort, categories, state, deliverableOnly, deliveryState]);
+  }, [q, sort, categories, state, deliverableOnly, deliveryState, aiMode]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -165,6 +199,8 @@ function VendorsPageInner() {
           resultCount={pagination?.total}
           loading={loading}
           resultLabel="vendors"
+          aiMode={aiMode}
+          onAiModeChange={setAiMode}
         />
 
         {activeFilters.length > 0 && (
@@ -185,6 +221,7 @@ function VendorsPageInner() {
           onDeliveryStateChange={setDeliveryState}
           deliverableOnly={deliverableOnly}
           onDeliverableOnlyChange={setDeliverableOnly}
+          aiMode={aiMode}
         />
 
         {/* Delivery toggle + sort -- opposite top corners. Desktop-only;
@@ -223,7 +260,7 @@ function VendorsPageInner() {
           </div>
 
           <div className="relative flex items-center gap-1 flex-shrink-0">
-            {SORTS.map(({ key, label }) => (
+            {!aiMode && SORTS.map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => handleSortClick(key)}
@@ -235,7 +272,7 @@ function VendorsPageInner() {
               </button>
             ))}
 
-            {showNearestPicker && (
+            {!aiMode && showNearestPicker && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNearestPicker(false)} />
                 <div className="absolute right-0 top-full mt-2 z-50">
@@ -255,7 +292,12 @@ function VendorsPageInner() {
         </div>
 
         <div id="search-results">
-        {loading ? (
+        {aiMode && !q ? (
+          <div className="text-center py-20">
+            <Sparkles className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
+            <p className="text-gray-500 text-sm">Describe what you&apos;re looking for above to get AI-matched vendors.</p>
+          </div>
+        ) : loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-[320px] rounded-2xl bg-gray-50 border border-gray-100 animate-pulse" />
@@ -282,6 +324,19 @@ function VendorsPageInner() {
           </div>
         ) : (
           <>
+            {aiMode && aiProducts.length > 0 && (
+              <div className="mb-8">
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Matching products</p>
+                <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                  {aiProducts.map((product) => (
+                    <div key={product.id} className="w-40 flex-shrink-0">
+                      <DiscoveryProductCard product={product} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {vendors.map((store) => (
                 <VendorSearchCard key={store.id} store={store} />
