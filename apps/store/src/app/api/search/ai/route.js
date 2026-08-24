@@ -22,6 +22,12 @@ const MAX_QUERY_LENGTH = 300;
 // Long TTL: a given phrase's meaning doesn't drift, and many different
 // customers type near-identical natural-language queries.
 const AI_SEARCH_CACHE_TTL_SECONDS = 60 * 60 * 24;
+// Small, not page-filling -- cosine distance doesn't cleanly separate a
+// genuine match from noise in this catalog (a real match and an unrelated
+// item can sit ~0.02 apart), so a large backfill risks drowning real
+// category matches in look-alike filler instead of just topping up a
+// couple of likely category misses.
+const CATEGORY_BACKFILL_LIMIT = 6;
 
 async function resolveQueryUnderstanding(query) {
   const [intent, embedding] = await Promise.all([
@@ -123,8 +129,15 @@ export async function GET(request) {
       // the nearest neighbors that DO match the (wrong) category, silently
       // crowding out the real match instead of just ranking it lower. Only
       // worth correcting on the first page, where there's still room left
-      // in it: backfill with the top uncategorized matches, deduped against
-      // what's already there.
+      // in it: top up with a handful of the best uncategorized matches,
+      // deduped against what's already there.
+      //
+      // Gated on productTotal > 0 -- a category with literally zero live
+      // matches (e.g. its only vendor's storefront is currently disabled)
+      // has no real signal to rescue, and padding the page with the top
+      // unfiltered matches regardless of quality just surfaces noise
+      // (verified live: "I want perfume" with no visible Perfume products
+      // topped its backfill with a book -- there was nothing to rescue).
       //
       // Vendors don't get this treatment: search_vendors_ai's category
       // filter means "does this vendor actually stock that category" (an
@@ -133,7 +146,7 @@ export async function GET(request) {
       // product filter above. Backfilling there would undo the fix for the
       // "vendor that sells books" case (surfacing vendors with no relation
       // to the query) to chase a problem this filter doesn't actually have.
-      if (categories && productOffset === 0 && productTotal < productLimit) {
+      if (categories && productOffset === 0 && productTotal > 0 && productTotal < productLimit) {
         const excludeIds = new Set(products.map((p) => p.id));
         const backfill = await searchProductsByEmbedding({
           embedding,
@@ -142,11 +155,13 @@ export async function GET(request) {
           state,
           buyerState,
           deliverableOnly,
-          limit: productLimit,
+          limit: CATEGORY_BACKFILL_LIMIT,
           offset: 0
         });
-        products = [...products, ...backfill.products.filter((p) => !excludeIds.has(p.id))].slice(0, productLimit);
-        productTotal = Math.max(productTotal, products.length);
+        const room = Math.min(CATEGORY_BACKFILL_LIMIT, productLimit - productTotal);
+        const extra = backfill.products.filter((p) => !excludeIds.has(p.id)).slice(0, room);
+        products = [...products, ...extra];
+        productTotal = products.length;
       }
     } else {
       // Fallback: extraction or embedding failed (bad/missing API key,
