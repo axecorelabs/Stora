@@ -84,30 +84,70 @@ export async function GET(request) {
     if (understanding) {
       mode = "ai";
       const { intent, embedding } = understanding;
+      const categories = intent.category ? [intent.category] : undefined;
+      const productOffset = primary === "products" ? offset : 0;
+      const productLimit = primary === "products" ? PAGE_SIZE : SECONDARY_LIMIT;
+      const vendorOffset = primary === "vendors" ? offset : 0;
+      const vendorLimit = primary === "vendors" ? PAGE_SIZE : SECONDARY_LIMIT;
+
       const [productResult, vendorResult] = await Promise.all([
         searchProductsByEmbedding({
           embedding,
-          categories: intent.category ? [intent.category] : undefined,
+          categories,
           minPrice: intent.priceMin ?? undefined,
           maxPrice: intent.priceMax ?? undefined,
           state,
           buyerState,
           deliverableOnly,
-          limit: primary === "products" ? PAGE_SIZE : SECONDARY_LIMIT,
-          offset: primary === "products" ? offset : 0
+          limit: productLimit,
+          offset: productOffset
         }),
         searchVendorsByEmbedding({
           embedding,
-          categories: intent.category ? [intent.category] : undefined,
+          categories,
           state,
           buyerState,
           deliverableOnly,
-          limit: primary === "vendors" ? PAGE_SIZE : SECONDARY_LIMIT,
-          offset: primary === "vendors" ? offset : 0
+          limit: vendorLimit,
+          offset: vendorOffset
         })
       ]);
       ({ products, totalCount: productTotal } = productResult);
       ({ vendors, totalCount: vendorTotal } = vendorResult);
+
+      // Category is freeform text at the DB level -- vendors can and do
+      // file items under values outside the fixed taxonomy the extraction
+      // model chooses from (e.g. a "wig" product filed as "Other" when the
+      // model guesses "Clothing"). A hard category filter doesn't just
+      // return nothing in that case -- pgvector happily fills the page with
+      // the nearest neighbors that DO match the (wrong) category, silently
+      // crowding out the real match instead of just ranking it lower. Only
+      // worth correcting on the first page, where there's still room left
+      // in it: backfill with the top uncategorized matches, deduped against
+      // what's already there.
+      //
+      // Vendors don't get this treatment: search_vendors_ai's category
+      // filter means "does this vendor actually stock that category" (an
+      // EXISTS check against their real inventory) -- a deliberate, correct
+      // narrowing, not an artifact of freeform category strings like the
+      // product filter above. Backfilling there would undo the fix for the
+      // "vendor that sells books" case (surfacing vendors with no relation
+      // to the query) to chase a problem this filter doesn't actually have.
+      if (categories && productOffset === 0 && productTotal < productLimit) {
+        const excludeIds = new Set(products.map((p) => p.id));
+        const backfill = await searchProductsByEmbedding({
+          embedding,
+          minPrice: intent.priceMin ?? undefined,
+          maxPrice: intent.priceMax ?? undefined,
+          state,
+          buyerState,
+          deliverableOnly,
+          limit: productLimit,
+          offset: 0
+        });
+        products = [...products, ...backfill.products.filter((p) => !excludeIds.has(p.id))].slice(0, productLimit);
+        productTotal = Math.max(productTotal, products.length);
+      }
     } else {
       // Fallback: extraction or embedding failed (bad/missing API key,
       // provider timeout, invalid model output) -- degrade to the same
