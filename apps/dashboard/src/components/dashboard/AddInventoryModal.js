@@ -4,6 +4,7 @@ import { X, Package, Tag, DollarSign, ChevronRight, ChevronLeft, Check } from "l
 import CustomDropdown from "../ui/CustomDropdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImageIfNeeded } from "@/lib/imageCompression";
+import { CATEGORY_VALUES } from "@stora/shared-constants";
 
 // Import modular components
 import ImageUploadSection from "./Inventory/ImageUploadSection";
@@ -64,19 +65,7 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
   ];
 
   const categoryOptions = [
-    { value: 'Clothing', label: 'Clothing' },
-    { value: 'Shoes', label: 'Shoes' },
-    { value: 'Accessories', label: 'Accessories' },
-    { value: 'Perfumes', label: 'Perfumes' },
-    { value: 'Food', label: 'Food' },
-    { value: 'Beverages', label: 'Beverages' },
-    { value: 'Electronics', label: 'Electronics' },
-    { value: 'Books', label: 'Books' },
-    { value: 'Home & Garden', label: 'Home & Garden' },
-    { value: 'Sports', label: 'Sports' },
-    { value: 'Automotive', label: 'Automotive' },
-    { value: 'Health & Beauty', label: 'Health & Beauty' },
-    { value: 'Wigs & Hair', label: 'Wigs & Hair' },
+    ...CATEGORY_VALUES.map((value) => ({ value, label: value })),
     { value: 'Other', label: 'Other' }
   ];
 
