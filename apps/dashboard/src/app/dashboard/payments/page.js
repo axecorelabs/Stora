@@ -371,13 +371,13 @@ export default function PaymentsPage() {
           <table className="w-full">
             <thead className="bg-gray-50/50">
               <tr>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Gross</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Net</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payout</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Gross</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Net</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Payout</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 w-10"></th>
               </tr>
             </thead>
@@ -405,14 +405,14 @@ export default function PaymentsPage() {
                         className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50/80' : ''}`}
                       >
                         <td className="px-4 lg:px-6 py-3">
-                          <div className="text-sm font-medium text-gray-900">#{tx.orderNumber}</div>
-                          <div className="text-xs text-gray-500 capitalize">{tx.orderStatus}</div>
+                          <div className="text-xs md:text-sm font-medium text-gray-900">#{tx.orderNumber}</div>
+                          <div className="text-[10px] md:text-xs text-gray-500 capitalize">{tx.orderStatus}</div>
                         </td>
                         <td className="px-4 lg:px-6 py-3 text-right">
-                          <div className="text-sm font-medium text-gray-900 whitespace-nowrap">{formatCurrency(tx.grossAmount)}</div>
+                          <div className="text-xs md:text-sm font-medium text-gray-900 whitespace-nowrap">{formatCurrency(tx.grossAmount)}</div>
                         </td>
                         <td className="px-4 lg:px-6 py-3 text-right">
-                          <div className="text-sm text-gray-600 whitespace-nowrap">
+                          <div className="text-xs md:text-sm text-gray-600 whitespace-nowrap">
                             {formatCurrency(tx.commissionAmount)}
                             <span className="text-gray-400"> ({Math.round(tx.commissionRate * 100)}%)</span>
                           </div>
@@ -424,13 +424,13 @@ export default function PaymentsPage() {
                           )}
                         </td>
                         <td className="px-4 lg:px-6 py-3 text-right">
-                          <div className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(tx.netAmount)}</div>
+                          <div className="text-xs md:text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(tx.netAmount)}</div>
                         </td>
                         <td className="px-4 lg:px-6 py-3">
                           {(() => {
                             const { label, className, Icon } = getPaymentStatusBadge(tx.paymentStatus);
                             return (
-                              <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap ${className}`}>
+                              <span className={`inline-flex items-center px-2 md:px-2.5 py-0.5 md:py-1 text-[10px] md:text-xs font-medium rounded-full whitespace-nowrap ${className}`}>
                                 <Icon className="w-3 h-3 mr-1" />
                                 {label}
                               </span>
@@ -438,7 +438,7 @@ export default function PaymentsPage() {
                           })()}
                         </td>
                         <td className="px-4 lg:px-6 py-3">
-                          <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+                          <span className={`inline-flex items-center px-2 md:px-2.5 py-0.5 md:py-1 text-[10px] md:text-xs font-medium rounded-full whitespace-nowrap ${
                             isRefunded ? 'bg-gray-100 text-gray-700' : isSettled ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-700'
                           }`}>
                             {isRefunded ? <Undo2 className="w-3 h-3 mr-1" /> : isSettled ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
@@ -451,7 +451,7 @@ export default function PaymentsPage() {
                           )}
                         </td>
                         <td className="px-4 lg:px-6 py-3">
-                          <div className="text-sm text-gray-600 whitespace-nowrap">{formatDate(tx.createdAt)}</div>
+                          <div className="text-xs md:text-sm text-gray-600 whitespace-nowrap">{formatDate(tx.createdAt)}</div>
                         </td>
                         <td className="px-4 lg:px-6 py-3">
                           {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
@@ -464,19 +464,19 @@ export default function PaymentsPage() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div>
                                 <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Payment method</p>
-                                <p className="text-sm font-medium text-gray-900 capitalize">{tx.paymentMethod || '—'}</p>
+                                <p className="text-xs md:text-sm font-medium text-gray-900 capitalize">{tx.paymentMethod || '—'}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Reference</p>
-                                <p className="text-sm font-medium text-gray-900 truncate">{tx.reference || '—'}</p>
+                                <p className="text-xs md:text-sm font-medium text-gray-900 truncate">{tx.reference || '—'}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Paid at</p>
-                                <p className="text-sm font-medium text-gray-900">{tx.paidAt ? formatDate(tx.paidAt) : '—'}</p>
+                                <p className="text-xs md:text-sm font-medium text-gray-900">{tx.paidAt ? formatDate(tx.paidAt) : '—'}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Commission</p>
-                                <p className="text-sm font-medium text-gray-900">
+                                <p className="text-xs md:text-sm font-medium text-gray-900">
                                   {tx.commissionBearer === 'customer'
                                     ? `Customer paid it (₦${tx.commissionAmount.toLocaleString('en-NG')} added)`
                                     : 'You absorbed it'}
@@ -485,7 +485,7 @@ export default function PaymentsPage() {
                               {isRefunded && (
                                 <div>
                                   <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Refunded at</p>
-                                  <p className="text-sm font-medium text-gray-900">{tx.refundedAt ? formatDate(tx.refundedAt) : '—'}</p>
+                                  <p className="text-xs md:text-sm font-medium text-gray-900">{tx.refundedAt ? formatDate(tx.refundedAt) : '—'}</p>
                                 </div>
                               )}
                               {!isRefunded && (
@@ -493,7 +493,7 @@ export default function PaymentsPage() {
                                   <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">
                                     {isSettled ? 'Paid out' : 'Est. payout'}
                                   </p>
-                                  <p className="text-sm font-medium text-gray-900">
+                                  <p className="text-xs md:text-sm font-medium text-gray-900">
                                     {isSettled
                                       ? (tx.settledAt ? formatDate(tx.settledAt) : '—')
                                       : (tx.estimatedPayoutDate ? formatShortDate(tx.estimatedPayoutDate) : '—')}
