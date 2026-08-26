@@ -146,7 +146,19 @@ export default function PaymentsPage() {
   // vendor couldn't already get by summing the rows themselves.
   const statsCards = stats ? [
     { title: 'Total Collected', value: formatCurrency(stats.totalGross), icon: TrendingUp, tone: 'brand', description: 'Gross sales through Stora' },
-    { title: 'Net Earnings', value: formatCurrency(stats.totalNet), icon: Banknote, tone: 'brand', description: 'Your take-home, paid out or pending' },
+    {
+      title: 'Net Earnings',
+      value: formatCurrency(stats.totalNet),
+      icon: Banknote,
+      tone: 'brand',
+      // Net = Gross - commission by default, but a platform-collected
+      // delivery fee is pass-through revenue that was never part of
+      // Gross (merchandise-only) in the first place -- called out here so
+      // the two stats never look like they've silently stopped adding up.
+      description: stats.totalDeliveryFees > 0
+        ? `Take-home, incl. ${formatCurrency(stats.totalDeliveryFees)} in delivery fees`
+        : 'Your take-home, paid out or pending'
+    },
     { title: 'Refunded', value: formatCurrency(stats.totalRefunded), icon: Undo2, tone: 'gold', description: 'Recorded refunds/disputes' },
     { title: 'Transactions', value: stats.transactionCount.toString(), icon: Receipt, tone: 'gold', description: 'All-time paid orders' }
   ] : [];

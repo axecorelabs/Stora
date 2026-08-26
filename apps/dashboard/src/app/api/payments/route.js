@@ -192,7 +192,7 @@ export async function GET(req) {
     // refund on a paid one must not make it disappear from them either).
     const { data: allSplits } = await supabaseAdmin
       .from('order_payment_splits')
-      .select('gross_amount, platform_commission_amount, net_amount_to_vendor, refunded_amount, status, order_payments!inner(status)')
+      .select('gross_amount, platform_commission_amount, net_amount_to_vendor, refunded_amount, delivery_fee_amount, fulfillment_method, status, order_payments!inner(status)')
       .eq('store_id', store.id)
       .in('order_payments.status', CHARGED_STATUSES);
 
@@ -211,6 +211,19 @@ export async function GET(req) {
       // remainder. refunded_amount is exact (see the order_payment_splits
       // migration adding it), not an approximation.
       totalNet: (allSplits || []).reduce((sum, s) => sum + parseFloat(s.net_amount_to_vendor || 0) - parseFloat(s.refunded_amount || 0), 0),
+      // How much of totalNet above is a delivery-fee pass-through rather
+      // than commission-bearing merchandise revenue -- totalGross never
+      // included this (gross_amount is always merchandise-only), so
+      // without surfacing it separately, Net looking higher than
+      // Gross-minus-commission reads as the numbers not adding up. Only
+      // platform_collected splits ever folded their fee into
+      // net_amount_to_vendor in the first place (a pay_on_delivery split's
+      // delivery_fee_amount is stored for record-keeping but was never
+      // part of this vendor's Paystack payout) -- excluded here so this
+      // total stays reconcilable against totalNet.
+      totalDeliveryFees: (allSplits || [])
+        .filter(s => s.fulfillment_method === 'platform_collected')
+        .reduce((sum, s) => sum + parseFloat(s.delivery_fee_amount || 0), 0),
       totalRefunded: (allSplits || []).reduce((sum, s) => sum + parseFloat(s.refunded_amount || 0), 0),
       transactionCount: (allSplits || []).length
     };
