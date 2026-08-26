@@ -19,14 +19,17 @@ export default function ImageUploadSection({
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Check if category supports color tagging
+  // Check if category supports color tagging -- 'Other' is the catch-all
+  // for items that don't fit any specific category, not a reason to
+  // withhold a generic feature every other category already gets.
   const supportsColorTagging = (
     category === 'Clothing' ||
     category === 'Shoes' ||
     category === 'Accessories' ||
     category === 'Electronics' ||
     category === 'Sports' ||
-    category === 'Home & Garden'
+    category === 'Home & Garden' ||
+    category === 'Other'
   );
 
   // The "Product Variants" guidance banner below should show anywhere
