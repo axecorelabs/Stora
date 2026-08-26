@@ -778,7 +778,7 @@ export default function AddInventoryPage() {
   return (
     <DashboardLayout>
       {/* Breadcrumb Navigation */}
-      <div className="mb-6">
+      <div className="mb-4 lg:mb-6">
         <div className="flex items-center space-x-2 text-sm">
           <button
             onClick={() => router.push('/dashboard/inventory')}
@@ -792,21 +792,53 @@ export default function AddInventoryPage() {
       </div>
 
       {/* Page Header */}
-      <div className="bg-white rounded-2xl pb-6 mb-6">
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+      <div className="bg-white rounded-2xl pb-4 lg:pb-6 mb-4 lg:mb-6">
+        <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-100">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-brand-100 rounded-xl">
               <Package className="w-6 h-6 text-brand-800" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Add New Product</h2>
+              <h2 className="text-lg lg:text-xl font-semibold text-gray-900">Add New Product</h2>
               <p className="text-sm text-gray-500">Step {currentStep} of 4: {steps[currentStep - 1].title}</p>
             </div>
           </div>
         </div>
 
-        {/* Progress Steps */}
-        <div className="px-6 pt-6 pb-2">
+        {/* Progress Steps -- two different layouts, not one conditionally-
+            shrunk one. Below lg: a compact row of numbered dots and a
+            connector line only, no per-step text: every label except
+            "Basic Info" wrapped across 2-3 lines at phone widths, which
+            blew up this header's height and made the connector lines
+            nearly invisible against all that wrapped text. The "Step X of
+            4: <title>" line above already names the current step, so
+            nothing is lost by dropping the labels here. At lg: and up,
+            the original full circle + title + description per step is
+            unchanged. */}
+        <div className="px-4 pt-4 pb-2 lg:hidden">
+          <div className="flex items-center">
+            {steps.map((step, index) => (
+              <div key={step.number} className="flex items-center flex-1 last:flex-initial">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0 transition-colors ${
+                  currentStep > step.number
+                    ? 'bg-brand-800 text-white'
+                    : currentStep === step.number
+                    ? 'bg-brand-800 text-white ring-4 ring-brand-100'
+                    : 'bg-gray-200 text-gray-500'
+                }`}>
+                  {currentStep > step.number ? <Check className="w-3.5 h-3.5" /> : step.number}
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`h-0.5 flex-1 mx-1.5 ${
+                    currentStep > step.number ? 'bg-brand-800' : 'bg-gray-200'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="hidden lg:block px-6 pt-6 pb-2">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => (
               <div key={step.number} className="flex items-center flex-1">
