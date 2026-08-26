@@ -27,7 +27,8 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronDown,
-  AlertTriangle
+  AlertTriangle,
+  Undo2
 } from "lucide-react";
 
 // useSearchParams() requires a Suspense boundary above it or Next's build
@@ -215,18 +216,28 @@ function OrdersPageContent() {
   };
 
   // Get payment status color
-  const getPaymentStatusColor = (status) => {
+  // Whether the customer actually paid -- separate from order.status
+  // (fulfillment), same distinction the Payments page's Payment/Payout
+  // columns make. Covers every value paymentStatusOptions above can filter
+  // on, plus partially_refunded (not filterable yet, but a real
+  // order_payments.status value once any vendor split on a multi-vendor
+  // order is refunded).
+  const getPaymentStatusBadge = (status) => {
     switch (status) {
       case 'completed':
-        return 'text-green-600';
+        return { label: 'Paid', className: 'bg-green-100 text-green-800', Icon: CheckCircle };
+      case 'processed':
+        return { label: 'Processed', className: 'bg-blue-100 text-blue-800', Icon: CheckCircle };
       case 'pending':
-        return 'text-yellow-600';
+        return { label: 'Payment pending', className: 'bg-yellow-100 text-yellow-800', Icon: Clock };
       case 'failed':
-        return 'text-red-600';
+        return { label: 'Payment failed', className: 'bg-red-100 text-red-800', Icon: XCircle };
+      case 'partially_refunded':
+        return { label: 'Partially refunded', className: 'bg-amber-100 text-amber-700', Icon: Undo2 };
       case 'refunded':
-        return 'text-gray-600';
+        return { label: 'Refunded', className: 'bg-gray-100 text-gray-700', Icon: Undo2 };
       default:
-        return 'text-gray-600';
+        return { label: status || 'Unknown', className: 'bg-gray-100 text-gray-700', Icon: Clock };
     }
   };
 
@@ -518,15 +529,21 @@ function OrdersPageContent() {
                         </td>
                         <td className="px-4 lg:px-6 py-3 text-right">
                           <div className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(order.totalAmount)}</div>
-                          <div className={`text-xs whitespace-nowrap ${getPaymentStatusColor(order.paymentInfo.status)}`}>
-                            {order.paymentInfo.status.charAt(0).toUpperCase() + order.paymentInfo.status.slice(1)}
-                          </div>
                         </td>
                         <td className="px-4 lg:px-6 py-3">
                           <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap ${statusInfo.color}`}>
                             <StatusIcon className="w-3 h-3 mr-1" />
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </span>
+                          {(() => {
+                            const { label, className, Icon } = getPaymentStatusBadge(order.paymentInfo.status);
+                            return (
+                              <span className={`mt-1.5 flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full whitespace-nowrap w-fit ${className}`}>
+                                <Icon className="w-2.5 h-2.5 mr-1" />
+                                {label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 lg:px-6 py-3">
                           <div className="text-sm text-gray-600 whitespace-nowrap">{formatDate(order.createdAt)}</div>
