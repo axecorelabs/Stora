@@ -419,11 +419,11 @@ export default function SalesPage() {
           <table className="w-full">
             <thead className="bg-gray-50/50">
               <tr>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-[10px] md:text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 w-10"></th>
               </tr>
             </thead>
@@ -452,28 +452,28 @@ export default function SalesPage() {
                         className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50/80' : ''}`}
                       >
                         <td className="px-4 lg:px-6 py-3">
-                          <div className="text-sm font-mono text-gray-900">{sale.transactionId}</div>
-                          <div className="text-xs text-gray-500">{formatDate(sale.saleDate)}</div>
+                          <div className="text-xs md:text-sm font-mono text-gray-900">{sale.transactionId}</div>
+                          <div className="text-[10px] md:text-xs text-gray-500">{formatDate(sale.saleDate)}</div>
                         </td>
                         <td className="px-4 lg:px-6 py-3">
-                          <div className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
+                          <div className="text-xs md:text-sm font-medium text-gray-900 truncate max-w-[200px]">
                             {sale.customer.name || 'Walk-in Customer'}
                           </div>
                           {sale.customer.phone && (
-                            <div className="text-xs text-gray-500">{sale.customer.phone}</div>
+                            <div className="text-[10px] md:text-xs text-gray-500">{sale.customer.phone}</div>
                           )}
                         </td>
                         <td className="px-4 lg:px-6 py-3">
-                          <div className="flex items-center gap-1.5 text-sm text-gray-700 capitalize">
+                          <div className="flex items-center gap-1.5 text-xs md:text-sm text-gray-700 capitalize">
                             <span className="text-gray-400">{getPaymentMethodIcon(sale.paymentMethod)}</span>
                             {sale.paymentMethod}
                           </div>
                         </td>
                         <td className="px-4 lg:px-6 py-3 text-right">
-                          <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(sale.total)}</span>
+                          <span className="text-xs md:text-sm font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(sale.total)}</span>
                         </td>
                         <td className="px-4 lg:px-6 py-3">
-                          <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+                          <span className={`inline-flex px-2 md:px-2.5 py-0.5 md:py-1 text-[10px] md:text-xs font-medium rounded-full whitespace-nowrap ${
                             sale.status === 'completed' ? 'bg-green-100 text-green-800' :
                             sale.status === 'refunded' ? 'bg-red-100 text-red-800' :
                             'bg-yellow-100 text-yellow-800'
@@ -499,15 +499,15 @@ export default function SalesPage() {
                                 </p>
                                 <div className="space-y-2">
                                   {sale.items.map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between gap-3 text-sm bg-white border border-gray-200 rounded-lg px-3 py-2">
+                                    <div key={idx} className="flex items-center justify-between gap-3 text-xs md:text-sm bg-white border border-gray-200 rounded-lg px-3 py-2">
                                       <div className="min-w-0">
                                         <span className="font-medium text-gray-900">{item.productName}</span>
                                         {item.variant?.hasVariant && item.variant?.size && item.variant?.color && (
-                                          <span className="text-brand-800 text-xs ml-1.5">
+                                          <span className="text-brand-800 text-[10px] md:text-xs ml-1.5">
                                             ({item.variant.color} · {item.variant.size})
                                           </span>
                                         )}
-                                        <span className="text-gray-400 text-xs ml-1.5">× {item.quantity}</span>
+                                        <span className="text-gray-400 text-[10px] md:text-xs ml-1.5">× {item.quantity}</span>
                                       </div>
                                       <span className="text-gray-900 font-medium whitespace-nowrap">{formatCurrency(item.total)}</span>
                                     </div>
@@ -518,12 +518,12 @@ export default function SalesPage() {
                               <div className="space-y-4">
                                 <div>
                                   <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Amount received</p>
-                                  <p className="text-sm font-medium text-gray-900">{formatCurrency(sale.amountReceived)}</p>
+                                  <p className="text-xs md:text-sm font-medium text-gray-900">{formatCurrency(sale.amountReceived)}</p>
                                 </div>
                                 {sale.balance > 0 && (
                                   <div>
                                     <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Change given</p>
-                                    <p className="text-sm font-medium text-gray-900">{formatCurrency(sale.balance)}</p>
+                                    <p className="text-xs md:text-sm font-medium text-gray-900">{formatCurrency(sale.balance)}</p>
                                   </div>
                                 )}
 
