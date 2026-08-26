@@ -1330,33 +1330,39 @@ export default function AddInventoryPage() {
             )}
           </div>
 
-          {/* Navigation Footer */}
-          <div className="flex items-center justify-between pt-6 border-t border-gray-200 mt-8">
+          {/* Navigation Footer -- matches AddInventoryModal.js's already-fixed
+              version of this exact footer: full-width stacked buttons on
+              mobile (Cancel last), a single row from sm up. Three
+              non-shrinking buttons in one un-wrapped justify-between row
+              was overflowing the viewport the moment Previous appeared
+              (step 2+) -- confirmed on a real device; this page just hadn't
+              gotten the same fix yet. */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-6 border-t border-gray-200 mt-8">
             <button
               type="button"
               onClick={() => router.push('/dashboard/inventory')}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+              className="w-full sm:w-auto order-last sm:order-first px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
-            
-            <div className="flex items-center space-x-4">
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {currentStep > 1 && (
                 <button
                   type="button"
                   onClick={handlePreviousStep}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors flex items-center"
+                  className="w-full sm:w-auto px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center"
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" />
                   Previous
                 </button>
               )}
-              
+
               {currentStep < 4 ? (
                 <button
                   type="button"
                   onClick={handleNextStep}
-                  className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors flex items-center"
+                  className="w-full sm:w-auto px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors flex items-center justify-center"
                 >
                   Next
                   <ChevronRight className="w-4 h-4 ml-1" />
@@ -1366,7 +1372,7 @@ export default function AddInventoryPage() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting || isUploadingImage}
-                  className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                  className="w-full sm:w-auto px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                 >
                   {isSubmitting || isUploadingImage ? (
                     <>
