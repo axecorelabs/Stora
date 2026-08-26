@@ -58,7 +58,7 @@ export async function GET(req, { params }) {
       );
     }
 
-    const [{ data: customer }, { data: addresses }, { data: payment }, { data: timeline }, { data: allStoreLinks }] = await Promise.all([
+    const [{ data: customer }, { data: addresses }, { data: payment }, { data: timeline }, { data: allStoreLinks }, { data: split }] = await Promise.all([
       supabaseAdmin.from('order_customers').select('*').eq('order_id', id).maybeSingle(),
       supabaseAdmin.from('order_addresses').select('*').eq('order_id', id),
       supabaseAdmin.from('order_payments').select('*').eq('order_id', id).maybeSingle(),
@@ -67,7 +67,14 @@ export async function GET(req, { params }) {
       // to detect a multi-vendor order, since shipping/tax/discount/total
       // are tracked once per order, not itemized per-store, and would
       // otherwise misattribute other vendors' portions to this one.
-      supabaseAdmin.from('order_items').select('store_id').eq('order_id', id)
+      supabaseAdmin.from('order_items').select('store_id').eq('order_id', id),
+      // This vendor's own split row -- carries their resolved
+      // delivery_fee_amount/fulfillment_method (see computePaymentSplit in
+      // apps/store/src/app/api/orders/create/route.js). No row exists for
+      // a cash_to_vendor order or a contact-only (no subaccount) store --
+      // both already off the structured-payment path entirely, so the
+      // 0/'platform_collected' fallbacks below are correct, not a gap.
+      supabaseAdmin.from('order_payment_splits').select('delivery_fee_amount, fulfillment_method').eq('order_id', id).eq('store_id', store.id).maybeSingle()
     ]);
 
     const shippingAddr = (addresses || []).find(a => a.address_type === 'shipping') || {};
@@ -102,7 +109,20 @@ export async function GET(req, { params }) {
         timeline: timeline || [],
         isMultiVendor,
         subtotal: isMultiVendor ? vendorItemsSubtotal : (order.subtotal || 0),
-        shippingFee: isMultiVendor ? 0 : (order.shipping_fee || 0),
+        // Sourced from this vendor's own order_payment_splits row, not
+        // order.shipping_fee (an order-wide total across every vendor) --
+        // correct for single- and multi-vendor orders alike, since a split
+        // row is always per-(order, store). Only counted here when
+        // platform_collected -- this feeds the "Shipping" line in the
+        // paid-breakdown UI, which would misrepresent a pay_on_delivery fee
+        // as money already collected; that amount is exposed separately
+        // below instead.
+        shippingFee: split?.fulfillment_method === 'pay_on_delivery' ? 0 : (Number(split?.delivery_fee_amount) || 0),
+        deliveryFulfillmentMethod: split?.fulfillment_method === 'pay_on_delivery' ? 'pay_on_delivery' : 'platform_collected',
+        // What this vendor should expect from the customer/rider directly
+        // on arrival -- never part of the Paystack settlement, so it's
+        // deliberately not folded into shippingFee/totalAmount above.
+        payOnDeliveryFee: split?.fulfillment_method === 'pay_on_delivery' ? (Number(split?.delivery_fee_amount) || 0) : 0,
         discount: isMultiVendor ? 0 : (order.discount || 0),
         tax: isMultiVendor ? 0 : (order.tax || 0),
         totalAmount: isMultiVendor ? vendorItemsSubtotal : order.total_amount

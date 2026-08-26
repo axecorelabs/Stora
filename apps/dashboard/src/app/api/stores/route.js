@@ -30,6 +30,11 @@ function transformStore(store) {
     // doesn't need to re-derive the same null-check itself.
     deliveryStates: store.delivery_states && store.delivery_states.length > 0 ? store.delivery_states : null,
     deliveryNationwide: !store.delivery_states || store.delivery_states.length === 0,
+    // Flat fee per destination state (keyed by NIGERIAN_STATES value), and
+    // who collects it -- 'pay_on_delivery' carves only the delivery-fee
+    // portion out of the Paystack charge, merchandise payment is untouched.
+    deliveryFees: (typeof store.delivery_fees === 'string' ? JSON.parse(store.delivery_fees) : store.delivery_fees) || {},
+    fulfillmentMethod: store.fulfillment_method === 'pay_on_delivery' ? 'pay_on_delivery' : 'platform_collected',
     address: typeof store.address === 'string' ? JSON.parse(store.address) : store.address,
     onlineStoreInfo: typeof store.online_store_info === 'string' ? JSON.parse(store.online_store_info) : store.online_store_info,
     branding: typeof store.branding === 'string' ? JSON.parse(store.branding) : store.branding,
@@ -279,6 +284,36 @@ export async function PUT(req) {
       deliveryStatesUpdate = null;
     }
 
+    // deliveryFees: flat fee per destination state, keyed the same as
+    // deliveryStates. Deliberately NOT required to be a subset of
+    // deliveryStates -- a fee for a state temporarily removed from
+    // deliveryStates stays dormant rather than being deleted, so re-adding
+    // that state later restores its old price instead of starting blank.
+    let deliveryFeesUpdate;
+    if (updateData.deliveryFees !== undefined && updateData.deliveryFees !== null) {
+      if (typeof updateData.deliveryFees !== 'object' || Array.isArray(updateData.deliveryFees)) {
+        return NextResponse.json(
+          { success: false, message: 'deliveryFees must be an object' },
+          { status: 400 }
+        );
+      }
+      for (const [state, amount] of Object.entries(updateData.deliveryFees)) {
+        if (!isValidNigerianState(state)) {
+          return NextResponse.json(
+            { success: false, message: `deliveryFees has an invalid state: ${state}` },
+            { status: 400 }
+          );
+        }
+        if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
+          return NextResponse.json(
+            { success: false, message: `deliveryFees.${state} must be a number >= 0` },
+            { status: 400 }
+          );
+        }
+      }
+      deliveryFeesUpdate = updateData.deliveryFees;
+    }
+
     // Build update object with snake_case keys
     const dbUpdate = {};
     if (updateData.storeName) dbUpdate.store_name = updateData.storeName;
@@ -288,6 +323,7 @@ export async function PUT(req) {
     if (updateData.storeEmail) dbUpdate.store_email = updateData.storeEmail;
     if (updateData.state !== undefined) dbUpdate.state = updateData.state;
     if (deliveryStatesUpdate !== undefined) dbUpdate.delivery_states = deliveryStatesUpdate;
+    if (deliveryFeesUpdate !== undefined) dbUpdate.delivery_fees = deliveryFeesUpdate;
     if (updateData.address) dbUpdate.address = updateData.address;
     if (updateData.onlineStoreInfo) dbUpdate.online_store_info = updateData.onlineStoreInfo;
     if (updateData.branding) dbUpdate.branding = updateData.branding;

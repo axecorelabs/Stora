@@ -518,6 +518,16 @@ export default function OrderDetailsContent({
                       </div>
                     )}
 
+                    {order.payOnDeliveryFee > 0 && (
+                      <div className="flex items-center justify-between text-sm rounded-lg border border-dashed border-gray-300 px-3 py-2 mt-1">
+                        <span className="flex items-center gap-1.5 text-gray-600">
+                          <Truck className="w-3.5 h-3.5 flex-shrink-0" />
+                          Customer owes you on delivery
+                        </span>
+                        <span className="text-gray-900 font-semibold">{formatCurrency(order.payOnDeliveryFee)}</span>
+                      </div>
+                    )}
+
                     {order.discount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Discount</span>

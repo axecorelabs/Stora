@@ -49,6 +49,7 @@ export default function StorePage() {
   const [editData, setEditData] = useState({});
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpdatingFulfillmentMethod, setIsUpdatingFulfillmentMethod] = useState(false);
   const [isCreateStoreModalOpen, setIsCreateStoreModalOpen] = useState(false);
   const [isAddPhysicalStoreModalOpen, setIsAddPhysicalStoreModalOpen] = useState(false);
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
@@ -137,6 +138,7 @@ export default function StorePage() {
       state: store.state || '',
       deliveryNationwide: store.deliveryNationwide,
       deliveryStates: store.deliveryStates || [],
+      deliveryFees: store.deliveryFees || {},
       address: { ...store.address },
       onlineStoreInfo: {
         website: store.onlineStoreInfo?.website || '',
@@ -232,6 +234,41 @@ export default function StorePage() {
     if (errors.deliveryStates) setErrors(prev => ({ ...prev, deliveryStates: '' }));
   };
 
+  const setDeliveryFee = (state, amount) => {
+    setEditData(prev => ({ ...prev, deliveryFees: { ...prev.deliveryFees, [state]: amount } }));
+  };
+
+  // Bulk-sets every state in a zone that doesn't already have an explicit
+  // fee -- never overwrites a state the vendor already customized, so this
+  // is purely a data-entry shortcut, not a way to reset a whole zone.
+  const setDeliveryFeeForZone = (statesInZone, amount) => {
+    setEditData(prev => {
+      const nextFees = { ...prev.deliveryFees };
+      for (const state of statesInZone) {
+        if (nextFees[state] === undefined) nextFees[state] = amount;
+      }
+      return { ...prev, deliveryFees: nextFees };
+    });
+  };
+
+  const handleFulfillmentMethodChange = async (fulfillmentMethod) => {
+    if (fulfillmentMethod === store.fulfillmentMethod || isUpdatingFulfillmentMethod) return;
+    setIsUpdatingFulfillmentMethod(true);
+    try {
+      const response = await secureApiCall('/api/stores/fulfillment-method', {
+        method: 'PATCH',
+        body: JSON.stringify({ fulfillmentMethod })
+      });
+      if (response.success) {
+        setStore(prev => ({ ...prev, fulfillmentMethod: response.data.fulfillmentMethod }));
+      } else {
+        setErrors(prev => ({ ...prev, fulfillmentMethod: response.message || 'Failed to update' }));
+      }
+    } finally {
+      setIsUpdatingFulfillmentMethod(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!validateForm()) return;
     
@@ -255,7 +292,8 @@ export default function StorePage() {
           // validateForm() above, so this only ever matters for
           // online-only stores that haven't set one yet.
           state: (store.storeType === 'physical' ? editData.address.state : editData.state) || undefined,
-          deliveryStates: editData.deliveryNationwide ? null : editData.deliveryStates
+          deliveryStates: editData.deliveryNationwide ? null : editData.deliveryStates,
+          deliveryFees: editData.deliveryFees || {}
         })
       });
 
@@ -463,7 +501,18 @@ export default function StorePage() {
             <StoreLocationTab store={store} isEditing={isEditing} editData={editData} errors={errors} handleChange={handleChange} nigerianStates={nigerianStates} />
           )}
           {activeTab === 'delivery' && (
-            <StoreDeliveryTab store={store} isEditing={isEditing} editData={editData} errors={errors} setDeliveryNationwide={setDeliveryNationwide} toggleDeliveryState={toggleDeliveryState} />
+            <StoreDeliveryTab
+              store={store}
+              isEditing={isEditing}
+              editData={editData}
+              errors={errors}
+              setDeliveryNationwide={setDeliveryNationwide}
+              toggleDeliveryState={toggleDeliveryState}
+              setDeliveryFee={setDeliveryFee}
+              setDeliveryFeeForZone={setDeliveryFeeForZone}
+              onFulfillmentMethodChange={handleFulfillmentMethodChange}
+              isUpdatingFulfillmentMethod={isUpdatingFulfillmentMethod}
+            />
           )}
           {activeTab === 'preferences' && (
             <StorePreferencesTab store={store} isEditing={isEditing} editData={editData} handleChange={handleChange} currencyOptions={currencyOptions} />

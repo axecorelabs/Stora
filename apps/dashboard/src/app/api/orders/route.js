@@ -162,11 +162,20 @@ export async function GET(req) {
     let orderCustomerMap = {};
     let orderAddressMap = {};
     let orderPaymentMap = {};
+    // This vendor's own split row per order -- carries the resolved
+    // delivery_fee_amount/fulfillment_method for their share (see
+    // apps/store/src/app/api/orders/create/route.js's computePaymentSplit).
+    // No row exists for a cash_to_vendor order or a contact-only (no
+    // subaccount) store -- both are already off the structured-payment
+    // path entirely, so 0/'platform_collected' defaults below are correct,
+    // not a gap.
+    let orderSplitMap = {};
     if (orderIds.length > 0) {
-      const [{ data: orderCustomers }, { data: orderAddresses }, { data: orderPayments }] = await Promise.all([
+      const [{ data: orderCustomers }, { data: orderAddresses }, { data: orderPayments }, { data: orderSplits }] = await Promise.all([
         supabaseAdmin.from('order_customers').select('*').in('order_id', orderIds),
         supabaseAdmin.from('order_addresses').select('*').in('order_id', orderIds),
-        supabaseAdmin.from('order_payments').select('*').in('order_id', orderIds)
+        supabaseAdmin.from('order_payments').select('*').in('order_id', orderIds),
+        supabaseAdmin.from('order_payment_splits').select('order_id, delivery_fee_amount, fulfillment_method').eq('store_id', store.id).in('order_id', orderIds)
       ]);
       (orderCustomers || []).forEach(c => { orderCustomerMap[c.order_id] = c; });
       (orderAddresses || []).forEach(a => {
@@ -174,6 +183,7 @@ export async function GET(req) {
         orderAddressMap[a.order_id][a.address_type] = a;
       });
       (orderPayments || []).forEach(p => { orderPaymentMap[p.order_id] = p; });
+      (orderSplits || []).forEach(s => { orderSplitMap[s.order_id] = s; });
     }
 
     // Transform orders to match frontend expected format
@@ -191,6 +201,7 @@ export async function GET(req) {
       // are tracked once per order, not itemized per-store, and the whole
       // order.total_amount includes every other vendor's items too.
       const vendorItemsSubtotal = items.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0);
+      const vendorSplit = orderSplitMap[order.id];
 
       return {
         ...order,
@@ -260,7 +271,22 @@ export async function GET(req) {
         // the order-wide figures here would attribute other vendors'
         // portions to this one -- show just this vendor's own items total.
         subtotal: isMultiVendor ? vendorItemsSubtotal : (order.subtotal || 0),
-        shippingFee: isMultiVendor ? 0 : (order.shipping_fee || 0),
+        // Sourced from this vendor's own order_payment_splits row, not
+        // order.shipping_fee -- that column is an order-wide total across
+        // every vendor, which the old isMultiVendor ? 0 : ... fallback
+        // avoided misattributing but zeroed out entirely rather than
+        // showing this vendor's real share. Correct for single- and
+        // multi-vendor orders alike now, since a split row is always
+        // per-(order, store). Only counted here when platform_collected --
+        // this feeds the "Shipping" line in the paid-breakdown UI, which
+        // would misrepresent a pay_on_delivery fee as money already
+        // collected; that amount is exposed separately below instead.
+        shippingFee: vendorSplit?.fulfillment_method === 'pay_on_delivery' ? 0 : (Number(vendorSplit?.delivery_fee_amount) || 0),
+        deliveryFulfillmentMethod: vendorSplit?.fulfillment_method === 'pay_on_delivery' ? 'pay_on_delivery' : 'platform_collected',
+        // What this vendor should expect from the customer/rider directly
+        // on arrival -- never part of the Paystack settlement, so it's
+        // deliberately not folded into shippingFee/totalAmount above.
+        payOnDeliveryFee: vendorSplit?.fulfillment_method === 'pay_on_delivery' ? (Number(vendorSplit?.delivery_fee_amount) || 0) : 0,
         discount: isMultiVendor ? 0 : (order.discount || 0),
         tax: isMultiVendor ? 0 : (order.tax || 0),
         totalAmount: isMultiVendor ? vendorItemsSubtotal : order.total_amount,
