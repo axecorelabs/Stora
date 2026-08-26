@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import DeliveryDetailsPanel from "@/components/dashboard/DeliveryDetailsPanel";
+import DeliverySettingsCard from "@/components/dashboard/DeliverySettingsCard";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Calendar,
@@ -273,6 +274,8 @@ export default function DeliveriesPage() {
 
   return (
     <DashboardLayout title="Delivery Calendar" subtitle="Manage your delivery schedule">
+      <DeliverySettingsCard />
+
       {/* Stats Strip */}
       {stats && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-4 lg:mb-6">
