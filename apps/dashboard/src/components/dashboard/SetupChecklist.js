@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, X, ShieldCheck, Globe, ArrowRight, ListChecks } from "lucide-react";
+import { MapPin, X, ShieldCheck, Globe, Truck, ArrowRight, ListChecks } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NIGERIAN_STATES, isValidNigerianState } from "@stora/shared-constants";
 import CustomDropdown from "@/components/ui/CustomDropdown";
@@ -50,8 +50,12 @@ export default function SetupChecklist() {
   // a "Get verified" row that's guaranteed to fail if clicked.
   const needsVerification = verificationEnabled === true && !store.isVerified;
   const needsWebsite = !store.website?.isEnabled;
+  // Unlike delivery regions (nationwide is already a complete, valid
+  // choice), an empty fee map genuinely means nothing has been configured
+  // yet -- every order ships for free until a vendor sets at least one.
+  const needsDeliveryFees = Object.keys(store.deliveryFees || {}).length === 0;
 
-  if (!needsState && !needsVerification && !needsWebsite) return null;
+  if (!needsState && !needsVerification && !needsWebsite && !needsDeliveryFees) return null;
 
   const handleSaveState = async () => {
     if (!selectedState) return;
@@ -74,8 +78,8 @@ export default function SetupChecklist() {
   // available -- otherwise "1 of 3 done" would look permanently stuck on
   // a task nobody can complete yet.
   const applicableItems = verificationEnabled === true
-    ? [needsState, needsVerification, needsWebsite]
-    : [needsState, needsWebsite];
+    ? [needsState, needsVerification, needsWebsite, needsDeliveryFees]
+    : [needsState, needsWebsite, needsDeliveryFees];
   const doneCount = applicableItems.filter((needed) => !needed).length;
   const totalCount = applicableItems.length;
 
@@ -168,6 +172,21 @@ export default function SetupChecklist() {
             </span>
             <span className="flex items-center gap-1 font-semibold text-brand-800 text-sm flex-shrink-0">
               Set up <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </button>
+        )}
+
+        {needsDeliveryFees && (
+          <button
+            onClick={() => router.push('/dashboard/deliveries')}
+            className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
+          >
+            <span className="flex items-center gap-2.5 text-sm text-gray-700">
+              <Truck className="w-4 h-4 text-gold-700 flex-shrink-0" />
+              Set delivery fees so you get paid for shipping
+            </span>
+            <span className="flex items-center gap-1 font-semibold text-brand-800 text-sm flex-shrink-0">
+              Set fees <ArrowRight className="w-3.5 h-3.5" />
             </span>
           </button>
         )}
