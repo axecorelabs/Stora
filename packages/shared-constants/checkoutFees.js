@@ -42,15 +42,34 @@ export function estimatePaystackFee(subtotalNaira) {
 // the Paystack-fee step: that's computed once on the summed total across
 // every payable store, not per store (see estimatePaystackFee above), by
 // each caller after summing every store's customerAmount here.
-export function computeStoreCheckoutAmount({ grossAmount, commissionBearer, commissionRate, minimumCommission }) {
+export function computeStoreCheckoutAmount({
+  grossAmount,
+  commissionBearer,
+  commissionRate,
+  minimumCommission,
+  deliveryFee = 0,
+  fulfillmentMethod = 'platform_collected'
+}) {
   const rateBasedCommission = Math.round(grossAmount * commissionRate * 100) / 100;
   // Floored at minimumCommission, but never above grossAmount itself --
   // without that cap, a low-priced order would push netAmount negative in
-  // 'vendor'-bearer mode.
+  // 'vendor'-bearer mode. Commission is deliberately a pure function of
+  // grossAmount only -- delivery fee never enters this base, which is what
+  // keeps it structurally non-commission-bearing (a pass-through logistics
+  // cost, not merchandise revenue).
   const commissionAmount = Math.min(Math.max(rateBasedCommission, minimumCommission), grossAmount);
   const bearer = commissionBearer === 'customer' ? 'customer' : 'vendor';
-  const netAmount = bearer === 'customer' ? grossAmount : grossAmount - commissionAmount;
-  const customerAmount = bearer === 'customer' ? grossAmount + commissionAmount : grossAmount;
 
-  return { commissionAmount, netAmount, customerAmount, bearer };
+  // 'platform_collected' folds the fee into what's charged/paid out here
+  // (same payment as the merchandise). 'pay_on_delivery' keeps it out of
+  // both entirely -- the rider collects it directly, off-platform -- and
+  // is surfaced separately via payOnDeliveryAmount for the "pay on
+  // arrival" UI line instead.
+  const deliveryFeeAmount = fulfillmentMethod === 'platform_collected' ? deliveryFee : 0;
+  const payOnDeliveryAmount = fulfillmentMethod === 'pay_on_delivery' ? deliveryFee : 0;
+
+  const netAmount = (bearer === 'customer' ? grossAmount : grossAmount - commissionAmount) + deliveryFeeAmount;
+  const customerAmount = (bearer === 'customer' ? grossAmount + commissionAmount : grossAmount) + deliveryFeeAmount;
+
+  return { commissionAmount, netAmount, customerAmount, bearer, deliveryFeeAmount, payOnDeliveryAmount };
 }
