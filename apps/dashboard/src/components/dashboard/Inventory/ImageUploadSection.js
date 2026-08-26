@@ -29,7 +29,8 @@ export default function ImageUploadSection({
     category === 'Electronics' ||
     category === 'Sports' ||
     category === 'Home & Garden' ||
-    category === 'Other'
+    category === 'Other' ||
+    category === 'Wigs & Hair'
   );
 
   // The "Product Variants" guidance banner below should show anywhere
