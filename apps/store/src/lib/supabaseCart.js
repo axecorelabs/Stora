@@ -381,15 +381,19 @@ export async function enrichCartWithProductData(cart) {
   let deliveryStatesByStore = {};
   let paystackReadyByStore = {};
   let commissionBearerByStore = {};
+  let deliveryFeesByStore = {};
+  let fulfillmentMethodByStore = {};
   if (distinctStoreIds.length > 0) {
     const { data: stores } = await supabaseAdmin
       .from('stores')
-      .select('id, delivery_states, paystack_ready, commission_bearer')
+      .select('id, delivery_states, paystack_ready, commission_bearer, delivery_fees, fulfillment_method')
       .in('id', distinctStoreIds);
     (stores || []).forEach(s => {
       deliveryStatesByStore[s.id] = s.delivery_states || null;
       paystackReadyByStore[s.id] = Boolean(s.paystack_ready);
       commissionBearerByStore[s.id] = s.commission_bearer === 'customer' ? 'customer' : 'vendor';
+      deliveryFeesByStore[s.id] = s.delivery_fees || {};
+      fulfillmentMethodByStore[s.id] = s.fulfillment_method === 'pay_on_delivery' ? 'pay_on_delivery' : 'platform_collected';
     });
   }
 
@@ -439,7 +443,9 @@ export async function enrichCartWithProductData(cart) {
           stock_sufficient: availableStock >= item.quantity,
           store_delivery_states: deliveryStatesByStore[item.store_id] ?? null,
           store_paystack_ready: paystackReadyByStore[item.store_id] ?? false,
-          store_commission_bearer: commissionBearerByStore[item.store_id] ?? 'vendor'
+          store_commission_bearer: commissionBearerByStore[item.store_id] ?? 'vendor',
+          store_delivery_fees: deliveryFeesByStore[item.store_id] ?? {},
+          store_fulfillment_method: fulfillmentMethodByStore[item.store_id] ?? 'platform_collected'
         };
       } catch (error) {
         console.error(`Error enriching cart item ${item.product_id}:`, error);
@@ -449,7 +455,9 @@ export async function enrichCartWithProductData(cart) {
           error: 'Failed to load product data',
           store_delivery_states: deliveryStatesByStore[item.store_id] ?? null,
           store_paystack_ready: paystackReadyByStore[item.store_id] ?? false,
-          store_commission_bearer: commissionBearerByStore[item.store_id] ?? 'vendor'
+          store_commission_bearer: commissionBearerByStore[item.store_id] ?? 'vendor',
+          store_delivery_fees: deliveryFeesByStore[item.store_id] ?? {},
+          store_fulfillment_method: fulfillmentMethodByStore[item.store_id] ?? 'platform_collected'
         };
       }
     })

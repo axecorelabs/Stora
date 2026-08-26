@@ -50,11 +50,11 @@ async function groupOrderItemsByStore(order) {
 // here must not silently disappear the way a failed notification email
 // can, since a missing split record breaks payment initiation later --
 // callers check the returned paymentSplitError instead.
-async function computePaymentSplit(order, storeGroupedItems) {
+async function computePaymentSplit(order, storeGroupedItems, destinationState) {
   const storeIds = Object.keys(storeGroupedItems);
   const { data: stores, error: storesError } = await supabaseAdmin
     .from('stores')
-    .select('id, paystack_ready, bank_details, commission_bearer')
+    .select('id, paystack_ready, bank_details, commission_bearer, delivery_fees, fulfillment_method')
     .in('id', storeIds);
 
   if (storesError) throw storesError;
@@ -65,6 +65,21 @@ async function computePaymentSplit(order, storeGroupedItems) {
   );
   const commissionBearerByStoreId = new Map(
     (stores || []).map(s => [s.id, s.commission_bearer === 'customer' ? 'customer' : 'vendor'])
+  );
+  // A store can only ever be charged as platform_collected if it's actually
+  // paystack_ready -- a vendor's own setting can't override that (e.g. a
+  // subaccount later deactivated), so this falls back to pay_on_delivery
+  // regardless of what's stored whenever readiness says otherwise.
+  const deliveryByStoreId = new Map(
+    (stores || []).map(s => [
+      s.id,
+      {
+        fee: Number(s.delivery_fees?.[destinationState]) || 0,
+        method: (s.paystack_ready && s.fulfillment_method !== 'pay_on_delivery')
+          ? 'platform_collected'
+          : 'pay_on_delivery'
+      }
+    ])
   );
 
   const payableStoreIds = storeIds.filter(id => readyStoreIds.has(id));
@@ -107,11 +122,14 @@ async function computePaymentSplit(order, storeGroupedItems) {
     // in both directions -- exactly the correct refundable ceiling in both
     // modes too, which is why the refund route needs no changes for this
     // feature.
+    const { fee: deliveryFee, method: fulfillmentMethod } = deliveryByStoreId.get(storeId);
     const { commissionAmount, netAmount, customerAmount } = computeStoreCheckoutAmount({
       grossAmount,
       commissionBearer: bearer,
       commissionRate: PLATFORM_COMMISSION_RATE,
-      minimumCommission: PLATFORM_MINIMUM_COMMISSION
+      minimumCommission: PLATFORM_MINIMUM_COMMISSION,
+      deliveryFee,
+      fulfillmentMethod
     });
     payableSubtotal += customerAmount;
 
@@ -126,7 +144,12 @@ async function computePaymentSplit(order, storeGroupedItems) {
       platform_commission_amount: commissionAmount,
       net_amount_to_vendor: netAmount,
       commission_bearer: bearer,
-      customer_amount: customerAmount
+      customer_amount: customerAmount,
+      // Full raw fee regardless of method -- needed for the dashboard's
+      // "customer owes you on delivery" display even when it never entered
+      // customer_amount/net_amount_to_vendor above (pay_on_delivery).
+      delivery_fee_amount: deliveryFee,
+      fulfillment_method: fulfillmentMethod
     });
   }
 
@@ -331,7 +354,7 @@ export async function POST(request) {
       pendingOrderIds.length > 0
         ? supabaseAdmin.from('orders').select('id, order_number').in('id', pendingOrderIds).not('status', 'in', '(cancelled,refunded)').then(r => r.data)
         : Promise.resolve(null),
-      supabaseAdmin.from('stores').select('id, store_name, delivery_states').in('id', checkoutStoreIds).then(r => r.data),
+      supabaseAdmin.from('stores').select('id, store_name, delivery_states, paystack_ready, delivery_fees, fulfillment_method').in('id', checkoutStoreIds).then(r => r.data),
       findInventoryByIds(productIds),
       findActiveBatchesByInventoryIds(productIds)
     ]);
@@ -521,7 +544,25 @@ export async function POST(request) {
     const subtotal = isScopedCheckout
       ? itemsToProcess.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0)
       : cart.subtotal;
-    const totalAmount = isScopedCheckout ? subtotal : cart.total;
+
+    // Only ever non-zero for a 'paystack' checkout -- a cash_to_vendor
+    // order stays fully off-platform for every store, shipping_fee stays 0
+    // there exactly as before this feature. A store can't actually be
+    // charged as platform_collected without a live subaccount regardless of
+    // its own setting (mirrors the same paystack_ready fallback
+    // computePaymentSplit applies below), so this sum and that one always
+    // agree on which stores count.
+    const platformCollectedDeliveryTotal = paymentMethod === 'paystack'
+      ? (checkoutStores || []).reduce((sum, store) => {
+          const effectiveMethod = (store.paystack_ready && store.fulfillment_method !== 'pay_on_delivery')
+            ? 'platform_collected'
+            : 'pay_on_delivery';
+          if (effectiveMethod !== 'platform_collected') return sum;
+          return sum + (Number(store.delivery_fees?.[shippingAddress.state]) || 0);
+        }, 0)
+      : 0;
+
+    const totalAmount = (isScopedCheckout ? subtotal : cart.total) + platformCollectedDeliveryTotal;
 
     // Phase 2: every item reserved successfully -- create the order.
     let order;
@@ -532,7 +573,7 @@ export async function POST(request) {
         shippingAddress,
         subtotal,
         tax: isScopedCheckout ? 0 : (cart.tax || 0),
-        shippingFee: isScopedCheckout ? 0 : (cart.shipping || 0),
+        shippingFee: platformCollectedDeliveryTotal,
         discount: isScopedCheckout ? 0 : (cart.discount || 0),
         couponDiscount: isScopedCheckout ? 0 : (cart.coupon_discount || 0),
         totalAmount,
@@ -597,7 +638,7 @@ export async function POST(request) {
     let paymentSplitError = null;
     if (paymentMethod === 'paystack') {
       try {
-        paymentSplitResult = await computePaymentSplit(order, storeGroupedItems);
+        paymentSplitResult = await computePaymentSplit(order, storeGroupedItems, shippingAddress.state);
       } catch (splitError) {
         console.error('Error computing payment split:', splitError);
         paymentSplitError = 'Failed to set up payment for this order. Please try again.';
@@ -669,8 +710,15 @@ export async function POST(request) {
       console.error("Error sending order notifications:", notifyError);
     }
 
+    // Purely informational for WhatsAppContactModal's copy -- a contact-only
+    // store is already fully off the structured-payment path (no
+    // order_payment_splits row exists for it at all), so this deliberately
+    // isn't persisted anywhere, same scope boundary as everything else about
+    // these stores.
+    const checkoutStoreById = new Map((checkoutStores || []).map(s => [s.id, s]));
     const contactOnlyStores = contactOnlyStoreIds.map(storeId => {
       const groupData = storeGroupedItems[storeId];
+      const storeRecord = checkoutStoreById.get(storeId);
       return {
         storeId,
         // storeSnapshot is the raw order_stores row -- WhatsAppContactModal's
@@ -680,7 +728,9 @@ export async function POST(request) {
         storeName: groupData?.store?.store_name,
         storePhone: groupData?.store?.store_phone,
         itemCount: groupData?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0,
-        total: groupData?.total
+        total: groupData?.total,
+        deliveryFee: Number(storeRecord?.delivery_fees?.[shippingAddress.state]) || 0,
+        fulfillmentMethod: storeRecord?.fulfillment_method === 'pay_on_delivery' ? 'pay_on_delivery' : 'platform_collected'
       };
     });
 

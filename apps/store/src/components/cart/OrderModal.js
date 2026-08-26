@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-import { X, MapPin, Package, AlertCircle, CheckCircle } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { X, MapPin, Package, AlertCircle, CheckCircle, Truck, ChevronDown, ChevronUp } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { NIGERIAN_STATES } from "@stora/shared-constants";
 
@@ -27,6 +27,10 @@ export default function OrderModal({
   estimatedPaystackFee = 0, // Paystack's own processing fee, passed to the
   // customer -- see packages/shared-constants/checkoutFees.js. Same
   // treatment: shown separately, then included in the final total.
+  storeDeliveryInfo = [], // [{storeId, storeName, deliveryFees, fulfillmentMethod,
+  // paystackReady}] -- one entry per store in this checkout. Only this
+  // component knows the destination state (formData.state below), so the
+  // fee lookup happens here, live, as the customer picks/changes it.
   itemCount,
   primaryColor,
   secondaryColor,
@@ -53,6 +57,30 @@ export default function OrderModal({
   const stateOptions = Array.isArray(deliverableStates) && deliverableStates.length > 0
     ? NIGERIAN_STATES.filter((s) => deliverableStates.includes(s.value))
     : NIGERIAN_STATES;
+
+  // A store can only ever be charged as platform_collected if it's actually
+  // paystack_ready -- mirrors the same fallback orders/create/route.js
+  // applies server-side, so this preview never promises a "paid now" fee
+  // the real checkout wouldn't honor.
+  const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
+  const deliveryBreakdown = useMemo(() => {
+    const destinationState = formData.state;
+    const perStore = (storeDeliveryInfo || []).map((info) => {
+      const fee = destinationState ? (Number(info.deliveryFees?.[destinationState]) || 0) : 0;
+      const method = (info.paystackReady && info.fulfillmentMethod !== 'pay_on_delivery')
+        ? 'platform_collected'
+        : 'pay_on_delivery';
+      return { storeId: info.storeId, storeName: info.storeName, fee, method };
+    });
+    const platformCollectedTotal = perStore
+      .filter((s) => s.method === 'platform_collected')
+      .reduce((sum, s) => sum + s.fee, 0);
+    const payOnDeliveryTotal = perStore
+      .filter((s) => s.method === 'pay_on_delivery')
+      .reduce((sum, s) => sum + s.fee, 0);
+    const isMixedFulfillment = new Set(perStore.filter((s) => s.fee > 0).map((s) => s.method)).size > 1;
+    return { platformCollectedTotal, payOnDeliveryTotal, perStore, isMixedFulfillment };
+  }, [formData.state, storeDeliveryInfo]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -478,14 +506,84 @@ export default function OrderModal({
                     <span className="font-semibold text-gray-900 tabular-nums">{formatPrice(estimatedPaystackFee)}</span>
                   </div>
                 )}
+                {deliveryBreakdown.platformCollectedTotal > 0 && (
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-gray-600">Delivery fee:</span>
+                    <span className="font-semibold text-gray-900 tabular-nums">{formatPrice(deliveryBreakdown.platformCollectedTotal)}</span>
+                  </div>
+                )}
+
+                {/* Collapsible per-vendor breakdown -- only worth showing
+                    when there's more than one store to disambiguate; a
+                    single-store checkout has nothing to explain here (see
+                    the plain inline sentence in the pay-on-arrival box
+                    below instead). Reuses the same chevron-toggle idiom
+                    already used for cart item details in
+                    CartPageContent.js, not a new generic component. */}
+                {deliveryBreakdown.perStore.length > 1 && (deliveryBreakdown.platformCollectedTotal > 0 || deliveryBreakdown.payOnDeliveryTotal > 0) && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeliveryDetails((v) => !v)}
+                      className="flex items-center gap-1 text-xs text-brand-700 font-medium hover:text-brand-800"
+                    >
+                      <Truck className="w-3.5 h-3.5" />
+                      {showDeliveryDetails ? "Hide delivery details" : "Show delivery details"}
+                      {showDeliveryDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+                    {showDeliveryDetails && (
+                      <div className="mt-2 pt-2 border-t border-dashed border-brand-200/70 space-y-1.5">
+                        {deliveryBreakdown.perStore.map((s) => (
+                          <div key={s.storeId} className="flex justify-between text-xs">
+                            <span className="text-gray-600">{s.storeName}</span>
+                            <span className="text-gray-700 font-medium">
+                              {s.method === "pay_on_delivery" ? "Pay on arrival" : "Paid now"}
+                              {s.fee > 0 && ` · ${formatPrice(s.fee)}`}
+                            </span>
+                          </div>
+                        ))}
+                        <p className="text-[11px] text-gray-500 pt-1">
+                          Some vendors collect their delivery fee in cash/transfer on arrival instead of through this payment. Your item cost is always paid securely now — only the delivery portion for these vendors is collected on arrival.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="border-t border-dashed border-brand-200/70 my-2"></div>
                 <div className="flex justify-between items-end">
                   <span className="text-sm sm:text-base font-semibold text-gray-900">Total amount:</span>
                   <span className="text-lg sm:text-xl font-bold text-brand-800 tabular-nums">
-                    {formatPrice(totalAmount + commissionPassThrough + estimatedPaystackFee)}
+                    {formatPrice(totalAmount + commissionPassThrough + estimatedPaystackFee + deliveryBreakdown.platformCollectedTotal)}
                   </span>
                 </div>
               </div>
+
+              {deliveryBreakdown.payOnDeliveryTotal > 0 && (
+                <div className="mt-3 pt-3 border-t border-brand-100">
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Truck className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-gray-700">
+                        {deliveryBreakdown.perStore.length > 1
+                          ? "Pay to rider(s) on arrival"
+                          : "Pay to rider on arrival"}
+                      </span>
+                    </div>
+                    <span className="text-sm sm:text-base font-bold text-gray-900 tabular-nums flex-shrink-0">
+                      {formatPrice(deliveryBreakdown.payOnDeliveryTotal)}
+                    </span>
+                  </div>
+                  {/* Single-store checkout has nothing to disambiguate --
+                      one plain sentence instead of the multi-vendor
+                      collapsible above. */}
+                  {deliveryBreakdown.perStore.length <= 1 && (
+                    <p className="text-[11px] text-gray-500 mt-1.5">
+                      This vendor collects their delivery fee in cash/transfer when your order arrives. Your item cost is always paid securely now.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </form>
         </div>

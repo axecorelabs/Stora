@@ -486,9 +486,14 @@ export default function CartPageContent({ slug }) {
           // enrichCartWithProductData, same duplication convention as
           // storeSnapshot itself. paystackReady/commissionBearer feed the
           // checkout fee preview below (computeCheckoutFeePreview).
+          // deliveryFees/fulfillmentMethod are consumed by OrderModal
+          // itself, not here -- only it knows the destination state
+          // (formData.state) needed to look a fee up.
           deliveryStates: item.store_delivery_states ?? null,
           paystackReady: item.store_paystack_ready ?? false,
           commissionBearer: item.store_commission_bearer ?? 'vendor',
+          deliveryFees: item.store_delivery_fees ?? {},
+          fulfillmentMethod: item.store_fulfillment_method ?? 'platform_collected',
           items: [],
         };
       }
@@ -512,6 +517,20 @@ export default function CartPageContent({ slug }) {
         (acc, g) => acc.filter(s => g.deliveryStates.includes(s)),
         restrictedGroups[0].deliveryStates
       );
+
+  // Delivery-fee lookup lives in OrderModal itself, not here -- only it
+  // knows the destination state (formData.state) a fee resolves against.
+  // This just hands over each store's raw fee map/method/readiness so the
+  // modal can look up the right number as the customer picks a state.
+  const buildDeliveryInfo = (groups) => groups.map((g) => ({
+    storeId: g.store_id,
+    storeName: g.storeSnapshot?.store_name ?? g.storeSnapshot?.storeName ?? "This store",
+    deliveryFees: g.deliveryFees ?? {},
+    fulfillmentMethod: g.fulfillmentMethod ?? 'platform_collected',
+    paystackReady: g.paystackReady ?? false,
+  }));
+  const wholeCartDeliveryInfo = buildDeliveryInfo(storeGroups);
+  const selectedStoreDeliveryInfo = selectedStoreGroup ? buildDeliveryInfo([selectedStoreGroup]) : [];
 
   const wholeCartFeePreview = computeCheckoutFeePreview(storeGroups, cart.commissionRate, cart.minimumCommission);
   const selectedStoreFeePreview = selectedStoreGroup
@@ -1082,6 +1101,7 @@ export default function CartPageContent({ slug }) {
           totalAmount={cart.total || 0}
           commissionPassThrough={wholeCartFeePreview.commissionPassThrough}
           estimatedPaystackFee={wholeCartFeePreview.estimatedPaystackFee}
+          storeDeliveryInfo={wholeCartDeliveryInfo}
           itemCount={getCartCount()}
           deliverableStates={wholeCartDeliverableStates}
           deliveryState={deliveryState}
@@ -1161,6 +1181,7 @@ export default function CartPageContent({ slug }) {
           )}
           commissionPassThrough={selectedStoreFeePreview.commissionPassThrough}
           estimatedPaystackFee={selectedStoreFeePreview.estimatedPaystackFee}
+          storeDeliveryInfo={selectedStoreDeliveryInfo}
           itemCount={selectedStoreGroup?.items.reduce((sum, item) => sum + item.quantity, 0)}
           deliverableStates={selectedStoreGroup?.deliveryStates ?? null}
           deliveryState={deliveryState}
