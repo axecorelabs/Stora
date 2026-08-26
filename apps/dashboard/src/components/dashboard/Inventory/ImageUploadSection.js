@@ -156,7 +156,7 @@ export default function ImageUploadSection({
         </p>
 
         {/* Image Grid */}
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
           {imagePreviews.map((preview, index) => (
             <div key={index} className="flex flex-col space-y-2">
               {/* Image Container */}

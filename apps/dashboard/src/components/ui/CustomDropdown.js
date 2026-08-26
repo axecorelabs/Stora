@@ -59,11 +59,11 @@ export default function CustomDropdown({
             : 'border-gray-300'
         } bg-white text-black`}
       >
-        <div className="flex items-center justify-between">
-          <span className={selectedOption ? 'text-black' : 'text-gray-500'}>
+        <div className="flex items-center justify-between gap-1.5">
+          <span className={`truncate min-w-0 ${selectedOption ? 'text-black' : 'text-gray-500'}`}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronDown className={`${sizeStyle.icon} transition-transform text-gray-500 ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`${sizeStyle.icon} flex-shrink-0 transition-transform text-gray-500 ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </button>
 
