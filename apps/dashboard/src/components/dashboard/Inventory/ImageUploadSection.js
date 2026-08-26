@@ -19,17 +19,23 @@ export default function ImageUploadSection({
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
 
-  const canEnableVariants = (category === 'Clothing' || category === 'Shoes' || category === 'Accessories');
-  
   // Check if category supports color tagging
   const supportsColorTagging = (
-    category === 'Clothing' || 
-    category === 'Shoes' || 
+    category === 'Clothing' ||
+    category === 'Shoes' ||
     category === 'Accessories' ||
     category === 'Electronics' ||
     category === 'Sports' ||
     category === 'Home & Garden'
   );
+
+  // The "Product Variants" guidance banner below should show anywhere
+  // color tagging itself is offered -- variant detection (AddInventoryModal's
+  // handleVariantsDetected) already runs off tagged colors alone, with no
+  // category check of its own, so gating this banner to a narrower list
+  // than supportsColorTagging just left some of those categories without
+  // the in-context explanation for a feature that already worked for them.
+  const canEnableVariants = supportsColorTagging;
 
   // Predefined common colors
   const commonColors = [
