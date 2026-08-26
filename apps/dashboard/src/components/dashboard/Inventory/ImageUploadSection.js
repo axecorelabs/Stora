@@ -1,5 +1,5 @@
 "use client";
-import { Upload, Check, Trash2, AlertCircle, ImageIcon, Info } from "lucide-react";
+import { Upload, Check, Trash2, ImageIcon, Info, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 
@@ -96,12 +96,12 @@ export default function ImageUploadSection({
 
       {/* Variant Mode Toggle - Only for applicable categories */}
       {canEnableVariants && (
-        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+        <div className="mb-6 p-4 bg-brand-50 border border-brand-100 rounded-xl">
           <div className="flex items-start justify-between">
             <div className="flex items-start space-x-3 flex-1">
               <div className="flex-1">
                 <div className="flex items-center space-x-2">
-                  <span className="font-medium text-blue-900">
+                  <span className="font-medium text-brand-900">
                     Product Variants
                   </span>
                   <div className="relative">
@@ -109,7 +109,7 @@ export default function ImageUploadSection({
                       type="button"
                       onMouseEnter={() => setShowTooltip(true)}
                       onMouseLeave={() => setShowTooltip(false)}
-                      className="p-1 text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
+                      className="p-1 text-brand-700 hover:bg-brand-100 rounded-full transition-colors"
                     >
                       <Info className="w-4 h-4" />
                     </button>
@@ -134,7 +134,7 @@ export default function ImageUploadSection({
                     )}
                   </div>
                 </div>
-                <p className="text-sm text-blue-700 mt-1">
+                <p className="text-sm text-brand-700 mt-1">
                   {hasVariants 
                     ? "✓ System detected multiple color variants from your tagged images"
                     : "Tag 2 or more images with different colors to enable variant tracking"
@@ -249,9 +249,9 @@ export default function ImageUploadSection({
 
         {/* Helper Text */}
         {imagePreviews.length > 0 && (
-          <div className="flex items-start space-x-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
-            <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-amber-800">
+          <div className="flex items-start space-x-2 p-3 bg-gold-400/10 rounded-lg border border-gold-500/25">
+            <Sparkles className="w-4 h-4 text-gold-700 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-brand-900/80">
               <p className="font-medium mb-1">Quick Tips:</p>
               <ul className="list-disc list-inside space-y-0.5">
                 {supportsColorTagging ? (
@@ -275,10 +275,10 @@ export default function ImageUploadSection({
 
         {/* No Images Warning */}
         {imagePreviews.length === 0 && (
-          <div className="flex items-start space-x-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-blue-800">
-              <strong>Tip:</strong> Upload at least one product image. Good photos help customers see what they're buying!
+          <div className="flex items-start space-x-2 p-3 bg-gold-400/10 rounded-lg border border-gold-500/25">
+            <Sparkles className="w-4 h-4 text-gold-700 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-brand-900/80">
+              <strong>Tip:</strong> Upload at least one product image. Good photos help customers see what they&apos;re buying!
             </p>
           </div>
         )}
