@@ -1,6 +1,7 @@
 "use client";
 import { Upload, Check, Trash2, ImageIcon, Info, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { PRODUCT_COLORS, PRODUCT_COLOR_HEX } from "@/lib/productColors";
 
@@ -166,21 +167,22 @@ export default function ImageUploadSection({
             <div key={index} className="flex flex-col space-y-2">
               {/* Image Container */}
               <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-gray-200 group">
-                {/* Deliberately not next/image: preview.url is either a
-                    data: URI (an unsaved new upload, straight from
-                    FileReader) or an existing image's real URL on
-                    R2_PUBLIC_URL -- an env-configured host with no
-                    images.remotePatterns entry in next.config.mjs today.
-                    Swapping to <Image> without also wiring that config
-                    from the same env var (and confirming it resolves
-                    correctly in every deployment target, not just local)
-                    would 404 every existing product's images app-wide --
-                    a materially worse regression than this lint warning. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                {/* fill, not width/height: this tile's rendered size is
+                    responsive (2/3/4/5-column grid), not a fixed pixel
+                    box, so fill + the aspect-square parent (already
+                    position:relative) is the correct mode here -- matches
+                    apps/store's own images.remotePatterns entries for
+                    these same URLs (R2's storage.stora.com.ng/*.r2.dev,
+                    plus the legacy Wasabi host for pre-migration images),
+                    now mirrored in next.config.mjs. preview.url for an
+                    unsaved new upload is a data: URI straight from
+                    FileReader, which next/image also renders directly. */}
+                <Image
                   src={preview.url}
                   alt={`Preview ${index + 1}`}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                  className="object-cover"
                 />
                 
                 {/* Primary Badge */}
