@@ -82,6 +82,40 @@ export async function GET(req, { params }) {
     const isMultiVendor = new Set((allStoreLinks || []).map(l => l.store_id)).size > 1;
     const vendorItemsSubtotal = items.reduce((sum, item) => sum + parseFloat(item.subtotal || 0), 0);
 
+    // Same shape /api/orders (the list endpoint) already builds -- this
+    // route was returning the raw order_items rows as-is (flat
+    // product_name/product_image/... columns, no nested productSnapshot),
+    // while OrderDetailsContent.js unconditionally reads
+    // item.productSnapshot.image/.productName for every item. That's safe
+    // on the list endpoint's shape and throws on this one -- exactly what
+    // happened once the refund feature's refetch-for-refundSplit effect
+    // started swapping this endpoint's data into an already-open modal
+    // shortly after it opened, not just after a status update.
+    const transformedItems = items.map(item => ({
+      ...item,
+      _id: item.product_id,
+      product_id: item.product_id,
+      productName: item.product_name,
+      sku: item.product_sku,
+      sellingPrice: item.unit_price,
+      productSnapshot: {
+        productName: item.product_name || 'Unknown Product',
+        sku: item.product_sku,
+        image: item.product_image,
+        category: item.product_category
+      },
+      variant: {
+        color: item.variant_color,
+        size: item.variant_size,
+        image: item.variant_image
+      },
+      quantity: item.quantity,
+      unitPrice: item.unit_price,
+      subtotal: item.subtotal,
+      status: item.item_status,
+      notes: item.notes || null
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
@@ -104,7 +138,7 @@ export async function GET(req, { params }) {
         shippingAddress: shippingAddr,
         billingAddress: billingAddr,
         paymentInfo: payment || {},
-        items,
+        items: transformedItems,
         itemCount: items.length,
         timeline: timeline || [],
         isMultiVendor,

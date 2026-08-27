@@ -475,10 +475,10 @@ export default function OrderDetailsContent({
                         <div className="flex items-start space-x-4">
                           {/* Product Image */}
                           <div className="flex-shrink-0">
-                            {item.productSnapshot.image || (item.variant && item.variant.image) ? (
+                            {item.productSnapshot?.image || item.variant?.image ? (
                               <img
-                                src={item.variant && item.variant.image ? item.variant.image : item.productSnapshot.image}
-                                alt={item.productSnapshot.productName}
+                                src={item.variant?.image || item.productSnapshot?.image}
+                                alt={item.productSnapshot?.productName || 'Product'}
                                 className="w-20 h-20 object-cover rounded-lg border border-gray-200"
                               />
                             ) : (
@@ -491,11 +491,11 @@ export default function OrderDetailsContent({
                           {/* Product Details */}
                           <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-medium text-gray-900 mb-1">
-                              {item.productSnapshot.productName}
+                              {item.productSnapshot?.productName || 'Unknown product'}
                             </h4>
 
                             <div className="flex items-center space-x-4 text-xs text-gray-500">
-                              <span>SKU: {item.productSnapshot.sku}</span>
+                              <span>SKU: {item.productSnapshot?.sku || '—'}</span>
                               {item.variant && item.variant.size && item.variant.color && (
                                 <>
                                   <span>•</span>
