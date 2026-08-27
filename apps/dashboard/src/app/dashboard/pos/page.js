@@ -91,8 +91,24 @@ export default function POSPage() {
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
   const [selectedItemForVariant, setSelectedItemForVariant] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [addedToCartMessage, setAddedToCartMessage] = useState(null);
 
   const searchInputRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
+
+  // Brief "added to cart" confirmation -- resets its own timer on each
+  // call rather than queuing, since a cashier scanning several items in
+  // quick succession should just see the message update, not a stack of
+  // toasts piling up.
+  const showAddedToCartToast = (message) => {
+    clearTimeout(toastTimeoutRef.current);
+    setAddedToCartMessage(message);
+    toastTimeoutRef.current = setTimeout(() => setAddedToCartMessage(null), 1800);
+  };
+
+  useEffect(() => {
+    return () => clearTimeout(toastTimeoutRef.current);
+  }, []);
 
   // Keep the search/scan field focused and ready -- a barcode scanner just
   // types into whatever has focus, so the cashier shouldn't need to click first
@@ -173,10 +189,10 @@ export default function POSPage() {
     }
 
     // Regular non-variant item
-    const existingItem = cart.find(cartItem => 
+    const existingItem = cart.find(cartItem =>
       cartItem._id === item._id && !cartItem.variant
     );
-    
+
     if (existingItem) {
       if (existingItem.quantity < item.quantityInStock) {
         setCart(cart.map(cartItem =>
@@ -184,9 +200,13 @@ export default function POSPage() {
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem
         ));
+        showAddedToCartToast(`${item.productName} added to cart`);
+      } else {
+        alert(`Only ${item.quantityInStock} units available`);
       }
     } else {
       setCart([...cart, { ...item, quantity: 1 }]);
+      showAddedToCartToast(`${item.productName} added to cart`);
     }
   };
 
@@ -203,17 +223,19 @@ export default function POSPage() {
       const newQuantity = existingItem.quantity + variantCartItem.quantity;
       if (newQuantity <= variantCartItem.availableStock) {
         setCart(cart.map(cartItem =>
-          cartItem._id === variantCartItem._id && 
+          cartItem._id === variantCartItem._id &&
           cartItem.variant?.variantId === variantCartItem.variant.variantId
             ? { ...cartItem, quantity: newQuantity }
             : cartItem
         ));
+        showAddedToCartToast(`${variantCartItem.productName} added to cart`);
       } else {
         alert(`Only ${variantCartItem.availableStock} units available for this variant`);
       }
     } else {
       // Add new variant to cart
       setCart([...cart, variantCartItem]);
+      showAddedToCartToast(`${variantCartItem.productName} added to cart`);
     }
   };
 
@@ -1368,6 +1390,19 @@ export default function POSPage() {
         item={selectedItemForVariant}
         onAddToCart={handleAddVariantToCart}
       />
+
+      {/* "Added to cart" toast -- the tap-to-add grid gave no feedback at
+          all before this; a cashier scanning/tapping quickly needs to
+          see something confirm each add without it blocking input the
+          way an alert() would. */}
+      {addedToCartMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-rise-in">
+          <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white text-sm font-medium rounded-xl shadow-xl">
+            <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+            {addedToCartMessage}
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
