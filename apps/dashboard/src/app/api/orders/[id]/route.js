@@ -169,7 +169,13 @@ export async function GET(req, { params }) {
         } : null,
         discount: isMultiVendor ? 0 : (order.discount || 0),
         tax: isMultiVendor ? 0 : (order.tax || 0),
-        totalAmount: isMultiVendor ? vendorItemsSubtotal : order.total_amount
+        totalAmount: isMultiVendor ? vendorItemsSubtotal : order.total_amount,
+        // Same gap as items/productSnapshot -- ...order alone only has the
+        // raw created_at column, and OrderDetailsContent's header reads
+        // createdAt (camelCase, matching /api/orders). Missing here meant
+        // "Order date" silently rendered as "Invalid Date" once the
+        // refund feature's refetch swapped this endpoint's data in.
+        createdAt: order.created_at
       }
     });
 

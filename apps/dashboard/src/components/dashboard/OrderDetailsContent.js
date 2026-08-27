@@ -338,47 +338,70 @@ export default function OrderDetailsContent({
   return (
     <>
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-        <div className="flex items-center space-x-4">
-          <div className="p-3 bg-brand-100 rounded-xl">
-            <ShoppingBag className="w-6 h-6 text-brand-800" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-3">
-              <h2 className="text-2xl font-bold text-gray-900">#{order.orderNumber}</h2>
-              <button
-                onClick={copyOrderNumber}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Copy order number"
-              >
-                {copied ? (
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-              </button>
+      <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 sm:p-3 bg-brand-100 rounded-xl shrink-0">
+              <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-brand-800" />
             </div>
-            <div className="flex items-center space-x-3 mt-2">
-              <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.color}`}>
-                <StatusIcon className="w-3 h-3 mr-1.5" />
-                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-              </span>
-              <span className="text-sm text-gray-500">
-                Order date {new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-              <span className="text-sm text-gray-500">•</span>
-              <span className="text-sm text-gray-500">
-                Order from <span className="font-medium text-gray-700">{order.orderSource || 'online store'}</span>
-              </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <h2 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">#{order.orderNumber}</h2>
+                <button
+                  onClick={copyOrderNumber}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+                  title="Copy order number"
+                >
+                  {copied ? (
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+                <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.color}`}>
+                  <StatusIcon className="w-3 h-3 mr-1.5" />
+                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                </span>
+                <span className="text-xs sm:text-sm text-gray-500">
+                  {new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+                {/* Lower-priority on a phone -- almost always "online
+                    store" and not something a vendor acts on -- so it's
+                    dropped below sm: rather than fighting the status
+                    badge and date for room. */}
+                <span className="hidden sm:inline text-sm text-gray-500">•</span>
+                <span className="hidden sm:inline text-sm text-gray-500">
+                  Order from <span className="font-medium text-gray-700">{order.orderSource || 'online store'}</span>
+                </span>
+              </div>
             </div>
           </div>
+
+          {/* Close button pinned top-right on its own -- was previously
+              inline with the action buttons below, where it ended up
+              sharing a line with whichever action button happened to
+              wrap onto its own row on a narrow screen (e.g. Refund),
+              looking accidental rather than a deliberate corner control. */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center flex-wrap gap-2">
+        {/* Action buttons -- full-width stacked below sm: (matches the
+            modal wrapper's own full-screen-below-sm: breakpoint), inline
+            and content-sized at sm: and up, unchanged from before. */}
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 mt-4">
           {canUpdateStatus() && (
             <button
               onClick={handleOpenStatusUpdate}
-              className="flex items-center space-x-2 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              className="flex items-center justify-center space-x-2 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
             >
               <Edit className="w-4 h-4" />
               <span>Update Status</span>
@@ -389,7 +412,7 @@ export default function OrderDetailsContent({
             <button
               onClick={handleConfirmAndProcess}
               disabled={isConfirmingOrder}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm"
+              className="flex items-center justify-center space-x-2 px-5 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm"
             >
               {isConfirmingOrder ? (
                 <>
@@ -408,7 +431,7 @@ export default function OrderDetailsContent({
           {canProcessOrder() && !canConfirmAndProcess() && (
             <button
               onClick={handleProcessOrder}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors font-medium shadow-sm"
+              className="flex items-center justify-center space-x-2 px-5 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors font-medium shadow-sm"
             >
               <Package className="w-4 h-4" />
               <span>Continue Processing</span>
@@ -418,19 +441,10 @@ export default function OrderDetailsContent({
           {canRefund() && (
             <button
               onClick={handleOpenRefund}
-              className="flex items-center space-x-2 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              className="flex items-center justify-center space-x-2 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
             >
               <Undo2 className="w-4 h-4" />
               <span>Refund</span>
-            </button>
-          )}
-
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-500" />
             </button>
           )}
         </div>
@@ -438,7 +452,7 @@ export default function OrderDetailsContent({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Products */}
             <div className="lg:col-span-2 space-y-6">
@@ -471,10 +485,10 @@ export default function OrderDetailsContent({
                               <img
                                 src={item.variant?.image || item.productSnapshot?.image}
                                 alt={item.productSnapshot?.productName || 'Product'}
-                                className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                                className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border border-gray-200"
                               />
                             ) : (
-                              <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
                                 <Package className="w-8 h-8 text-gray-400" />
                               </div>
                             )}
@@ -486,17 +500,17 @@ export default function OrderDetailsContent({
                               {item.productSnapshot?.productName || 'Unknown product'}
                             </h4>
 
-                            <div className="flex items-center space-x-4 text-xs text-gray-500">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
                               <span>SKU: {item.productSnapshot?.sku || '—'}</span>
                               {item.variant && item.variant.size && item.variant.color && (
                                 <>
-                                  <span>•</span>
+                                  <span className="hidden sm:inline">•</span>
                                   <span className="text-gray-700 font-medium">
                                     {item.variant.color} • {item.variant.size}
                                   </span>
                                 </>
                               )}
-                              <span>•</span>
+                              <span className="hidden sm:inline">•</span>
                               <span>Quantity {item.quantity}</span>
                             </div>
 
