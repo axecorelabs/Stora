@@ -426,19 +426,6 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
     })));
   };
 
-  const getAvailableColors = () => {
-    if (formData.category === 'Clothing' && formData.clothingDetails) {
-      return formData.clothingDetails.colors || [];
-    }
-    if (formData.category === 'Shoes' && formData.shoesDetails) {
-      return formData.shoesDetails.colors || [];
-    }
-    if (formData.category === 'Accessories' && formData.accessoriesDetails) {
-      return formData.accessoriesDetails.colors || [];
-    }
-    return [];
-  };
-
   const getAvailableSizes = () => {
     if (formData.category === 'Clothing' && formData.clothingDetails) {
       return formData.clothingDetails.sizes || [];
@@ -449,24 +436,6 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
     return [];
   };
 
-  const addColorToCategory = (colorName) => {
-    const trimmedColor = colorName.trim();
-    if (!trimmedColor) return;
-
-    if (formData.category === 'Clothing' && formData.clothingDetails) {
-      if (!formData.clothingDetails.colors.includes(trimmedColor)) {
-        handleArrayFieldChange('clothing', 'colors', trimmedColor);
-      }
-    } else if (formData.category === 'Shoes' && formData.shoesDetails) {
-      if (!formData.shoesDetails.colors.includes(trimmedColor)) {
-        handleArrayFieldChange('shoes', 'colors', trimmedColor);
-      }
-    } else if (formData.category === 'Accessories' && formData.accessoriesDetails) {
-      if (!formData.accessoriesDetails.colors.includes(trimmedColor)) {
-        handleArrayFieldChange('accessories', 'colors', trimmedColor);
-      }
-    }
-  };
 
   const handleVariantsDetected = (colors) => {
     setDetectedColorVariants(colors);
@@ -907,8 +876,6 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
               removeMultiImage={removeMultiImage}
               updateImageColorTag={updateImageColorTag}
               setPrimaryImage={setPrimaryImage}
-              getAvailableColors={getAvailableColors}
-              addColorToCategory={addColorToCategory}
               onVariantsDetected={handleVariantsDetected}
               errors={errors}
             />

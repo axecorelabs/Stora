@@ -548,19 +548,6 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
     }
   };
 
-  // Get available colors from category details
-  const getAvailableColors = () => {
-    if (formData.category === 'Clothing' && formData.clothingDetails) {
-      return formData.clothingDetails.colors || [];
-    }
-    if (formData.category === 'Shoes' && formData.shoesDetails) {
-      return formData.shoesDetails.colors || [];
-    }
-    if (formData.category === 'Accessories' && formData.accessoriesDetails) {
-      return formData.accessoriesDetails.colors || [];
-    }
-    return [];
-  };
 
   // Get available sizes from category details - but don't use it to limit variant manager
   const getAvailableSizes = () => {
@@ -933,27 +920,6 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
     return (((selling - cost) / cost) * 100).toFixed(1);
   };
 
-  // Function to add color to category details
-  const addColorToCategory = (colorName) => {
-    const trimmedColor = colorName.trim();
-    if (!trimmedColor) return;
-
-    // Determine which category details to update
-    if (formData.category === 'Clothing' && formData.clothingDetails) {
-      if (!formData.clothingDetails.colors.includes(trimmedColor)) {
-        handleArrayFieldChange('clothing', 'colors', trimmedColor);
-      }
-    } else if (formData.category === 'Shoes' && formData.shoesDetails) {
-      if (!formData.shoesDetails.colors.includes(trimmedColor)) {
-        handleArrayFieldChange('shoes', 'colors', trimmedColor);
-      }
-    } else if (formData.category === 'Accessories' && formData.accessoriesDetails) {
-      if (!formData.accessoriesDetails.colors.includes(trimmedColor)) {
-        handleArrayFieldChange('accessories', 'colors', trimmedColor);
-      }
-    }
-  };
-
   if (!isOpen) return null;
 
   const steps = [
@@ -1148,8 +1114,6 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
               removeMultiImage={removeMultiImage}
               updateImageColorTag={updateImageColorTag}
               setPrimaryImage={setPrimaryImage}
-              getAvailableColors={getAvailableColors}
-              addColorToCategory={addColorToCategory}
               onVariantsDetected={handleVariantsDetected}
               errors={errors}
             />
