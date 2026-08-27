@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
-import { supabaseAdmin } from '@/lib/supabase';
-import { hashPassword, validatePassword, invalidateSessions } from '@/lib/auth';
+import { auth } from '@/lib/betterAuth';
+import { validatePassword } from '@/lib/auth';
 
+// Same contract as before -- the frontend posts {token, password}, and
+// revokeSessionsOnPasswordReset in betterAuth.js replicates the old
+// code's explicit invalidateSessions(user.id) call.
 export async function POST(req) {
   try {
     const { token, password } = await req.json();
@@ -26,43 +28,22 @@ export async function POST(req) {
       );
     }
 
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const response = await auth.api.resetPassword({
+      body: { token, newPassword: password },
+      asResponse: true
+    });
 
-    const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('id, password_reset_expiry')
-      .eq('password_reset_token', hashedToken)
-      .maybeSingle();
-
-    if (!user || !user.password_reset_expiry || new Date(user.password_reset_expiry) < new Date()) {
+    if (response.status !== 200) {
       return NextResponse.json(
         { success: false, message: 'This reset link is invalid or has expired. Please request a new one.' },
         { status: 400 }
       );
     }
 
-    const hashedPassword = await hashPassword(password);
-
-    await supabaseAdmin
-      .from('users')
-      .update({
-        password_hash: hashedPassword,
-        password_reset_token: null,
-        password_reset_expiry: null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', user.id);
-
-    // No active session to preserve here (this flow isn't authenticated) --
-    // if this reset was prompted by a compromised account, every existing
-    // session (including whatever an attacker was using) needs to die.
-    await invalidateSessions(user.id);
-
     return NextResponse.json({
       success: true,
       message: 'Your password has been reset. You can now sign in.'
     });
-
   } catch (error) {
     console.error('Reset password error:', error);
     return NextResponse.json(

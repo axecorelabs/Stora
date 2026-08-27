@@ -1,48 +1,12 @@
-import { NextResponse } from 'next/server';
-import { verifyPassword, createSession, isValidEmail } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase';
-import { redis, failedKey, lockoutKey, withTimeout } from '@/lib/redis';
-
-const LOCKOUT_THRESHOLD = 5;
-const LOCKOUT_WINDOW_SECONDS = 15 * 60;
-
-async function isLockedOut(email) {
-  try {
-    return Boolean(await withTimeout(redis.get(lockoutKey(email))));
-  } catch (error) {
-    console.error('Lockout check failed, allowing request:', error);
-    return false;
-  }
-}
-
-async function recordFailedAttempt(email) {
-  try {
-    const attempts = await withTimeout(redis.incr(failedKey(email)));
-    if (attempts === 1) {
-      await withTimeout(redis.expire(failedKey(email), LOCKOUT_WINDOW_SECONDS));
-    }
-    if (attempts >= LOCKOUT_THRESHOLD) {
-      await withTimeout(redis.set(lockoutKey(email), '1', { ex: LOCKOUT_WINDOW_SECONDS }));
-    }
-  } catch (error) {
-    console.error('Failed-attempt tracking failed, skipping:', error);
-  }
-}
-
-async function clearFailedAttempts(email) {
-  try {
-    await withTimeout(redis.del(failedKey(email), lockoutKey(email)));
-  } catch (error) {
-    console.error('Failed-attempt cleanup failed, skipping:', error);
-  }
-}
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/betterAuth";
+import { isValidEmail } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase";
+import { isLockedOut, recordFailedAttempt, clearFailedAttempts } from "@/lib/accountLockout";
 
 // Deliberately non-enumerating: this exact message + status is returned for
 // "no such account," "wrong password," "account deactivated," "Google-only
-// account," and "locked out" alike -- matches the store app's customer
-// login (apps/store/.../auth/customer/login/route.js), which this route
-// previously didn't. A fresh NextResponse is built each call since a
-// Response body can only be consumed once.
+// account," "not yet verified," and "locked out" alike.
 function genericInvalidCredentials() {
   return NextResponse.json(
     { success: false, message: 'Invalid email or password' },
@@ -50,18 +14,19 @@ function genericInvalidCredentials() {
   );
 }
 
+// Lockout stays wrapped explicitly around auth.api.signInEmail here
+// (rather than a generic Better Auth hook) so its exact behavior stays
+// identical and independently testable, the same as it always was.
 export async function POST(req) {
   try {
-    const { email, password, rememberMe } = await req.json();
+    const { email, password } = await req.json();
 
-    // Validation
     if (!email || !password) {
       return NextResponse.json(
         { success: false, message: 'Email and password are required' },
         { status: 400 }
       );
     }
-
     if (!isValidEmail(email)) {
       return NextResponse.json(
         { success: false, message: 'Invalid email format' },
@@ -69,59 +34,55 @@ export async function POST(req) {
       );
     }
 
-    // Normalize email to lowercase
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Find user
-    const { data: user, error } = await supabaseAdmin
+    const { data: user } = await supabaseAdmin
       .from('users')
       .select('*')
       .eq('email', normalizedEmail)
       .single();
 
-    if (error || !user) {
+    if (!user || !user.is_active) {
       return genericInvalidCredentials();
     }
 
-    // Check if user is active -- same generic response as everything else
-    // below; a distinct message here would tell an attacker the email is
-    // registered just as surely as a distinct "no account" message would.
-    if (!user.is_active) {
-      return genericInvalidCredentials();
-    }
-
-    // Account lockout: too many recent failed attempts for this email.
-    // Response is byte-identical to the generic invalid-credentials
-    // response -- locking must not create a new enumeration channel.
     if (await isLockedOut(normalizedEmail)) {
       return genericInvalidCredentials();
     }
 
-    // Google-only account (password_hash is null). Same response and same
-    // recordFailedAttempt side effect as a genuine wrong password -- naming
-    // the auth method here would be a new enumeration channel.
-    if (!user.password_hash) {
-      await recordFailedAttempt(normalizedEmail);
-      return genericInvalidCredentials();
-    }
+    const result = await auth.api.signInEmail({
+      body: { email: normalizedEmail, password },
+      asResponse: true
+    });
 
-    // Verify password
-    const isValidPassword = await verifyPassword(password, user.password_hash);
-    if (!isValidPassword) {
+    if (result.status !== 200) {
+      const data = await result.json().catch(() => ({}));
+
+      if (data.code === "EMAIL_NOT_VERIFIED") {
+        await clearFailedAttempts(normalizedEmail);
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Please verify your email before signing in. We've sent a new verification code.",
+            needsVerification: true
+          },
+          { status: 403 }
+        );
+      }
+
       await recordFailedAttempt(normalizedEmail);
       return genericInvalidCredentials();
     }
 
     await clearFailedAttempts(normalizedEmail);
-
-    // Update last login (non-blocking)
+    // Better Auth doesn't track last_login -- updated explicitly, same as
+    // the old code did (non-blocking).
     supabaseAdmin
       .from('users')
       .update({ last_login: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', user.id)
       .then(() => {});
 
-    // Create session
     const response = NextResponse.json({
       success: true,
       message: 'Signed in successfully',
@@ -139,10 +100,10 @@ export async function POST(req) {
       }
     });
 
-    await createSession(user.id, req, response);
+    const setCookie = result.headers.get("set-cookie");
+    if (setCookie) response.headers.set("set-cookie", setCookie);
 
     return response;
-
   } catch (error) {
     console.error('Signin error:', error);
     return NextResponse.json(

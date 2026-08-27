@@ -1,27 +1,22 @@
 import { NextResponse } from 'next/server';
-import { deleteSession } from '@/lib/auth';
+import { auth } from '@/lib/betterAuth';
 
 export async function POST(req) {
   try {
-    const cookies = req.headers.get('cookie') || '';
-    const sessionId = cookies.split(';')
-      .find(c => c.trim().startsWith('session='))
-      ?.split('=')[1];
+    const response = await auth.api.signOut({
+      headers: req.headers,
+      asResponse: true
+    });
 
-    if (sessionId) {
-      await deleteSession(sessionId);
-    }
-
-    const response = NextResponse.json({
+    const result = NextResponse.json({
       success: true,
       message: 'Signed out successfully'
     });
 
-    // Clear session cookie
-    response.headers.set('Set-Cookie', 'session=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict');
+    const setCookie = response.headers.get('set-cookie');
+    if (setCookie) result.headers.set('set-cookie', setCookie);
 
-    return response;
-
+    return result;
   } catch (error) {
     console.error('Signout error:', error);
     return NextResponse.json(

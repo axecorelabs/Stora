@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession, verifyPassword, hashPassword, getSessionIdFromRequest, invalidateSessions } from '@/lib/auth';
+import { auth } from '@/lib/betterAuth';
+import { verifySession } from '@/lib/auth';
 
 export async function POST(req) {
   try {
@@ -14,7 +14,6 @@ export async function POST(req) {
 
     const { currentPassword, newPassword } = await req.json();
 
-    // Validate input
     if (!currentPassword || !newPassword) {
       return NextResponse.json(
         { success: false, message: 'Current password and new password are required' },
@@ -22,30 +21,6 @@ export async function POST(req) {
       );
     }
 
-    // Get full user with password
-    const { data: fullUser, error } = await supabaseAdmin
-      .from('users')
-      .select('id, password_hash')
-      .eq('id', user.id)
-      .single();
-
-    if (error || !fullUser) {
-      return NextResponse.json(
-        { success: false, message: 'User not found' },
-        { status: 404 }
-      );
-    }
-
-    // Verify current password
-    const isPasswordValid = await verifyPassword(currentPassword, fullUser.password_hash);
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { success: false, message: 'Current password is incorrect' },
-        { status: 401 }
-      );
-    }
-
-    // Validate new password
     if (newPassword.length < 8) {
       return NextResponse.json(
         { success: false, message: 'New password must be at least 8 characters long' },
@@ -53,48 +28,45 @@ export async function POST(req) {
       );
     }
 
-    // Check if new password is same as current
-    const isSamePassword = await verifyPassword(newPassword, fullUser.password_hash);
-    if (isSamePassword) {
+    if (newPassword === currentPassword) {
       return NextResponse.json(
         { success: false, message: 'New password must be different from current password' },
         { status: 400 }
       );
     }
 
-    // Hash and update password
-    const hashedPassword = await hashPassword(newPassword);
-    const { error: updateError } = await supabaseAdmin
-      .from('users')
-      .update({ password_hash: hashedPassword, updated_at: new Date().toISOString() })
-      .eq('id', user.id);
+    // revokeOtherSessions: true replicates the old code's exact
+    // invalidateSessions(user.id, {exceptSessionId}) behavior -- every
+    // other session for this account is revoked, the one that just
+    // proved the current password stays alive.
+    const result = await auth.api.changePassword({
+      body: { currentPassword, newPassword, revokeOtherSessions: true },
+      headers: req.headers,
+      asResponse: true
+    });
 
-    if (updateError) throw updateError;
+    if (result.status !== 200) {
+      const data = await result.json().catch(() => ({}));
+      const message = data.code === "INVALID_PASSWORD"
+        ? "Current password is incorrect"
+        : (data.message || "Failed to change password");
+      const status = data.code === "INVALID_PASSWORD" ? 401 : 400;
+      return NextResponse.json({ success: false, message }, { status });
+    }
 
-    // Every other session for this account is now revoked -- a stolen
-    // session cookie must not survive a password change. The session that
-    // just proved the current password stays alive, so changing your own
-    // password doesn't immediately log you out.
-    await invalidateSessions(user.id, { exceptSessionId: getSessionIdFromRequest(req) });
-
-    return NextResponse.json({
+    // changePassword rotates the session token as part of the password
+    // change (even with revokeOtherSessions just revoking the others) --
+    // the new Set-Cookie has to be forwarded or the browser is left
+    // holding a now-dead token, same pattern as signin/verify-email.
+    const response = NextResponse.json({
       success: true,
       message: 'Password changed successfully'
     });
-
+    const setCookie = result.headers.get('set-cookie');
+    if (setCookie) response.headers.set('set-cookie', setCookie);
+    return response;
   } catch (error) {
     console.error('Change password error:', error);
-
-    if (error.message?.includes('security requirements')) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: error.message
-        },
-        { status: 400 }
-      );
-    }
-
     return NextResponse.json(
       { success: false, message: 'Internal server error' },
       { status: 500 }

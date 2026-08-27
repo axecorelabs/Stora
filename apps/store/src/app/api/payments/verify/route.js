@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyCustomerSession } from "@/lib/auth";
+import { verifyCustomerSession } from "@/lib/supabaseAuth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyTransaction } from "@/lib/paystack";
 import { confirmOrderPayment } from "@/lib/supabasePayments";

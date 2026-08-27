@@ -1,13 +1,18 @@
-import { NextResponse, after } from "next/server";
-import { hashPassword, findCustomerByEmail, createCustomer, generateVerificationCode } from "@/lib/supabaseAuth";
-import { sendVerificationEmail } from "@/lib/email";
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/betterAuth";
 
+// Same request/response contract as before this migration -- the
+// frontend's signup form doesn't change at all. Internally, this now
+// calls Better Auth's signUpEmail: it hashes the password (via our own
+// bcrypt override in betterAuth.js), creates the customers row, creates a
+// credential account row in better_auth_accounts, and -- because
+// emailVerification.sendOnSignUp is enabled -- automatically emails a
+// 6-digit OTP code the same way the old inline code here used to.
 export async function POST(request) {
   try {
     const body = await request.json();
     const { firstName, lastName, email, phone, password, agreeToTerms } = body;
 
-    // Validation
     if (!firstName || !lastName || !email || !password) {
       return NextResponse.json(
         { success: false, message: "All required fields must be provided" },
@@ -22,58 +27,36 @@ export async function POST(request) {
       );
     }
 
-    // Check if customer already exists
-    const existingCustomer = await findCustomerByEmail(email);
-
-    if (existingCustomer) {
-      return NextResponse.json(
-        { success: false, message: "An account with this email already exists" },
-        { status: 409 }
-      );
-    }
-
-    // Hash password
-    const hashedPassword = await hashPassword(password);
-
-    // Generate 6-digit verification code
-    const verificationCode = generateVerificationCode();
-    const verificationTokenExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    // Create customer
-    const customer = await createCustomer({
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      email: email.toLowerCase().trim(),
-      phone: phone?.trim() || null,
-      password_hash: hashedPassword,
-      is_verified: false,
-      verification_token: verificationCode,
-      verification_token_expiry: verificationTokenExpiry.toISOString(),
+    const response = await auth.api.signUpEmail({
+      body: {
+        email: email.toLowerCase().trim(),
+        password,
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        phone: phone?.trim() || undefined
+      },
+      asResponse: true
     });
 
-    // Deferred: sendVerificationEmail already swallows its own errors, so
-    // waiting here bought no delivery guarantee, only latency on signup.
-    after(() => sendVerificationEmail(email, firstName, verificationCode));
+    if (response.status !== 200) {
+      const data = await response.json().catch(() => ({}));
+      const message = data.code === "USER_ALREADY_EXISTS"
+        ? "An account with this email already exists"
+        : (data.message || "Registration failed. Please try again.");
+      const status = data.code === "USER_ALREADY_EXISTS" ? 409 : 400;
+      return NextResponse.json({ success: false, message }, { status });
+    }
 
+    const data = await response.json();
     return NextResponse.json(
       {
         success: true,
         message: "Account created successfully. Please check your email for verification code.",
-        customer: { email: customer.email },
+        customer: { email: data.user.email }
       },
       { status: 201 }
     );
   } catch (error) {
     console.error("Registration error:", error);
-    
-    if (error.name === "ValidationError") {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return NextResponse.json(
-        { success: false, message: messages.join(", ") },
-        { status: 400 }
-      );
-    }
-
     return NextResponse.json(
       { success: false, message: "Registration failed. Please try again." },
       { status: 500 }

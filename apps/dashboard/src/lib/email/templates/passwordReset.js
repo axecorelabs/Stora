@@ -9,7 +9,7 @@ export const getPasswordResetTemplate = (resetToken, firstName, email) => {
     ${button(resetUrl, 'Reset password')}
     <p style="font-size:13px;color:${colors.brand400};margin:4px 0 8px;">Or paste this link into your browser:</p>
     <p style="font-size:12px;color:${colors.brand800};background-color:${colors.brand50};border-radius:6px;padding:12px;word-break:break-all;margin:0 0 20px;">${resetUrl}</p>
-    ${notice('This link expires in <strong>1 hour</strong>. If you didn’t request this, your password is unchanged -- just ignore this email.')}
+    ${notice('This link expires in <strong>15 minutes</strong>. If you didn’t request this, your password is unchanged -- just ignore this email.')}
     ${paragraph('Having trouble? Contact <a href="mailto:support@app.stora.com.ng" style="color:' + colors.brand700 + ';">support@app.stora.com.ng</a>.')}
   `;
 

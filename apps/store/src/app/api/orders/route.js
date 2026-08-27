@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyCustomerSession } from "@/lib/auth";
+import { verifyCustomerSession } from "@/lib/supabaseAuth";
 import { findOrdersByCustomerId, getOrderStats, transformOrderFields } from "@/lib/supabaseOrders";
 
 export async function GET(request) {

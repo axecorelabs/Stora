@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { verifyCustomerSession } from "@/lib/auth";
+import { verifyCustomerSession } from "@/lib/supabaseAuth";
 import { sendStoreOrderNotifications } from "@/lib/orderNotifications";
 import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supabaseOrders";
 import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseCart";

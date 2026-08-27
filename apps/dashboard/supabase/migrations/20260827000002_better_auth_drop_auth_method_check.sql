@@ -1,0 +1,15 @@
+-- customers_auth_method_check (20260815000001_add_google_oauth.sql) enforced
+-- password_hash IS NOT NULL OR google_id IS NOT NULL -- a rule that made
+-- sense when credentials lived directly on the customers row. Once
+-- Better Auth's account-based model is in play, a freshly-created
+-- customer legitimately has neither: its password/google link lives in
+-- the separate better_auth_accounts table (customers row inserted first,
+-- its account row second) -- confirmed live, this constraint rejected
+-- that insert outright (23514 customers_auth_method_check).
+--
+-- Safe to drop now: no route has cut over to Better Auth yet (this is
+-- still Phase 1, proof-of-concept only), so every existing write path
+-- (apps/store/src/lib/supabaseAuth.js's createCustomer, the Google OAuth
+-- callback) still sets password_hash/google_id directly and is
+-- completely unaffected by this constraint no longer being enforced.
+ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_auth_method_check;

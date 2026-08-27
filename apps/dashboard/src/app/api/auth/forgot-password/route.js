@@ -1,9 +1,11 @@
-import { NextResponse, after } from 'next/server';
-import crypto from 'crypto';
-import { supabaseAdmin } from '@/lib/supabase';
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/betterAuth';
 import { isValidEmail } from '@/lib/auth';
-import { sendPasswordResetEmail } from '@/lib/email';
 
+// Same contract and same non-enumerating behavior as before -- Better
+// Auth's own requestPasswordReset already returns success whether or not
+// the account exists. betterAuth.js's sendResetPassword callback builds
+// the same reset-link email as always.
 export async function POST(req) {
   try {
     const { email } = await req.json();
@@ -15,43 +17,14 @@ export async function POST(req) {
       );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    await auth.api.requestPasswordReset({
+      body: { email: email.toLowerCase().trim() }
+    });
 
-    const genericResponse = {
+    return NextResponse.json({
       success: true,
       message: 'If an account exists with this email, a password reset link is on its way.'
-    };
-
-    const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('id, first_name, email, is_active')
-      .eq('email', normalizedEmail)
-      .maybeSingle();
-
-    // Always return the same response, whether or not the account exists
-    if (!user || !user.is_active) {
-      return NextResponse.json(genericResponse);
-    }
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-    await supabaseAdmin
-      .from('users')
-      .update({
-        password_reset_token: hashedToken,
-        password_reset_expiry: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', user.id);
-
-    // Deferred -- sendPasswordResetEmail never throws (returns
-    // {success:false}), so waiting here bought no delivery guarantee,
-    // only latency on a high-frequency auth route.
-    after(() => sendPasswordResetEmail(user.email, resetToken, user.first_name));
-
-    return NextResponse.json(genericResponse);
-
+    });
   } catch (error) {
     console.error('Forgot password error:', error);
     return NextResponse.json(

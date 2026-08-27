@@ -1,27 +1,22 @@
 import { NextResponse } from "next/server";
-import { deleteSession } from "@/lib/supabaseAuth";
+import { auth } from "@/lib/betterAuth";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const cookies = parseCookies(req.headers.get('cookie') || '');
-    const sessionId = cookies.session;
+    const response = await auth.api.signOut({
+      headers: request.headers,
+      asResponse: true
+    });
 
-    if (sessionId) {
-      await deleteSession(sessionId);
-    }
-
-    const response = NextResponse.json(
+    const result = NextResponse.json(
       { success: true, message: "Logged out successfully" },
       { status: 200 }
     );
 
-    // Clear session cookie
-    response.headers.set(
-      'Set-Cookie',
-      'session=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict'
-    );
+    const setCookie = response.headers.get("set-cookie");
+    if (setCookie) result.headers.set("set-cookie", setCookie);
 
-    return response;
+    return result;
   } catch (error) {
     console.error("Logout error:", error);
     return NextResponse.json(
@@ -29,17 +24,4 @@ export async function POST(req) {
       { status: 500 }
     );
   }
-}
-
-function parseCookies(cookieHeader) {
-  const cookies = {};
-  if (cookieHeader) {
-    cookieHeader.split(';').forEach(cookie => {
-      const [name, value] = cookie.trim().split('=');
-      if (name && value) {
-        cookies[name] = decodeURIComponent(value);
-      }
-    });
-  }
-  return cookies;
 }

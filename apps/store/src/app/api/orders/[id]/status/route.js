@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyCustomerSession } from "@/lib/auth";
+import { verifyCustomerSession } from "@/lib/supabaseAuth";
 import { updateOrderStatus, transformOrderFields } from "@/lib/supabaseOrders";
 
 export async function PATCH(request, { params }) {

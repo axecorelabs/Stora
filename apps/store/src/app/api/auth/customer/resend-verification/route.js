@@ -1,8 +1,11 @@
-import { NextResponse, after } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { generateVerificationCode } from "@/lib/supabaseAuth";
-import { sendVerificationEmail } from "@/lib/email";
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/betterAuth";
+import { findCustomerByEmail } from "@/lib/supabaseAuth";
 
+// Same contract as before -- calls the emailOTP plugin's own resend
+// endpoint, which generates a fresh code and re-sends via the
+// sendVerificationOTP callback in betterAuth.js (same sendVerificationEmail
+// helper as always).
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -15,41 +18,20 @@ export async function POST(request) {
       );
     }
 
-    const { data: customer, error } = await supabaseAdmin
-      .from('customers')
-      .select('*')
-      .eq('email', email.toLowerCase().trim())
-      .eq('is_verified', false)
-      .single();
-
-    if (error || !customer) {
+    const customer = await findCustomerByEmail(email);
+    if (!customer || customer.is_verified) {
       return NextResponse.json(
         { success: false, message: "Customer not found or already verified" },
         { status: 404 }
       );
     }
 
-    // Generate new verification code
-    const verificationCode = generateVerificationCode();
-    const verificationTokenExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    await supabaseAdmin
-      .from('customers')
-      .update({
-        verification_token: verificationCode,
-        verification_token_expiry: verificationTokenExpiry.toISOString(),
-      })
-      .eq('id', customer.id);
-
-    // Deferred -- sendVerificationEmail already swallows its own errors, so
-    // waiting here bought no delivery guarantee, only latency on resend.
-    after(() => sendVerificationEmail(email, customer.first_name, verificationCode));
+    await auth.api.sendVerificationOTP({
+      body: { email: email.toLowerCase().trim(), type: "email-verification" }
+    });
 
     return NextResponse.json(
-      {
-        success: true,
-        message: "Verification code sent successfully",
-      },
+      { success: true, message: "Verification code sent successfully" },
       { status: 200 }
     );
   } catch (error) {

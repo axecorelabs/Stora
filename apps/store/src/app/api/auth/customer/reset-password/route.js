@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { hashPassword, invalidateSessions } from "@/lib/supabaseAuth";
-import { supabaseAdmin } from "@/lib/supabase";
-import crypto from "crypto";
+import { auth } from "@/lib/betterAuth";
 
+// Same contract as before -- the frontend's reset-password page already
+// posts {token, password} (the raw token from the emailed link's query
+// string). Better Auth's own resetPassword endpoint takes the same raw
+// token, and revokeSessionsOnPasswordReset in betterAuth.js replicates
+// the old code's explicit invalidateSessions(customer.id) call.
 export async function POST(request) {
   try {
     const { token, password } = await request.json();
 
-    // Validation
     if (!token || !password) {
       return NextResponse.json(
         { success: false, message: "Token and password are required" },
@@ -22,54 +24,22 @@ export async function POST(request) {
       );
     }
 
-    // Hash the token to compare with stored hash
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const response = await auth.api.resetPassword({
+      body: { token, newPassword: password },
+      asResponse: true
+    });
 
-    // Find customer with valid token
-    const { data: customer, error } = await supabaseAdmin
-      .from('customers')
-      .select('*')
-      .eq('password_reset_token', hashedToken)
-      .eq('is_active', true)
-      .gt('password_reset_expiry', new Date().toISOString())
-      .single();
-
-    if (error || !customer) {
+    if (response.status !== 200) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: "Invalid or expired reset token. Please request a new password reset link." 
-        },
+        { success: false, message: "Invalid or expired reset token. Please request a new password reset link." },
         { status: 400 }
       );
     }
 
-    // Hash new password
-    const hashedPassword = await hashPassword(password);
-
-    // Update password and clear reset token
-    await supabaseAdmin
-      .from('customers')
-      .update({
-        password_hash: hashedPassword,
-        password_reset_token: null,
-        password_reset_expiry: null,
-      })
-      .eq('id', customer.id);
-
-    // No active session to preserve here (this flow isn't authenticated) --
-    // if this reset was prompted by a compromised account, every existing
-    // session (including whatever an attacker was using) needs to die.
-    await invalidateSessions(customer.id);
-
     return NextResponse.json(
-      { 
-        success: true, 
-        message: "Password reset successful! You can now sign in with your new password." 
-      },
+      { success: true, message: "Password reset successful! You can now sign in with your new password." },
       { status: 200 }
     );
-
   } catch (error) {
     console.error("Reset password error:", error);
     return NextResponse.json(
