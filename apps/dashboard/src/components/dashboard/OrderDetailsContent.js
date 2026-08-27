@@ -29,6 +29,18 @@ import { useRouter } from "next/navigation";
 import useOrderProcessingStore from "@/store/orderProcessingStore";
 import { canRefundOrder } from "@/lib/orderRefund";
 
+// Open by default where there's room to spare (desktop); closed by
+// default on a phone-width screen, where the dropdown's three options
+// cover meaningful content the vendor didn't ask to see yet -- the button
+// to open it is always right there. Read once at mount, same pattern as
+// DashboardSidebar's collapsed-state default; not re-evaluated on
+// resize/rotate. 640px matches this component's own sm: breakpoint
+// (where the modal itself switches from full-screen to a centered card).
+function getInitialContactDropdownState() {
+  if (typeof window === 'undefined') return true;
+  return window.innerWidth >= 640;
+}
+
 // The actual order-detail view -- header, products, payment breakdown,
 // customer/shipping/contact panels, status-update wiring -- shared between
 // OrderDetailsModal (the in-app popup opened from the Orders list) and
@@ -51,7 +63,7 @@ export default function OrderDetailsContent({
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [order, setOrder] = useState(initialOrder);
   const [isConfirmingOrder, setIsConfirmingOrder] = useState(false);
-  const [showContactDropdown, setShowContactDropdown] = useState(true); // ✅ Open by default
+  const [showContactDropdown, setShowContactDropdown] = useState(getInitialContactDropdownState);
 
   // Update local order when prop changes
   useEffect(() => {
