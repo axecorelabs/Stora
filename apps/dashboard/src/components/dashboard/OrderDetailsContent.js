@@ -48,7 +48,6 @@ export default function OrderDetailsContent({
   const [copied, setCopied] = useState(false);
   const [isStatusUpdateModalOpen, setIsStatusUpdateModalOpen] = useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
-  const [isCheckingRefundEligibility, setIsCheckingRefundEligibility] = useState(false);
   const [order, setOrder] = useState(initialOrder);
   const [isConfirmingOrder, setIsConfirmingOrder] = useState(false);
   const [showContactDropdown, setShowContactDropdown] = useState(true); // ✅ Open by default
@@ -71,37 +70,6 @@ export default function OrderDetailsContent({
       console.error('Error refreshing order data:', error);
     }
   };
-
-  // This component is fed two different item shapes depending on which
-  // parent renders it: the standalone /dashboard/orders/[id] page passes
-  // the single-order GET response directly (raw order_items rows, no
-  // productSnapshot/variant), while OrderDetailsModal (opened from the
-  // Orders list) passes the list endpoint's own transformed shape (which
-  // adds productSnapshot/variant/status on top of the raw row, and never
-  // queried order_payment_splits at all, so refundSplit is simply absent).
-  // A one-time fetch from the single-order endpoint backfills refundSplit
-  // for the list-popup path -- but must be merged in, not swapped in
-  // wholesale: setOrder(response.data) here previously replaced the whole
-  // order, including the list route's enriched items, with the single-
-  // order route's raw ones -- productSnapshot then didn't exist, and
-  // every item's product image crashed the page.
-  useEffect(() => {
-    if (initialOrder?.id && initialOrder.refundSplit === undefined) {
-      setIsCheckingRefundEligibility(true);
-      (async () => {
-        try {
-          const response = await secureApiCall(`/api/orders/${initialOrder.id}`);
-          if (response.success) {
-            setOrder(prev => prev ? { ...prev, refundSplit: response.data.refundSplit } : prev);
-          }
-        } catch (error) {
-          console.error('Error fetching refund eligibility:', error);
-        } finally {
-          setIsCheckingRefundEligibility(false);
-        }
-      })();
-    }
-  }, [initialOrder?.id, initialOrder?.refundSplit, secureApiCall]);
 
   if (!order) return null;
 
@@ -282,15 +250,18 @@ export default function OrderDetailsContent({
   };
 
   // A refund is only meaningful once there's a real online payment to
-  // refund from, and only once (a split already 'reversed' has nothing
-  // left) -- mirrors the refund route's own guards exactly, so the button
-  // never appears somewhere the API would just reject it.
+  // refund from. Whether this vendor's split has already been reversed
+  // isn't checked here -- that needs order.refundSplit, which this
+  // component doesn't always have (the Orders-list popup path never
+  // fetches it) and RefundModal now fetches fresh itself on open anyway.
+  // The rare case of clicking Refund on an already-reversed split is
+  // caught by the API's own atomic guard, surfaced as a normal form error
+  // in the modal -- same as any other rejected submission, not a reason
+  // to hide the button on a guess.
   const canRefund = () => {
     return (
       order.paymentInfo?.provider === 'paystack' &&
-      ['completed', 'partially_refunded'].includes(order.paymentInfo?.status) &&
-      order.refundSplit &&
-      order.refundSplit.status !== 'reversed'
+      ['completed', 'partially_refunded'].includes(order.paymentInfo?.status)
     );
   };
 
@@ -439,14 +410,7 @@ export default function OrderDetailsContent({
             </button>
           )}
 
-          {isCheckingRefundEligibility && (
-            <span className="flex items-center space-x-2 px-4 py-2.5 border-2 border-gray-200 text-gray-400 rounded-xl font-medium">
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
-              <span>Checking refund...</span>
-            </span>
-          )}
-
-          {!isCheckingRefundEligibility && canRefund() && (
+          {canRefund() && (
             <button
               onClick={handleOpenRefund}
               className="flex items-center space-x-2 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"

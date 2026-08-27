@@ -14,13 +14,24 @@ const formatCurrency = (amount) => new Intl.NumberFormat('en-NG', {
 // Vendor-facing refund action -- calls POST /api/orders/[id]/refund
 // directly (matching OrderDetailsContent's own refreshOrderData, which
 // already calls secureApiCall itself rather than going through a
-// parent-supplied mutation) since neither of that component's two parents
-// (the standalone order page, the Orders-list modal) has an existing
-// refund mutation to thread through. Bookkeeping-only, by design -- see
-// the module comment on the API route this posts to: no money actually
+// parent-supplied mutation) since neither of this modal's callers (the
+// order-detail popup, the Orders list row) has an existing refund
+// mutation to thread through. Bookkeeping-only, by design -- see the
+// module comment on the API route this posts to: no money actually
 // moves here, only records and stock adjust.
+//
+// `order` only needs an `id` -- both callers open this modal immediately
+// on click (rather than fetching first and making the button itself look
+// stuck/unresponsive), and the modal fetches the full canonical order
+// itself, showing a loading state in its own body while that's in
+// flight. This also means the ceiling/items shown are always freshly
+// fetched at the moment of refunding, not whatever the caller's list or
+// popup last happened to have cached.
 export default function RefundModal({ isOpen, onClose, order, onRefundComplete }) {
   const { secureApiCall } = useAuth();
+  const [fullOrder, setFullOrder] = useState(null);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [refundType, setRefundType] = useState('full');
   const [partialAmount, setPartialAmount] = useState('');
   const [note, setNote] = useState('');
@@ -38,10 +49,33 @@ export default function RefundModal({ isOpen, onClose, order, onRefundComplete }
     }
   }, [isOpen, order?.id]);
 
+  useEffect(() => {
+    if (isOpen && order?.id) {
+      setFullOrder(null);
+      setLoadError('');
+      setIsLoadingOrder(true);
+      (async () => {
+        try {
+          const response = await secureApiCall(`/api/orders/${order.id}`);
+          if (response.success) {
+            setFullOrder(response.data);
+          } else {
+            setLoadError(response.message || 'Failed to load order');
+          }
+        } catch (error) {
+          setLoadError(error.message || 'Failed to load order');
+        } finally {
+          setIsLoadingOrder(false);
+        }
+      })();
+    }
+  }, [isOpen, order?.id, secureApiCall]);
+
   if (!isOpen || !order) return null;
 
-  const ceiling = order.refundSplit?.netAmountToVendor || 0;
-  const items = order.items || [];
+  const ceiling = fullOrder?.refundSplit?.netAmountToVendor || 0;
+  const items = fullOrder?.items || [];
+  const orderNumber = fullOrder?.orderNumber || order.orderNumber || '';
 
   const toggleRestock = (itemId) => {
     setRestockItemIds(prev => {
@@ -105,6 +139,8 @@ export default function RefundModal({ isOpen, onClose, order, onRefundComplete }
     }
   };
 
+  const isReady = !isLoadingOrder && !loadError && fullOrder;
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
@@ -116,7 +152,7 @@ export default function RefundModal({ isOpen, onClose, order, onRefundComplete }
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Refund order</h2>
-              <p className="text-sm text-gray-500">Order #{order.orderNumber}</p>
+              <p className="text-sm text-gray-500">{orderNumber ? `Order #${orderNumber}` : 'Loading order...'}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -124,6 +160,29 @@ export default function RefundModal({ isOpen, onClose, order, onRefundComplete }
           </button>
         </div>
 
+        {isLoadingOrder && (
+          <div className="p-10 flex flex-col items-center justify-center text-center">
+            <div className="w-8 h-8 border-2 border-brand-800 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p className="text-sm text-gray-500">Loading order details...</p>
+          </div>
+        )}
+
+        {!isLoadingOrder && loadError && (
+          <div className="p-6">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{loadError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-4 w-full px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        )}
+
+        {isReady && (
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="p-3 bg-gray-50 rounded-lg text-sm">
             <div className="flex items-center justify-between">
@@ -265,6 +324,7 @@ export default function RefundModal({ isOpen, onClose, order, onRefundComplete }
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

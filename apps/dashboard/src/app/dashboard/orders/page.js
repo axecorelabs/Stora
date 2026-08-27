@@ -59,7 +59,6 @@ function OrdersPageContent() {
   const [selectedOrderForUpdate, setSelectedOrderForUpdate] = useState(null);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [selectedOrderForRefund, setSelectedOrderForRefund] = useState(null);
-  const [loadingRefundOrderId, setLoadingRefundOrderId] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
 
   // Use TanStack Query hook
@@ -165,24 +164,13 @@ function OrdersPageContent() {
     setIsStatusUpdateModalOpen(true);
   };
 
-  // The list's own order objects never carry refundSplit (this page's API
-  // route doesn't query order_payment_splits) or the exact item shape
-  // RefundModal needs -- fetch the canonical single-order response fresh
-  // on click instead of trying to backfill just one field onto the list's
-  // cached shape.
-  const handleRefundClick = async (order) => {
-    setLoadingRefundOrderId(order.id);
-    try {
-      const response = await secureApiCall(`/api/orders/${order.id}`);
-      if (response.success) {
-        setSelectedOrderForRefund(response.data);
-        setIsRefundModalOpen(true);
-      }
-    } catch (error) {
-      console.error('Error loading order for refund:', error);
-    } finally {
-      setLoadingRefundOrderId(null);
-    }
+  // Opens immediately with the list's own order object (only order.id
+  // actually matters to RefundModal) -- it fetches the canonical
+  // single-order response itself and shows its own loading state, rather
+  // than this button waiting on a fetch before anything visible happens.
+  const handleRefundClick = (order) => {
+    setSelectedOrderForRefund(order);
+    setIsRefundModalOpen(true);
   };
 
   const handleRefundComplete = async () => {
@@ -675,15 +663,10 @@ function OrdersPageContent() {
                                     ['completed', 'partially_refunded'].includes(order.paymentInfo?.status) && (
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleRefundClick(order); }}
-                                      disabled={loadingRefundOrderId === order.id}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-wait transition-colors"
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
                                     >
-                                      {loadingRefundOrderId === order.id ? (
-                                        <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                                      ) : (
-                                        <Undo2 className="w-3.5 h-3.5" />
-                                      )}
-                                      {loadingRefundOrderId === order.id ? 'Loading...' : 'Refund'}
+                                      <Undo2 className="w-3.5 h-3.5" />
+                                      Refund
                                     </button>
                                   )}
 
