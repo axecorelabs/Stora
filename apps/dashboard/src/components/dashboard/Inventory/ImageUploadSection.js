@@ -2,6 +2,7 @@
 import { Upload, Check, Trash2, ImageIcon, Info, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import { PRODUCT_COLORS, PRODUCT_COLOR_HEX } from "@/lib/productColors";
 
 export default function ImageUploadSection({
   hasVariants,
@@ -41,28 +42,30 @@ export default function ImageUploadSection({
   // the in-context explanation for a feature that already worked for them.
   const canEnableVariants = supportsColorTagging;
 
-  // Predefined common colors
-  const commonColors = [
-    'Black', 'White', 'Gray', 'Red', 'Blue', 'Navy', 'Green', 
-    'Yellow', 'Orange', 'Purple', 'Pink', 'Brown', 'Beige', 
-    'Gold', 'Silver', 'Maroon', 'Olive', 'Teal', 'Burgundy',
-    'Cream', 'Khaki', 'Tan', 'Charcoal', 'Mint', 'Coral',
-    'Lavender', 'Turquoise', 'Magenta', 'Peach'
-  ];
+  // Full color list lives in one place (apps/dashboard/src/lib/productColors.js)
+  // now, shared by every screen that offers color tagging -- was a ~30-name
+  // array hardcoded here.
+  const commonColorNames = PRODUCT_COLORS.map(c => c.name);
 
-  // Combine user's colors with common colors, avoiding duplicates
+  // Combine user's colors with common colors, avoiding duplicates -- a
+  // color already used on this product (e.g. from a previous edit) is
+  // surfaced first, ahead of the general list.
   const availableColors = getAvailableColors();
   const allColors = [
     ...availableColors,
-    ...commonColors.filter(color => !availableColors.includes(color))
+    ...commonColorNames.filter(color => !availableColors.includes(color))
   ];
 
-  // Color options for dropdown
+  // Color options for dropdown -- swatch is looked up by name, so a color
+  // a vendor already had on file (from before this list existed, or a
+  // name that doesn't match any preset) just renders without a dot rather
+  // than breaking.
   const colorDropdownOptions = [
     { value: '', label: 'No color tag' },
     ...allColors.map(color => ({
       value: color,
-      label: color
+      label: color,
+      swatch: PRODUCT_COLOR_HEX[color]
     }))
   ];
 
@@ -217,6 +220,7 @@ export default function ImageUploadSection({
                     onChange={(value) => handleColorSelect(index, value)}
                     placeholder="Tag color"
                     className="text-xs"
+                    searchable
                   />
                 </div>
               )}
