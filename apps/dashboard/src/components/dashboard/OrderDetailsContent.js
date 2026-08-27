@@ -27,6 +27,7 @@ import RefundModal from "./RefundModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import useOrderProcessingStore from "@/store/orderProcessingStore";
+import { canRefundOrder } from "@/lib/orderRefund";
 
 // The actual order-detail view -- header, products, payment breakdown,
 // customer/shipping/contact panels, status-update wiring -- shared between
@@ -265,18 +266,9 @@ export default function OrderDetailsContent({
     setIsStatusUpdateModalOpen(true);
   };
 
-  // A refund is only meaningful once there's a real online payment to
-  // refund from, and only once (a split already 'reversed' has nothing
-  // left) -- mirrors the refund route's own guards exactly, so the button
-  // never appears somewhere the API would just reject it.
-  const canRefund = () => {
-    return (
-      order.paymentInfo?.provider === 'paystack' &&
-      ['completed', 'partially_refunded'].includes(order.paymentInfo?.status) &&
-      order.refundSplit &&
-      order.refundSplit.status !== 'reversed'
-    );
-  };
+  // Shared with the Orders list's own quick-action Refund button -- see
+  // apps/dashboard/src/lib/orderRefund.js.
+  const canRefund = () => canRefundOrder(order);
 
   const handleOpenRefund = () => {
     // Deliberately does NOT call onClose() -- unlike handleOpenStatusUpdate,

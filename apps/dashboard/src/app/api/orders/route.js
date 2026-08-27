@@ -262,7 +262,11 @@ export async function GET(req) {
         isMultiVendor,
         paymentInfo: {
           status: paymentInfo.status || 'pending',
-          method: paymentInfo.method || 'card'
+          method: paymentInfo.method || 'card',
+          // Lets the Orders list's own quick-action Refund button decide
+          // whether it's even worth showing without a full per-row fetch
+          // -- see mightBeRefundable() in apps/dashboard/src/lib/orderRefund.js.
+          provider: paymentInfo.provider || null
         },
         orderNumber: order.order_number,
         // Single-vendor order: the order genuinely is this vendor's in

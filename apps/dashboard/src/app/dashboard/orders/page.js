@@ -4,10 +4,12 @@ import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import OrderDetailsModal from "@/components/dashboard/OrderDetailsModal";
 import OrderStatusUpdateModal from "@/components/dashboard/OrderStatusUpdateModal";
+import RefundModal from "@/components/dashboard/RefundModal";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import SectionHeader from "@/components/ui/SectionHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrders } from "@/hooks/useOrders";
+import { canRefundOrder, mightBeRefundable } from "@/lib/orderRefund";
 import {
   ShoppingBag,
   Search,
@@ -28,7 +30,8 @@ import {
   ChevronUp,
   ChevronDown,
   AlertTriangle,
-  Undo2
+  Undo2,
+  Loader2
 } from "lucide-react";
 
 // useSearchParams() requires a Suspense boundary above it or Next's build
@@ -57,6 +60,13 @@ function OrdersPageContent() {
   const [isStatusUpdateModalOpen, setIsStatusUpdateModalOpen] = useState(false);
   const [selectedOrderForUpdate, setSelectedOrderForUpdate] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [refundOrder, setRefundOrder] = useState(null);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  // Which row's Refund button is mid-fetch -- the list endpoint doesn't
+  // carry refundSplit, so eligibility can only be confirmed by pulling the
+  // single-order endpoint first (see canRefund/mightBeRefundable in
+  // @/lib/orderRefund). Keyed by order id so only that row's button spins.
+  const [refundCheckingId, setRefundCheckingId] = useState(null);
 
   // Use TanStack Query hook
   const {
@@ -258,6 +268,39 @@ function OrdersPageContent() {
   const viewOrderDetails = (order) => {
     setSelectedOrder(order);
     setIsOrderDetailsModalOpen(true);
+  };
+
+  // Quick-action Refund button on the list row -- the row's own order
+  // data never has refundSplit (see /api/orders/route.js), so this always
+  // pulls the authoritative single-order endpoint first and re-checks
+  // eligibility against that before opening RefundModal, the same gate
+  // OrderDetailsContent's own Refund button uses.
+  const handleOpenRefund = async (order) => {
+    setRefundCheckingId(order.id);
+    try {
+      const response = await secureApiCall(`/api/orders/${order.id}`);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to load order');
+      }
+      const freshOrder = response.data;
+      if (!canRefundOrder(freshOrder)) {
+        alert("This order isn't eligible for a refund right now (it may already be fully refunded).");
+        return;
+      }
+      setRefundOrder(freshOrder);
+      setIsRefundModalOpen(true);
+    } catch (error) {
+      console.error('Error checking refund eligibility:', error);
+      alert('Could not check refund eligibility. Please try again.');
+    } finally {
+      setRefundCheckingId(null);
+    }
+  };
+
+  const handleRefundComplete = () => {
+    setIsRefundModalOpen(false);
+    setRefundOrder(null);
+    refetch();
   };
 
   const filteredOrders = getFilteredOrders();
@@ -641,6 +684,21 @@ function OrdersPageContent() {
                                     </button>
                                   )}
 
+                                  {mightBeRefundable(order) && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleOpenRefund(order); }}
+                                      disabled={refundCheckingId === order.id}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                      {refundCheckingId === order.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      ) : (
+                                        <Undo2 className="w-3.5 h-3.5" />
+                                      )}
+                                      Refund
+                                    </button>
+                                  )}
+
                                   {order.status === 'shipped' && order.tracking.trackingUrl && (
                                     <a
                                       href={order.tracking.trackingUrl}
@@ -785,6 +843,17 @@ function OrdersPageContent() {
         order={selectedOrder}
         onStatusUpdate={updateOrderStatus}
         updatingStatus={isUpdating}
+      />
+
+      {/* Refund Modal -- quick action from the list row */}
+      <RefundModal
+        isOpen={isRefundModalOpen}
+        onClose={() => {
+          setIsRefundModalOpen(false);
+          setRefundOrder(null);
+        }}
+        order={refundOrder}
+        onRefundComplete={handleRefundComplete}
       />
     </DashboardLayout>
   );
