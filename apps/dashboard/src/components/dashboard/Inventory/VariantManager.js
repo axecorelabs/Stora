@@ -25,15 +25,22 @@ export default function VariantManager({
     'Plus Size', 'Kids 2-4', 'Kids 5-7', 'Kids 8-12'
   ];
 
-  // Check if category needs size input
+  // Only Clothing and Shoes have real size variation (S/M/L, shoe sizes)
+  // worth asking a vendor to configure.
   const shouldShowSizeInput = () => {
     return category === 'Clothing' || category === 'Shoes';
   };
 
-  // Check if accessories (auto "One Size")
-  const isAccessoryCategory = () => {
-    return category === 'Accessories';
-  };
+  // Every other category -- Accessories, Electronics, Sports,
+  // Home & Garden, Wigs & Hair, Other -- gets a single "One Size" bucket
+  // per color instead, so a vendor can set stock per color without ever
+  // being asked to pick sizes that category doesn't have. This used to
+  // only cover Accessories by name; every other non-Clothing/Shoes
+  // category fell through with an empty sizes: [] and no UI able to
+  // populate it -- the size-selection UI below is entirely gated on
+  // shouldShowSizeInput(), so there was no way to ever add a size, which
+  // meant no way to ever enter stock either.
+  const usesOneSizePerVariant = () => !shouldShowSizeInput();
 
   // Initialize variants when colors are detected - moved to useEffect
   useEffect(() => {
@@ -49,8 +56,8 @@ export default function VariantManager({
         if (existingVariantMap.has(color)) {
           return existingVariantMap.get(color);
         }
-        // For accessories, auto-set "One Size"
-        if (isAccessoryCategory()) {
+        // One-size categories skip size selection entirely
+        if (usesOneSizePerVariant()) {
           return {
             color: color,
             sizes: [{
@@ -81,14 +88,14 @@ export default function VariantManager({
         setVariants(filteredVariants);
       }
     }
-  }, [detectedColors, variants, setVariants, category, isAccessoryCategory, defaultStock]);
+  }, [detectedColors, variants, setVariants, category, usesOneSizePerVariant, defaultStock]);
 
   // Auto-set size mode for accessories
   useEffect(() => {
-    if (isAccessoryCategory() && sizeMode !== 'one-size') {
+    if (usesOneSizePerVariant() && sizeMode !== 'one-size') {
       setSizeMode('one-size');
     }
-  }, [category, sizeMode, isAccessoryCategory]);
+  }, [category, sizeMode, usesOneSizePerVariant]);
 
   // Add useEffect to sync stock whenever variants change
   useEffect(() => {
@@ -266,7 +273,7 @@ export default function VariantManager({
   
   // Define all possible sizes based on category
   const getAllPossibleSizes = () => {
-    if (isAccessoryCategory()) {
+    if (usesOneSizePerVariant()) {
       return ['One Size'];
     }
     if (category === 'Clothing') {
@@ -295,8 +302,8 @@ export default function VariantManager({
               We detected {detectedColors.length} color variants
             </p>
             <p className="text-xs text-blue-700">
-              {isAccessoryCategory() 
-                ? `You've tagged images with different colors: ${detectedColors.join(', ')}. Accessories automatically use "One Size" for all colors.`
+              {usesOneSizePerVariant()
+                ? `You've tagged images with different colors: ${detectedColors.join(', ')}. This category uses "One Size" for all colors -- just set stock for each below.`
                 : `You've tagged images with different colors: ${detectedColors.join(', ')}. Let's set up sizes and stock for each color variant.`
               }
             </p>
