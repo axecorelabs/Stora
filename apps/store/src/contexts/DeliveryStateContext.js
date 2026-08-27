@@ -28,10 +28,16 @@ function readCookie(name) {
 // own, for the one case (a bare IP guess) this app never confirms itself.
 function writeCookie(value) {
   if (typeof document === "undefined") return;
+  // Secure is gated on the page's own protocol, not NODE_ENV: a cookie
+  // written with `; Secure` over plain http is silently dropped by the
+  // browser, which would break local dev (http://localhost). Prod is
+  // always https, so this lands on the same behavior as proxy.js's own
+  // NODE_ENV-gated writes for these same two cookies.
+  const secureSuffix = location.protocol === "https:" ? "; Secure" : "";
   document.cookie = value
-    ? `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax`
-    : `${COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
-  document.cookie = `${GUESS_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+    ? `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax${secureSuffix}`
+    : `${COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax${secureSuffix}`;
+  document.cookie = `${GUESS_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax${secureSuffix}`;
 }
 
 function patchPreferredState(state) {

@@ -157,19 +157,26 @@ export async function proxy(req) {
     response.cookies.set(DELIVER_STATE_COOKIE, resolved.value, {
       path: '/',
       maxAge: DELIVER_STATE_COOKIE_MAX_AGE,
-      sameSite: 'lax'
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
     });
     if (resolved.isGuess) {
       response.cookies.set(DELIVER_STATE_GUESS_COOKIE, '1', {
         path: '/',
         maxAge: DELIVER_STATE_COOKIE_MAX_AGE,
-        sameSite: 'lax'
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
       });
     } else {
       // A URL param is a real, confirmed value -- clear any stale guess
       // flag so DeliveryStateContext.js's rule 2 doesn't later treat it
       // as one it should still override once the real profile resolves.
-      response.cookies.set(DELIVER_STATE_GUESS_COOKIE, '', { path: '/', maxAge: 0, sameSite: 'lax' });
+      response.cookies.set(DELIVER_STATE_GUESS_COOKIE, '', {
+        path: '/',
+        maxAge: 0,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
+      });
     }
   }
 
