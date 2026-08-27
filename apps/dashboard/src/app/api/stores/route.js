@@ -12,6 +12,7 @@ function transformStore(store) {
   const websiteData = typeof store.website === 'string' ? JSON.parse(store.website) : store.website;
   const websitePath = websiteData?.websitePath || store.store_slug;
   const storeBaseUrl = process.env.NEXT_PUBLIC_STORE_URL || 'https://stora.com.ng';
+  const parsedAddress = typeof store.address === 'string' ? JSON.parse(store.address) : store.address;
 
   return {
     id: store.id,
@@ -35,7 +36,16 @@ function transformStore(store) {
     // portion out of the Paystack charge, merchandise payment is untouched.
     deliveryFees: (typeof store.delivery_fees === 'string' ? JSON.parse(store.delivery_fees) : store.delivery_fees) || {},
     fulfillmentMethod: store.fulfillment_method === 'pay_on_delivery' ? 'pay_on_delivery' : 'platform_collected',
-    address: typeof store.address === 'string' ? JSON.parse(store.address) : store.address,
+    address: parsedAddress,
+    // Flat display string a few screens read directly (POS's store-info
+    // header, the website settings page, ReceiptModal) -- was never
+    // actually computed here, so every one of them always fell back to
+    // "No address set"/blank regardless of whether the vendor had a real
+    // address on file. Built from the same fields AddPhysicalStoreModal/
+    // StoreLocationTab write into `address`.
+    fullAddress: parsedAddress
+      ? [parsedAddress.street, parsedAddress.city, parsedAddress.state, parsedAddress.postalCode, parsedAddress.country].filter(Boolean).join(', ')
+      : '',
     onlineStoreInfo: typeof store.online_store_info === 'string' ? JSON.parse(store.online_store_info) : store.online_store_info,
     branding: typeof store.branding === 'string' ? JSON.parse(store.branding) : store.branding,
     businessHours: typeof store.business_hours === 'string' ? JSON.parse(store.business_hours) : store.business_hours,
