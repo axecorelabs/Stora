@@ -74,7 +74,7 @@ export async function GET(req, { params }) {
       // a cash_to_vendor order or a contact-only (no subaccount) store --
       // both already off the structured-payment path entirely, so the
       // 0/'platform_collected' fallbacks below are correct, not a gap.
-      supabaseAdmin.from('order_payment_splits').select('delivery_fee_amount, fulfillment_method').eq('order_id', id).eq('store_id', store.id).maybeSingle()
+      supabaseAdmin.from('order_payment_splits').select('id, delivery_fee_amount, fulfillment_method, net_amount_to_vendor, platform_commission_amount, status, refunded_amount').eq('order_id', id).eq('store_id', store.id).maybeSingle()
     ]);
 
     const shippingAddr = (addresses || []).find(a => a.address_type === 'shipping') || {};
@@ -123,6 +123,16 @@ export async function GET(req, { params }) {
         // on arrival -- never part of the Paystack settlement, so it's
         // deliberately not folded into shippingFee/totalAmount above.
         payOnDeliveryFee: split?.fulfillment_method === 'pay_on_delivery' ? (Number(split?.delivery_fee_amount) || 0) : 0,
+        // This vendor's own payment_splits row, for the Refund modal --
+        // absent for a cash_to_vendor order or a contact-only store (no
+        // structured payment exists to refund).
+        refundSplit: split ? {
+          id: split.id,
+          netAmountToVendor: Number(split.net_amount_to_vendor) || 0,
+          platformCommissionAmount: Number(split.platform_commission_amount) || 0,
+          status: split.status,
+          refundedAmount: Number(split.refunded_amount) || 0
+        } : null,
         discount: isMultiVendor ? 0 : (order.discount || 0),
         tax: isMultiVendor ? 0 : (order.tax || 0),
         totalAmount: isMultiVendor ? vendorItemsSubtotal : order.total_amount

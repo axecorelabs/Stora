@@ -525,13 +525,10 @@ export default function OrderDetailsPageContent({ slug, orderId }) {
               </div>
             )}
             <div>
-              <p className="text-xs sm:text-sm text-gray-500">Payment status</p>
-              <p className="text-sm sm:text-base font-medium text-gray-900">
-                {order.payment?.status ?
-                  order.payment.status.charAt(0).toUpperCase() + order.payment.status.slice(1) :
-                  'Pending'
-                }
-              </p>
+              <p className="text-xs sm:text-sm text-gray-500 mb-1">Payment status</p>
+              <span className={`inline-block px-2.5 py-1 text-xs sm:text-sm font-medium rounded-full ${getStatusColor(order.payment?.status || 'pending')}`}>
+                {(order.payment?.status || 'pending').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </span>
             </div>
           </div>
 
@@ -594,7 +591,7 @@ export default function OrderDetailsPageContent({ slug, orderId }) {
         <div className="mt-6 sm:mt-8 p-3 sm:p-4 bg-gold-400/10 border border-gold-500/25 rounded-xl">
           <p className="text-xs sm:text-sm text-brand-900/80">
             <strong className="text-gold-700">Note:</strong> You&apos;ll receive order confirmations via WhatsApp from each store.
-            If you have any questions about your order, please contact the respective store directly using the message buttons above.
+            If you have any questions about your order -- including requesting a refund or return -- please contact the respective store directly using the message buttons above. Refunds are arranged directly with the store.
           </p>
         </div>
       </div>

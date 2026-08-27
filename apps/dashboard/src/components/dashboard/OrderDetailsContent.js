@@ -19,9 +19,11 @@ import {
   FileText,
   ShoppingBag,
   MessageCircle,
-  ChevronDown
+  ChevronDown,
+  Undo2
 } from "lucide-react";
 import OrderStatusUpdateModal from "./OrderStatusUpdateModal";
+import RefundModal from "./RefundModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import useOrderProcessingStore from "@/store/orderProcessingStore";
@@ -45,6 +47,7 @@ export default function OrderDetailsContent({
   const { setProcessingOrder } = useOrderProcessingStore();
   const [copied, setCopied] = useState(false);
   const [isStatusUpdateModalOpen, setIsStatusUpdateModalOpen] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [order, setOrder] = useState(initialOrder);
   const [isConfirmingOrder, setIsConfirmingOrder] = useState(false);
   const [showContactDropdown, setShowContactDropdown] = useState(true); // ✅ Open by default
@@ -67,6 +70,22 @@ export default function OrderDetailsContent({
       console.error('Error refreshing order data:', error);
     }
   };
+
+  // This component is fed two different item/order shapes depending on
+  // which parent renders it: the standalone /dashboard/orders/[id] page
+  // passes the single-order GET response directly (includes refundSplit),
+  // while OrderDetailsModal (opened from the Orders list) passes the list
+  // endpoint's own transformed shape, which never queried
+  // order_payment_splits at all -- so refundSplit is simply absent there,
+  // not null. A one-time refetch from the single-order endpoint once
+  // converges both paths onto the same canonical data the Refund button's
+  // gating depends on, without duplicating that query into the list route.
+  useEffect(() => {
+    if (initialOrder?.id && initialOrder.refundSplit === undefined) {
+      refreshOrderData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOrder?.id]);
 
   if (!order) return null;
 
@@ -235,10 +254,48 @@ export default function OrderDetailsContent({
 
   // Handle opening status update modal
   const handleOpenStatusUpdate = () => {
+    // Does NOT call onClose() -- see the identical comment on
+    // handleOpenRefund below. When this component is rendered inside
+    // OrderDetailsModal, calling onClose() here flips that popup's own
+    // isOpen state to false in the same React batch as this function's own
+    // setIsStatusUpdateModalOpen(true), which unmounts this whole component
+    // (and the status-update modal within it) before the local update ever
+    // gets a chance to render -- from the Orders-list popup, this button
+    // used to just silently close everything instead of opening the modal.
     setIsStatusUpdateModalOpen(true);
-    // Close the order details modal automatically (a no-op when there's no
-    // modal to close, i.e. the standalone page)
-    onClose?.();
+  };
+
+  // A refund is only meaningful once there's a real online payment to
+  // refund from, and only once (a split already 'reversed' has nothing
+  // left) -- mirrors the refund route's own guards exactly, so the button
+  // never appears somewhere the API would just reject it.
+  const canRefund = () => {
+    return (
+      order.paymentInfo?.provider === 'paystack' &&
+      ['completed', 'partially_refunded'].includes(order.paymentInfo?.status) &&
+      order.refundSplit &&
+      order.refundSplit.status !== 'reversed'
+    );
+  };
+
+  const handleOpenRefund = () => {
+    // Deliberately does NOT call onClose() -- unlike handleOpenStatusUpdate,
+    // which dismisses the parent OrderDetailsModal popup on the same click
+    // that opens its own sub-modal. When this component is rendered inside
+    // that popup, onClose() flips the popup's own isOpen state to false,
+    // and since both state updates land in the same React batch, the
+    // popup (and this whole component, and any modal state local to it)
+    // unmounts before the sub-modal's open-state update ever gets a chance
+    // to render -- the sub-modal would never actually appear, just a
+    // silent close. RefundModal is its own full-screen overlay, so it
+    // renders fine on top of the still-open popup without needing to
+    // dismiss it first.
+    setIsRefundModalOpen(true);
+  };
+
+  const handleRefundComplete = async () => {
+    await refreshOrderData();
+    setIsRefundModalOpen(false);
   };
 
   // Handle status update completion
@@ -363,6 +420,16 @@ export default function OrderDetailsContent({
             >
               <Package className="w-4 h-4" />
               <span>Continue Processing</span>
+            </button>
+          )}
+
+          {canRefund() && (
+            <button
+              onClick={handleOpenRefund}
+              className="flex items-center space-x-2 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+            >
+              <Undo2 className="w-4 h-4" />
+              <span>Refund</span>
             </button>
           )}
 
@@ -835,6 +902,14 @@ export default function OrderDetailsContent({
         order={order}
         onStatusUpdate={handleStatusUpdateComplete}
         isUpdating={updatingStatus}
+      />
+
+      {/* Refund Modal */}
+      <RefundModal
+        isOpen={isRefundModalOpen}
+        onClose={() => setIsRefundModalOpen(false)}
+        order={order}
+        onRefundComplete={handleRefundComplete}
       />
     </>
   );

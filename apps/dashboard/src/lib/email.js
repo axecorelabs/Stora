@@ -5,6 +5,7 @@ import { getVerificationEmailTemplate } from './email/templates/verification.js'
 import { getWelcomeEmailTemplate } from './email/templates/welcome.js';
 import { getPasswordResetTemplate } from './email/templates/passwordReset.js';
 import { getSubscriptionUpdateTemplate } from './email/templates/subscription.js';
+import { getRefundCustomerTemplate, getRefundVendorTemplate } from './email/templates/refundProcessed.js';
 import { generateReceiptPDF } from './email/utils/pdfGenerator.js';
 
 // Determine which email provider to use
@@ -182,6 +183,18 @@ export const sendOrderProcessedEmail = async (email, orderData, saleData, storeN
   
   // Send email with attachment
   return await sendEmailWithAttachment(email, subject, html, text, receiptAttachment);
+};
+
+// Send refund confirmation to the customer
+export const sendRefundCustomerEmail = async (email, refundData) => {
+  const { html, text, subject } = getRefundCustomerTemplate(email, refundData);
+  return await sendEmail(email, subject, html, text);
+};
+
+// Send refund record confirmation to the vendor
+export const sendRefundVendorEmail = async (email, refundData) => {
+  const { html, text, subject } = getRefundVendorTemplate(email, refundData);
+  return await sendEmail(email, subject, html, text);
 };
 
 // Helper function to send email with attachment
