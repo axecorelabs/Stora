@@ -25,14 +25,26 @@ export default function VariantManager({
     'Plus Size', 'Kids 2-4', 'Kids 5-7', 'Kids 8-12'
   ];
 
-  // Check if category needs size input
+  // Only Clothing and Shoes have a genuine second dimension alongside
+  // color (S/M/L, shoe sizes) -- every other color-tagging category
+  // (Accessories, Home & Garden, Electronics, Sports, Other, Wigs & Hair)
+  // is color-only, so it gets no size picker at all.
   const shouldShowSizeInput = () => {
     return category === 'Clothing' || category === 'Shoes';
   };
 
-  // Check if accessories (auto "One Size")
-  const isAccessoryCategory = () => {
-    return category === 'Accessories';
+  // Color-only categories auto-assign a single "One Size" pseudo-size per
+  // color and skip the size picker entirely -- this used to be narrowly
+  // scoped to just 'Accessories', which left every other color-only
+  // category (Home & Garden, Electronics, Sports, Other, Wigs & Hair) with
+  // no size UI shown (shouldShowSizeInput() is false for them too) AND no
+  // auto-assignment happening either, so their variants could never get a
+  // quantity at all -- stuck showing "select sizes above" with nothing to
+  // select. This is just "not Clothing or Shoes" now, matching every
+  // category that can actually reach this component (ImageUploadSection's
+  // own supportsColorTagging list).
+  const isColorOnlyCategory = () => {
+    return !shouldShowSizeInput();
   };
 
   // Initialize variants when colors are detected - moved to useEffect
@@ -49,8 +61,8 @@ export default function VariantManager({
         if (existingVariantMap.has(color)) {
           return existingVariantMap.get(color);
         }
-        // For accessories, auto-set "One Size"
-        if (isAccessoryCategory()) {
+        // Color-only category: auto-set "One Size"
+        if (isColorOnlyCategory()) {
           return {
             color: color,
             sizes: [{
@@ -81,14 +93,14 @@ export default function VariantManager({
         setVariants(filteredVariants);
       }
     }
-  }, [detectedColors, variants, setVariants, category, isAccessoryCategory, defaultStock]);
+  }, [detectedColors, variants, setVariants, category, isColorOnlyCategory, defaultStock]);
 
-  // Auto-set size mode for accessories
+  // Auto-set size mode for color-only categories
   useEffect(() => {
-    if (isAccessoryCategory() && sizeMode !== 'one-size') {
+    if (isColorOnlyCategory() && sizeMode !== 'one-size') {
       setSizeMode('one-size');
     }
-  }, [category, sizeMode, isAccessoryCategory]);
+  }, [category, sizeMode, isColorOnlyCategory]);
 
   // Add useEffect to sync stock whenever variants change
   useEffect(() => {
@@ -266,13 +278,15 @@ export default function VariantManager({
   
   // Define all possible sizes based on category
   const getAllPossibleSizes = () => {
-    if (isAccessoryCategory()) {
+    if (isColorOnlyCategory()) {
       return ['One Size'];
     }
     if (category === 'Clothing') {
       return CLOTHING_SIZES;
     }
-    // For shoes and other categories, allow custom text input (handled separately)
+    // Only Shoes reaches here (the only other category shouldShowSizeInput
+    // allows) -- it renders its own custom text-input UI below rather than
+    // this list, so this return value is unused in practice.
     return ['One Size', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Plus Size', 'Custom'];
   };
 
@@ -295,8 +309,8 @@ export default function VariantManager({
               We detected {detectedColors.length} color variants
             </p>
             <p className="text-xs text-blue-700">
-              {isAccessoryCategory() 
-                ? `You've tagged images with different colors: ${detectedColors.join(', ')}. Accessories automatically use "One Size" for all colors.`
+              {isColorOnlyCategory()
+                ? `You've tagged images with different colors: ${detectedColors.join(', ')}. This category doesn't need sizes -- just set the stock quantity for each color below.`
                 : `You've tagged images with different colors: ${detectedColors.join(', ')}. Let's set up sizes and stock for each color variant.`
               }
             </p>
@@ -304,7 +318,7 @@ export default function VariantManager({
         </div>
       </div>
 
-      {/* Size Configuration Mode - Hide for accessories */}
+      {/* Size Configuration Mode - hidden for color-only categories */}
       {shouldShowSizeInput() && (
         <div className="mb-6 p-4 bg-gray-50 rounded-xl">
           <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -467,7 +481,7 @@ export default function VariantManager({
 
       {/* Variant List */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">
           <h4 className="text-sm font-medium text-gray-700">Variant Stock Details</h4>
           <div className="text-sm text-gray-600">
             Total Stock: <span className="font-semibold text-gray-900">{calculateTotalStock()}</span>
@@ -476,24 +490,29 @@ export default function VariantManager({
 
         {variants.map((variant, colorIndex) => (
           <div key={colorIndex} className="border border-gray-200 rounded-xl overflow-hidden">
-            {/* Variant Header */}
+            {/* Variant Header -- stacks on narrow screens instead of
+                squeezing color name/size count/stock/chevron into one
+                un-wrapped row; color name truncates rather than pushing
+                the stock figure and chevron off-screen. */}
             <button
               type="button"
               onClick={() => toggleVariantExpanded(colorIndex)}
-              className="w-full px-4 py-3 bg-gray-50 flex items-center justify-between hover:bg-gray-100 transition-colors"
+              className="w-full px-4 py-3 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-3 hover:bg-gray-100 transition-colors text-left"
             >
-              <div className="flex items-center space-x-3">
-                <div 
-                  className="w-6 h-6 rounded-full border-2 border-gray-300"
+              <div className="flex items-center space-x-3 min-w-0">
+                <div
+                  className="w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0"
                   style={{ backgroundColor: variant.color.toLowerCase() }}
                   title={variant.color}
                 />
-                <span className="font-medium text-gray-900">{variant.color}</span>
-                <span className="text-sm text-gray-500">
-                  {variant.sizes.length} {variant.sizes.length === 1 ? 'size' : 'sizes'}
-                </span>
+                <span className="font-medium text-gray-900 truncate">{variant.color}</span>
+                {shouldShowSizeInput() && (
+                  <span className="text-sm text-gray-500 flex-shrink-0">
+                    {variant.sizes.length} {variant.sizes.length === 1 ? 'size' : 'sizes'}
+                  </span>
+                )}
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-between sm:justify-end space-x-2 flex-shrink-0 pl-9 sm:pl-0">
                 <span className="text-sm text-gray-600">
                   Stock: {variant.sizes.reduce((sum, s) => sum + s.quantityInStock, 0)}
                 </span>

@@ -607,18 +607,21 @@ export default function AddInventoryPage() {
     }
   }, [formData.category]);
 
-  // Calculate total stock from variants - Make this more robust
+  // Calculate total stock from variants -- variants is shaped one entry
+  // per color, each holding a nested sizes: [{quantityInStock}] array (see
+  // VariantManager.js), not a flat quantityInStock field on the color
+  // entry itself. Reading it flatly here always summed to 0, showing
+  // "Total Stock: 0" in the UI regardless of what was actually entered
+  // per color -- matches EditInventoryModal.js's own (correct) version.
   const calculateTotalStock = () => {
-    if (variants.length === 0) {
+    if (!variants || variants.length === 0) {
       return 0;
     }
-    
-    const total = variants.reduce((sum, variant) => {
-      const qty = parseFloat(variant.quantityInStock) || 0;
-      return sum + qty;
+
+    return variants.reduce((total, variant) => {
+      if (!variant.sizes || !Array.isArray(variant.sizes)) return total;
+      return total + variant.sizes.reduce((sum, size) => sum + (parseInt(size.quantityInStock) || 0), 0);
     }, 0);
-    
-    return total;
   };
 
   // Function to sync total stock from variant manager to stock field
@@ -692,6 +695,21 @@ export default function AddInventoryPage() {
       return;
     }
 
+    // Matches EditInventoryModal.js's own guard -- without it, a vendor
+    // could submit with color variants selected but no quantities ever
+    // entered for any of them, silently creating a product with zero
+    // stock across the board and no indication anything was missed.
+    if (detectedColorVariants.length >= 2) {
+      if (variants.length === 0 || variants.every(v => v.sizes.length === 0)) {
+        setErrors({ submit: 'Please configure sizes and stock for your color variants' });
+        return;
+      }
+      if (calculateTotalStock() === 0) {
+        setErrors({ submit: 'Please add stock quantities to your variants' });
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setErrors({});
 
@@ -709,14 +727,30 @@ export default function AddInventoryPage() {
         sellingPrice: parseFloat(formData.sellingPrice),
       };
 
-      // If has variants, include them
+      // If has variants, include them. variants (from VariantManager) is
+      // shaped one entry per COLOR, each holding a nested
+      // sizes: [{size, quantityInStock, reorderLevel}] array -- the API
+      // expects one flat entry per (color, size) pair instead (see
+      // /api/inventory route.js's providedVariants.find on v.color/v.size).
+      // flatMap here mirrors EditInventoryModal.js's own
+      // transformedVariants, the proven-working version of this same
+      // transform -- spreading `v` directly used to produce one entry per
+      // color with bogus top-level quantityInStock/reorderLevel (undefined
+      // on the nested shape, so every variant silently saved at 0 stock,
+      // and multi-size colors collapsed into a single row).
       if (detectedColorVariants.length >= 2 && variants.length > 0) {
         payload.hasVariants = true;
-        payload.variants = variants.map(v => ({
-          ...v,
-          quantityInStock: parseFloat(v.quantityInStock),
-          reorderLevel: parseFloat(v.reorderLevel)
-        }));
+        payload.variants = variants.flatMap(colorVariant =>
+          colorVariant.sizes.map(sizeObj => ({
+            size: sizeObj.size,
+            color: colorVariant.color,
+            quantityInStock: parseInt(sizeObj.quantityInStock) || 0,
+            reorderLevel: parseInt(sizeObj.reorderLevel) || 5,
+            images: uploadedImages
+              .filter(img => img.colorTag === colorVariant.color)
+              .map(img => img.url)
+          }))
+        );
       }
 
       // Submit to API

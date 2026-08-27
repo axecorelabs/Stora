@@ -886,6 +886,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
             {/* Variant Manager */}
             {detectedColorVariants.length >= 2 && (
               <VariantManager
+                category={formData.category}
                 detectedColors={detectedColorVariants}
                 variants={variants}
                 setVariants={setVariants}
