@@ -369,6 +369,28 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
   const totalPrice = initialProduct.sellingPrice * quantity;
 
+  // Which colors this product actually comes in -- derived here instead of
+  // reading each category's own categoryDetails.<category>.colors field,
+  // which the dashboard's create/edit routes never actually persist for
+  // any category except Food/Beverages/Books (see
+  // apps/dashboard/src/app/api/inventory/route.js). Prefers each variant's
+  // own color -- the real, correctly-persisted source once a product has
+  // 2+ tagged colors and hasVariants is true, same data VariantSelectionModal
+  // uses to drive the actual color picker -- and falls back to the colors
+  // tagged directly on the product's images, for a single-color product
+  // that never became a variant set.
+  const productAvailableColors = (() => {
+    const variantList = Array.isArray(initialProduct.variants)
+      ? initialProduct.variants
+      : (initialProduct.variants && typeof initialProduct.variants === 'object')
+        ? Object.values(initialProduct.variants)
+        : [];
+    const variantColors = [...new Set(variantList.map(v => v.color).filter(Boolean))];
+    if (variantColors.length > 0) return variantColors;
+
+    return [...new Set((initialProduct.images || []).map(img => img?.colorTag).filter(Boolean))];
+  })();
+
   // Helper function to render category-specific details
   const renderCategoryDetails = () => {
     // Debug logging
@@ -404,8 +426,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
               {clothing.sizes && Array.isArray(clothing.sizes) && clothing.sizes.length > 0 && (
                 <DetailRow label="Available Sizes" value={clothing.sizes.join(' • ')} />
               )}
-              {clothing.colors && Array.isArray(clothing.colors) && clothing.colors.length > 0 && (
-                <DetailRow label="Available Colors" value={clothing.colors.join(' • ')} />
+              {productAvailableColors.length > 0 && (
+                <DetailRow label="Available Colors" value={productAvailableColors.join(' • ')} />
               )}
               {clothing.style && Array.isArray(clothing.style) && clothing.style.length > 0 && (
                 <DetailRow label="Style" value={clothing.style.join(' • ')} />
@@ -434,8 +456,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
               {shoes.sizes && Array.isArray(shoes.sizes) && shoes.sizes.length > 0 && (
                 <DetailRow label="Available Sizes" value={shoes.sizes.join(' • ')} />
               )}
-              {shoes.colors && Array.isArray(shoes.colors) && shoes.colors.length > 0 && (
-                <DetailRow label="Available Colors" value={shoes.colors.join(' • ')} />
+              {productAvailableColors.length > 0 && (
+                <DetailRow label="Available Colors" value={productAvailableColors.join(' • ')} />
               )}
               {shoes.occasion && Array.isArray(shoes.occasion) && shoes.occasion.length > 0 && (
                 <DetailRow label="Suitable For" value={shoes.occasion.join(' • ')} />
@@ -470,8 +492,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             {clothing.sizes && Array.isArray(clothing.sizes) && clothing.sizes.length > 0 && (
               <DetailRow label="Available Sizes" value={clothing.sizes.join(' • ')} />
             )}
-            {clothing.colors && Array.isArray(clothing.colors) && clothing.colors.length > 0 && (
-              <DetailRow label="Available Colors" value={clothing.colors.join(' • ')} />
+            {productAvailableColors.length > 0 && (
+              <DetailRow label="Available Colors" value={productAvailableColors.join(' • ')} />
             )}
             {clothing.style && Array.isArray(clothing.style) && clothing.style.length > 0 && (
               <DetailRow label="Style" value={clothing.style.join(' • ')} />
@@ -500,8 +522,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             {shoes.sizes && Array.isArray(shoes.sizes) && shoes.sizes.length > 0 && (
               <DetailRow label="Available Sizes" value={shoes.sizes.join(' • ')} />
             )}
-            {shoes.colors && Array.isArray(shoes.colors) && shoes.colors.length > 0 && (
-              <DetailRow label="Available Colors" value={shoes.colors.join(' • ')} />
+            {productAvailableColors.length > 0 && (
+              <DetailRow label="Available Colors" value={productAvailableColors.join(' • ')} />
             )}
             {shoes.occasion && Array.isArray(shoes.occasion) && shoes.occasion.length > 0 && (
               <DetailRow label="Suitable For" value={shoes.occasion.join(' • ')} />
@@ -524,8 +546,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             {acc.accessoryType && <DetailRow label="Type" value={acc.accessoryType} />}
             {acc.gender && <DetailRow label="Gender" value={acc.gender} />}
             {acc.material && <DetailRow label="Material" value={acc.material} />}
-            {acc.colors && Array.isArray(acc.colors) && acc.colors.length > 0 && (
-              <DetailRow label="Available Colors" value={acc.colors.join(' • ')} />
+            {productAvailableColors.length > 0 && (
+              <DetailRow label="Available Colors" value={productAvailableColors.join(' • ')} />
             )}
           </div>
         </div>
@@ -636,8 +658,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             {elec.specifications?.screenSize && <DetailRow label="Screen Size" value={elec.specifications.screenSize} />}
             {elec.specifications?.batteryCapacity && <DetailRow label="Battery" value={elec.specifications.batteryCapacity} />}
             {elec.specifications?.camera && <DetailRow label="Camera" value={elec.specifications.camera} />}
-            {elec.colors && Array.isArray(elec.colors) && elec.colors.length > 0 && (
-              <DetailRow label="Available Colors" value={elec.colors.join(' • ')} />
+            {productAvailableColors.length > 0 && (
+              <DetailRow label="Available Colors" value={productAvailableColors.join(' • ')} />
             )}
             {elec.warranty && elec.warranty.hasWarranty && (
               <DetailRow label="Warranty" value={`${elec.warranty.duration} - ${elec.warranty.type || 'Standard'}`} badge="success" />
@@ -692,8 +714,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             {home.room && Array.isArray(home.room) && home.room.length > 0 && (
               <DetailRow label="Suitable Room" value={home.room.join(' • ')} />
             )}
-            {home.color && Array.isArray(home.color) && home.color.length > 0 && (
-              <DetailRow label="Available Colors" value={home.color.join(' • ')} />
+            {productAvailableColors.length > 0 && (
+              <DetailRow label="Available Colors" value={productAvailableColors.join(' • ')} />
             )}
             {home.dimensions?.length && <DetailRow label="Length" value={home.dimensions.length} />}
             {home.dimensions?.width && <DetailRow label="Width" value={home.dimensions.width} />}
@@ -728,8 +750,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             {sport.sizes && Array.isArray(sport.sizes) && sport.sizes.length > 0 && (
               <DetailRow label="Available Sizes" value={sport.sizes.join(' • ')} />
             )}
-            {sport.colors && Array.isArray(sport.colors) && sport.colors.length > 0 && (
-              <DetailRow label="Available Colors" value={sport.colors.join(' • ')} />
+            {productAvailableColors.length > 0 && (
+              <DetailRow label="Available Colors" value={productAvailableColors.join(' • ')} />
             )}
             {sport.suitableFor && Array.isArray(sport.suitableFor) && sport.suitableFor.length > 0 && (
               <DetailRow label="Suitable For" value={sport.suitableFor.join(' • ')} />

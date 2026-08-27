@@ -13,8 +13,6 @@ export default function ImageUploadSection({
   removeMultiImage,
   updateImageColorTag,
   setPrimaryImage,
-  getAvailableColors,
-  addColorToCategory,
   onVariantsDetected, // New prop to notify parent about detected variants
   errors
 }) {
@@ -47,10 +45,15 @@ export default function ImageUploadSection({
   // array hardcoded here.
   const commonColorNames = PRODUCT_COLORS.map(c => c.name);
 
-  // Combine user's colors with common colors, avoiding duplicates -- a
-  // color already used on this product (e.g. from a previous edit) is
-  // surfaced first, ahead of the general list.
-  const availableColors = getAvailableColors();
+  // Colors already tagged on this product's own images -- surfaced first
+  // in the dropdown, ahead of the general palette. Derived straight from
+  // imagePreviews (whose colorTag persists via inventory.images, written
+  // unconditionally regardless of category) rather than the old per-category
+  // formData.xDetails.colors, which never actually reached the database for
+  // any category except Food/Beverages/Books -- see apps/dashboard/src/app/api/inventory/route.js.
+  // This also means it now works identically for every category, including
+  // Wigs & Hair and Other, which never had a details.colors field at all.
+  const availableColors = [...new Set(imagePreviews.map(img => img.colorTag).filter(Boolean))];
   const allColors = [
     ...availableColors,
     ...commonColorNames.filter(color => !availableColors.includes(color))
@@ -68,16 +71,6 @@ export default function ImageUploadSection({
       swatch: PRODUCT_COLOR_HEX[color]
     }))
   ];
-
-  // Handle color selection - add to category if not exists
-  const handleColorSelect = (imageIndex, colorValue) => {
-    if (colorValue && !availableColors.includes(colorValue)) {
-      // Add new color to category colors
-      addColorToCategory(colorValue);
-    }
-    // Update image color tag
-    updateImageColorTag(imageIndex, colorValue);
-  };
 
   // Detect color variants from tagged images
   useEffect(() => {
@@ -217,7 +210,7 @@ export default function ImageUploadSection({
                   <CustomDropdown
                     options={colorDropdownOptions}
                     value={preview.colorTag}
-                    onChange={(value) => handleColorSelect(index, value)}
+                    onChange={(value) => updateImageColorTag(index, value)}
                     placeholder="Tag color"
                     className="text-xs"
                     searchable

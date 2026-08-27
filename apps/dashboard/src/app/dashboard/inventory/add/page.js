@@ -472,18 +472,6 @@ export default function AddInventoryPage() {
     setShowVariantManager(!showVariantManager);
   };
 
-  // Get available colors from category details
-  const getAvailableColors = () => {
-    if (formData.category === 'Clothing' && formData.clothingDetails) {
-      return formData.clothingDetails.colors || [];
-    } else if (formData.category === 'Shoes' && formData.shoesDetails) {
-      return formData.shoesDetails.colors || [];
-    } else if (formData.category === 'Accessories' && formData.accessoriesDetails) {
-      return formData.accessoriesDetails.colors || [];
-    }
-    return [];
-  };
-
   // Get available sizes from category details - but don't use it to limit variant manager
   const getAvailableSizes = () => {
     if (formData.category === 'Clothing' && formData.clothingDetails) {
@@ -748,26 +736,6 @@ export default function AddInventoryPage() {
     return (((selling - cost) / cost) * 100).toFixed(2);
   };
 
-  // Function to add color to category details
-  const addColorToCategory = (colorName) => {
-    const trimmedColor = colorName.trim();
-    if (!trimmedColor) return;
-    
-    if (formData.category === 'Clothing' && formData.clothingDetails) {
-      if (!formData.clothingDetails.colors.includes(trimmedColor)) {
-        handleArrayFieldChange('clothing', 'colors', trimmedColor);
-      }
-    } else if (formData.category === 'Shoes' && formData.shoesDetails) {
-      if (!formData.shoesDetails.colors.includes(trimmedColor)) {
-        handleArrayFieldChange('shoes', 'colors', trimmedColor);
-      }
-    } else if (formData.category === 'Accessories' && formData.accessoriesDetails) {
-      if (!formData.accessoriesDetails.colors.includes(trimmedColor)) {
-        handleArrayFieldChange('accessories', 'colors', trimmedColor);
-      }
-    }
-  };
-
   const steps = [
     { number: 1, title: 'Basic Info', description: 'Product details' },
     { number: 2, title: 'Images & Variants', description: 'Photos & options' },
@@ -993,8 +961,6 @@ export default function AddInventoryPage() {
               removeMultiImage={removeMultiImage}
               updateImageColorTag={updateImageColorTag}
               setPrimaryImage={setPrimaryImage}
-              getAvailableColors={getAvailableColors}
-              addColorToCategory={addColorToCategory}
               onVariantsDetected={handleVariantsDetected}
               errors={errors}
             />
