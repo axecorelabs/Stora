@@ -104,7 +104,37 @@ export async function GET(req, { params }) {
         shippingAddress: shippingAddr,
         billingAddress: billingAddr,
         paymentInfo: payment || {},
-        items,
+        // Same per-item enrichment /api/orders (the list endpoint) already
+        // applies -- OrderDetailsContent.js's JSX unconditionally reads
+        // item.productSnapshot.image/productName/sku and item.variant, on
+        // every render, not just after a specific action. Returning the
+        // raw order_items rows here (as this route always had) meant any
+        // consumer fed by this endpoint instead of the list one -- the
+        // standalone order page, or any refetch after an action here --
+        // crashed on item.productSnapshot being undefined.
+        items: items.map(item => ({
+          ...item,
+          _id: item.product_id,
+          product_id: item.product_id,
+          productName: item.product_name,
+          sku: item.product_sku,
+          sellingPrice: item.unit_price,
+          productSnapshot: {
+            productName: item.product_name || 'Unknown Product',
+            sku: item.product_sku,
+            image: item.product_image,
+            category: item.product_category
+          },
+          variant: {
+            color: item.variant_color,
+            size: item.variant_size
+          },
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          subtotal: item.subtotal,
+          status: item.item_status,
+          notes: item.notes || null
+        })),
         itemCount: items.length,
         timeline: timeline || [],
         isMultiVendor,

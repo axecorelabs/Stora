@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import OrderDetailsModal from "@/components/dashboard/OrderDetailsModal";
 import OrderStatusUpdateModal from "@/components/dashboard/OrderStatusUpdateModal";
+import RefundModal from "@/components/dashboard/RefundModal";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import SectionHeader from "@/components/ui/SectionHeader";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,6 +57,9 @@ function OrdersPageContent() {
   const [isOrderDetailsModalOpen, setIsOrderDetailsModalOpen] = useState(false);
   const [isStatusUpdateModalOpen, setIsStatusUpdateModalOpen] = useState(false);
   const [selectedOrderForUpdate, setSelectedOrderForUpdate] = useState(null);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [selectedOrderForRefund, setSelectedOrderForRefund] = useState(null);
+  const [loadingRefundOrderId, setLoadingRefundOrderId] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
 
   // Use TanStack Query hook
@@ -159,6 +163,32 @@ function OrdersPageContent() {
   const handleStatusUpdateClick = (order) => {
     setSelectedOrderForUpdate(order);
     setIsStatusUpdateModalOpen(true);
+  };
+
+  // The list's own order objects never carry refundSplit (this page's API
+  // route doesn't query order_payment_splits) or the exact item shape
+  // RefundModal needs -- fetch the canonical single-order response fresh
+  // on click instead of trying to backfill just one field onto the list's
+  // cached shape.
+  const handleRefundClick = async (order) => {
+    setLoadingRefundOrderId(order.id);
+    try {
+      const response = await secureApiCall(`/api/orders/${order.id}`);
+      if (response.success) {
+        setSelectedOrderForRefund(response.data);
+        setIsRefundModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Error loading order for refund:', error);
+    } finally {
+      setLoadingRefundOrderId(null);
+    }
+  };
+
+  const handleRefundComplete = async () => {
+    setIsRefundModalOpen(false);
+    setSelectedOrderForRefund(null);
+    refetch();
   };
 
   // Filter orders based on search and filters
@@ -641,6 +671,22 @@ function OrdersPageContent() {
                                     </button>
                                   )}
 
+                                  {order.paymentInfo?.provider === 'paystack' &&
+                                    ['completed', 'partially_refunded'].includes(order.paymentInfo?.status) && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleRefundClick(order); }}
+                                      disabled={loadingRefundOrderId === order.id}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-wait transition-colors"
+                                    >
+                                      {loadingRefundOrderId === order.id ? (
+                                        <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                      ) : (
+                                        <Undo2 className="w-3.5 h-3.5" />
+                                      )}
+                                      {loadingRefundOrderId === order.id ? 'Loading...' : 'Refund'}
+                                    </button>
+                                  )}
+
                                   {order.status === 'shipped' && order.tracking.trackingUrl && (
                                     <a
                                       href={order.tracking.trackingUrl}
@@ -773,6 +819,17 @@ function OrdersPageContent() {
         order={selectedOrderForUpdate}
         onStatusUpdate={updateOrderStatus}
         isUpdating={isUpdating}
+      />
+
+      {/* Refund Modal */}
+      <RefundModal
+        isOpen={isRefundModalOpen}
+        onClose={() => {
+          setIsRefundModalOpen(false);
+          setSelectedOrderForRefund(null);
+        }}
+        order={selectedOrderForRefund}
+        onRefundComplete={handleRefundComplete}
       />
 
       {/* Order Details Modal */}

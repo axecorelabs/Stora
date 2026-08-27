@@ -262,7 +262,11 @@ export async function GET(req) {
         isMultiVendor,
         paymentInfo: {
           status: paymentInfo.status || 'pending',
-          method: paymentInfo.method || 'card'
+          method: paymentInfo.method || 'card',
+          // Needed by the Orders list page's own Refund quick-action gate
+          // (order.paymentInfo?.provider === 'paystack') -- omitted before,
+          // so that check was always false and the button never showed.
+          provider: paymentInfo.provider || null
         },
         orderNumber: order.order_number,
         // Single-vendor order: the order genuinely is this vendor's in
