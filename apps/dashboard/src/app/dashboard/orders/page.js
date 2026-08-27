@@ -9,6 +9,7 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import SectionHeader from "@/components/ui/SectionHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrders } from "@/hooks/useOrders";
+import { mightBeRefundable } from "@/lib/orderRefund";
 import {
   ShoppingBag,
   Search,
@@ -57,9 +58,9 @@ function OrdersPageContent() {
   const [isOrderDetailsModalOpen, setIsOrderDetailsModalOpen] = useState(false);
   const [isStatusUpdateModalOpen, setIsStatusUpdateModalOpen] = useState(false);
   const [selectedOrderForUpdate, setSelectedOrderForUpdate] = useState(null);
-  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
-  const [selectedOrderForRefund, setSelectedOrderForRefund] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [refundOrder, setRefundOrder] = useState(null);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
 
   // Use TanStack Query hook
   const {
@@ -164,21 +165,6 @@ function OrdersPageContent() {
     setIsStatusUpdateModalOpen(true);
   };
 
-  // Opens immediately with the list's own order object (only order.id
-  // actually matters to RefundModal) -- it fetches the canonical
-  // single-order response itself and shows its own loading state, rather
-  // than this button waiting on a fetch before anything visible happens.
-  const handleRefundClick = (order) => {
-    setSelectedOrderForRefund(order);
-    setIsRefundModalOpen(true);
-  };
-
-  const handleRefundComplete = async () => {
-    setIsRefundModalOpen(false);
-    setSelectedOrderForRefund(null);
-    refetch();
-  };
-
   // Filter orders based on search and filters
   const getFilteredOrders = () => {
     let filtered = orders;
@@ -276,6 +262,23 @@ function OrdersPageContent() {
   const viewOrderDetails = (order) => {
     setSelectedOrder(order);
     setIsOrderDetailsModalOpen(true);
+  };
+
+  // Quick-action Refund button on the list row -- opens immediately with
+  // whatever order data the row already has (only order.id matters).
+  // RefundModal fetches the canonical single-order response itself and
+  // shows its own loading state in its body while that's in flight,
+  // rather than this button fetching first and looking unresponsive for
+  // a moment before anything appears.
+  const handleOpenRefund = (order) => {
+    setRefundOrder(order);
+    setIsRefundModalOpen(true);
+  };
+
+  const handleRefundComplete = () => {
+    setIsRefundModalOpen(false);
+    setRefundOrder(null);
+    refetch();
   };
 
   const filteredOrders = getFilteredOrders();
@@ -659,10 +662,9 @@ function OrdersPageContent() {
                                     </button>
                                   )}
 
-                                  {order.paymentInfo?.provider === 'paystack' &&
-                                    ['completed', 'partially_refunded'].includes(order.paymentInfo?.status) && (
+                                  {mightBeRefundable(order) && (
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); handleRefundClick(order); }}
+                                      onClick={(e) => { e.stopPropagation(); handleOpenRefund(order); }}
                                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
                                     >
                                       <Undo2 className="w-3.5 h-3.5" />
@@ -804,17 +806,6 @@ function OrdersPageContent() {
         isUpdating={isUpdating}
       />
 
-      {/* Refund Modal */}
-      <RefundModal
-        isOpen={isRefundModalOpen}
-        onClose={() => {
-          setIsRefundModalOpen(false);
-          setSelectedOrderForRefund(null);
-        }}
-        order={selectedOrderForRefund}
-        onRefundComplete={handleRefundComplete}
-      />
-
       {/* Order Details Modal */}
       <OrderDetailsModal
         isOpen={isOrderDetailsModalOpen}
@@ -825,6 +816,17 @@ function OrdersPageContent() {
         order={selectedOrder}
         onStatusUpdate={updateOrderStatus}
         updatingStatus={isUpdating}
+      />
+
+      {/* Refund Modal -- quick action from the list row */}
+      <RefundModal
+        isOpen={isRefundModalOpen}
+        onClose={() => {
+          setIsRefundModalOpen(false);
+          setRefundOrder(null);
+        }}
+        order={refundOrder}
+        onRefundComplete={handleRefundComplete}
       />
     </DashboardLayout>
   );

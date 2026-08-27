@@ -1,6 +1,19 @@
 "use client";
 import { useState, useMemo } from "react";
-import { X, Plus, Minus, ShoppingCart, Package, AlertCircle } from "lucide-react";
+import { X, Plus, Minus, ShoppingCart, Package, AlertCircle, CheckCircle } from "lucide-react";
+import { PRODUCT_COLOR_HEX } from "@/lib/productColors";
+
+// Was `style={{ backgroundColor: color.toLowerCase() }}` -- only ever
+// worked for the handful of color names that also happen to be valid CSS
+// keywords (red, blue, black...), silently rendering an invisible/blank
+// dot for anything else. Now that the color list is ~130 real names
+// (many multi-word -- "Rose Gold", "Ash Blonde"), that was broken for
+// most of it. Looks up the real hex from the shared palette first, falls
+// back to treating the name as a CSS keyword for anything typed before
+// that list existed.
+function swatchColor(color) {
+  return PRODUCT_COLOR_HEX[color] || color?.toLowerCase();
+}
 
 export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCart }) {
   const [selectedSize, setSelectedSize] = useState('');
@@ -94,29 +107,32 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 sm:p-4">
+      {/* Full-screen on mobile (no backdrop margin, no rounded corners) --
+          same treatment as OrderDetailsModal; restores the original
+          centered-card look at sm: and up, unchanged. */}
+      <div className="bg-white w-full h-full sm:h-auto sm:rounded-2xl sm:max-w-2xl sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-teal-100 rounded-xl">
-              <Package className="w-6 h-6 text-teal-600" />
+        <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200 shrink-0">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="p-2 bg-brand-100 rounded-xl shrink-0">
+              <Package className="w-6 h-6 text-brand-800" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg lg:text-xl font-semibold text-gray-900">Select Variant</h2>
-              <p className="text-sm text-gray-500">{item.productName}</p>
+              <p className="text-sm text-gray-500 truncate">{item.productName}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 lg:p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+        <div className="flex-1 p-4 lg:p-6 overflow-y-auto">
           {/* Product Info */}
           <div className="mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-50 rounded-xl">
             <div className="flex items-center space-x-4">
@@ -132,7 +148,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900">{item.productName}</h3>
                 <p className="text-sm text-gray-500">SKU: {item.sku}</p>
-                <p className="text-lg font-bold text-teal-600 mt-1">
+                <p className="text-lg font-bold text-gray-900 mt-1">
                   {formatCurrency(item.sellingPrice)}
                 </p>
               </div>
@@ -162,16 +178,16 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
                     disabled={isOutOfStock}
                     className={`p-3 lg:p-4 rounded-xl border-2 text-left transition-all ${
                       selectedColor === color
-                        ? 'border-teal-500 bg-teal-50'
+                        ? 'border-brand-800 bg-brand-50'
                         : isOutOfStock
                         ? 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-50'
-                        : 'border-gray-200 hover:border-teal-300'
+                        : 'border-gray-200 hover:border-brand-300'
                     }`}
                   >
                     <div className="flex items-center space-x-2 mb-2">
-                      <div 
+                      <div
                         className="w-6 h-6 rounded-full border-2 border-gray-300"
-                        style={{ backgroundColor: color.toLowerCase() }}
+                        style={{ backgroundColor: swatchColor(color) }}
                       />
                       <span className="font-medium text-gray-900">{color}</span>
                     </div>
@@ -206,14 +222,14 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
                       disabled={isOutOfStock}
                       className={`p-3 lg:p-4 rounded-xl border-2 text-center transition-all ${
                         selectedSize === size
-                          ? 'border-teal-500 bg-teal-50'
+                          ? 'border-brand-800 bg-brand-50'
                           : isOutOfStock
                           ? 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-50'
-                          : 'border-gray-200 hover:border-teal-300'
+                          : 'border-gray-200 hover:border-brand-300'
                       }`}
                     >
                       <span className={`font-semibold block mb-1 ${
-                        selectedSize === size ? 'text-teal-900' : 'text-gray-900'
+                        selectedSize === size ? 'text-brand-900' : 'text-gray-900'
                       }`}>
                         {size}
                       </span>
@@ -238,7 +254,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
                   <button
                     onClick={() => handleQuantityChange(quantity - 1)}
                     disabled={quantity <= 1}
-                    className="p-2 text-gray-500 hover:text-teal-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-white transition-all"
+                    className="p-2 text-gray-500 hover:text-brand-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-white transition-all"
                   >
                     <Minus className="w-5 h-5" />
                   </button>
@@ -253,7 +269,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
                   <button
                     onClick={() => handleQuantityChange(quantity + 1)}
                     disabled={quantity >= maxQuantity}
-                    className="p-2 text-gray-500 hover:text-teal-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-white transition-all"
+                    className="p-2 text-gray-500 hover:text-brand-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-white transition-all"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
@@ -272,18 +288,18 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
 
           {/* Selection Summary */}
           {selectedVariant && (
-            <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 lg:p-4">
+            <div className="bg-brand-50 border border-brand-200 rounded-xl p-3 lg:p-4">
               <div className="flex items-start space-x-3">
-                <AlertCircle className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle className="w-5 h-5 text-brand-800 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-teal-900 mb-1">
+                  <p className="text-sm font-medium text-brand-900 mb-1">
                     Selected: {selectedColor} - {selectedSize}
                   </p>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-teal-700">
+                    <p className="text-sm text-brand-700">
                       {quantity} × {formatCurrency(item.sellingPrice)}
                     </p>
-                    <p className="text-lg font-bold text-teal-900">
+                    <p className="text-lg font-bold text-brand-900">
                       {formatCurrency(quantity * item.sellingPrice)}
                     </p>
                   </div>
@@ -309,7 +325,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
         </div>
 
         {/* Footer */}
-        <div className="p-4 lg:p-6 border-t border-gray-200 bg-gray-50">
+        <div className="p-4 lg:p-6 border-t border-gray-200 bg-gray-50 shrink-0">
           <div className="flex items-center space-x-3">
             <button
               onClick={onClose}
@@ -320,7 +336,7 @@ export default function VariantSelectionModal({ isOpen, onClose, item, onAddToCa
             <button
               onClick={handleAddToCart}
               disabled={!selectedVariant}
-              className="flex-1 px-4 lg:px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center space-x-2"
+              className="flex-1 px-4 lg:px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center space-x-2"
             >
               <ShoppingCart className="w-5 h-5" />
               <span>Add to Cart</span>

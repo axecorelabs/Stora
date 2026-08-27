@@ -25,27 +25,22 @@ export default function VariantManager({
     'Plus Size', 'Kids 2-4', 'Kids 5-7', 'Kids 8-12'
   ];
 
-  // Only Clothing and Shoes have a genuine second dimension alongside
-  // color (S/M/L, shoe sizes) -- every other color-tagging category
-  // (Accessories, Home & Garden, Electronics, Sports, Other, Wigs & Hair)
-  // is color-only, so it gets no size picker at all.
+  // Only Clothing and Shoes have real size variation (S/M/L, shoe sizes)
+  // worth asking a vendor to configure.
   const shouldShowSizeInput = () => {
     return category === 'Clothing' || category === 'Shoes';
   };
 
-  // Color-only categories auto-assign a single "One Size" pseudo-size per
-  // color and skip the size picker entirely -- this used to be narrowly
-  // scoped to just 'Accessories', which left every other color-only
-  // category (Home & Garden, Electronics, Sports, Other, Wigs & Hair) with
-  // no size UI shown (shouldShowSizeInput() is false for them too) AND no
-  // auto-assignment happening either, so their variants could never get a
-  // quantity at all -- stuck showing "select sizes above" with nothing to
-  // select. This is just "not Clothing or Shoes" now, matching every
-  // category that can actually reach this component (ImageUploadSection's
-  // own supportsColorTagging list).
-  const isColorOnlyCategory = () => {
-    return !shouldShowSizeInput();
-  };
+  // Every other category -- Accessories, Electronics, Sports,
+  // Home & Garden, Wigs & Hair, Other -- gets a single "One Size" bucket
+  // per color instead, so a vendor can set stock per color without ever
+  // being asked to pick sizes that category doesn't have. This used to
+  // only cover Accessories by name; every other non-Clothing/Shoes
+  // category fell through with an empty sizes: [] and no UI able to
+  // populate it -- the size-selection UI below is entirely gated on
+  // shouldShowSizeInput(), so there was no way to ever add a size, which
+  // meant no way to ever enter stock either.
+  const usesOneSizePerVariant = () => !shouldShowSizeInput();
 
   // Initialize variants when colors are detected - moved to useEffect
   useEffect(() => {
@@ -61,8 +56,8 @@ export default function VariantManager({
         if (existingVariantMap.has(color)) {
           return existingVariantMap.get(color);
         }
-        // Color-only category: auto-set "One Size"
-        if (isColorOnlyCategory()) {
+        // One-size categories skip size selection entirely
+        if (usesOneSizePerVariant()) {
           return {
             color: color,
             sizes: [{
@@ -93,14 +88,14 @@ export default function VariantManager({
         setVariants(filteredVariants);
       }
     }
-  }, [detectedColors, variants, setVariants, category, isColorOnlyCategory, defaultStock]);
+  }, [detectedColors, variants, setVariants, category, usesOneSizePerVariant, defaultStock]);
 
-  // Auto-set size mode for color-only categories
+  // Auto-set size mode for accessories
   useEffect(() => {
-    if (isColorOnlyCategory() && sizeMode !== 'one-size') {
+    if (usesOneSizePerVariant() && sizeMode !== 'one-size') {
       setSizeMode('one-size');
     }
-  }, [category, sizeMode, isColorOnlyCategory]);
+  }, [category, sizeMode, usesOneSizePerVariant]);
 
   // Add useEffect to sync stock whenever variants change
   useEffect(() => {
@@ -278,15 +273,13 @@ export default function VariantManager({
   
   // Define all possible sizes based on category
   const getAllPossibleSizes = () => {
-    if (isColorOnlyCategory()) {
+    if (usesOneSizePerVariant()) {
       return ['One Size'];
     }
     if (category === 'Clothing') {
       return CLOTHING_SIZES;
     }
-    // Only Shoes reaches here (the only other category shouldShowSizeInput
-    // allows) -- it renders its own custom text-input UI below rather than
-    // this list, so this return value is unused in practice.
+    // For shoes and other categories, allow custom text input (handled separately)
     return ['One Size', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Plus Size', 'Custom'];
   };
 
@@ -309,8 +302,8 @@ export default function VariantManager({
               We detected {detectedColors.length} color variants
             </p>
             <p className="text-xs text-blue-700">
-              {isColorOnlyCategory()
-                ? `You've tagged images with different colors: ${detectedColors.join(', ')}. This category doesn't need sizes -- just set the stock quantity for each color below.`
+              {usesOneSizePerVariant()
+                ? `You've tagged images with different colors: ${detectedColors.join(', ')}. This category uses "One Size" for all colors -- just set stock for each below.`
                 : `You've tagged images with different colors: ${detectedColors.join(', ')}. Let's set up sizes and stock for each color variant.`
               }
             </p>
@@ -318,7 +311,7 @@ export default function VariantManager({
         </div>
       </div>
 
-      {/* Size Configuration Mode - hidden for color-only categories */}
+      {/* Size Configuration Mode - Hide for accessories */}
       {shouldShowSizeInput() && (
         <div className="mb-6 p-4 bg-gray-50 rounded-xl">
           <label className="block text-sm font-medium text-gray-700 mb-3">

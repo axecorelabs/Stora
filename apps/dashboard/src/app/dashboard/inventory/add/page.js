@@ -607,19 +607,24 @@ export default function AddInventoryPage() {
     }
   }, [formData.category]);
 
-  // Calculate total stock from variants -- variants is shaped one entry
-  // per color, each holding a nested sizes: [{quantityInStock}] array (see
-  // VariantManager.js), not a flat quantityInStock field on the color
-  // entry itself. Reading it flatly here always summed to 0, showing
-  // "Total Stock: 0" in the UI regardless of what was actually entered
-  // per color -- matches EditInventoryModal.js's own (correct) version.
+  // Calculate total stock from variants. Variants produced by
+  // VariantManager (the auto-detected-color flow -- see
+  // components/dashboard/Inventory/VariantManager.js) are grouped by
+  // color with stock nested under variant.sizes[].quantityInStock, not a
+  // flat variant.quantityInStock -- summing the flat field here always
+  // read undefined and silently totaled 0, regardless of what stock was
+  // actually entered per color/size. AddInventoryModal.js and
+  // EditInventoryModal.js already sum the nested shape correctly; this
+  // page's own copy had drifted.
   const calculateTotalStock = () => {
     if (!variants || variants.length === 0) {
       return 0;
     }
 
     return variants.reduce((total, variant) => {
-      if (!variant.sizes || !Array.isArray(variant.sizes)) return total;
+      if (!variant.sizes || !Array.isArray(variant.sizes)) {
+        return total;
+      }
       return total + variant.sizes.reduce((sum, size) => sum + (parseInt(size.quantityInStock) || 0), 0);
     }, 0);
   };

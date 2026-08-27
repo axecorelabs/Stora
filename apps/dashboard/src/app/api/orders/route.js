@@ -263,9 +263,9 @@ export async function GET(req) {
         paymentInfo: {
           status: paymentInfo.status || 'pending',
           method: paymentInfo.method || 'card',
-          // Needed by the Orders list page's own Refund quick-action gate
-          // (order.paymentInfo?.provider === 'paystack') -- omitted before,
-          // so that check was always false and the button never showed.
+          // Lets the Orders list's own quick-action Refund button decide
+          // whether it's even worth showing without a full per-row fetch
+          // -- see mightBeRefundable() in apps/dashboard/src/lib/orderRefund.js.
           provider: paymentInfo.provider || null
         },
         orderNumber: order.order_number,
