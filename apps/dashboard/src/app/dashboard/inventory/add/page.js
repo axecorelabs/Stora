@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Package, Tag, DollarSign, ChevronLeft, Check } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -574,7 +574,10 @@ export default function AddInventoryPage() {
     syncSizesToCategory(allSizes);
   };
 
-  const handleVariantsDetected = (colors) => {
+  // Stable across renders (only changes when the category itself does) so
+  // ImageUploadSection's variant-detection effect can safely list it as a
+  // dependency without re-running on every unrelated keystroke in the form.
+  const handleVariantsDetected = useCallback((colors) => {
     setDetectedColorVariants(colors);
     // Automatically sync colors to category details
     if (formData.category === 'Clothing') {
@@ -602,7 +605,7 @@ export default function AddInventoryPage() {
         }
       }));
     }
-  };
+  }, [formData.category]);
 
   // Calculate total stock from variants - Make this more robust
   const calculateTotalStock = () => {

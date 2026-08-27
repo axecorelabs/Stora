@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Package, Tag, DollarSign } from "lucide-react";
 import CustomDropdown from "../ui/CustomDropdown";
 import { useAuth } from "@/contexts/AuthContext";
@@ -437,13 +437,16 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
   };
 
 
-  const handleVariantsDetected = (colors) => {
+  // Stable across renders so ImageUploadSection's variant-detection effect
+  // can safely list it as a dependency without re-running on every
+  // unrelated keystroke in the form.
+  const handleVariantsDetected = useCallback((colors) => {
     setDetectedColorVariants(colors);
     setFormData(prev => ({
       ...prev,
       hasVariants: colors.length >= 2
     }));
-  };
+  }, []);
 
   const syncSizesToCategory = (sizes) => {
     if (formData.category === 'Clothing' && formData.clothingDetails) {

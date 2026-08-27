@@ -85,7 +85,12 @@ export default function ImageUploadSection({
     } else {
       onVariantsDetected([]);
     }
-  }, [imagePreviews]);
+    // onVariantsDetected is now stabilized with useCallback in every
+    // caller (add/page.js, AddInventoryModal.js, EditInventoryModal.js),
+    // so listing it here doesn't re-run this effect on every unrelated
+    // keystroke -- only when imagePreviews actually changes, or the
+    // callback's own real dependencies do (e.g. add/page.js's category).
+  }, [imagePreviews, onVariantsDetected]);
 
   return (
     <div>
@@ -161,6 +166,17 @@ export default function ImageUploadSection({
             <div key={index} className="flex flex-col space-y-2">
               {/* Image Container */}
               <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-gray-200 group">
+                {/* Deliberately not next/image: preview.url is either a
+                    data: URI (an unsaved new upload, straight from
+                    FileReader) or an existing image's real URL on
+                    R2_PUBLIC_URL -- an env-configured host with no
+                    images.remotePatterns entry in next.config.mjs today.
+                    Swapping to <Image> without also wiring that config
+                    from the same env var (and confirming it resolves
+                    correctly in every deployment target, not just local)
+                    would 404 every existing product's images app-wide --
+                    a materially worse regression than this lint warning. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={preview.url}
                   alt={`Preview ${index + 1}`}
@@ -264,7 +280,7 @@ export default function ImageUploadSection({
                 ) : (
                   <>
                     <li>Upload multiple angles/views of your product</li>
-                    <li>The first image (marked "Main") will be the primary display</li>
+                    <li>The first image (marked &quot;Main&quot;) will be the primary display</li>
                     <li>Click the check icon on any image to make it the main image</li>
                   </>
                 )}

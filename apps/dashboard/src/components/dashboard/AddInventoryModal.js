@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Package, Tag, DollarSign, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import CustomDropdown from "../ui/CustomDropdown";
 import { useAuth } from "@/contexts/AuthContext";
@@ -659,15 +659,18 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
     }
   };
 
-  const handleVariantsDetected = (colors) => {
+  // Stable across renders so ImageUploadSection's variant-detection effect
+  // can safely list it as a dependency without re-running on every
+  // unrelated keystroke in the form.
+  const handleVariantsDetected = useCallback((colors) => {
     setDetectedColorVariants(colors);
-    
+
     // Update formData hasVariants based on detection
     setFormData(prev => ({
       ...prev,
       hasVariants: colors.length >= 2
     }));
-  };
+  }, []);
 
   // Calculate total stock from variants - Make this more robust
   const calculateTotalStock = () => {
