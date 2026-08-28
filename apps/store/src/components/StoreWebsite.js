@@ -1109,6 +1109,7 @@ export default function StoreWebsite({ store }) {
                       secondaryColor={secondaryColor || "#F3F4F6"} // Ensure fallback
                       currency={store.settings?.currency || "NGN"}
                       onNavigate={() => setIsNavigating(true)}
+                      onSignInRequired={() => setShowSignInModal(true)}
                     />
                   ) : (
                     <ProductCard
@@ -1118,6 +1119,7 @@ export default function StoreWebsite({ store }) {
                       secondaryColor={secondaryColor}
                       currency={store.settings?.currency || "NGN"}
                       onNavigate={() => setIsNavigating(true)}
+                      onSignInRequired={() => setShowSignInModal(true)}
                     />
                   )
                 ))}

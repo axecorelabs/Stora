@@ -5,7 +5,7 @@ import { Heart, ShoppingCart, Check, Package } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 
-export default function ProductCard({ product, primaryColor, currency, secondaryColor, onNavigate }) {
+export default function ProductCard({ product, primaryColor, currency, secondaryColor, onNavigate, onSignInRequired }) {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
@@ -69,8 +69,7 @@ export default function ProductCard({ product, primaryColor, currency, secondary
     e.stopPropagation();
 
     if (!isAuthenticated) {
-      const storeSlug = pathname.split('/')[1];
-      router.push(`/${storeSlug}?signin=true`);
+      onSignInRequired?.();
       return;
     }
 

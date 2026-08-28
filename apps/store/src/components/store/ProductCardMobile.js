@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useIsInWishlist, useWishlistMutations } from '@/hooks/useWishlist';
 
-export default function ProductCardMobile({ product, primaryColor, currency, secondaryColor, onNavigate }) {
+export default function ProductCardMobile({ product, primaryColor, currency, secondaryColor, onNavigate, onSignInRequired }) {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
@@ -36,8 +36,7 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
     e.stopPropagation();
     
     if (!isAuthenticated) {
-      const storeSlug = pathname.split('/')[1];
-      router.push(`/${storeSlug}?signin=true`);
+      onSignInRequired?.();
       return;
     }
 
@@ -63,8 +62,7 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
     e.stopPropagation();
 
     if (!isAuthenticated) {
-      const storeSlug = pathname.split('/')[1];
-      router.push(`/${storeSlug}?signin=true`);
+      onSignInRequired?.();
       return;
     }
 

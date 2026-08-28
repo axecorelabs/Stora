@@ -435,6 +435,7 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                   secondaryColor={secondaryColor}
                   currency={store.settings?.currency || "NGN"}
                   onNavigate={() => setIsNavigating(true)}
+                  onSignInRequired={() => setShowSignInModal(true)}
                 />
               ) : viewMode === 'grid' ? (
                 <ProductCard
@@ -444,6 +445,7 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                   secondaryColor={secondaryColor}
                   currency={store.settings?.currency || "NGN"}
                   onNavigate={() => setIsNavigating(true)}
+                  onSignInRequired={() => setShowSignInModal(true)}
                 />
               ) : (
                 // List View (Desktop)
