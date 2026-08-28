@@ -106,10 +106,56 @@ export default function OrderStatusUpdateModal({
       bgColor: 'bg-red-100',
       nextOptions: [],
       explanation: 'The order has been cancelled and will not be processed further.'
+    },
+    // 'processed' predates this app's newer pending->confirmed->processing->
+    // shipped->delivered flow (legacy Mongo-imported orders -- see migration
+    // 20260717000003_orders_status_processed.sql) but is still a live,
+    // settable status (apps/dashboard/src/app/api/orders/[id]/status/route.js's
+    // own validStatuses includes it, and 42 live orders currently carry it).
+    // Missing here crashed this modal outright for every one of them.
+    processed: {
+      title: 'Processed',
+      description: 'Order has been processed and is ready for the next step',
+      icon: Package,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100',
+      nextOptions: ['shipped', 'delivered', 'cancelled'],
+      explanation: 'This order was processed and can now move into shipping, be marked delivered, or be cancelled.'
+    },
+    refunded: {
+      title: 'Refunded',
+      description: 'Order has been refunded',
+      icon: AlertCircle,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-100',
+      nextOptions: [],
+      explanation: 'This order has been refunded.'
+    },
+    failed: {
+      title: 'Failed',
+      description: 'Order could not be processed',
+      icon: AlertCircle,
+      color: 'text-red-600',
+      bgColor: 'bg-red-100',
+      nextOptions: ['cancelled'],
+      explanation: 'This order failed and can be cancelled.'
     }
   };
 
-  const currentStatus = statusFlow[order.status];
+  // Fallback keeps this from crashing outright if a future/unexpected
+  // status ever shows up unmapped -- same failure mode that 'processed'
+  // just caused for every one of its 42 live orders.
+  const unknownStatus = {
+    title: order.status,
+    description: '',
+    icon: Info,
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-100',
+    nextOptions: [],
+    explanation: ''
+  };
+
+  const currentStatus = statusFlow[order.status] || unknownStatus;
   const availableStatuses = currentStatus.nextOptions.map(status => ({
     value: status,
     label: statusFlow[status].title
@@ -198,8 +244,10 @@ export default function OrderStatusUpdateModal({
     }
   };
 
-  // Get selected status info
-  const selectedStatusInfo = selectedStatus ? statusFlow[selectedStatus] : null;
+  // Get selected status info -- selectedStatus initializes to order.status
+  // (line 26), so this needs the same unmapped-status fallback as
+  // currentStatus above.
+  const selectedStatusInfo = selectedStatus ? (statusFlow[selectedStatus] || unknownStatus) : null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
