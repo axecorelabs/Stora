@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import VerifyEmailModal from "./VerifyEmailModal";
 
 export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgotPassword, onSuccess }) {
-  const { login, setRedirectAfterLogin } = useAuth();
+  const { login, adoptVerifiedSession, setRedirectAfterLogin } = useAuth();
   const pathname = usePathname();
   const googleStartUrl = `/api/auth/google/start?returnTo=${encodeURIComponent(pathname || "/")}`;
   const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +20,6 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVerifyEmail, setShowVerifyEmail] = useState(false);
   const [emailToVerify, setEmailToVerify] = useState("");
-  const [savedPassword, setSavedPassword] = useState("");
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -76,7 +75,6 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
           password: "",
           rememberMe: false,
         });
-        setSavedPassword("");
 
         // Close modal
         onClose();
@@ -84,9 +82,7 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
 
         // Context will handle redirect if set
       } else if (result.needsVerification) {
-        // User needs email verification - save credentials for auto-login after verification
         setEmailToVerify(formData.email);
-        setSavedPassword(formData.password);
         setShowVerifyEmail(true);
         setErrors({ submit: result.error || "Please verify your email to continue" });
       } else {
@@ -109,49 +105,33 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
       setErrors({});
       setShowVerifyEmail(false);
       setEmailToVerify("");
-      setSavedPassword("");
       onClose();
     }
   };
 
-  const handleVerified = async (customer) => {
-    // After verification, reset errors and automatically sign in
+  // VerifyEmailModal's own POST to verify-email has already authenticated
+  // this customer (autoSignInAfterVerification) and hands back the same
+  // sanitized shape login() would -- adopt it directly instead of signing
+  // in again with a saved password, which cost an extra round-trip and
+  // fired a second "new sign-in" notification email for one action.
+  const handleVerified = (customer) => {
     setShowVerifyEmail(false);
     setErrors({});
-    setIsSubmitting(true);
-    
-    try {
-      // Automatically login with saved credentials
-      const result = await login(emailToVerify, savedPassword);
-      
-      if (result.success) {
-        // Reset form
-        setFormData({
-          email: "",
-          password: "",
-          rememberMe: false,
-        });
-        setSavedPassword("");
-        setEmailToVerify("");
+    setFormData({
+      email: "",
+      password: "",
+      rememberMe: false,
+    });
+    setEmailToVerify("");
 
-        // Close the sign-in modal
-        onClose();
-        onSuccess?.(result.customer);
-      } else {
-        // Show error if auto-login fails
-        setErrors({ submit: result.error || "Login failed. Please try signing in again." });
-      }
-    } catch (error) {
-      setErrors({ submit: "An unexpected error occurred. Please try signing in again." });
-    } finally {
-      setIsSubmitting(false);
-    }
+    adoptVerifiedSession(customer);
+    onClose();
+    onSuccess?.(customer);
   };
 
   const handleBackFromVerify = () => {
     setShowVerifyEmail(false);
     setEmailToVerify("");
-    setSavedPassword("");
   };
 
   if (!isOpen) return null;

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, CheckCircle, AlertCircle, Lock } from "lucide-react";
 
 export default function ResetPasswordForm() {
   const router = useRouter();
@@ -68,10 +68,10 @@ export default function ResetPasswordForm() {
         <div className="bg-white rounded-2xl shadow-lg p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-emerald-600 text-2xl font-bold">🔒</span>
+            <div className="w-16 h-16 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-7 h-7 text-brand-700" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Reset Your Password</h1>
+            <h1 className="font-display text-2xl font-bold text-gray-900 mb-2">Reset Your Password</h1>
             <p className="text-gray-600">Enter your new password below</p>
           </div>
 
@@ -110,7 +110,7 @@ export default function ResetPasswordForm() {
                     }}
                     placeholder="Enter new password"
                     disabled={isSubmitting || !token}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm pr-10 text-gray-900 disabled:opacity-50"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 text-sm pr-10 text-gray-900 disabled:opacity-50"
                   />
                   <button
                     type="button"
@@ -139,7 +139,7 @@ export default function ResetPasswordForm() {
                     }}
                     placeholder="Confirm new password"
                     disabled={isSubmitting || !token}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm pr-10 text-gray-900 disabled:opacity-50"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 text-sm pr-10 text-gray-900 disabled:opacity-50"
                   />
                   <button
                     type="button"
@@ -156,7 +156,7 @@ export default function ResetPasswordForm() {
               <button
                 type="submit"
                 disabled={isSubmitting || !token || !password || !confirmPassword}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-medium"
+                className="w-full bg-brand-700 hover:bg-brand-800 text-white py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-medium"
               >
                 {isSubmitting ? (
                   <>
@@ -175,7 +175,7 @@ export default function ResetPasswordForm() {
                 <button
                   type="button"
                   onClick={() => router.push("/")}
-                  className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+                  className="text-sm text-brand-700 hover:text-brand-800 font-medium"
                 >
                   Back to Home
                 </button>

@@ -95,6 +95,28 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Adopts a customer that has already been authenticated by a call this
+  // context didn't make itself -- specifically, VerifyEmailModal's own POST
+  // to /api/auth/customer/verify-email, which (via
+  // emailVerification.autoSignInAfterVerification) already set a real
+  // session cookie and returned the sanitized customer. SignInModal used to
+  // immediately call login() again with the password it had saved for this
+  // exact purpose -- functionally harmless (the account is verified by
+  // then, so it succeeded), but a wasted round-trip that also fired a
+  // second "new sign-in" notification email for one logical action.
+  const adoptVerifiedSession = (customer) => {
+    setCustomer(customer);
+    setIsAuthenticated(true);
+
+    if (typeof window !== "undefined") {
+      const redirect = sessionStorage.getItem("redirectAfterLogin");
+      if (redirect) {
+        sessionStorage.removeItem("redirectAfterLogin");
+        window.location.href = redirect;
+      }
+    }
+  };
+
   const login = async (email, password) => {
     try {
       setIsLoading(true);
@@ -171,6 +193,7 @@ export function AuthProvider({ children }) {
     isLoading,
     error,
     login,
+    adoptVerifiedSession,
     register,
     logout,
     setRedirectAfterLogin,
