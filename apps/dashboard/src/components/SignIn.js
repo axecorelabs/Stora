@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import ForgotPassword from "./ForgotPassword";
+import VerifyEmail from "./VerifyEmail";
 
 const GOOGLE_ERROR_MESSAGES = {
   google_cancelled: "Google sign-in was cancelled.",
@@ -28,6 +29,7 @@ function SignInInner({ onToggleMode }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
 
   const { signIn } = useAuth();
   const router = useRouter();
@@ -83,7 +85,13 @@ function SignInInner({ onToggleMode }) {
     const result = await signIn(formData);
 
     if (!result.success) {
-      setErrors({ submit: result.message, errorType: result.errorType });
+      if (result.needsVerification) {
+        // signin/route.js has already sent a fresh code by this point --
+        // same code-entry step signup uses, not a dead-end error message.
+        setShowVerification(true);
+      } else {
+        setErrors({ submit: result.message });
+      }
     }
 
     setIsSubmitting(false);
@@ -91,6 +99,16 @@ function SignInInner({ onToggleMode }) {
 
   if (showForgotPassword) {
     return <ForgotPassword onBack={() => setShowForgotPassword(false)} />;
+  }
+
+  if (showVerification) {
+    return (
+      <VerifyEmail
+        email={formData.email}
+        onBack={() => setShowVerification(false)}
+        onVerified={() => {}}
+      />
+    );
   }
 
   return (

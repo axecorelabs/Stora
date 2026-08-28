@@ -140,11 +140,14 @@ export const AuthProvider = ({ children }) => {
         router.push('/dashboard');
         return { success: true, user: data.user };
       } else {
-        // Return error without throwing, include errorType if present
-        return { 
-          success: false, 
+        // Return error without throwing -- needsVerification signals the
+        // account exists but hasn't verified yet (signin/route.js has
+        // already sent a fresh code by this point), so the caller can show
+        // the same code-entry step signup uses instead of a dead-end error.
+        return {
+          success: false,
           message: data.message || 'Sign in failed',
-          errorType: data.errorType 
+          needsVerification: data.needsVerification
         };
       }
     } catch (error) {
