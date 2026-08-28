@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import posthog from 'posthog-js';
 
 const AuthContext = createContext({});
 
@@ -17,6 +18,17 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
+
+  const identifyUser = (authenticatedUser) => {
+    if (!authenticatedUser?.id) return;
+
+    posthog.identify(authenticatedUser.id, {
+      email: authenticatedUser.email,
+      first_name: authenticatedUser.firstName,
+      last_name: authenticatedUser.lastName,
+      role: authenticatedUser.role,
+    });
+  };
 
   // Secure API call function for JSON requests
   const secureApiCall = async (url, options = {}) => {
@@ -118,6 +130,10 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        if (user?.id && user.id !== data.user.id) {
+          posthog.reset();
+        }
+        identifyUser(data.user);
         setUser(data.user);
         setIsAuthenticated(true);
         // Redirect to dashboard after successful signin
@@ -152,6 +168,7 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        identifyUser(data.user);
         setUser(data.user);
         setIsAuthenticated(true);
         // Redirect to dashboard after successful signup
@@ -178,6 +195,7 @@ export const AuthProvider = ({ children }) => {
         },
       });
 
+      posthog.reset();
       setUser(null);
       setIsAuthenticated(false);
       // Redirect to home page after signout
@@ -186,6 +204,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Sign out error:', error);
       // Clear local state even if API call fails
+      posthog.reset();
       setUser(null);
       setIsAuthenticated(false);
       router.push('/');
@@ -208,6 +227,10 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        if (user?.id && user.id !== data.user.id) {
+          posthog.reset();
+        }
+        identifyUser(data.user);
         setUser(data.user);
         setIsAuthenticated(true);
         // Redirect to dashboard after successful verification
@@ -235,6 +258,7 @@ export const AuthProvider = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.user) {
+          identifyUser(data.user);
           setUser(data.user);
           setIsAuthenticated(true);
         } else {

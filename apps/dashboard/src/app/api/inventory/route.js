@@ -4,6 +4,7 @@ import { verifySession } from '@/lib/auth';
 import { generateSKU, backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 import { embedProductById } from '@/lib/openrouter';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 // Helper to transform inventory data for response (snake_case to camelCase).
 // Every product has >=1 real inventory_variants row now (see
@@ -477,6 +478,12 @@ export async function POST(req) {
     // saving a product must never wait on (or fail because of) it. AI
     // search just won't surface this item until the embedding lands.
     after(() => embedProductById(newItem.id));
+
+    after(() => captureServerEvent(user.id, 'inventory_item_created', {
+      category: newItem.category,
+      variant_count: finalVariants?.length || insertedVariants.length,
+      initial_batch_created: createdBatches.length > 0
+    }));
 
     return NextResponse.json({
       success: true,

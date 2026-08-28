@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { sendOrderProcessedEmail } from '@/lib/email';
 import { processItemsWithBatchTracking, releaseItemsReservation } from '@/lib/batchInventory';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 // PUT - Update order status
 export async function PUT(req, { params }) {
@@ -341,6 +342,17 @@ export async function PUT(req, { params }) {
         transactionIds: saleResults.sales.map(sale => sale.transaction_id)
       };
       response.message += ` and ${saleResults.sales.length} sale(s) created automatically`;
+    }
+
+    after(() => captureServerEvent(user.id, 'order_status_updated', {
+      order_status: status,
+      previous_order_status: order.status,
+      sales_created: Boolean(saleResults?.success)
+    }));
+    if (isBeingMarkedAsDelivered && saleResults?.success) {
+      after(() => captureServerEvent(user.id, 'order_delivered', {
+        sales_created: saleResults.sales.length
+      }));
     }
 
     return NextResponse.json(response);

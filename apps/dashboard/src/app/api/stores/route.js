@@ -4,6 +4,7 @@ import { verifySession } from '@/lib/auth';
 import { invalidateStorefrontCache } from '@/lib/redis';
 import { isValidNigerianState } from '@stora/shared-constants';
 import { embedStoreById } from '@/lib/openrouter';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -219,6 +220,11 @@ export async function POST(req) {
     // Deferred -- same non-blocking pattern as the inventory routes.
     after(() => embedStoreById(store.id));
 
+    after(() => captureServerEvent(user.id, 'store_created', {
+      store_type: store.store_type,
+      onboarding_completed: true
+    }));
+
     return NextResponse.json({
       success: true,
       message: 'Store created successfully',
@@ -373,6 +379,12 @@ export async function PUT(req) {
     if (dbUpdate.store_name !== undefined || dbUpdate.store_description !== undefined) {
       after(() => embedStoreById(store.id));
     }
+
+    after(() => captureServerEvent(user.id, 'store_updated', {
+      store_type: store.store_type,
+      updated_field_count: Object.keys(dbUpdate).filter(key => key !== 'updated_at').length,
+      storefront_content_updated: dbUpdate.store_name !== undefined || dbUpdate.store_description !== undefined
+    }));
 
     return NextResponse.json({
       success: true,

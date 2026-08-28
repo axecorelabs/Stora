@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { loadServiceDocument } from '@/lib/services';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 export async function GET(request) {
   try {
@@ -112,6 +113,9 @@ export async function POST(request) {
     }
 
     const serviceDoc = await loadServiceDocument(store.id);
+    after(() => captureServerEvent(user.id, 'service_created', {
+      service_count: (data.services || [data]).length
+    }));
 
     return NextResponse.json({ success: true, data: serviceDoc }, { status: 201 });
   } catch (error) {

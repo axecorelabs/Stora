@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { releaseItemsReservation } from '@/lib/batchInventory';
 import { sendRefundCustomerEmail, sendRefundVendorEmail } from '@/lib/email';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 // Items in either of these states already had real stock deducted (see
 // batchInventory.js's processItemsWithBatchTracking, run when an order is
@@ -319,6 +320,12 @@ export async function POST(req, { params }) {
         }
       }
     });
+
+    after(() => captureServerEvent(user.id, 'order_refund_recorded', {
+      refund_type: isFullRefund ? 'full' : 'partial',
+      restocked_item_count: restockedIds.size,
+      restock_failure_count: restockFailures.length
+    }));
 
     return NextResponse.json({
       success: true,

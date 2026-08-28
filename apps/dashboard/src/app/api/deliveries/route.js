@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { sendDeliveryScheduledEmail } from '@/lib/email';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 // Reshape a delivery_schedules row (+ its items) back into the nested
 // { customer, deliveryAddress, items, ... } shape the dashboard UI expects,
@@ -248,6 +249,13 @@ export async function POST(req) {
         }
       });
     }
+
+    after(() => captureServerEvent(user.id, 'delivery_scheduled', {
+      delivery_type: delivery.delivery_type,
+      delivery_method: delivery.delivery_method,
+      priority: delivery.priority,
+      item_count: itemRows.length
+    }));
 
     return NextResponse.json({
       success: true,

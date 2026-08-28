@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { processItemsWithBatchTracking } from '@/lib/batchInventory';
+import { captureServerEvent } from '@/lib/posthog-server';
 
 // Generate unique transaction ID
 function generateTransactionId() {
@@ -186,6 +187,13 @@ export async function POST(req) {
         batchesUsed: totalBatchesUsed,
         isOrderProcessing
       });
+
+      after(() => captureServerEvent(user.id, 'pos_sale_completed', {
+        item_count: processedItems.length,
+        payment_method: sale.payment_method,
+        is_order_processing: isOrderProcessing,
+        batches_used: totalBatchesUsed
+      }));
 
       return NextResponse.json({
         success: true,
