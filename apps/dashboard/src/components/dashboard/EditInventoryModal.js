@@ -208,6 +208,16 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
       }
       
       groups[color].sizes.push({
+        // id is what lets the update route recognize this as the SAME
+        // variant rather than a new one -- without it, every edit
+        // deactivated the existing variant and tried to insert a
+        // "new" one with the same size/color, which collides with
+        // inventory_variants' UNIQUE(inventory_id, size, color)
+        // constraint and fails silently, leaving the product with zero
+        // active variants (confirmed live: 9 products across one
+        // vendor's catalog, all showing price/stock as 0 on the
+        // storefront after an edit).
+        id: variant.id || variant._id,
         size: variant.size,
         quantityInStock: variant.quantityInStock || 0,
         reorderLevel: variant.reorderLevel || 5,
@@ -622,6 +632,11 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
       // Transform variants
       const transformedVariants = variants.flatMap(colorVariant =>
         colorVariant.sizes.map(sizeObj => ({
+          // Present for every pre-existing variant (see
+          // transformExistingVariants above), absent for a size/color
+          // added fresh in this session -- the update route uses this
+          // to tell "update this row" from "create a new one" apart.
+          ...(sizeObj.id ? { id: sizeObj.id } : {}),
           size: sizeObj.size,
           color: colorVariant.color,
           quantityInStock: parseInt(sizeObj.quantityInStock) || 0,
