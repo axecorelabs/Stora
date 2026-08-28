@@ -2,8 +2,10 @@ import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
+import { after } from "next/server";
 import { redis } from "./redis";
-import { sendVerificationEmail, sendPasswordResetEmail } from "./email";
+import { sendVerificationEmail, sendPasswordResetEmail, sendLoginAlertEmail } from "./email";
+import { parseUserAgent } from "./userAgent";
 
 // Same bcrypt-12 hashing this app has always used (apps/store/src/lib/
 // supabaseAuth.js's own hashPassword/verifyPassword) -- overriding Better
@@ -22,9 +24,43 @@ async function verify({ password, hash: hashedPassword }) {
 // a pg.Pool directly and auto-detects the Postgres dialect from it.
 const pool = new Pool({ connectionString: process.env.SUPABASE_DB_URL });
 
+// Fires for every new session row -- password sign-in, Google sign-in, and
+// the auto-login right after email verification all create one the same
+// way, so one hook covers every login path instead of duplicating the send
+// across login/route.js and the Google callback. Deferred via after() (the
+// same pattern every other transactional email in this app already uses)
+// so a slow SMTP send never adds latency to the sign-in response itself.
+async function sendLoginAlert(session) {
+  try {
+    const { rows } = await pool.query("SELECT email, first_name FROM customers WHERE id = $1", [session.userId]);
+    const customer = rows[0];
+    if (!customer) return;
+
+    const { browser, os } = parseUserAgent(session.userAgent);
+    await sendLoginAlertEmail(customer.email, customer.first_name || "there", {
+      browser,
+      os,
+      ipAddress: session.ipAddress,
+      time: new Date()
+    });
+  } catch (error) {
+    console.error('Failed to send login alert email:', error);
+  }
+}
+
 export const auth = betterAuth({
   database: pool,
   baseURL: process.env.NEXT_PUBLIC_APP_URL,
+
+  databaseHooks: {
+    session: {
+      create: {
+        after: async (session) => {
+          after(() => sendLoginAlert(session));
+        }
+      }
+    }
+  },
 
   // Let Postgres generate ids (every table here already has
   // `DEFAULT gen_random_uuid()`) instead of Better Auth's own JS-side id
@@ -99,7 +135,17 @@ export const auth = betterAuth({
       // already proven ownership of this email" auto-link behavior --
       // Google is the only trusted provider here since it's the only one
       // whose email-verified claim this app already relies on.
-      trustedProviders: ["google"]
+      trustedProviders: ["google"],
+      // Without this, Better Auth ALSO requires the existing local
+      // customers row to already have is_verified=true before letting a
+      // trusted provider auto-link (confirmed live: a real customer with
+      // is_verified=true still got "account not linked" on a fresh Google
+      // sign-in). Google's own email_verified claim is a stronger proof of
+      // ownership than our own click-a-link verification, so it should be
+      // sufficient on its own -- this was always the intent of listing
+      // google as a trusted provider above, not an additional gate on top
+      // of it.
+      requireLocalEmailVerified: false
     }
   },
 

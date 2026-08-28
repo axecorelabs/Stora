@@ -2,8 +2,10 @@ import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
+import { after } from "next/server";
 import { redis } from "./redis";
-import { sendVerificationEmail, sendPasswordResetEmail } from "./email";
+import { sendVerificationEmail, sendPasswordResetEmail, sendLoginAlertEmail } from "./email";
+import { parseUserAgent } from "./email/utils/userAgent";
 
 // Same bcrypt-12 hashing this app has always used (apps/dashboard/src/lib/
 // auth.js's own hashPassword/verifyPassword) -- overriding Better Auth's
@@ -60,6 +62,30 @@ async function createTrialSubscription(userId) {
   );
 }
 
+// Fires for every new session row -- password sign-in, Google sign-in, and
+// the auto-login right after email verification all create one the same
+// way, so one hook covers every login path instead of duplicating the send
+// across signin/route.js and the Google callback. Deferred via after() (the
+// same pattern every other transactional email in this app already uses)
+// so a slow SMTP send never adds latency to the sign-in response itself.
+async function sendLoginAlert(session) {
+  try {
+    const { rows } = await pool.query("SELECT email, first_name FROM users WHERE id = $1", [session.userId]);
+    const user = rows[0];
+    if (!user) return;
+
+    const { browser, os } = parseUserAgent(session.userAgent);
+    await sendLoginAlertEmail(user.email, user.first_name || "there", {
+      browser,
+      os,
+      ipAddress: session.ipAddress,
+      time: new Date()
+    });
+  } catch (error) {
+    console.error('Failed to send login alert email:', error);
+  }
+}
+
 export const auth = betterAuth({
   database: pool,
   baseURL: process.env.NEXT_PUBLIC_APP_URL,
@@ -73,6 +99,13 @@ export const auth = betterAuth({
           } catch (error) {
             console.error('Failed to create trial subscription for new user:', error);
           }
+        }
+      }
+    },
+    session: {
+      create: {
+        after: async (session) => {
+          after(() => sendLoginAlert(session));
         }
       }
     }
@@ -140,7 +173,17 @@ export const auth = betterAuth({
       // behavior -- Google is the only trusted provider here since it's
       // the only one whose email-verified claim this app already relies
       // on.
-      trustedProviders: ["google"]
+      trustedProviders: ["google"],
+      // Without this, Better Auth ALSO requires the existing local users
+      // row to already have is_email_verified=true before letting a
+      // trusted provider auto-link (confirmed live on the store app: a
+      // real customer with is_verified=true still got "account not
+      // linked" on a fresh Google sign-in). Google's own email_verified
+      // claim is a stronger proof of ownership than our own
+      // click-a-link verification, so it should be sufficient on its own
+      // -- this was always the intent of listing google as a trusted
+      // provider above, not an additional gate on top of it.
+      requireLocalEmailVerified: false
     }
   },
 

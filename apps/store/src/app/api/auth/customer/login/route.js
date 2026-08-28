@@ -42,6 +42,7 @@ export async function POST(request) {
 
     const result = await auth.api.signInEmail({
       body: { email: normalizedEmail, password },
+      headers: req.headers,
       asResponse: true
     });
 

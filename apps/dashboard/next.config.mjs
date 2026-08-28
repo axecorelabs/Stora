@@ -4,6 +4,14 @@ const nextConfig = {
   turbopack: {
     // Empty config to silence Turbopack warnings
   },
+  // Strips console.log/info/debug from production builds only (dev is
+  // unaffected) -- error/warn survive so real problems still reach
+  // Vercel's server logs and the browser console. Cheaper than deleting
+  // each of the ~50 debug console.log calls scattered across the app by
+  // hand, and keeps them available for local debugging.
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+  },
   // Mirrors apps/store/next.config.js's own image config exactly -- both
   // apps render the same inventory images, so the allow-list needs to
   // match. The two Wasabi entries are old links that predate the move to

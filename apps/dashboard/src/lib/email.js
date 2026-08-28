@@ -6,6 +6,7 @@ import { getWelcomeEmailTemplate } from './email/templates/welcome.js';
 import { getPasswordResetTemplate } from './email/templates/passwordReset.js';
 import { getSubscriptionUpdateTemplate } from './email/templates/subscription.js';
 import { getRefundCustomerTemplate, getRefundVendorTemplate } from './email/templates/refundProcessed.js';
+import { getLoginAlertTemplate } from './email/templates/loginAlert.js';
 import { generateReceiptPDF } from './email/utils/pdfGenerator.js';
 
 // Determine which email provider to use
@@ -159,6 +160,14 @@ export const sendWelcomeEmail = async (email, firstName) => {
 // Send password reset email
 export const sendPasswordResetEmail = async (email, resetToken, firstName) => {
   const { html, text, subject } = getPasswordResetTemplate(resetToken, firstName, email);
+  return await sendEmail(email, subject, html, text);
+};
+
+// Send a "new sign-in" security notification -- fired on every new session
+// (password sign-in, Google sign-in, and the auto-login right after email
+// verification), not just the explicit /signin route.
+export const sendLoginAlertEmail = async (email, firstName, { browser, os, ipAddress, time }) => {
+  const { html, text, subject } = getLoginAlertTemplate({ firstName, email, browser, os, ipAddress, time });
   return await sendEmail(email, subject, html, text);
 };
 

@@ -22,6 +22,7 @@ export async function POST(req) {
 
     const result = await auth.api.verifyEmailOTP({
       body: { email: email.toLowerCase().trim(), otp: verificationCode },
+      headers: req.headers,
       asResponse: true
     });
 

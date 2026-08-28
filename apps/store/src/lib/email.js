@@ -4,6 +4,7 @@ import VerificationEmail from '@/emails/VerificationEmail';
 import WelcomeEmail from '@/emails/WelcomeEmail';
 import PasswordResetEmail from '@/emails/PasswordResetEmail';
 import NewOrderNotification from '@/emails/NewOrderNotification';
+import LoginAlertEmail from '@/emails/LoginAlertEmail';
 
 // Create transporter
 const transporter = nodemailer.createTransport({
@@ -100,6 +101,50 @@ Need help? Contact us at support@stora.com.ng
   };
 
   return await transporter.sendMail(mailOptions);
+}
+
+// Send a "new sign-in" security notification -- fired on every new
+// session (password sign-in, Google sign-in, and the auto-login right
+// after email verification), not just the explicit /login route.
+export async function sendLoginAlertEmail(email, firstName, { browser, os, ipAddress, time }) {
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.stora.com.ng';
+  const formattedTime = time.toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'UTC'
+  }) + ' UTC';
+
+  const emailHtml = await render(LoginAlertEmail({
+    firstName, browser, os, ipAddress: ipAddress || 'Unknown', formattedTime, siteUrl
+  }));
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || 'noreply@stora.com.ng',
+    to: email,
+    subject: 'New sign-in to your Stora account',
+    html: emailHtml,
+    text: `
+Hi ${firstName},
+
+Your Stora account was just signed into. If this was you, no action is needed.
+
+Time: ${formattedTime}
+Device: ${browser} on ${os}
+IP address: ${ipAddress || 'Unknown'}
+
+If you don't recognize this activity, sign in and reset your password right away: ${siteUrl}
+
+© ${new Date().getFullYear()} Stora. All rights reserved.
+    `.trim()
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Error sending login alert email:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 // Send new order notification to store owner
