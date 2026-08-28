@@ -370,16 +370,16 @@ export default function StorePage() {
   return (
     <DashboardLayout title="Store Management" subtitle="Manage your store information and settings">
       {/* Store Header */}
-      <div className="mb-8 bg-white rounded-2xl p-6 border border-gray-100">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-brand-100 rounded-2xl">
+      <div className="mb-8 bg-white rounded-2xl p-5 sm:p-6 border border-gray-100">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="p-3 bg-brand-100 rounded-2xl shrink-0">
               <Store className="w-8 h-8 text-brand-800" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{store.storeName}</h1>
-              <div className="flex items-center space-x-2">
-                <p className="text-gray-500">{store.storeType === 'physical' ? 'Physical Store' : 'Online Store'}</p>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{store.storeName}</h1>
+              <div className="flex items-center flex-wrap gap-2 mt-0.5">
+                <p className="text-gray-500 text-sm sm:text-base">{store.storeType === 'physical' ? 'Physical Store' : 'Online Store'}</p>
                 {store.storeType === 'online' && (
                   <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                     Online Only
@@ -388,27 +388,27 @@ export default function StorePage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             {/* Add Physical Store Button - only show for online stores */}
             {store.storeType === 'online' && (
-              <Button variant="gold" onClick={() => setIsAddPhysicalStoreModalOpen(true)}>
+              <Button variant="gold" onClick={() => setIsAddPhysicalStoreModalOpen(true)} className="w-full sm:w-auto">
                 <MapPin className="w-4 h-4" />
                 <span>Add Physical Store</span>
               </Button>
             )}
 
             {!isEditing ? (
-              <Button variant="primary" onClick={startEditing}>
+              <Button variant="primary" onClick={startEditing} className="w-full sm:w-auto">
                 <Edit3 className="w-4 h-4" />
                 <span>Edit Store</span>
               </Button>
             ) : (
-              <div className="flex items-center space-x-2">
-                <Button variant="secondary" onClick={cancelEditing}>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <Button variant="secondary" onClick={cancelEditing} className="w-full sm:w-auto">
                   <X className="w-4 h-4" />
                   <span>Cancel</span>
                 </Button>
-                <Button variant="primary" onClick={handleSave} disabled={isSubmitting}>
+                <Button variant="primary" onClick={handleSave} disabled={isSubmitting} className="w-full sm:w-auto">
                   <Save className="w-4 h-4" />
                   <span>{isSubmitting ? 'Saving...' : 'Save Changes'}</span>
                 </Button>

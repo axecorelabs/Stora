@@ -53,7 +53,7 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
           <div className="flex items-center gap-3 min-w-0">
             <div className="min-w-0">
               <h1 className="text-xl lg:text-2xl font-bold text-gray-900 truncate">{title}</h1>
-              <p className="text-sm text-gray-500 mt-1 truncate">{subtitle}</p>
+              <p className="hidden sm:block text-sm text-gray-500 mt-1 truncate">{subtitle}</p>
             </div>
           </div>
 
