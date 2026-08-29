@@ -2,9 +2,11 @@
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Heart, ShoppingCart, Check, Package } from 'lucide-react';
+import { normalizeExtraDefinitions } from '@stora/shared-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useIsInWishlist, useWishlistMutations } from '@/hooks/useWishlist';
+import QuickAddModal from '@/components/product/QuickAddModal';
 
 export default function ProductCardMobile({ product, primaryColor, currency, secondaryColor, onNavigate, onSignInRequired }) {
   const router = useRouter();
@@ -14,6 +16,8 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const extrasDefinitions = normalizeExtraDefinitions(product.categoryDetails?.food?.extras);
 
   // Use TanStack Query hooks
   const liked = useIsInWishlist(product.id);
@@ -55,9 +59,11 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
     }
   };
 
-  // Adds directly for a simple (no-variant) product; a variant product
-  // still needs the size/color picker, which only lives on the product
-  // detail page, so this sends those there instead of pretending it worked.
+  // Adds directly for a simple product with nothing to customize; a
+  // variant product still needs the size/color picker, which only lives
+  // on the product detail page, so this sends those there instead of
+  // pretending it worked. A product with real priced extras opens the
+  // quick-add modal instead of adding blind (quantity 1, no extras).
   const handleAddToCart = async (e) => {
     e.stopPropagation();
 
@@ -68,6 +74,11 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
 
     if (product.hasVariants) {
       handleProductClick();
+      return;
+    }
+
+    if (extrasDefinitions.length > 0) {
+      setShowQuickAdd(true);
       return;
     }
 
@@ -90,6 +101,7 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
   const isOutOfStock = product.availableQuantity <= 0;
 
   return (
+    <>
     <div
       className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] transition-all duration-200 group cursor-pointer active:scale-[0.98]"
       onClick={handleProductClick}
@@ -197,6 +209,11 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
             </>
           ) : product.hasVariants ? (
             'Select options'
+          ) : extrasDefinitions.length > 0 ? (
+            <>
+              <ShoppingCart className="w-3.5 h-3.5" />
+              Customize
+            </>
           ) : (
             <>
               <ShoppingCart className="w-3.5 h-3.5" />
@@ -224,5 +241,14 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
         }
       `}</style>
     </div>
+    <QuickAddModal
+      isOpen={showQuickAdd}
+      onClose={() => setShowQuickAdd(false)}
+      product={product}
+      onAddToCart={addToCart}
+      primaryColor={primaryColor}
+      currency={currency}
+    />
+    </>
   );
 }

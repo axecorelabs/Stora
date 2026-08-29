@@ -2,8 +2,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Heart, ShoppingCart, Check, Package } from 'lucide-react';
+import { normalizeExtraDefinitions } from '@stora/shared-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
+import QuickAddModal from '@/components/product/QuickAddModal';
 
 export default function ProductCard({ product, primaryColor, currency, secondaryColor, onNavigate, onSignInRequired }) {
   const router = useRouter();
@@ -16,6 +18,8 @@ export default function ProductCard({ product, primaryColor, currency, secondary
   const [checkingWishlist, setCheckingWishlist] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const extrasDefinitions = normalizeExtraDefinitions(product.categoryDetails?.food?.extras);
 
   // Check if item is in user's wishlist when component mounts
   useEffect(() => {
@@ -61,10 +65,13 @@ export default function ProductCard({ product, primaryColor, currency, secondary
     router.push(`/${storeSlug}/product/${product.id}`);
   };
 
-  // Adds directly to cart for a simple (no-variant) product -- a variant
-  // product still needs the size/color picker, which only lives on the
-  // product detail page, so this sends those straight there instead of
-  // pretending "Add to cart" worked without asking which one.
+  // Adds directly to cart for a simple product with nothing to customize --
+  // a variant product still needs the size/color picker, which only lives
+  // on the product detail page, so this sends those straight there instead
+  // of pretending "Add to cart" worked without asking which one. A product
+  // with real priced extras opens the quick-add modal instead of adding
+  // blind (quantity 1, no extras) -- everything else keeps today's
+  // one-tap add, so an ordinary product gets no new friction.
   const handleAddToCart = async (e) => {
     e.stopPropagation();
 
@@ -75,6 +82,11 @@ export default function ProductCard({ product, primaryColor, currency, secondary
 
     if (product.hasVariants) {
       handleProductClick();
+      return;
+    }
+
+    if (extrasDefinitions.length > 0) {
+      setShowQuickAdd(true);
       return;
     }
 
@@ -152,6 +164,7 @@ export default function ProductCard({ product, primaryColor, currency, secondary
   };
 
   return (
+    <>
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer"
          onClick={handleProductClick}>
       {/* Image Container -- same framed treatment as home/DiscoveryProductCard.js
@@ -256,6 +269,11 @@ export default function ProductCard({ product, primaryColor, currency, secondary
               </>
             ) : product.hasVariants ? (
               'Select options'
+            ) : extrasDefinitions.length > 0 ? (
+              <>
+                <ShoppingCart className="w-3.5 h-3.5" />
+                Customize
+              </>
             ) : (
               <>
                 <ShoppingCart className="w-3.5 h-3.5" />
@@ -267,5 +285,14 @@ export default function ProductCard({ product, primaryColor, currency, secondary
         </div>
       </div>
     </div>
+    <QuickAddModal
+      isOpen={showQuickAdd}
+      onClose={() => setShowQuickAdd(false)}
+      product={product}
+      onAddToCart={addToCart}
+      primaryColor={primaryColor}
+      currency={currency}
+    />
+    </>
   );
 }

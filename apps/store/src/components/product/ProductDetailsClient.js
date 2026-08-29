@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeExtraDefinitions } from "@stora/shared-constants";
+import ExtrasSelector from "@/components/product/ExtrasSelector";
 import { 
   ArrowLeft, Plus, Minus, ShoppingCart, Heart, MapPin, Tag, Package, Share2, Check, X,
   Shirt, Footprints, Watch, Droplets, UtensilsCrossed, Coffee, Smartphone, 
@@ -22,28 +23,7 @@ import ProductReviews from "@/components/product/ProductReviews";
 import ViewBeacon from "@/components/analytics/ViewBeacon";
 import Image from "next/image";
 import Link from "next/link";
-
-// "Note for the seller" placeholder, by category (packages/shared-constants
-// categories.js's CATEGORY_VALUES) -- was hardcoded to a Food-flavored
-// example ("no onions, extra spicy") shown for every category, including
-// Books and Electronics where it made no sense. Falls back to a generic
-// example for anything not listed here (dashboard's "Other" included).
-const NOTE_PLACEHOLDERS = {
-  Food: 'e.g. no onions, extra spicy…',
-  Beverages: 'e.g. extra cold, less ice…',
-  Clothing: 'e.g. gift wrap, preferred fit…',
-  Shoes: 'e.g. true to size, color preference…',
-  Accessories: 'e.g. gift wrap, engraving request…',
-  Perfumes: 'e.g. sample size, bundle request…',
-  Electronics: 'e.g. original packaging, color preference…',
-  Books: 'e.g. gift wrap, preferred edition…',
-  'Home & Garden': 'e.g. delivery day, assembly request…',
-  Sports: 'e.g. size or color preference…',
-  Automotive: 'e.g. confirm fit for your vehicle model…',
-  'Health & Beauty': 'e.g. shade or scent preference…',
-  'Wigs & Hair': 'e.g. preferred length, texture, color match…',
-  default: 'e.g. any special request…'
-};
+import { NOTE_PLACEHOLDERS } from "@/components/product/notePlaceholders";
 
 export default function ProductDetailsClient({ store, product: initialProduct, slug }) {
   const router = useRouter();
@@ -246,8 +226,14 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
     try {
       const result = await addToCart(initialProduct.id, quantity, { notes: composeItemNotes(), modifiers: buildModifiers() });
       if (result.success) {
+        // Picking different extras and adding again creates a second,
+        // separately-priced cart line rather than merging into this one
+        // (the cart's modifiers-aware line identity already handles
+        // this) -- worth a nudge here since nothing else in the UI hints
+        // that "add again" is how you get e.g. one plain + one with extras.
+        const addAnotherHint = extrasDefinitions.length > 0 ? ' Want it differently? Just add another.' : '';
         setToast({
-          message: `${quantity} ${quantity === 1 ? 'item' : 'items'} added to cart successfully!`,
+          message: `${quantity} ${quantity === 1 ? 'item' : 'items'} added to cart successfully!${addAnotherHint}`,
           type: 'success'
         });
         setQuantity(1);
@@ -407,11 +393,9 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
   // Real definitions (price/maxQuantity), not the plain names the chips
   // used to render -- also normalizes any legacy string-only extras still
-  // on older products (price 0, maxQuantity 1).
-  const extrasDefinitions = useMemo(
-    () => normalizeExtraDefinitions(initialProduct.categoryDetails?.food?.extras),
-    [initialProduct.categoryDetails]
-  );
+  // on older products (price 0, maxQuantity 1). A handful of extras at
+  // most, so a plain recompute each render isn't worth memoizing.
+  const extrasDefinitions = normalizeExtraDefinitions(initialProduct.categoryDetails?.food?.extras);
 
   // Server re-resolves and prices this for real at add-to-cart time
   // (supabaseCart.js's prepareCartItemData) -- this is only for the live
@@ -1198,52 +1182,13 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                   Only for non-variant products, same gating as Quantity above. */}
               {!initialProduct.hasVariants && (
                 <div className="mb-6 sm:mb-8 space-y-4">
-                  {extrasDefinitions.length > 0 && (
-                    <div>
-                      <label className="text-sm font-semibold text-gray-900 mb-2 block">
-                        Extras <span className="text-gray-400 font-normal">(optional)</span>
-                      </label>
-                      <div className="space-y-2">
-                        {extrasDefinitions.map((extra) => {
-                          const qty = selectedExtras[extra.name] || 0;
-                          return (
-                            <div
-                              key={extra.name}
-                              className="flex items-center justify-between px-3.5 py-2 rounded-xl border border-gray-200 bg-white"
-                            >
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">{extra.name}</p>
-                                <p className="text-xs text-gray-500">
-                                  {extra.price > 0 ? `+${formatPrice(extra.price)} each` : 'Free'}
-                                  {extra.maxQuantity > 1 && ` · up to ${extra.maxQuantity}`}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedExtras((prev) => ({ ...prev, [extra.name]: Math.max(0, qty - 1) }))}
-                                  disabled={qty <= 0}
-                                  className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
-                                >
-                                  <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className={`w-4 text-center text-sm font-semibold tabular-nums ${qty > 0 && qty >= extra.maxQuantity ? 'text-gold-600' : 'text-gray-900'}`}>{qty}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedExtras((prev) => ({ ...prev, [extra.name]: Math.min(extra.maxQuantity, qty + 1) }))}
-                                  disabled={qty >= extra.maxQuantity}
-                                  className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
-                                  style={qty < extra.maxQuantity ? { borderColor: primaryColor, color: primaryColor } : undefined}
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  <ExtrasSelector
+                    extrasDefinitions={extrasDefinitions}
+                    selectedExtras={selectedExtras}
+                    onChange={setSelectedExtras}
+                    formatPrice={formatPrice}
+                    primaryColor={primaryColor}
+                  />
 
                   <div>
                     <label htmlFor="item-note" className="text-sm font-semibold text-gray-900 mb-2 block">
