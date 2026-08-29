@@ -164,6 +164,12 @@ export default function ProductReviews({ productId, averageRating, totalReviews,
             {eligibility.alreadyReviewed ? "Edit your review" : "Write a review"}
           </button>
         )}
+
+        {isAuthenticated && eligibility && !eligibility.canReview && (
+          <p className="text-xs text-gray-400 text-right flex-shrink-0 max-w-[180px] sm:max-w-none">
+            Only customers who&apos;ve received this item can leave a review
+          </p>
+        )}
       </div>
 
       {showForm && (
