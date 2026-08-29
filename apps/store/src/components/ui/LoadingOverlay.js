@@ -18,38 +18,29 @@ export default function LoadingOverlay({
         backdropFilter: 'blur(4px)'
       }}
     >
-      <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4">
-        {/* Bouncing Dots */}
-        <div className="flex items-center gap-2">
-          <div 
-            className="w-3 h-3 rounded-full dot-bounce"
-            style={{ 
-              backgroundColor: color,
-              animationDelay: '0ms'
-            }}
-          />
-          <div 
-            className="w-3 h-3 rounded-full dot-bounce"
-            style={{ 
-              backgroundColor: color,
-              animationDelay: '150ms'
-            }}
-          />
-          <div 
-            className="w-3 h-3 rounded-full dot-bounce"
-            style={{ 
-              backgroundColor: color,
-              animationDelay: '300ms'
-            }}
-          />
-        </div>
-        
-        {/* Loading Message */}
-        {/* {message && (
-          <p className="text-gray-700 font-medium text-sm">
-            {message}
-          </p>
-        )} */}
+      {/* Bouncing Dots */}
+      <div className="flex items-center gap-2">
+        <div
+          className="w-3 h-3 rounded-full dot-bounce"
+          style={{
+            backgroundColor: color,
+            animationDelay: '0ms'
+          }}
+        />
+        <div
+          className="w-3 h-3 rounded-full dot-bounce"
+          style={{
+            backgroundColor: color,
+            animationDelay: '150ms'
+          }}
+        />
+        <div
+          className="w-3 h-3 rounded-full dot-bounce"
+          style={{
+            backgroundColor: color,
+            animationDelay: '300ms'
+          }}
+        />
       </div>
 
       <style jsx>{`

@@ -598,11 +598,13 @@ export default function ProductsPageClient({ store, products: initialProducts, s
 
       <StoreFooter />
 
-      {/* Loading Overlay for Navigation */}
-      <LoadingOverlay 
-        isVisible={isNavigating || isLoading} 
+      {/* Loading Overlay -- only for in-app navigation (e.g. to a product
+          page); the initial product grid load already has its own inline
+          spinner above, so this doesn't need to double up on it. */}
+      <LoadingOverlay
+        isVisible={isNavigating}
         color={primaryColor}
-        message={isNavigating ? "Loading product..." : "Loading products..."}
+        message="Loading product..."
       />
 
       {/* Floating Cart Button */}

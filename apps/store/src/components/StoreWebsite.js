@@ -1213,11 +1213,13 @@ export default function StoreWebsite({ store }) {
         onSelect={setSelectedAvailability}
       />
 
-      {/* Loading Overlay */}
-      <LoadingOverlay 
-        isVisible={loading || isNavigating} 
+      {/* Loading Overlay -- only for in-app navigation (e.g. to a product
+          page); the initial product grid load already has its own inline
+          spinner below, so this doesn't need to double up on it. */}
+      <LoadingOverlay
+        isVisible={isNavigating}
         color={primaryColor}
-        message={isNavigating ? "Loading product..." : "Loading products..."}
+        message="Loading product..."
       />
 
       {/* Floating Cart Button */}

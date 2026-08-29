@@ -15,6 +15,7 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
@@ -94,6 +95,7 @@ export default function CartPageContent({ slug }) {
   const [couponCode, setCouponCode] = useState("");
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [updatingItemId, setUpdatingItemId] = useState(null);
+  const [removingItemId, setRemovingItemId] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
   const [orderError, setOrderError] = useState(null);
@@ -250,8 +252,15 @@ export default function CartPageContent({ slug }) {
   };
 
   const handleRemoveItem = async (itemId) => {
-    if (confirm("Are you sure you want to remove this item from your cart?")) {
+    if (!confirm("Are you sure you want to remove this item from your cart?")) return;
+
+    setRemovingItemId(itemId);
+    try {
       await removeFromCart(itemId);
+    } catch (error) {
+      alert(error.message || "Failed to remove item. Please try again.");
+    } finally {
+      setRemovingItemId(null);
     }
   };
 
@@ -720,6 +729,11 @@ export default function CartPageContent({ slug }) {
 
                     return (
                       <div key={itemId} className="p-3 md:p-6 relative">
+                        {removingItemId === itemId && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+                            <Loader2 className="w-5 h-5 animate-spin" style={{ color: BRAND_PRIMARY }} />
+                          </div>
+                        )}
                         {/* Payment-pending banner -- this item is already
                             tied to a real order awaiting payment (see the
                             duplicate-checkout guard in orders/create/route.js);
