@@ -987,7 +987,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
       {/* Product Details */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 lg:py-12">
-        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-[0_1px_3px_rgba(11,59,46,0.06)] border border-gray-100 overflow-hidden">
+        <div className="-mx-4 sm:mx-0 bg-white rounded-none sm:rounded-3xl shadow-[0_1px_3px_rgba(11,59,46,0.06)] border border-gray-100 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
             
             {/* Image Section */}
