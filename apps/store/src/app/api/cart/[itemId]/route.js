@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCustomerSession } from "@/lib/supabaseAuth";
-import { getOrCreateCart, removeItemFromCart, enrichCartWithProductData, sanitizeCart } from "@/lib/supabaseCart";
+import { getOrCreateCart, removeCartItemById, enrichCartWithProductData, sanitizeCart } from "@/lib/supabaseCart";
 
 export async function DELETE(request, { params }) {
   try {
@@ -13,7 +13,10 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const { productId } = await params;
+    // The cart line's own id, not product_id -- two lines can share a
+    // product_id (a different variant and/or a different priced-extras
+    // selection), so this is the only unambiguous way to target one.
+    const { itemId } = await params;
 
     // Find customer's cart
     let cart = await getOrCreateCart(customerId);
@@ -26,7 +29,7 @@ export async function DELETE(request, { params }) {
     }
 
     // Check if item exists
-    const itemExists = cart.items.some(item => item.product_id === productId);
+    const itemExists = cart.items.some(item => item.id === itemId);
 
     if (!itemExists) {
       return NextResponse.json(
@@ -36,8 +39,8 @@ export async function DELETE(request, { params }) {
     }
 
     // Remove the item
-    cart = await removeItemFromCart(cart, productId);
-    
+    cart = await removeCartItemById(cart, itemId);
+
     // Enrich cart
     cart = await enrichCartWithProductData(cart);
 

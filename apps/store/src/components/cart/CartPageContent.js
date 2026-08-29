@@ -237,17 +237,21 @@ export default function CartPageContent({ slug }) {
     return item.variant || item.notes || item.modifiers?.extras?.length > 0;
   };
 
-  const handleQuantityChange = async (productId, newQuantity) => {
+  // itemId is the cart line's own id (item.id / cart_items.id), not
+  // item.product_id -- two lines can share a product_id (a different
+  // variant and/or a different priced-extras selection), so only the
+  // line's own id unambiguously identifies which one to change.
+  const handleQuantityChange = async (itemId, newQuantity) => {
     if (newQuantity < 1) return;
 
-    setUpdatingItemId(productId);
-    await updateQuantity(productId, newQuantity);
+    setUpdatingItemId(itemId);
+    await updateQuantity(itemId, newQuantity);
     setUpdatingItemId(null);
   };
 
-  const handleRemoveItem = async (productId) => {
+  const handleRemoveItem = async (itemId) => {
     if (confirm("Are you sure you want to remove this item from your cart?")) {
-      await removeFromCart(productId);
+      await removeFromCart(itemId);
     }
   };
 
@@ -807,7 +811,7 @@ export default function CartPageContent({ slug }) {
                               <button
                                 onClick={() =>
                                   handleRemoveItem(
-                                    item.product_id
+                                    item.id
                                   )
                                 }
                                 className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
@@ -830,13 +834,13 @@ export default function CartPageContent({ slug }) {
                                 <button
                                   onClick={() =>
                                     handleQuantityChange(
-                                      item.product_id,
+                                      item.id,
                                       item.quantity - 1
                                     )
                                   }
                                   disabled={
                                     item.quantity <= 1 ||
-                                    updatingItemId === item.product_id
+                                    updatingItemId === item.id
                                   }
                                   className="px-2 md:px-3.5 py-1.5 md:py-2 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                 >
@@ -848,12 +852,12 @@ export default function CartPageContent({ slug }) {
                                 <button
                                   onClick={() =>
                                     handleQuantityChange(
-                                      item.product_id,
+                                      item.id,
                                       item.quantity + 1
                                     )
                                   }
                                   disabled={
-                                    updatingItemId === item.product_id
+                                    updatingItemId === item.id
                                   }
                                   className="px-2 md:px-3.5 py-1.5 md:py-2 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                 >
@@ -861,7 +865,7 @@ export default function CartPageContent({ slug }) {
                                 </button>
                               </div>
 
-                              {updatingItemId === item.product_id && (
+                              {updatingItemId === item.id && (
                                 <span className="text-xs md:text-sm text-gray-400">
                                   Updating…
                                 </span>

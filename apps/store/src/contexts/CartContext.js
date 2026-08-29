@@ -113,15 +113,19 @@ export function CartProvider({ children }) {
     }
   };
 
-  const removeFromCart = async (productId) => {
+  // itemId is the cart line's own id (cart_items.id), NOT the product id --
+  // two lines can share a product_id (a different variant and/or a
+  // different priced-extras selection), so only the line's own id
+  // unambiguously identifies which one to remove.
+  const removeFromCart = async (itemId) => {
     if (!isAuthenticated) {
       throw new Error('Authentication required');
     }
 
     try {
-      console.log('Removing item from cart:', productId);
-      
-      const response = await fetch(`/api/cart/${productId}`, {
+      console.log('Removing item from cart:', itemId);
+
+      const response = await fetch(`/api/cart/${itemId}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -142,11 +146,13 @@ export function CartProvider({ children }) {
     }
   };
 
-  const updateQuantity = async (productId, newQuantity) => {
+  // itemId is the cart line's own id (cart_items.id) -- see removeFromCart's
+  // comment above for why product_id alone can no longer identify one line.
+  const updateQuantity = async (itemId, newQuantity) => {
     if (!isAuthenticated) return;
 
     try {
-      const response = await fetch(`/api/cart/items/${productId}`, {
+      const response = await fetch(`/api/cart/items/${itemId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

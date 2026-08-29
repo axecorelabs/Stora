@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCustomerSession } from "@/lib/supabaseAuth";
-import { getOrCreateCart, updateItemQuantity, removeItemFromCart, enrichCartWithProductData, sanitizeCart } from "@/lib/supabaseCart";
+import { getOrCreateCart, updateCartItemQuantityById, removeCartItemById, enrichCartWithProductData, sanitizeCart } from "@/lib/supabaseCart";
 
 // PATCH - Update item quantity
 export async function PATCH(request, { params }) {
@@ -14,7 +14,10 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    const { productId } = await params;
+    // The cart line's own id, not product_id -- two lines can share a
+    // product_id (a different variant and/or a different priced-extras
+    // selection), so this is the only unambiguous way to target one.
+    const { itemId } = await params;
     const body = await request.json();
     const { quantity } = body;
 
@@ -28,8 +31,8 @@ export async function PATCH(request, { params }) {
     let cart = await getOrCreateCart(customerId);
 
     // Update quantity (removes item if quantity is 0)
-    cart = await updateItemQuantity(cart, productId, quantity);
-    
+    cart = await updateCartItemQuantityById(cart, itemId, quantity);
+
     // Enrich cart
     cart = await enrichCartWithProductData(cart);
 
@@ -59,12 +62,12 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const { productId } = await params;
+    const { itemId } = await params;
 
     let cart = await getOrCreateCart(customerId);
 
-    cart = await removeItemFromCart(cart, productId);
-    
+    cart = await removeCartItemById(cart, itemId);
+
     // Enrich cart
     cart = await enrichCartWithProductData(cart);
 

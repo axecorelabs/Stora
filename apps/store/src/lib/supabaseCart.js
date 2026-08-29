@@ -299,48 +299,63 @@ export async function addItemToCart(cart, itemData) {
   return await findCartByCustomerId(cart.customer_id, true);
 }
 
-export async function removeItemFromCart(cart, productId, variantId = null) {
-  // Find the item to remove
-  const item = await findCartItem(cart.id, productId, variantId);
-  
+// Finds one cart line by its own primary key, scoped to the given cart.
+// This is the only reliable way to target one line for removal/quantity
+// changes now that two lines can share the same product_id (a different
+// variant and/or a different priced-extras selection -- see
+// prepareCartItemData/findCartItem's modifiers-aware identity check for
+// how those lines are kept separate in the first place). Matching by
+// product_id(+variantId) alone -- what this used to do -- silently picked
+// whichever matching row came back first, and threw "Item not found" for
+// any other row on the same product once it had real modifiers, since
+// that lookup always compared against an implicit null.
+async function findCartItemById(cartId, itemId) {
+  const { data, error } = await supabaseAdmin
+    .from('cart_items')
+    .select('*')
+    .eq('id', itemId)
+    .eq('cart_id', cartId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error finding cart item by id:', error);
+    throw new Error('Failed to find cart item');
+  }
+  return data;
+}
+
+export async function removeCartItemById(cart, itemId) {
+  const item = await findCartItemById(cart.id, itemId);
+
   if (!item) {
     throw new Error('Item not found in cart');
   }
 
-  // Delete the item
-  await deleteCartItem(item.id);
-
-  // Recalculate cart totals
+  await deleteCartItem(itemId);
   await recalculateCartTotals(cart.id);
 
-  // Return updated cart
   return await findCartByCustomerId(cart.customer_id, true);
 }
 
-export async function updateItemQuantity(cart, productId, quantity, variantId = null) {
+export async function updateCartItemQuantityById(cart, itemId, quantity) {
   if (quantity === 0) {
-    // Remove item if quantity is 0
-    return await removeItemFromCart(cart, productId, variantId);
+    return await removeCartItemById(cart, itemId);
   }
 
-  // Find the item
-  const item = await findCartItem(cart.id, productId, variantId);
+  const item = await findCartItemById(cart.id, itemId);
 
   if (!item) {
     throw new Error('Item not found in cart');
   }
 
-  // Update quantity and subtotal
   const newSubtotal = quantity * parseFloat(item.price);
-  await updateCartItem(item.id, {
+  await updateCartItem(itemId, {
     quantity,
     subtotal: newSubtotal
   });
 
-  // Recalculate cart totals
   await recalculateCartTotals(cart.id);
 
-  // Return updated cart
   return await findCartByCustomerId(cart.customer_id, true);
 }
 
