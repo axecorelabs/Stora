@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeExtraDefinitions } from "@stora/shared-constants";
-import ExtrasSelector from "@/components/product/ExtrasSelector";
+import UnitExtrasConfigurator from "@/components/product/UnitExtrasConfigurator";
 import { 
   ArrowLeft, Plus, Minus, ShoppingCart, Heart, MapPin, Tag, Package, Share2, Check, X,
   Shirt, Footprints, Watch, Droplets, UtensilsCrossed, Coffee, Smartphone, 
@@ -25,6 +25,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { NOTE_PLACEHOLDERS } from "@/components/product/notePlaceholders";
 
+// Keeps unitConfigs in sync with quantity: growing copies entry 0 when
+// mirroring ("same for all"), or blank entries when customizing each unit
+// separately; shrinking truncates from the end. Pure/module-level since it
+// only needs its own arguments, not component state.
+function resizeUnitConfigs(prev, newLength, sameForAll) {
+  if (newLength === prev.length) return prev;
+  if (newLength < prev.length) return prev.slice(0, newLength);
+  const template = sameForAll ? (prev[0] || { extras: {}, note: '' }) : { extras: {}, note: '' };
+  const grown = [...prev];
+  while (grown.length < newLength) grown.push({ extras: { ...template.extras }, note: template.note });
+  return grown;
+}
+
 export default function ProductDetailsClient({ store, product: initialProduct, slug }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -37,13 +50,39 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   const cameFromDiscover = searchParams.get('from') === 'discover';
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
-  const [quantity, setQuantity] = useState(1);
+
+  // Simple quantity for non-variant products
+  const maxQuantity = initialProduct.availableQuantity || 0;
+  // Real definitions (price/maxQuantity), not the plain names the chips
+  // used to render -- also normalizes any legacy string-only extras still
+  // on older products (price 0, maxQuantity 1). A handful of extras at
+  // most, so a plain recompute each render isn't worth memoizing.
+  const extrasDefinitions = normalizeExtraDefinitions(initialProduct.categoryDetails?.food?.extras);
+
+  // QuickAddModal.js's "Customize on the product page" link lands here
+  // with ?quantity=&customize=1 -- read once via lazy useState
+  // initializers (not an effect) so the handoff continues the shopper's
+  // intent (prefilled quantity, "customize each" already on) without a
+  // synchronous setState-in-effect render cascade.
+  const initialQuantity = (() => {
+    const fromParams = parseInt(searchParams.get('quantity'), 10);
+    if (!fromParams || fromParams < 1) return 1;
+    return maxQuantity > 0 ? Math.min(fromParams, maxQuantity) : fromParams;
+  })();
+  const [quantity, setQuantity] = useState(initialQuantity);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-  // Map of extra name -> selected quantity (only extras with quantity > 0
-  // are considered "selected"), replacing a plain on/off toggle now that
-  // each extra can carry its own price and be added more than once.
-  const [selectedExtras, setSelectedExtras] = useState({});
-  const [itemNote, setItemNote] = useState('');
+  // unitConfigs is the ONLY extras/note state: one {extras, note} entry
+  // per unit, always `quantity` long. sameForAll is a write MODE over it
+  // (mirror one shared selection into every entry), not a second parallel
+  // shape -- see UnitExtrasConfigurator.js for the read/write contract.
+  const [unitConfigs, setUnitConfigs] = useState(() =>
+    Array.from({ length: initialQuantity }, () => ({ extras: {}, note: '' }))
+  );
+  const [sameForAll, setSameForAll] = useState(searchParams.get('customize') !== '1');
+  // How many unitConfigs entries are already committed to the cart this
+  // add-to-cart attempt -- lets a retry after a partial failure resume
+  // instead of resubmitting units already in the cart.
+  const [submittedCount, setSubmittedCount] = useState(0);
   const [liked, setLiked] = useState(false);
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
@@ -70,8 +109,6 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
   const currentImage = productImages[currentImageIndex] || { url: initialProduct.image };
 
-  // Simple quantity for non-variant products
-  const maxQuantity = initialProduct.availableQuantity || 0;
   const isOutOfStock = maxQuantity === 0;
   const isLowStock = maxQuantity > 0 && maxQuantity <= (initialProduct.reorderLevel || 5);
   const shouldShowStock = isLowStock || isOutOfStock;
@@ -176,12 +213,30 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
   const handleQuantityChange = (newQuantity) => {
     if (newQuantity < 1) return;
-    if (newQuantity > maxQuantity) {
-      setQuantity(maxQuantity);
-      return;
-    }
-    setQuantity(newQuantity);
+    const clamped = newQuantity > maxQuantity ? maxQuantity : newQuantity;
+    setQuantity(clamped);
+    setUnitConfigs((prev) => resizeUnitConfigs(prev, clamped, sameForAll));
+    setSubmittedCount(0);
   };
+
+  // Switching TO "same for all" mirrors unit 0 across every entry
+  // (lossy by definition -- that's expected); switching away just changes
+  // how future writes are targeted, existing per-unit data stays put.
+  const handleSameForAllChange = (next) => {
+    setSameForAll(next);
+    if (next) {
+      setUnitConfigs((prev) => {
+        const base = prev[0] || { extras: {}, note: '' };
+        return prev.map(() => ({ extras: { ...base.extras }, note: base.note }));
+      });
+    }
+    setSubmittedCount(0);
+  };
+
+  const handleSharedExtrasChange = (next) => setUnitConfigs((prev) => prev.map((cfg) => ({ ...cfg, extras: next })));
+  const handleSharedNoteChange = (next) => setUnitConfigs((prev) => prev.map((cfg) => ({ ...cfg, note: next })));
+  const handleUnitExtrasChange = (index, next) => setUnitConfigs((prev) => prev.map((cfg, i) => (i === index ? { ...cfg, extras: next } : cfg)));
+  const handleUnitNoteChange = (index, next) => setUnitConfigs((prev) => prev.map((cfg, i) => (i === index ? { ...cfg, note: next } : cfg)));
 
   // Extras + freeform note both fold into the one notes column
   // cart_items/order_items already carry (see hooks/useWishlist.js's
@@ -189,62 +244,82 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   // read as a plain list up front, followed by whatever the shopper typed,
   // so "Extra cheese, No onions -- less spicy please" is one string a
   // vendor can just read, not a second structure they need new UI for.
-  const composeItemNotes = () => {
-    const parts = [];
-    if (selectedExtrasList.length > 0) {
-      parts.push(selectedExtrasList.map(e => `${e.quantity}x ${e.name}`).join(', '));
-    }
-    if (itemNote.trim()) parts.push(itemNote.trim());
-    return parts.join(' -- ');
-  };
-
-  // Structured counterpart to composeItemNotes() above -- same two inputs,
-  // kept queryable (findCartItem's identity check, POS, order views) instead
-  // of squashed into one display string. Price is never sent here -- the
+  // Structured `modifiers` is the queryable counterpart (findCartItem's
+  // identity check, POS, order views) -- price is never sent here, the
   // server resolves and locks it in against the product's own definitions
   // (supabaseCart.js's prepareCartItemData).
-  const buildModifiers = () => ({
-    extras: selectedExtrasList.map(e => ({ name: e.name, quantity: e.quantity })),
-    note: itemNote.trim()
-  });
+  const buildUnitPayload = (cfg) => {
+    const list = extrasDefinitions
+      .map((def) => ({ ...def, quantity: cfg.extras[def.name] || 0 }))
+      .filter((e) => e.quantity > 0);
+    const parts = [];
+    if (list.length > 0) parts.push(list.map((e) => `${e.quantity}x ${e.name}`).join(', '));
+    if (cfg.note.trim()) parts.push(cfg.note.trim());
+    return {
+      notes: parts.join(' -- '),
+      modifiers: { extras: list.map((e) => ({ name: e.name, quantity: e.quantity })), note: cfg.note.trim() }
+    };
+  };
 
-  // Simple add to cart for non-variant products
+  const resetAfterSuccess = (message) => {
+    setToast({ message, type: 'success' });
+    setQuantity(1);
+    setUnitConfigs([{ extras: {}, note: '' }]);
+    setSameForAll(true);
+    setSubmittedCount(0);
+  };
+
+  // Simple add to cart for non-variant products. "Same for all" is one
+  // call, unchanged from before per-unit configuration existed. Customizing
+  // each unit separately fires one addToCart per unit IN SEQUENCE (not
+  // parallel -- avoids racing the cart's own read-modify-write per
+  // request) -- two units that happen to end up with identical modifiers
+  // still merge into one line via the cart's existing identity logic, no
+  // special-casing needed here. submittedCount tracks how many units are
+  // already committed so a retry after a mid-loop failure resumes instead
+  // of resubmitting (and double-charging/duplicating) units already added.
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
       setShowSignInModal(true);
       return;
     }
 
-    // If product has variants, show variant modal
     if (initialProduct.hasVariants) {
       setShowVariantModal(true);
       return;
     }
 
-    // Simple product add to cart
     setIsAddingToCart(true);
     try {
-      const result = await addToCart(initialProduct.id, quantity, { notes: composeItemNotes(), modifiers: buildModifiers() });
-      if (result.success) {
-        // Picking different extras and adding again creates a second,
-        // separately-priced cart line rather than merging into this one
-        // (the cart's modifiers-aware line identity already handles
-        // this) -- worth a nudge here since nothing else in the UI hints
-        // that "add again" is how you get e.g. one plain + one with extras.
-        const addAnotherHint = extrasDefinitions.length > 0 ? ' Want it differently? Just add another.' : '';
-        setToast({
-          message: `${quantity} ${quantity === 1 ? 'item' : 'items'} added to cart successfully!${addAnotherHint}`,
-          type: 'success'
-        });
-        setQuantity(1);
-        setSelectedExtras({});
-        setItemNote('');
-      } else {
-        setToast({
-          message: result.error || "Failed to add item to cart",
-          type: 'error'
-        });
+      if (sameForAll) {
+        const { notes, modifiers } = buildUnitPayload(unitConfigs[0] || { extras: {}, note: '' });
+        const result = await addToCart(initialProduct.id, quantity, { notes, modifiers });
+        if (result.success) {
+          resetAfterSuccess(`${quantity} ${quantity === 1 ? 'item' : 'items'} added to cart successfully!`);
+        } else {
+          setToast({ message: result.error || "Failed to add item to cart", type: 'error' });
+        }
+        return;
       }
+
+      let addedCount = submittedCount;
+      for (let i = submittedCount; i < unitConfigs.length; i++) {
+        const { notes, modifiers } = buildUnitPayload(unitConfigs[i]);
+        const result = await addToCart(initialProduct.id, 1, { notes, modifiers });
+        if (!result.success) {
+          setSubmittedCount(addedCount);
+          setToast({
+            message: addedCount > 0
+              ? `Added ${addedCount} of ${quantity} -- item ${i + 1} failed: ${result.error || 'unknown error'}. Adjust it and try again.`
+              : `Failed to add item ${i + 1}: ${result.error || 'unknown error'}`,
+            type: 'error'
+          });
+          return;
+        }
+        addedCount += 1;
+        setSubmittedCount(addedCount);
+      }
+      resetAfterSuccess(`${quantity} ${quantity === 1 ? 'item' : 'items'} added to cart successfully!`);
     } catch (error) {
       console.error("Error adding to cart:", error);
       setToast({
@@ -391,22 +466,16 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
     }
   };
 
-  // Real definitions (price/maxQuantity), not the plain names the chips
-  // used to render -- also normalizes any legacy string-only extras still
-  // on older products (price 0, maxQuantity 1). A handful of extras at
-  // most, so a plain recompute each render isn't worth memoizing.
-  const extrasDefinitions = normalizeExtraDefinitions(initialProduct.categoryDetails?.food?.extras);
-
   // Server re-resolves and prices this for real at add-to-cart time
   // (supabaseCart.js's prepareCartItemData) -- this is only for the live
   // running total shown here, so a shopper never sees the total change
-  // silently once the item is actually in their cart.
-  const selectedExtrasList = extrasDefinitions
-    .map(def => ({ ...def, quantity: selectedExtras[def.name] || 0 }))
-    .filter(e => e.quantity > 0);
-  const extrasUnitCost = selectedExtrasList.reduce((sum, e) => sum + e.price * e.quantity, 0);
-
-  const totalPrice = (initialProduct.sellingPrice + extrasUnitCost) * quantity;
+  // silently once the item is actually in their cart. One formula, no
+  // "sameForAll" branch needed: every unitConfigs entry already holds
+  // whatever it should (mirrored, or genuinely per-unit), so summing each
+  // unit's own base+extras is exactly today's (base+cost)*quantity
+  // whenever every entry happens to be identical.
+  const extrasCostFor = (cfg) => extrasDefinitions.reduce((sum, def) => sum + def.price * (cfg.extras[def.name] || 0), 0);
+  const totalPrice = unitConfigs.reduce((sum, cfg) => sum + initialProduct.sellingPrice + extrasCostFor(cfg), 0);
 
   // Which colors this product actually comes in -- derived here instead of
   // reading each category's own categoryDetails.<category>.colors field,
@@ -1178,32 +1247,28 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
               {/* Extras (vendor-defined quick picks, e.g. Food's "Extra cheese")
                   and a freeform note -- both fold into the one notes string
-                  cart_items/order_items carry (see composeItemNotes above).
-                  Only for non-variant products, same gating as Quantity above. */}
+                  cart_items/order_items carry (see buildUnitPayload above).
+                  Only for non-variant products, same gating as Quantity above.
+                  At quantity >= 2 with real extras, lets a shopper configure
+                  each unit separately instead of one shared selection
+                  applying to all of them. */}
               {!initialProduct.hasVariants && (
-                <div className="mb-6 sm:mb-8 space-y-4">
-                  <ExtrasSelector
+                <div className="mb-6 sm:mb-8">
+                  <UnitExtrasConfigurator
+                    quantity={quantity}
                     extrasDefinitions={extrasDefinitions}
-                    selectedExtras={selectedExtras}
-                    onChange={setSelectedExtras}
+                    unitConfigs={unitConfigs}
+                    sameForAll={sameForAll}
+                    onSameForAllChange={handleSameForAllChange}
+                    onSharedExtrasChange={handleSharedExtrasChange}
+                    onSharedNoteChange={handleSharedNoteChange}
+                    onUnitExtrasChange={handleUnitExtrasChange}
+                    onUnitNoteChange={handleUnitNoteChange}
+                    submittedCount={submittedCount}
                     formatPrice={formatPrice}
                     primaryColor={primaryColor}
+                    notePlaceholder={NOTE_PLACEHOLDERS[initialProduct.category] || NOTE_PLACEHOLDERS.default}
                   />
-
-                  <div>
-                    <label htmlFor="item-note" className="text-sm font-semibold text-gray-900 mb-2 block">
-                      Note for the seller <span className="text-gray-400 font-normal">(optional)</span>
-                    </label>
-                    <textarea
-                      id="item-note"
-                      value={itemNote}
-                      onChange={(e) => setItemNote(e.target.value)}
-                      placeholder={NOTE_PLACEHOLDERS[initialProduct.category] || NOTE_PLACEHOLDERS.default}
-                      rows={2}
-                      maxLength={300}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 transition-colors resize-none"
-                    />
-                  </div>
                 </div>
               )}
 
@@ -1217,8 +1282,20 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                     </span>
                   </div>
                   <p className="text-xs text-gray-500">
-                    {quantity} {quantity === 1 ? 'item' : 'items'} × {formatPrice(initialProduct.sellingPrice + extrasUnitCost)}
-                    {extrasUnitCost > 0 && ` (${formatPrice(initialProduct.sellingPrice)} + ${formatPrice(extrasUnitCost)} extras)`}
+                    {sameForAll || quantity === 1 ? (
+                      (() => {
+                        const perUnit = initialProduct.sellingPrice + extrasCostFor(unitConfigs[0] || { extras: {}, note: '' });
+                        const extrasCost = perUnit - initialProduct.sellingPrice;
+                        return (
+                          <>
+                            {quantity} {quantity === 1 ? 'item' : 'items'} × {formatPrice(perUnit)}
+                            {extrasCost > 0 && ` (${formatPrice(initialProduct.sellingPrice)} + ${formatPrice(extrasCost)} extras)`}
+                          </>
+                        );
+                      })()
+                    ) : (
+                      `${quantity} items, customized individually`
+                    )}
                   </p>
                 </div>
               )}

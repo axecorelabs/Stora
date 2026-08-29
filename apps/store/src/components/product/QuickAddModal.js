@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { X, Plus, Minus, ShoppingCart, Check } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { normalizeExtraDefinitions } from "@stora/shared-constants";
 import ExtrasSelector from "@/components/product/ExtrasSelector";
 import { NOTE_PLACEHOLDERS } from "@/components/product/notePlaceholders";
@@ -10,17 +11,18 @@ import { NOTE_PLACEHOLDERS } from "@/components/product/notePlaceholders";
 // gating); a plain product still adds instantly, and a variant product
 // still goes to its full page for the size/color picker, unchanged.
 //
-// Stays open after a successful add (resetting extras/note, not quantity)
-// instead of closing, so picking different extras and adding again is the
-// obvious next move -- that produces a second, correctly separate cart
-// line via the cart's existing modifiers-aware line identity, not a
-// merge. An explicit close is required to dismiss it.
+// One shared extras selection applies to the whole quantity here -- that's
+// correct for the common case (identical items). Configuring each unit
+// separately needs real screen space (a stacked panel per unit), which
+// fights the point of a *quick* add in a mobile bottom sheet, so that case
+// hands off to the full product page instead of being crammed in here.
 export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, primaryColor = '#0D9488', currency = 'NGN' }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [quantity, setQuantity] = useState(1);
   const [selectedExtras, setSelectedExtras] = useState({});
   const [itemNote, setItemNote] = useState('');
   const [isAdding, setIsAdding] = useState(false);
-  const [justAdded, setJustAdded] = useState(false);
   const [error, setError] = useState(null);
 
   if (!isOpen || !product) return null;
@@ -53,6 +55,14 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, p
     return parts.join(' -- ');
   };
 
+  const handleClose = () => {
+    setQuantity(1);
+    setSelectedExtras({});
+    setItemNote('');
+    setError(null);
+    onClose();
+  };
+
   const handleAdd = async () => {
     setIsAdding(true);
     setError(null);
@@ -62,10 +72,7 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, p
         modifiers: buildModifiers()
       });
       if (result.success) {
-        setJustAdded(true);
-        setSelectedExtras({});
-        setItemNote('');
-        setTimeout(() => setJustAdded(false), 2000);
+        handleClose();
       } else {
         setError(result.error || 'Failed to add item to cart');
       }
@@ -76,12 +83,14 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, p
     }
   };
 
-  const handleClose = () => {
-    setQuantity(1);
-    setSelectedExtras({});
-    setItemNote('');
-    setError(null);
-    onClose();
+  // Carries quantity + intent along so the product page continues this
+  // shopper's flow instead of starting over -- see ProductDetailsClient.js's
+  // lazy useState initializers reading these same two params.
+  const goToFullPageCustomization = () => {
+    const storeSlug = pathname.split('/')[1];
+    const target = `/${storeSlug}/product/${product.id}?quantity=${quantity}&customize=1`;
+    handleClose();
+    router.push(target);
   };
 
   return (
@@ -119,6 +128,16 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, p
                 <Plus className="w-4 h-4 text-gray-600" />
               </button>
             </div>
+            {quantity >= 2 && extrasDefinitions.length > 0 && (
+              <button
+                type="button"
+                onClick={goToFullPageCustomization}
+                className="text-xs font-medium mt-2 hover:underline"
+                style={{ color: primaryColor }}
+              >
+                Want different extras per item? Customize on the product page
+              </button>
+            )}
           </div>
 
           <ExtrasSelector
@@ -158,13 +177,6 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, p
           {error && (
             <p className="text-sm text-red-600">{error}</p>
           )}
-
-          {justAdded && (
-            <div className="flex items-center gap-2 text-sm text-brand-800 bg-brand-50 border border-brand-100 rounded-xl px-4 py-3">
-              <Check className="w-4 h-4 shrink-0" />
-              <span>Added! Want it differently? Pick new extras and add again.</span>
-            </div>
-          )}
         </div>
 
         <div className="flex gap-3 p-4 sm:p-6 border-t border-gray-100">
@@ -172,7 +184,7 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, p
             onClick={handleClose}
             className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
           >
-            Done
+            Cancel
           </button>
           <button
             onClick={handleAdd}
