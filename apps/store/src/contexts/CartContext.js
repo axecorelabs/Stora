@@ -82,7 +82,8 @@ export function CartProvider({ children }) {
           variantId: metadata?.variantId,
           color: metadata?.color,
           size: metadata?.size,
-          notes: metadata?.notes
+          notes: metadata?.notes,
+          modifiers: metadata?.modifiers
         }),
       });
 

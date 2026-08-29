@@ -5,6 +5,7 @@ import { generateSKU, backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 import { embedProductById } from '@/lib/openrouter';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { normalizeExtraDefinitions } from '@stora/shared-constants';
 
 // Helper to transform inventory data for response (snake_case to camelCase).
 // Every product has >=1 real inventory_variants row now (see
@@ -324,7 +325,16 @@ export async function POST(req) {
     // itself -- so this must nest it the same way, not assign it directly.
     let categoryDetails = null;
     if (inventoryData.category === 'Food' && inventoryData.foodDetails) {
-      categoryDetails = { food: inventoryData.foodDetails };
+      // Extras carry real money now (price + a per-extra max quantity) --
+      // clamp/normalize here too, not just in the dashboard UI, so a raw
+      // API call can't write a negative price or garbage max straight into
+      // the JSONB column.
+      categoryDetails = {
+        food: {
+          ...inventoryData.foodDetails,
+          extras: normalizeExtraDefinitions(inventoryData.foodDetails.extras)
+        }
+      };
     } else if (inventoryData.category === 'Beverages' && inventoryData.beveragesDetails) {
       categoryDetails = { beverages: inventoryData.beveragesDetails };
     } else if (inventoryData.category === 'Books' && inventoryData.booksDetails) {

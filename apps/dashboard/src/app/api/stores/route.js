@@ -37,6 +37,7 @@ function transformStore(store) {
     // portion out of the Paystack charge, merchandise payment is untouched.
     deliveryFees: (typeof store.delivery_fees === 'string' ? JSON.parse(store.delivery_fees) : store.delivery_fees) || {},
     fulfillmentMethod: store.fulfillment_method === 'pay_on_delivery' ? 'pay_on_delivery' : 'platform_collected',
+    restaurantMode: !!store.restaurant_mode,
     address: parsedAddress,
     // Flat display string a few screens read directly (POS's store-info
     // header, the website settings page, ReceiptModal) -- was never

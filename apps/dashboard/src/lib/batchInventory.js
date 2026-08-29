@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { supabaseAdmin } from './supabase';
+import { normalizeExtraDefinitions, resolveExtrasSelection } from '@stora/shared-constants';
 
 // Resolve inventory + variant identity for a whole batch of line items in
 // bulk: one query for every inventory row involved, one query for every
@@ -100,6 +101,11 @@ function buildProcessedResult(saleItem, inventoryItem, variantInfo, rpcRow) {
   let totalCost = 0;
   let totalProfit = 0;
 
+  // NOTE: saleItem.unitPrice already includes any extras cost baked in
+  // upstream (pos/page.js), and extras have no cost-of-goods tracking of
+  // their own (no cost_price per extra anywhere) -- so 100% of extras
+  // revenue reads as pure profit here. Accepted scope simplification:
+  // pricing + limits were asked for, not extras COGS tracking.
   const batchesSoldFrom = rpcBatches.map(b => {
     const costPriceFromBatch = parseFloat(b.cost_price ?? variantInfo.costPrice ?? 0);
     totalCost += b.quantity * costPriceFromBatch;
@@ -135,6 +141,7 @@ function buildProcessedResult(saleItem, inventoryItem, variantInfo, rpcRow) {
     unitPrice: saleItem.unitPrice,
     total: saleItem.total,
     variant: variantInfo,
+    modifiers: saleItem.modifiers || null,
     batchesSoldFrom,
     costBreakdown: {
       totalCost,
@@ -155,6 +162,7 @@ function buildProcessedResult(saleItem, inventoryItem, variantInfo, rpcRow) {
     weighted_average_cost: saleItem.quantity > 0 ? totalCost / saleItem.quantity : 0,
     profit: totalProfit,
     variant_info: variantInfo,
+    modifiers: saleItem.modifiers || null,
     batches_sold_from: batchesSoldFrom.length > 0 ? batchesSoldFrom : null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -187,6 +195,42 @@ export async function processItemsWithBatchTracking(saleItems, userId, isOrderPr
     const reason = `Sold: ${saleItem.quantity} ${inventoryItem.unit_of_measure || 'unit'} ${reasonSuffix}`;
     return { saleItem, inventoryItem, variantInfo, reason };
   });
+
+  // Validate each item's requested extras against its own current
+  // definitions -- defense-in-depth against a tampered/buggy request
+  // (this route otherwise trusts saleItem.unitPrice/.total wholesale).
+  // Scoped to fresh POS sales only: an order-fulfillment completion
+  // (isOrderProcessing=true) is honoring a selection a customer already
+  // made and paid for at checkout time (already validated there -- see
+  // orders/create/route.js), which can legitimately reference an extra
+  // whose maxQuantity a vendor has since lowered, without that being wrong.
+  //
+  // This deliberately does NOT recompute/compare the item's BASE price.
+  // Two options were considered and rejected:
+  // 1. Replicate the storefront's batch-price resolution
+  //    (supabaseStore.js's resolveBatchPricing) here -- a separate, larger
+  //    undertaking than this pass, not something to half-build.
+  // 2. Compare against inventory_variants.price directly -- rejected after
+  //    checking fn_create_batch (20260817000002_variant_only_rpcs.sql):
+  //    adding a new batch updates quantity_in_stock but never touches
+  //    variants.price, so a vendor re-batching at a new selling price
+  //    leaves that column stale. A strict (or even tolerance-based)
+  //    comparison against it would false-positive-reject perfectly
+  //    legitimate sales the moment a vendor's real price has moved on from
+  //    whatever variants.price last happened to hold -- worse than no
+  //    check at all.
+  // The known compounding-price bug this would have caught (POS
+  // re-customizing a variant+extras line) is fixed at its source instead
+  // (see pos/page.js's handleAddVariantToCart/handleSaveModifiers).
+  if (!isOrderProcessing) {
+    for (const ctx of itemContexts) {
+      const extrasDefinitions = normalizeExtraDefinitions(ctx.inventoryItem.category_details?.food?.extras);
+      const { errors } = resolveExtrasSelection(extrasDefinitions, ctx.saleItem.modifiers?.extras);
+      if (errors.length > 0) {
+        throw new Error(`${ctx.inventoryItem.name}: ${errors.join('; ')}`);
+      }
+    }
+  }
 
   const rpcItems = itemContexts.map(({ saleItem, variantInfo, reason }) => ({
     variant_id: variantInfo.variantId,

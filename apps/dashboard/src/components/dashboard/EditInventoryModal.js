@@ -54,7 +54,6 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
   const [existingImages, setExistingImages] = useState([]);
   const [detectedColorVariants, setDetectedColorVariants] = useState([]);
   const [variants, setVariants] = useState([]);
-  const [selectedStateForCity, setSelectedStateForCity] = useState('');
   
   // Batch tracking state - current active batch (FIFO)
   const [activeBatch, setActiveBatch] = useState(null);
@@ -228,84 +227,6 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
     }, {});
     
     return Object.values(colorGroups);
-  };
-
-  // Delivery location handlers (same as AddInventoryModal)
-  const addDeliveryState = (category) => {
-    if (!selectedStateForCity) return;
-    
-    const stateExists = formData[`${category}Details`]?.deliveryLocations.states.some(
-      s => s.stateName === selectedStateForCity
-    );
-    
-    if (stateExists) {
-      alert('This state is already added');
-      return;
-    }
-
-    handleCategoryDetailChange(category, 'deliveryLocations', {
-      ...formData[`${category}Details`].deliveryLocations,
-      states: [
-        ...formData[`${category}Details`].deliveryLocations.states,
-        {
-          stateName: selectedStateForCity,
-          cities: [],
-          coverAllCities: false
-        }
-      ]
-    });
-    setSelectedStateForCity('');
-  };
-
-  const removeDeliveryState = (category, stateName) => {
-    handleCategoryDetailChange(category, 'deliveryLocations', {
-      ...formData[`${category}Details`].deliveryLocations,
-      states: formData[`${category}Details`].deliveryLocations.states.filter(s => s.stateName !== stateName)
-    });
-  };
-
-  const toggleCoverAllCitiesInState = (category, stateName) => {
-    const updatedStates = formData[`${category}Details`].deliveryLocations.states.map(state => 
-      state.stateName === stateName
-        ? { ...state, coverAllCities: !state.coverAllCities, cities: [] }
-        : state
-    );
-    
-    handleCategoryDetailChange(category, 'deliveryLocations', {
-      ...formData[`${category}Details`].deliveryLocations,
-      states: updatedStates
-    });
-  };
-
-  const addCityToDeliveryState = (category, stateName, city) => {
-    const updatedStates = formData[`${category}Details`].deliveryLocations.states.map(state => 
-      state.stateName === stateName
-        ? {
-            ...state,
-            cities: state.cities.includes(city)
-              ? state.cities
-              : [...state.cities, city]
-          }
-        : state
-    );
-    
-    handleCategoryDetailChange(category, 'deliveryLocations', {
-      ...formData[`${category}Details`].deliveryLocations,
-      states: updatedStates
-    });
-  };
-
-  const removeCityFromDeliveryState = (category, stateName, city) => {
-    const updatedStates = formData[`${category}Details`].deliveryLocations.states.map(state => 
-      state.stateName === stateName
-        ? { ...state, cities: state.cities.filter(c => c !== city) }
-        : state
-    );
-    
-    handleCategoryDetailChange(category, 'deliveryLocations', {
-      ...formData[`${category}Details`].deliveryLocations,
-      states: updatedStates
-    });
   };
 
   const handleChange = (e) => {
@@ -1124,13 +1045,6 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                 handleCategoryDetailChange={handleCategoryDetailChange}
                 handleArrayFieldChange={handleArrayFieldChange}
                 removeArrayItem={removeArrayItem}
-                selectedStateForCity={selectedStateForCity}
-                setSelectedStateForCity={setSelectedStateForCity}
-                addDeliveryState={addDeliveryState}
-                removeDeliveryState={removeDeliveryState}
-                toggleCoverAllCitiesInState={toggleCoverAllCitiesInState}
-                addCityToDeliveryState={addCityToDeliveryState}
-                removeCityFromDeliveryState={removeCityFromDeliveryState}
                 detectedColorVariants={detectedColorVariants}
               />
             </div>

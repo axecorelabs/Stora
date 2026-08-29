@@ -1,5 +1,5 @@
 "use client";
-import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Settings, UtensilsCrossed } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
@@ -12,6 +12,18 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  // Same ['store'] queryKey usePOSData.js/inventory/page.js already use, so
+  // this shares their cache instead of firing its own request -- this
+  // header renders on every dashboard page (via DashboardLayout.js), which
+  // is the point: a vendor should be able to tell Restaurant Mode is on
+  // without navigating to Store > Preferences or the storefront itself.
+  const { data: storeResponse } = useQuery({
+    queryKey: ['store'],
+    queryFn: () => secureApiCall('/api/stores'),
+    staleTime: 5 * 60 * 1000
+  });
+  const restaurantMode = !!storeResponse?.data?.restaurantMode;
 
   // Unread notification count -- on TanStack Query (not a local
   // setInterval poll) so the realtime hook's invalidateQueries(['notifications'])
@@ -52,7 +64,18 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="min-w-0">
-              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 truncate">{title}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl lg:text-2xl font-bold text-gray-900 truncate">{title}</h1>
+                {restaurantMode && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium bg-brand-100 text-brand-800 shrink-0"
+                    title="This store is in Restaurant Mode -- menu-first item form, sectioned storefront menu"
+                  >
+                    <UtensilsCrossed className="w-3 h-3" />
+                    <span className="hidden sm:inline">Restaurant Mode</span>
+                  </span>
+                )}
+              </div>
               <p className="hidden sm:block text-sm text-gray-500 mt-1 truncate">{subtitle}</p>
             </div>
           </div>

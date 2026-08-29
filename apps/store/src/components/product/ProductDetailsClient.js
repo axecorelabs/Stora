@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { normalizeExtraDefinitions } from "@stora/shared-constants";
 import { 
   ArrowLeft, Plus, Minus, ShoppingCart, Heart, MapPin, Tag, Package, Share2, Check, X,
   Shirt, Footprints, Watch, Droplets, UtensilsCrossed, Coffee, Smartphone, 
@@ -58,7 +59,10 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   const { isAuthenticated } = useAuth();
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-  const [selectedExtras, setSelectedExtras] = useState([]);
+  // Map of extra name -> selected quantity (only extras with quantity > 0
+  // are considered "selected"), replacing a plain on/off toggle now that
+  // each extra can carry its own price and be added more than once.
+  const [selectedExtras, setSelectedExtras] = useState({});
   const [itemNote, setItemNote] = useState('');
   const [liked, setLiked] = useState(false);
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
@@ -207,10 +211,22 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   // vendor can just read, not a second structure they need new UI for.
   const composeItemNotes = () => {
     const parts = [];
-    if (selectedExtras.length > 0) parts.push(selectedExtras.join(', '));
+    if (selectedExtrasList.length > 0) {
+      parts.push(selectedExtrasList.map(e => `${e.quantity}x ${e.name}`).join(', '));
+    }
     if (itemNote.trim()) parts.push(itemNote.trim());
     return parts.join(' -- ');
   };
+
+  // Structured counterpart to composeItemNotes() above -- same two inputs,
+  // kept queryable (findCartItem's identity check, POS, order views) instead
+  // of squashed into one display string. Price is never sent here -- the
+  // server resolves and locks it in against the product's own definitions
+  // (supabaseCart.js's prepareCartItemData).
+  const buildModifiers = () => ({
+    extras: selectedExtrasList.map(e => ({ name: e.name, quantity: e.quantity })),
+    note: itemNote.trim()
+  });
 
   // Simple add to cart for non-variant products
   const handleAddToCart = async () => {
@@ -228,14 +244,14 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
     // Simple product add to cart
     setIsAddingToCart(true);
     try {
-      const result = await addToCart(initialProduct.id, quantity, { notes: composeItemNotes() });
+      const result = await addToCart(initialProduct.id, quantity, { notes: composeItemNotes(), modifiers: buildModifiers() });
       if (result.success) {
         setToast({
           message: `${quantity} ${quantity === 1 ? 'item' : 'items'} added to cart successfully!`,
           type: 'success'
         });
         setQuantity(1);
-        setSelectedExtras([]);
+        setSelectedExtras({});
         setItemNote('');
       } else {
         setToast({
@@ -389,7 +405,24 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
     }
   };
 
-  const totalPrice = initialProduct.sellingPrice * quantity;
+  // Real definitions (price/maxQuantity), not the plain names the chips
+  // used to render -- also normalizes any legacy string-only extras still
+  // on older products (price 0, maxQuantity 1).
+  const extrasDefinitions = useMemo(
+    () => normalizeExtraDefinitions(initialProduct.categoryDetails?.food?.extras),
+    [initialProduct.categoryDetails]
+  );
+
+  // Server re-resolves and prices this for real at add-to-cart time
+  // (supabaseCart.js's prepareCartItemData) -- this is only for the live
+  // running total shown here, so a shopper never sees the total change
+  // silently once the item is actually in their cart.
+  const selectedExtrasList = extrasDefinitions
+    .map(def => ({ ...def, quantity: selectedExtras[def.name] || 0 }))
+    .filter(e => e.quantity > 0);
+  const extrasUnitCost = selectedExtrasList.reduce((sum, e) => sum + e.price * e.quantity, 0);
+
+  const totalPrice = (initialProduct.sellingPrice + extrasUnitCost) * quantity;
 
   // Which colors this product actually comes in -- derived here instead of
   // reading each category's own categoryDetails.<category>.colors field,
@@ -1165,30 +1198,47 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                   Only for non-variant products, same gating as Quantity above. */}
               {!initialProduct.hasVariants && (
                 <div className="mb-6 sm:mb-8 space-y-4">
-                  {Array.isArray(initialProduct.categoryDetails?.food?.extras) && initialProduct.categoryDetails.food.extras.length > 0 && (
+                  {extrasDefinitions.length > 0 && (
                     <div>
                       <label className="text-sm font-semibold text-gray-900 mb-2 block">
                         Extras <span className="text-gray-400 font-normal">(optional)</span>
                       </label>
-                      <div className="flex flex-wrap gap-2">
-                        {initialProduct.categoryDetails.food.extras.map((extra) => {
-                          const isSelected = selectedExtras.includes(extra);
+                      <div className="space-y-2">
+                        {extrasDefinitions.map((extra) => {
+                          const qty = selectedExtras[extra.name] || 0;
                           return (
-                            <button
-                              key={extra}
-                              type="button"
-                              onClick={() => setSelectedExtras((prev) =>
-                                isSelected ? prev.filter((e) => e !== extra) : [...prev, extra]
-                              )}
-                              className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                                isSelected
-                                  ? 'text-white border-transparent'
-                                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                              }`}
-                              style={isSelected ? { backgroundColor: primaryColor } : undefined}
+                            <div
+                              key={extra.name}
+                              className="flex items-center justify-between px-3.5 py-2 rounded-xl border border-gray-200 bg-white"
                             >
-                              {extra}
-                            </button>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{extra.name}</p>
+                                <p className="text-xs text-gray-500">
+                                  {extra.price > 0 ? `+${formatPrice(extra.price)} each` : 'Free'}
+                                  {extra.maxQuantity > 1 && ` · up to ${extra.maxQuantity}`}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedExtras((prev) => ({ ...prev, [extra.name]: Math.max(0, qty - 1) }))}
+                                  disabled={qty <= 0}
+                                  className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+                                >
+                                  <Minus className="w-3.5 h-3.5" />
+                                </button>
+                                <span className={`w-4 text-center text-sm font-semibold tabular-nums ${qty > 0 && qty >= extra.maxQuantity ? 'text-gold-600' : 'text-gray-900'}`}>{qty}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedExtras((prev) => ({ ...prev, [extra.name]: Math.min(extra.maxQuantity, qty + 1) }))}
+                                  disabled={qty >= extra.maxQuantity}
+                                  className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+                                  style={qty < extra.maxQuantity ? { borderColor: primaryColor, color: primaryColor } : undefined}
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
@@ -1222,7 +1272,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                     </span>
                   </div>
                   <p className="text-xs text-gray-500">
-                    {quantity} {quantity === 1 ? 'item' : 'items'} × {formatPrice(initialProduct.sellingPrice)}
+                    {quantity} {quantity === 1 ? 'item' : 'items'} × {formatPrice(initialProduct.sellingPrice + extrasUnitCost)}
+                    {extrasUnitCost > 0 && ` (${formatPrice(initialProduct.sellingPrice)} + ${formatPrice(extrasUnitCost)} extras)`}
                   </p>
                 </div>
               )}

@@ -18,13 +18,6 @@ export default function CategoryDetailsRenderer({
   handleCategoryDetailChange,
   handleArrayFieldChange,
   removeArrayItem,
-  selectedStateForCity,
-  setSelectedStateForCity,
-  addDeliveryState,
-  removeDeliveryState,
-  toggleCoverAllCitiesInState,
-  addCityToDeliveryState,
-  removeCityFromDeliveryState,
   detectedColorVariants // New prop passed from parent
 }) {
   const hasDetectedVariants = detectedColorVariants && detectedColorVariants.length >= 2;

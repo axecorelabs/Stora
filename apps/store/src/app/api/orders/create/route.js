@@ -6,7 +6,7 @@ import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supaba
 import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseCart";
 import { findInventoryByIds, findActiveBatchesByInventoryIds, resolveBatchPricing } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
-import { isValidNigerianState, computeStoreCheckoutAmount, estimatePaystackFee } from "@stora/shared-constants";
+import { isValidNigerianState, computeStoreCheckoutAmount, estimatePaystackFee, normalizeExtraDefinitions, resolveExtrasSelection } from "@stora/shared-constants";
 
 const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
 // A flat 2% is too thin to be worth collecting on small orders (Paystack's
@@ -441,16 +441,30 @@ export async function POST(request) {
       // their cart rather than either silently honoring the old price or
       // silently charging the new one without their awareness.
       const currentBatches = (batchesByProduct[cartItem.product_id] || []).filter(b => b.variant_id === variantId);
-      const { sellingPrice: currentPrice } = await resolveBatchPricing(product, currentBatches, variantId);
-      if (parseFloat(currentPrice) !== parseFloat(cartItem.price)) {
+      const { sellingPrice: currentBasePrice } = await resolveBatchPricing(product, currentBatches, variantId);
+
+      // Re-resolve extras fresh against the product's CURRENT definitions --
+      // never trust the price snapshotted in cartItem.modifiers.extras. This
+      // is also what catches a vendor having since repriced an extra,
+      // dropped it, or shrunk its maxQuantity out from under a stale cart
+      // line: it just falls out of the price-changed check below, the same
+      // as a repriced base product already did before extras existed.
+      const extrasDefinitions = normalizeExtraDefinitions(product.categoryDetails?.food?.extras);
+      const { unitCost: currentExtrasUnitCost, errors: extrasErrors } =
+        resolveExtrasSelection(extrasDefinitions, cartItem.modifiers?.extras);
+      const currentPrice = parseFloat(currentBasePrice) + (extrasErrors.length > 0 ? 0 : currentExtrasUnitCost);
+
+      if (extrasErrors.length > 0 || currentPrice !== parseFloat(cartItem.price)) {
         return NextResponse.json(
           {
             success: false,
-            message: `The price of ${product.productName} has changed (was ₦${parseFloat(cartItem.price).toLocaleString('en-NG')}, now ₦${parseFloat(currentPrice).toLocaleString('en-NG')}). Please review your cart before checking out.`,
+            message: extrasErrors.length > 0
+              ? `${product.productName}'s extras are no longer available as selected (${extrasErrors.join('; ')}). Please review your cart before checking out.`
+              : `The price of ${product.productName} has changed (was ₦${parseFloat(cartItem.price).toLocaleString('en-NG')}, now ₦${currentPrice.toLocaleString('en-NG')}). Please review your cart before checking out.`,
             priceChanged: true,
             productId: cartItem.product_id,
             oldPrice: parseFloat(cartItem.price),
-            newPrice: parseFloat(currentPrice)
+            newPrice: currentPrice
           },
           { status: 409 }
         );
@@ -509,6 +523,7 @@ export async function POST(request) {
         price: cartItem.price,
         subtotal: cartItem.subtotal,
         notes: cartItem.notes || null,
+        modifiers: cartItem.modifiers || null,
         productSnapshot: cartItem.product_snapshot,
         storeSnapshot: completeStoreData ? {
           store_name: completeStoreData.store_name,

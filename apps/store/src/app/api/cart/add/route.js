@@ -12,7 +12,7 @@ export async function POST(request) {
       );
     }
 
-    const { productId, quantity = 1, variantId, color, size, notes } = await request.json();
+    const { productId, quantity = 1, variantId, color, size, notes, modifiers } = await request.json();
 
     if (!productId) {
       return NextResponse.json(
@@ -42,7 +42,7 @@ export async function POST(request) {
     let cart = await getOrCreateCart(customerId);
 
     // Prepare item data with batch pricing
-    const itemData = await prepareCartItemData(productId, quantity, variantData, notes);
+    const itemData = await prepareCartItemData(productId, quantity, variantData, notes, modifiers);
 
     // Add item to cart
     cart = await addItemToCart(cart, itemData);
@@ -84,9 +84,10 @@ export async function POST(request) {
       );
     }
     
-    if (error.message.includes('not available') || 
-        error.message.includes('stock') || 
-        error.message.includes('variant selection')) {
+    if (error.message.includes('not available') ||
+        error.message.includes('stock') ||
+        error.message.includes('variant selection') ||
+        error.message.includes('Invalid extras selection')) {
       return NextResponse.json(
         { success: false, message: error.message },
         { status: 400 }

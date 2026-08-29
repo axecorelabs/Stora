@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase';
 import { findInventoryById, findActiveBatchesByInventoryId, resolveBatchPricing } from './supabaseStore';
+import { normalizeExtraDefinitions, resolveExtrasSelection, normalizeModifiers, modifiersEqual } from "@stora/shared-constants";
 
 // ============ CART OPERATIONS ============
 
@@ -156,7 +157,7 @@ export async function findCartItems(cartId) {
   return data || [];
 }
 
-export async function findCartItem(cartId, productId, variantId = null) {
+export async function findCartItem(cartId, productId, variantId = null, modifiers = null) {
   let query = supabaseAdmin
     .from('cart_items')
     .select('*')
@@ -174,14 +175,18 @@ export async function findCartItem(cartId, productId, variantId = null) {
   if (!data || data.length === 0) return null;
 
   // Filter by variant if specified
+  let candidates = data;
   if (variantId) {
-    const item = data.find(item => 
+    candidates = candidates.filter(item =>
       item.product_snapshot?.variant?.variant_id === variantId
     );
-    return item || null;
   }
 
-  return data[0];
+  // Modifiers are part of line-item identity too -- two different modifier
+  // selections on the same product/variant are separate lines, not one that
+  // silently absorbs the second (the same class of bug that already existed
+  // here for plain `notes`).
+  return candidates.find(item => modifiersEqual(item.modifiers, modifiers)) || null;
 }
 
 export async function createCartItem(itemData) {
@@ -264,9 +269,10 @@ export async function deleteAllCartItems(cartId) {
 export async function addItemToCart(cart, itemData) {
   // Check if item already exists (same product and variant if applicable)
   const existingItem = await findCartItem(
-    cart.id, 
-    itemData.product_id, 
-    itemData.product_snapshot?.variant?.variant_id
+    cart.id,
+    itemData.product_id,
+    itemData.product_snapshot?.variant?.variant_id,
+    itemData.modifiers
   );
 
   if (existingItem) {
@@ -530,7 +536,7 @@ export async function validateCartStock(cart) {
   };
 }
 
-export async function prepareCartItemData(productId, quantity, variantData = null, notes = '') {
+export async function prepareCartItemData(productId, quantity, variantData = null, notes = '', modifiers = null) {
   // Get product details (already transformed to camelCase by findInventoryById)
   const product = await findInventoryById(productId);
   
@@ -575,6 +581,18 @@ export async function prepareCartItemData(productId, quantity, variantData = nul
     throw new Error(`Only ${availableStock} items available`);
   }
 
+  // Resolve any requested extras (e.g. "2x Sausage") against the product's
+  // OWN extras definitions -- price is always looked up here, never taken
+  // from the client's `modifiers` payload, the same trust boundary as the
+  // batch pricing above. unitCost is added once per unit of the product;
+  // `price`/`subtotal` below already multiply by quantity.
+  const extrasDefinitions = normalizeExtraDefinitions(product.categoryDetails?.food?.extras);
+  const { unitCost: extrasUnitCost, snapshot: extrasSnapshot, errors: extrasErrors } =
+    resolveExtrasSelection(extrasDefinitions, modifiers?.extras);
+  if (extrasErrors.length > 0) {
+    throw new Error(`Invalid extras selection: ${extrasErrors.join('; ')}`);
+  }
+
   // Always carry a real variant_id in the snapshot, even for a simple
   // product with no real size/color options -- variantData (from the
   // picker) already has size/color; a simple product's auto-resolved
@@ -597,12 +615,15 @@ export async function prepareCartItemData(productId, quantity, variantData = nul
     throw new Error('Store not found');
   }
 
-  // Build cart item data for cart_items table
+  // Build cart item data for cart_items table. price/subtotal already fold
+  // in extrasUnitCost -- everything downstream (quantity changes, cart-line
+  // merges) just does quantity * price and keeps working unchanged.
+  const unitPrice = parseFloat(currentPrice) + extrasUnitCost;
   const itemData = {
     product_id: productId,
     quantity,
-    price: currentPrice,
-    subtotal: quantity * parseFloat(currentPrice),
+    price: unitPrice,
+    subtotal: quantity * unitPrice,
     store_id: store.id,
     product_snapshot: {
       product_name: product.productName,
@@ -623,7 +644,8 @@ export async function prepareCartItemData(productId, quantity, variantData = nul
       store_name: store.store_name,
       store_slug: store.store_slug,
     },
-    notes: notes || ''
+    notes: notes || '',
+    modifiers: normalizeModifiers({ extras: extrasSnapshot, note: modifiers?.note })
   };
 
   // Add batch info for logging purposes (not saved to DB)

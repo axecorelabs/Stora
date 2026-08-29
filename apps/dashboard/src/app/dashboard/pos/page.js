@@ -5,11 +5,13 @@ import ReceiptModal from "@/components/dashboard/ReceiptModal";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
 import DeliveryScheduleModal from "@/components/dashboard/DeliveryScheduleModal";
 import VariantSelectionModal from "@/components/dashboard/VariantSelectionModal";
+import POSItemModifierModal from "@/components/dashboard/POS/POSItemModifierModal";
 import SectionHeader from "@/components/ui/SectionHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import useOrderProcessingStore from "@/store/orderProcessingStore";
 import { usePOSData } from "@/hooks/usePOSData";
+import { normalizeModifiers, modifiersEqual, normalizeExtraDefinitions, resolveExtrasSelection } from "@stora/shared-constants";
 import {
   Search,
   Plus,
@@ -28,7 +30,8 @@ import {
   CheckCircle,
   AlertCircle,
   ArrowLeft,
-  FileText
+  FileText,
+  MessageSquare
 } from "lucide-react";
 
 // Suggests round-number cash amounts a cashier can tap instead of typing,
@@ -92,6 +95,7 @@ export default function POSPage() {
   const [selectedItemForVariant, setSelectedItemForVariant] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [addedToCartMessage, setAddedToCartMessage] = useState(null);
+  const [modifierModalIndex, setModifierModalIndex] = useState(null);
 
   const searchInputRef = useRef(null);
   const toastTimeoutRef = useRef(null);
@@ -188,15 +192,18 @@ export default function POSPage() {
       return;
     }
 
-    // Regular non-variant item
+    // Regular non-variant item -- modifiers are part of line identity too
+    // (same reasoning as the storefront cart's findCartItem fix): a plain
+    // re-add from the product grid always carries no modifiers, so it
+    // should only merge into an existing line that also has none.
     const existingItem = cart.find(cartItem =>
-      cartItem._id === item._id && !cartItem.variant
+      cartItem._id === item._id && !cartItem.variant && modifiersEqual(cartItem.modifiers, null)
     );
 
     if (existingItem) {
       if (existingItem.quantity < item.quantityInStock) {
         setCart(cart.map(cartItem =>
-          cartItem._id === item._id && !cartItem.variant
+          cartItem === existingItem
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem
         ));
@@ -205,26 +212,36 @@ export default function POSPage() {
         alert(`Only ${item.quantityInStock} units available`);
       }
     } else {
-      setCart([...cart, { ...item, quantity: 1 }]);
+      // basePrice is a stable snapshot of the item's own price, untouched
+      // by any later extras customization -- handleSaveModifiers always
+      // recomputes sellingPrice from this, never from the current
+      // (possibly already-modified) sellingPrice, so re-customizing a line
+      // twice never compounds the price.
+      setCart([...cart, { ...item, quantity: 1, basePrice: item.sellingPrice }]);
       showAddedToCartToast(`${item.productName} added to cart`);
     }
   };
 
   // Handle adding variant item to cart
   const handleAddVariantToCart = (variantCartItem) => {
-    // Check if this exact variant is already in cart
-    const existingItem = cart.find(cartItem => 
-      cartItem._id === variantCartItem._id && 
-      cartItem.variant?.variantId === variantCartItem.variant.variantId
+    // Check if this exact variant is already in cart -- modifiers are part
+    // of line identity here too (same reasoning as the non-variant path
+    // above): a plain re-add from the variant picker always carries no
+    // modifiers, so it should only merge into an existing line that also
+    // has none, never silently absorb quantity into an already-customized
+    // (extras-priced) line.
+    const existingItem = cart.find(cartItem =>
+      cartItem._id === variantCartItem._id &&
+      cartItem.variant?.variantId === variantCartItem.variant.variantId &&
+      modifiersEqual(cartItem.modifiers, null)
     );
-    
+
     if (existingItem) {
       // Update quantity if variant already in cart
       const newQuantity = existingItem.quantity + variantCartItem.quantity;
       if (newQuantity <= variantCartItem.availableStock) {
         setCart(cart.map(cartItem =>
-          cartItem._id === variantCartItem._id &&
-          cartItem.variant?.variantId === variantCartItem.variant.variantId
+          cartItem === existingItem
             ? { ...cartItem, quantity: newQuantity }
             : cartItem
         ));
@@ -233,25 +250,30 @@ export default function POSPage() {
         alert(`Only ${variantCartItem.availableStock} units available for this variant`);
       }
     } else {
-      // Add new variant to cart
-      setCart([...cart, variantCartItem]);
+      // Add new variant to cart. basePrice is the stable, extras-free
+      // snapshot handleSaveModifiers always recomputes from -- without it,
+      // re-customizing this line would fall back to the (possibly already
+      // extras-inflated) sellingPrice as if it were the base, compounding
+      // the price on every re-customization.
+      setCart([...cart, { ...variantCartItem, basePrice: variantCartItem.sellingPrice }]);
       showAddedToCartToast(`${variantCartItem.productName} added to cart`);
     }
   };
 
-  // Update cart item quantity - modified to handle variants
-  const updateCartQuantity = (itemId, newQuantity, variantId = null) => {
+  // Update cart item quantity - modified to handle variants and modifiers
+  const updateCartQuantity = (itemId, newQuantity, variantId = null, modifiers = null) => {
     if (newQuantity <= 0) {
-      removeFromCart(itemId, variantId);
+      removeFromCart(itemId, variantId, modifiers);
       return;
     }
 
     setCart(cart.map(cartItem => {
-      // Match by itemId and variantId (if applicable)
-      const isMatch = variantId 
-        ? (cartItem._id === itemId && cartItem.variant?.variantId === variantId)
-        : (cartItem._id === itemId && !cartItem.variant);
-      
+      // Match by itemId, variantId (if applicable), and modifiers -- two
+      // customizations of the same item/variant are different lines.
+      const isMatch = variantId
+        ? (cartItem._id === itemId && cartItem.variant?.variantId === variantId && modifiersEqual(cartItem.modifiers, modifiers))
+        : (cartItem._id === itemId && !cartItem.variant && modifiersEqual(cartItem.modifiers, modifiers));
+
       if (isMatch) {
         const maxStock = cartItem.variant ? cartItem.availableStock : cartItem.quantityInStock;
         if (newQuantity > maxStock) {
@@ -264,14 +286,56 @@ export default function POSPage() {
     }));
   };
 
-  // Remove item from cart - modified to handle variants
-  const removeFromCart = (itemId, variantId = null) => {
+  // Remove item from cart - modified to handle variants and modifiers
+  const removeFromCart = (itemId, variantId = null, modifiers = null) => {
     setCart(cart.filter(item => {
       if (variantId) {
-        return !(item._id === itemId && item.variant?.variantId === variantId);
+        return !(item._id === itemId && item.variant?.variantId === variantId && modifiersEqual(item.modifiers, modifiers));
       }
-      return !(item._id === itemId && !item.variant);
+      return !(item._id === itemId && !item.variant && modifiersEqual(item.modifiers, modifiers));
     }));
+  };
+
+  // Save a cart line's modifiers from the Customize modal. If the new
+  // selection now matches another existing line for the same item/variant,
+  // merge into it (same collision the add-to-cart identity check guards
+  // against) instead of leaving two lines with identical modifiers.
+  const handleSaveModifiers = (index, modifiers) => {
+    setCart(prevCart => {
+      const target = prevCart[index];
+      if (!target) return prevCart;
+
+      // Resolve against the item's OWN extras definitions -- price always
+      // comes from here, never trusted from the modal's request -- and
+      // recompute sellingPrice from the stable basePrice snapshot every
+      // time, never incrementally from the current (possibly already
+      // customized) sellingPrice, so re-customizing twice never compounds.
+      const extrasDefinitions = normalizeExtraDefinitions(target.categoryDetails?.food?.extras);
+      const { unitCost, snapshot } = resolveExtrasSelection(extrasDefinitions, modifiers.extras);
+      const resolvedModifiers = normalizeModifiers({ extras: snapshot, note: modifiers.note });
+      const basePrice = target.basePrice ?? target.sellingPrice;
+
+      const mergeTargetIndex = prevCart.findIndex((cartItem, i) =>
+        i !== index &&
+        cartItem._id === target._id &&
+        (cartItem.variant?.variantId || null) === (target.variant?.variantId || null) &&
+        modifiersEqual(cartItem.modifiers, resolvedModifiers)
+      );
+
+      if (mergeTargetIndex === -1) {
+        return prevCart.map((cartItem, i) => i === index
+          ? { ...cartItem, modifiers: resolvedModifiers, sellingPrice: basePrice + unitCost }
+          : cartItem
+        );
+      }
+
+      return prevCart
+        .map((cartItem, i) => i === mergeTargetIndex
+          ? { ...cartItem, quantity: cartItem.quantity + target.quantity }
+          : cartItem
+        )
+        .filter((_, i) => i !== index);
+    });
   };
 
   // Clear cart
@@ -377,6 +441,10 @@ export default function POSPage() {
             variantSku: item.variant.variantSku || item.variant.sku,
             variantId: item.variant.variantId
           };
+        }
+
+        if (item.modifiers) {
+          saleItem.modifiers = item.modifiers;
         }
 
         return saleItem;
@@ -489,6 +557,10 @@ export default function POSPage() {
             variantSku: item.variant.variantSku,
             variantId: item.variant.variantId
           };
+        }
+
+        if (item.modifiers) {
+          saleItem.modifiers = item.modifiers;
         }
 
         return saleItem;
@@ -1053,23 +1125,40 @@ export default function POSPage() {
                         {formatCurrency(item.sellingPrice)} each
                         {item.variant && ` • ${item.variant.color} - ${item.variant.size}`}
                       </p>
+                      {(item.modifiers?.extras?.length > 0 || item.modifiers?.note) && (
+                        <p className="text-xs text-brand-700 mt-0.5">
+                          {[
+                            ...(item.modifiers.extras || []).map(e => `${e.quantity}x ${e.name}`),
+                            item.modifiers.note
+                          ].filter(Boolean).join(' -- ')}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center space-x-2">
+                      {item.categoryDetails?.food && (
+                        <button
+                          onClick={() => setModifierModalIndex(index)}
+                          className="p-1 text-gray-500 hover:text-brand-800"
+                          title="Customize"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
-                        onClick={() => updateCartQuantity(item._id, item.quantity - 1, item.variant?.variantId)}
+                        onClick={() => updateCartQuantity(item._id, item.quantity - 1, item.variant?.variantId, item.modifiers)}
                         className="p-1 text-gray-500 hover:text-red-600"
                       >
                         <Minus className="w-4 h-4" />
                       </button>
                       <span className="w-8 text-center text-gray-900 font-medium">{item.quantity}</span>
                       <button
-                        onClick={() => updateCartQuantity(item._id, item.quantity + 1, item.variant?.variantId)}
+                        onClick={() => updateCartQuantity(item._id, item.quantity + 1, item.variant?.variantId, item.modifiers)}
                         className="p-1 text-gray-500 hover:text-brand-800"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => removeFromCart(item._id, item.variant?.variantId)}
+                        onClick={() => removeFromCart(item._id, item.variant?.variantId, item.modifiers)}
                         className="p-1 text-gray-500 hover:text-red-600 ml-2"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1389,6 +1478,17 @@ export default function POSPage() {
         }}
         item={selectedItemForVariant}
         onAddToCart={handleAddVariantToCart}
+      />
+
+      {/* POS Item Modifier Modal -- keyed so it remounts fresh across every
+          open/close cycle (see the component's own comment) instead of
+          syncing to a changing `item` prop via an effect. */}
+      <POSItemModifierModal
+        key={modifierModalIndex !== null ? `modifier-${modifierModalIndex}` : 'modifier-closed'}
+        isOpen={modifierModalIndex !== null}
+        onClose={() => setModifierModalIndex(null)}
+        item={modifierModalIndex !== null ? cart[modifierModalIndex] : null}
+        onSave={(modifiers) => handleSaveModifiers(modifierModalIndex, modifiers)}
       />
 
       {/* "Added to cart" toast -- the tap-to-add grid gave no feedback at

@@ -529,6 +529,18 @@ export default function ReceiptModal({ isOpen, onClose, sale }) {
                           ({item.variant.color} - {item.variant.size})
                         </span>
                       )}
+                      {/* Extras -- priced per unit, so the receipt explains
+                          why this line's total is what it is. */}
+                      {item.modifiers?.extras?.length > 0 && (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {item.modifiers.extras.map((extra, extraIdx) => (
+                            <div key={extraIdx}>
+                              + {extra.quantity}x {extra.name}
+                              {extra.price > 0 && ` (${formatCurrency(extra.price)} each)`}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <span className="text-gray-900 font-medium">{formatCurrency(item.total)}</span>
                   </div>

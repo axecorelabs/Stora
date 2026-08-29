@@ -4,6 +4,7 @@ import { verifySession } from '@/lib/auth';
 import { backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 import { embedProductById } from '@/lib/openrouter';
+import { normalizeExtraDefinitions } from '@stora/shared-constants';
 
 // Helper to transform inventory data for response. Every product has >=1
 // real inventory_variants row now -- stock/price are always derived from
@@ -194,8 +195,18 @@ export async function PUT(request, { params }) {
     // category_details.food, matching what the storefront reads.
     if (updateData.categoryDetails) {
       dbUpdate.category_details = updateData.categoryDetails;
+      // Extras carry real money now -- clamp/normalize regardless of which
+      // shape this update arrived in, not just the foodDetails branch below.
+      if (dbUpdate.category_details.food?.extras) {
+        dbUpdate.category_details = {
+          ...dbUpdate.category_details,
+          food: { ...dbUpdate.category_details.food, extras: normalizeExtraDefinitions(dbUpdate.category_details.food.extras) }
+        };
+      }
     } else if (updateData.category === 'Food' && updateData.foodDetails) {
-      dbUpdate.category_details = { food: updateData.foodDetails };
+      dbUpdate.category_details = {
+        food: { ...updateData.foodDetails, extras: normalizeExtraDefinitions(updateData.foodDetails.extras) }
+      };
     } else if (updateData.category === 'Beverages' && updateData.beveragesDetails) {
       dbUpdate.category_details = { beverages: updateData.beveragesDetails };
     } else if (updateData.category === 'Books' && updateData.booksDetails) {

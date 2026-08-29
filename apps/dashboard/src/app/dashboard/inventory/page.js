@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import EditInventoryModal from "@/components/dashboard/EditInventoryModal";
 import StockUpdateModal from "@/components/dashboard/StockUpdateModal";
@@ -71,6 +73,18 @@ function DetailField({ label, value }) {
 
 export default function InventoryPage() {
   const router = useRouter();
+  const { secureApiCall } = useAuth();
+
+  // Same ['store'] queryKey usePOSData.js already uses, so the cache is
+  // shared -- reads restaurantMode to decide whether to show the
+  // dedicated "Add Menu Item" entry point below.
+  const { data: storeResponse } = useQuery({
+    queryKey: ['store'],
+    queryFn: () => secureApiCall('/api/stores'),
+    staleTime: 5 * 60 * 1000
+  });
+  const restaurantMode = !!storeResponse?.data?.restaurantMode;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -498,14 +512,26 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Primary action — outside the catalogue card, between it and the stats strip */}
-      <div className="flex justify-end mb-4 md:mb-6">
+      {/* Primary action — outside the catalogue card, between it and the stats strip.
+          Restaurant Mode stores get a dedicated menu-first entry point as the
+          primary action, plus a smaller secondary one for non-menu items
+          (merch, etc.) -- the toggle is non-restrictive, so this never blocks
+          the generic flow, just changes which one is emphasized. */}
+      <div className="flex justify-end items-center gap-2 mb-4 md:mb-6">
+        {restaurantMode && (
+          <button
+            onClick={() => router.push('/dashboard/inventory/add')}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 md:py-2 border border-gray-300 text-gray-700 rounded-lg md:rounded-xl hover:bg-gray-50 text-xs md:text-sm font-medium transition-all duration-200 whitespace-nowrap"
+          >
+            <span>Add Other Item</span>
+          </button>
+        )}
         <button
-          onClick={() => router.push('/dashboard/inventory/add')}
+          onClick={() => router.push(restaurantMode ? '/dashboard/inventory/add-menu-item' : '/dashboard/inventory/add')}
           className="flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-brand-800 text-white rounded-lg md:rounded-xl hover:bg-brand-900 text-xs md:text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
         >
           <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          <span>Add Item</span>
+          <span>{restaurantMode ? 'Add Menu Item' : 'Add Item'}</span>
         </button>
       </div>
 

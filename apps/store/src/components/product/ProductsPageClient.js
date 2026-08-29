@@ -15,6 +15,8 @@ import { useProducts } from "@/hooks/useProducts";
 import { useStoreProductsSearch } from "@/hooks/useStoreProductsSearch";
 import useStoreStore from "@/stores/storeStore";
 
+const MENU_SECTION_ORDER = ['Starters', 'Mains', 'Sides', 'Desserts', 'Drinks', 'Other'];
+
 // mode: 'client' (default -- the vast majority of stores) fetches the
 // whole catalog once and does search/category/sort/pagination instantly
 // in memory, exactly as this component always has. 'server' (only for a
@@ -211,6 +213,32 @@ export default function ProductsPageClient({ store, products: initialProducts, s
       setVisibleCount((prev) => prev + PAGE_SIZE);
     }
   };
+
+  // Restaurant Mode: group the same displayProducts into menu sections
+  // (Starters/Mains/...) instead of one flat grid -- everything else on
+  // this page (search, category filter, sort, pagination) is unchanged,
+  // this only changes how the results are laid out. Grouped by
+  // categoryDetails.food.menuSection (set in the dashboard's Add Menu Item
+  // flow / FoodDetailsSection.js); anything without one (a non-food item
+  // in a mixed-catalog restaurant, or a menu item predating this field)
+  // falls into 'Other' rather than being silently dropped.
+  const menuSections = useMemo(() => {
+    if (!store.restaurantMode) return [];
+    const groups = {};
+    for (const product of displayProducts) {
+      const rawSection = product.categoryDetails?.food?.menuSection;
+      // Anything not one of the known section names (missing, a typo, a
+      // stale value from before this field existed) folds into 'Other' --
+      // the grouping below only ever reads MENU_SECTION_ORDER's keys back
+      // out, so an unrecognized bucket key here would otherwise render in
+      // neither the sectioned view nor the flat fallback.
+      const section = MENU_SECTION_ORDER.includes(rawSection) ? rawSection : 'Other';
+      (groups[section] ||= []).push(product);
+    }
+    return MENU_SECTION_ORDER
+      .filter(name => groups[name]?.length)
+      .map(name => ({ name, products: groups[name] }));
+  }, [store.restaurantMode, displayProducts]);
 
   const formatPrice = (price) => {
     const currency = store.settings?.currency || 'NGN';
@@ -415,6 +443,42 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                 Clear search
               </button>
             )}
+          </div>
+        ) : store.restaurantMode && menuSections.length > 0 ? (
+          /* Menu sections instead of one flat grid -- same ProductCard/
+             ProductCardMobile tiles, viewMode's list layout doesn't apply
+             here (a menu reads as sectioned cards, not a comparison list). */
+          <div className={`space-y-10 ${isRefetching ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}`}>
+            {menuSections.map((section) => (
+              <div key={section.name}>
+                <h2 className="font-display text-xl font-bold text-gray-900 mb-4">{section.name}</h2>
+                <div className={isMobile ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'}>
+                  {section.products.map((product) => (
+                    isMobile ? (
+                      <ProductCardMobile
+                        key={product.id}
+                        product={product}
+                        primaryColor={primaryColor}
+                        secondaryColor={secondaryColor}
+                        currency={store.settings?.currency || "NGN"}
+                        onNavigate={() => setIsNavigating(true)}
+                        onSignInRequired={() => setShowSignInModal(true)}
+                      />
+                    ) : (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        primaryColor={primaryColor}
+                        secondaryColor={secondaryColor}
+                        currency={store.settings?.currency || "NGN"}
+                        onNavigate={() => setIsNavigating(true)}
+                        onSignInRequired={() => setShowSignInModal(true)}
+                      />
+                    )
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div

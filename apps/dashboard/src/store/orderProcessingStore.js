@@ -55,7 +55,9 @@ const useOrderProcessingStore = create(
             category: item.productSnapshot.category,
             unitOfMeasure: item.productSnapshot.unitOfMeasure || 'Piece',
             image: item.productSnapshot.image,
-            hasVariants: item.productSnapshot.hasVariants || false
+            hasVariants: item.productSnapshot.hasVariants || false,
+            notes: item.notes || null,
+            modifiers: item.modifiers || null
           };
 
           // Include variant information if it exists

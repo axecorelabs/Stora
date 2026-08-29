@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -41,6 +42,7 @@ const STORE_TABS = [
 
 export default function StorePage() {
   const { secureApiCall } = useAuth();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const [store, setStore] = useState(null);
   const [salesStats, setSalesStats] = useState(null);
@@ -50,6 +52,7 @@ export default function StorePage() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingFulfillmentMethod, setIsUpdatingFulfillmentMethod] = useState(false);
+  const [isUpdatingRestaurantMode, setIsUpdatingRestaurantMode] = useState(false);
   const [isCreateStoreModalOpen, setIsCreateStoreModalOpen] = useState(false);
   const [isAddPhysicalStoreModalOpen, setIsAddPhysicalStoreModalOpen] = useState(false);
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
@@ -266,6 +269,30 @@ export default function StorePage() {
       }
     } finally {
       setIsUpdatingFulfillmentMethod(false);
+    }
+  };
+
+  const handleRestaurantModeChange = async (restaurantMode) => {
+    if (restaurantMode === store.restaurantMode || isUpdatingRestaurantMode) return;
+    setIsUpdatingRestaurantMode(true);
+    try {
+      const response = await secureApiCall('/api/stores/restaurant-mode', {
+        method: 'PATCH',
+        body: JSON.stringify({ restaurantMode })
+      });
+      if (response.success) {
+        setStore(prev => ({ ...prev, restaurantMode: response.data.restaurantMode }));
+        // This page's own store state isn't on TanStack Query, but
+        // DashboardHeader's badge, the inventory page's "Add Menu Item"
+        // button, and POS all read restaurantMode from the shared
+        // ['store'] query -- without this, they'd keep showing the
+        // pre-toggle mode for up to that query's 5-minute staleTime.
+        queryClient.invalidateQueries({ queryKey: ['store'] });
+      } else {
+        setErrors(prev => ({ ...prev, restaurantMode: response.message || 'Failed to update' }));
+      }
+    } finally {
+      setIsUpdatingRestaurantMode(false);
     }
   };
 
@@ -515,7 +542,15 @@ export default function StorePage() {
             />
           )}
           {activeTab === 'preferences' && (
-            <StorePreferencesTab store={store} isEditing={isEditing} editData={editData} handleChange={handleChange} currencyOptions={currencyOptions} />
+            <StorePreferencesTab
+              store={store}
+              isEditing={isEditing}
+              editData={editData}
+              handleChange={handleChange}
+              currencyOptions={currencyOptions}
+              onRestaurantModeChange={handleRestaurantModeChange}
+              isUpdatingRestaurantMode={isUpdatingRestaurantMode}
+            />
           )}
         </div>
 

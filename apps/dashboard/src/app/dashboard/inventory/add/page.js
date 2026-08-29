@@ -89,110 +89,6 @@ export default function AddInventoryPage() {
     { value: 'Featured', label: 'Featured' }
   ];
 
-  // Delivery location handlers for Food/Beverages
-  const addDeliveryState = (category) => {
-    const key = category === 'Food' ? 'foodDetails' : 'beveragesDetails';
-    const currentDetails = formData[key] || {};
-    const deliveryLocations = currentDetails.deliveryLocations || {};
-    
-    if (selectedStateForCity && !deliveryLocations[selectedStateForCity]) {
-      setFormData({
-        ...formData,
-        [key]: {
-          ...currentDetails,
-          deliveryLocations: {
-            ...deliveryLocations,
-            [selectedStateForCity]: {
-              coverAllCities: false,
-              cities: []
-            }
-          }
-        }
-      });
-      setSelectedStateForCity('');
-    }
-  };
-
-  const removeDeliveryState = (category, stateName) => {
-    const key = category === 'Food' ? 'foodDetails' : 'beveragesDetails';
-    const currentDetails = formData[key] || {};
-    const deliveryLocations = { ...(currentDetails.deliveryLocations || {}) };
-    delete deliveryLocations[stateName];
-    
-    setFormData({
-      ...formData,
-      [key]: {
-        ...currentDetails,
-        deliveryLocations
-      }
-    });
-  };
-
-  const toggleCoverAllCitiesInState = (category, stateName) => {
-    const key = category === 'Food' ? 'foodDetails' : 'beveragesDetails';
-    const currentDetails = formData[key] || {};
-    const deliveryLocations = currentDetails.deliveryLocations || {};
-    const stateData = deliveryLocations[stateName] || { coverAllCities: false, cities: [] };
-    
-    setFormData({
-      ...formData,
-      [key]: {
-        ...currentDetails,
-        deliveryLocations: {
-          ...deliveryLocations,
-          [stateName]: {
-            ...stateData,
-            coverAllCities: !stateData.coverAllCities
-          }
-        }
-      }
-    });
-  };
-
-  const addCityToDeliveryState = (category, stateName, city) => {
-    const key = category === 'Food' ? 'foodDetails' : 'beveragesDetails';
-    const currentDetails = formData[key] || {};
-    const deliveryLocations = currentDetails.deliveryLocations || {};
-    const stateData = deliveryLocations[stateName] || { coverAllCities: false, cities: [] };
-    
-    if (!stateData.cities.includes(city)) {
-      setFormData({
-        ...formData,
-        [key]: {
-          ...currentDetails,
-          deliveryLocations: {
-            ...deliveryLocations,
-            [stateName]: {
-              ...stateData,
-              cities: [...stateData.cities, city]
-            }
-          }
-        }
-      });
-    }
-  };
-
-  const removeCityFromDeliveryState = (category, stateName, city) => {
-    const key = category === 'Food' ? 'foodDetails' : 'beveragesDetails';
-    const currentDetails = formData[key] || {};
-    const deliveryLocations = currentDetails.deliveryLocations || {};
-    const stateData = deliveryLocations[stateName] || { coverAllCities: false, cities: [] };
-    
-    setFormData({
-      ...formData,
-      [key]: {
-        ...currentDetails,
-        deliveryLocations: {
-          ...deliveryLocations,
-          [stateName]: {
-            ...stateData,
-            cities: stateData.cities.filter(c => c !== city)
-          }
-        }
-      }
-    });
-  };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -256,7 +152,9 @@ export default function AddInventoryPage() {
           ingredients: [],
           allergens: [],
           spiceLevel: '',
-          extras: []
+          extras: [],
+          deliveryTime: { value: '', unit: 'minutes' },
+          menuSection: 'Other'
         }
       }));
     } else if (value === 'Beverages' && !formData.beveragesDetails) {

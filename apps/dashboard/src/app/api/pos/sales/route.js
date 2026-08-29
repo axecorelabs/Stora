@@ -305,6 +305,7 @@ export async function GET(req) {
           unitPrice: parseFloat(item.unit_price || 0),
           total: parseFloat(item.total || 0),
           variant: item.variant_info,
+          modifiers: item.modifiers || null,
           batchesSoldFrom: item.batches_sold_from || [],
           costBreakdown: {
             totalCost: parseFloat(item.total_cost || 0),

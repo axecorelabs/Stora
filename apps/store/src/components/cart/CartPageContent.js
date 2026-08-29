@@ -234,7 +234,7 @@ export default function CartPageContent({ slug }) {
   };
 
   const hasExtraDetails = (item) => {
-    return item.variant || item.notes;
+    return item.variant || item.notes || item.modifiers?.extras?.length > 0;
   };
 
   const handleQuantityChange = async (productId, newQuantity) => {
@@ -958,6 +958,29 @@ export default function CartPageContent({ slug }) {
                                       </span>
                                     </div>
                                   )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Extras -- priced per unit, locked in at the
+                                price they were when added, so this always
+                                explains why the line total is what it is. */}
+                            {item.modifiers?.extras?.length > 0 && (
+                              <div className="bg-gray-50 rounded-lg p-3">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                                  Extras
+                                </h4>
+                                <div className="space-y-1 text-sm">
+                                  {item.modifiers.extras.map((extra, idx) => (
+                                    <div key={idx} className="flex items-center justify-between">
+                                      <span className="text-gray-600">
+                                        {extra.quantity}x {extra.name}
+                                      </span>
+                                      <span className="font-medium text-gray-900">
+                                        {extra.price > 0 ? `+${formatPrice(extra.price * extra.quantity)}` : 'Free'}
+                                      </span>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             )}
