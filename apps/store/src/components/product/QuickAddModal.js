@@ -16,7 +16,7 @@ import { NOTE_PLACEHOLDERS } from "@/components/product/notePlaceholders";
 // separately needs real screen space (a stacked panel per unit), which
 // fights the point of a *quick* add in a mobile bottom sheet, so that case
 // hands off to the full product page instead of being crammed in here.
-export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, primaryColor = '#0D9488', currency = 'NGN' }) {
+export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, onNavigate, primaryColor = '#0D9488', currency = 'NGN' }) {
   const router = useRouter();
   const pathname = usePathname();
   const [quantity, setQuantity] = useState(1);
@@ -90,6 +90,7 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, p
     const storeSlug = pathname.split('/')[1];
     const target = `/${storeSlug}/product/${product.id}?quantity=${quantity}&customize=1`;
     handleClose();
+    onNavigate?.();
     router.push(target);
   };
 
@@ -132,7 +133,7 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, p
               <button
                 type="button"
                 onClick={goToFullPageCustomization}
-                className="text-xs font-medium mt-2 hover:underline"
+                className="text-xs font-medium mt-2 underline underline-offset-2 decoration-1 hover:opacity-80"
                 style={{ color: primaryColor }}
               >
                 Want different extras per item? Customize on the product page
