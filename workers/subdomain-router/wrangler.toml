@@ -32,4 +32,9 @@ STORE_ORIGIN_HOST = "stora.com.ng"
 # its own DNS record in the zone (e.g. app.stora.com.ng -> the dashboard's
 # own Vercel project) and is passed through unmodified. Add to this list
 # before it's ever reachable as a vendor slug, not after.
-RESERVED_SUBDOMAINS = "www,app,api,mail,admin,support,help,status,cdn,assets,blog,docs"
+#
+# storage -- R2_PUBLIC_URL (apps/dashboard/.env.local); this zone's public
+# image host for Cloudflare R2. Missing here broke every product/store
+# image on the live site: requests were getting forwarded into the store
+# app instead of served straight from R2.
+RESERVED_SUBDOMAINS = "www,app,api,mail,admin,support,help,status,cdn,assets,blog,docs,storage"
