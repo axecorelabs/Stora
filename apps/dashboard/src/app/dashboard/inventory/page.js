@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import EditInventoryModal from "@/components/dashboard/EditInventoryModal";
@@ -27,7 +27,8 @@ import {
   ChevronsUpDown,
   ChevronLeft,
   ChevronRight,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
@@ -74,6 +75,7 @@ function DetailField({ label, value }) {
 export default function InventoryPage() {
   const router = useRouter();
   const { secureApiCall } = useAuth();
+  const queryClient = useQueryClient();
 
   // Same ['store'] queryKey usePOSData.js already uses, so the cache is
   // shared -- reads restaurantMode to decide whether to show the
@@ -84,6 +86,29 @@ export default function InventoryPage() {
     staleTime: 5 * 60 * 1000
   });
   const restaurantMode = !!storeResponse?.data?.restaurantMode;
+  const [isUpdatingRestaurantMode, setIsUpdatingRestaurantMode] = useState(false);
+
+  // Same endpoint/pattern as StorePreferencesTab's own toggle (Store
+  // settings) -- kept here too so switching this on doesn't require
+  // leaving the Catalogue page first. Invalidates the shared ['store']
+  // query so every other reader (Store settings, POS, DashboardHeader's
+  // badge) picks up the change immediately rather than waiting out its
+  // own staleTime.
+  const handleRestaurantModeChange = async (nextValue) => {
+    if (nextValue === restaurantMode || isUpdatingRestaurantMode) return;
+    setIsUpdatingRestaurantMode(true);
+    try {
+      const response = await secureApiCall('/api/stores/restaurant-mode', {
+        method: 'PATCH',
+        body: JSON.stringify({ restaurantMode: nextValue })
+      });
+      if (response?.success) {
+        queryClient.invalidateQueries({ queryKey: ['store'] });
+      }
+    } finally {
+      setIsUpdatingRestaurantMode(false);
+    }
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -517,7 +542,25 @@ export default function InventoryPage() {
           primary action, plus a smaller secondary one for non-menu items
           (merch, etc.) -- the toggle is non-restrictive, so this never blocks
           the generic flow, just changes which one is emphasized. */}
-      <div className="flex justify-end items-center gap-2 mb-4 md:mb-6">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4 md:mb-6">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <span className="text-xs md:text-sm font-medium text-gray-700 flex items-center gap-1.5">
+            Restaurant Mode
+            {isUpdatingRestaurantMode && <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" />}
+          </span>
+          <span className="relative inline-flex items-center">
+            <input
+              type="checkbox"
+              checked={restaurantMode}
+              disabled={isUpdatingRestaurantMode}
+              onChange={(e) => handleRestaurantModeChange(e.target.checked)}
+              className="sr-only peer"
+            />
+            <span className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-800" />
+          </span>
+        </label>
+
+        <div className="flex items-center gap-2">
         {restaurantMode && (
           <button
             onClick={() => router.push('/dashboard/inventory/add')}
@@ -533,6 +576,7 @@ export default function InventoryPage() {
           <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
           <span>{restaurantMode ? 'Add Menu Item' : 'Add Item'}</span>
         </button>
+        </div>
       </div>
 
       {/* Inventory Overview */}
