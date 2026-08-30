@@ -83,6 +83,15 @@ export default {
     // The real subdomain, in a header name Vercel has no built-in opinion
     // about (see the file-level comment on why this isn't X-Forwarded-Host).
     originRequest.headers.set('X-Stora-Vendor-Host', url.hostname);
+    // Proves this request actually came through this Worker -- the store
+    // app is a normal public origin, reachable directly (its own domain,
+    // or the underlying *.vercel.app URL), so without this anyone could
+    // set X-Stora-Vendor-Host themselves and make the app render an
+    // arbitrary vendor's page under www.stora.com.ng. Set via
+    // `wrangler secret put PROXY_SECRET` (never in wrangler.toml's [vars]
+    // -- that file is committed to git in plaintext), matched against
+    // STORA_PROXY_SECRET in the Vercel project's environment variables.
+    originRequest.headers.set('X-Stora-Proxy-Secret', env.PROXY_SECRET || '');
     originRequest.headers.set('X-Forwarded-Proto', 'https');
 
     return fetch(originRequest);

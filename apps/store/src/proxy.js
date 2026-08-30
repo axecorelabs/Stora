@@ -13,10 +13,27 @@ const APEX_DOMAIN = process.env.NEXT_PUBLIC_STORE_APEX_DOMAIN || 'stora.com.ng';
 // uses -- kept independent (not imported from anywhere shared) since a
 // request can reach this proxy directly against the Vercel deployment too,
 // without going through that Worker at all (local dev, or the origin
-// domain hit directly). This is the second, and only truly load-bearing,
-// line of defense: it decides what actually gets rewritten to a store's
-// [slug] routes, not just a sanity check.
+// domain hit directly).
 const VALID_SUBDOMAIN_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+// Shared secret with workers/subdomain-router (set there via
+// `wrangler secret put PROXY_SECRET`, here as a normal Vercel project env
+// var -- never NEXT_PUBLIC_, this must stay server-only). This app is a
+// normal public origin, reachable directly and not only through that
+// Worker, so without this check anyone could set X-Stora-Vendor-Host
+// themselves and make this app render an arbitrary vendor's page under
+// www.stora.com.ng -- worst case a cache-poisoning vector if any shared
+// cache layer keys responses by Host/path without accounting for this
+// header. Unset (or mismatched) fails closed to the SAFE behavior of
+// treating the request as the plain apex -- never to trusting an
+// unverified header -- so a missing secret breaks the subdomain feature
+// rather than reopening the hole it exists to close.
+const PROXY_SECRET = process.env.STORA_PROXY_SECRET || null;
+
+function isFromTrustedProxy(req) {
+  if (!PROXY_SECRET) return false;
+  return req.headers.get('x-stora-proxy-secret') === PROXY_SECRET;
+}
 
 const DELIVER_STATE_COOKIE = 'stora_deliver_state';
 // Marks a state cookie written from a bare IP guess, not a URL param or
@@ -151,6 +168,11 @@ function getClientIp(req) {
 // apex domain itself -- has no such header, so `host` is exactly right for
 // those instead.
 //
+// X-Stora-Vendor-Host is only ever trusted when isFromTrustedProxy(req)
+// confirms it -- this app is a normal public origin, reachable directly,
+// so an unverified header here would let anyone spoof which vendor's page
+// renders under www.stora.com.ng.
+//
 // Returns { rewriteUrl } when the request is for a real vendor subdomain,
 // { notFound: true } for a malformed/unrecognized one that still matched
 // the apex suffix, or null when there's nothing to do (apex/www, or a host
@@ -158,7 +180,7 @@ function getClientIp(req) {
 // misconfigured DNS entry -- left to resolve exactly as it would with no
 // rewrite at all).
 function resolveVendorSubdomainRewrite(req) {
-  const forwardedHost = req.headers.get('x-stora-vendor-host');
+  const forwardedHost = isFromTrustedProxy(req) ? req.headers.get('x-stora-vendor-host') : null;
   const hostname = (forwardedHost || req.headers.get('host') || '').split(':')[0].toLowerCase();
 
   const apexSuffix = `.${APEX_DOMAIN}`;

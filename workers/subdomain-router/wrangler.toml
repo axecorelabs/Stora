@@ -24,14 +24,27 @@ ZONE_APEX = "stora.com.ng"
 
 # The store app's own domain, already verified as a Vercel project domain
 # via a normal (non-wildcard) record -- every vendor request gets forwarded
-# here with the real subdomain preserved in X-Forwarded-Host. Must be
+# here with the real subdomain preserved in X-Stora-Vendor-Host. Must be
 # www.stora.com.ng, NOT the bare apex: stora.com.ng itself unconditionally
 # 308-redirects to www.stora.com.ng (a plain apex -> www canonicalization,
 # unrelated to this Worker) -- forwarding to the apex meant every vendor
-# subdomain request hit that redirect before Next.js ever saw
-# X-Forwarded-Host, landing every visitor on the plain www homepage
-# instead of the store they asked for.
+# subdomain request hit that redirect before Next.js ever saw the header,
+# landing every visitor on the plain www homepage instead of the store
+# they asked for.
 STORE_ORIGIN_HOST = "www.stora.com.ng"
+
+# REQUIRED, but deliberately NOT set here -- this file is committed to git,
+# and PROXY_SECRET is what lets the store app trust X-Stora-Vendor-Host is
+# really coming from this Worker rather than a spoofed request hitting the
+# app's own public origin directly. Set it with:
+#   npx wrangler secret put PROXY_SECRET
+# (paste a long random value, e.g. from `openssl rand -hex 32`) and set
+# the identical value as STORA_PROXY_SECRET in the Vercel project's
+# environment variables. Without this configured on BOTH sides, every
+# vendor subdomain request safely falls back to rendering the plain
+# homepage (see src/index.js and apps/store/src/proxy.js) rather than
+# trusting an unverified header -- so this being unset breaks the feature,
+# it doesn't reopen the vulnerability it exists to close.
 
 # Comma-separated subdomain labels that must NOT be treated as a vendor
 # slug, even though they match *.stora.com.ng -- each of these already has
