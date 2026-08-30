@@ -293,6 +293,14 @@ export const config = {
     '/api/search/:path*',
     '/api/orders/:path*',
     '/api/cart/:path*',
-    '/((?!api|_next/static|_next/image|favicon\\.ico|cart|wishlist|orders|reset-password).*)',
+    // .*\..* (any remaining dot anywhere in the path) excludes every
+    // public/ static asset -- stora-icon.png, favicons, robots.txt, etc.
+    // Missing this meant the subdomain rewrite below prefixed them with
+    // /<slug> too, breaking the logo (and every other static file) on
+    // every page viewed through a vendor subdomain, confirmed live.
+    // favicon\\.ico is now redundant under that broader rule but left in
+    // place; removing it isn't worth the risk of relying on regex
+    // ordering to keep it excluded.
+    '/((?!api|_next/static|_next/image|favicon\\.ico|cart|wishlist|orders|reset-password|.*\\..*).*)',
   ],
 };
