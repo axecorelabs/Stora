@@ -24,8 +24,14 @@ ZONE_APEX = "stora.com.ng"
 
 # The store app's own domain, already verified as a Vercel project domain
 # via a normal (non-wildcard) record -- every vendor request gets forwarded
-# here with the real subdomain preserved in X-Forwarded-Host.
-STORE_ORIGIN_HOST = "stora.com.ng"
+# here with the real subdomain preserved in X-Forwarded-Host. Must be
+# www.stora.com.ng, NOT the bare apex: stora.com.ng itself unconditionally
+# 308-redirects to www.stora.com.ng (a plain apex -> www canonicalization,
+# unrelated to this Worker) -- forwarding to the apex meant every vendor
+# subdomain request hit that redirect before Next.js ever saw
+# X-Forwarded-Host, landing every visitor on the plain www homepage
+# instead of the store they asked for.
+STORE_ORIGIN_HOST = "www.stora.com.ng"
 
 # Comma-separated subdomain labels that must NOT be treated as a vendor
 # slug, even though they match *.stora.com.ng -- each of these already has

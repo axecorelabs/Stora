@@ -86,6 +86,12 @@ function transformStore(store) {
 async function generateUniqueStoreSlug(storeName) {
   const base = storeName
     .toLowerCase()
+    // Stripped rather than hyphenated -- "Dotun's Store" reading as
+    // "dotun-s-store" (an orphan one-letter "-s-" segment) looks broken in
+    // a way "dotuns-store" doesn't. Same convention every major platform
+    // uses (Shopify, WordPress, GitHub all drop apostrophes rather than
+    // treat them as a word boundary).
+    .replace(/['’`]/g, '')
     .replace(/[^a-z0-9]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '') || 'store';
