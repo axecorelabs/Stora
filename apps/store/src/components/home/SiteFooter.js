@@ -2,8 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { Mail, ArrowUpRight } from "lucide-react";
 
-const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
-
 const LINK_GROUPS = [
   {
     heading: "Shop",
@@ -80,13 +78,13 @@ export default function SiteFooter() {
             <p className="text-sm text-white/60 leading-relaxed mb-4">
               Set up your own store on Stora and reach buyers across Nigeria.
             </p>
-            <a
-              href={DASHBOARD_URL}
+            <Link
+              href="/sell"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold-400 hover:text-gold-300 transition-colors"
             >
               Sell on Stora
               <ArrowUpRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
           </div>
         </div>
       </div>

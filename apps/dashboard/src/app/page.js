@@ -1,12 +1,16 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import SignIn from "../components/SignIn";
 import SignUp from "../components/SignUp";
 
-export default function Home() {
-  const [authMode, setAuthMode] = useState("signin");
+function HomeInner() {
+  const searchParams = useSearchParams();
+  // Lets the storefront's /sell marketing page ("Start selling free") link
+  // straight into the signup form instead of dropping vendors on sign-in
+  // first.
+  const [authMode, setAuthMode] = useState(searchParams.get("mode") === "signup" ? "signup" : "signin");
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
 
@@ -43,5 +47,13 @@ export default function Home() {
     <SignIn onToggleMode={toggleAuthMode} />
   ) : (
     <SignUp onToggleMode={toggleAuthMode} />
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeInner />
+    </Suspense>
   );
 }

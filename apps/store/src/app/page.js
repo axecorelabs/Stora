@@ -7,8 +7,6 @@ import HeroSearch from "@/components/home/HeroSearch";
 import VendorShowcase from "@/components/home/VendorShowcase";
 import DiscoverySection from "@/components/home/DiscoverySection";
 
-const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
-
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
@@ -83,13 +81,13 @@ export default function Home() {
             Keep your own storefront, your own colors, your own customers -- Stora handles
             payments, order tracking, and getting found.
           </p>
-          <a
-            href={DASHBOARD_URL}
+          <Link
+            href="/sell"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
           >
             Start selling
             <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
         </div>
       </section>
 

@@ -13,7 +13,6 @@ import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { DeliveryStatePickerDesktop, DeliveryStatePickerMobile } from "@/components/home/DeliveryStatePicker";
 
-const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
 const BRAND_PRIMARY = "#145C41";
 
 // Stora's own header, not a vendor's -- same account/cart/wishlist affordances
@@ -81,12 +80,12 @@ export default function SiteHeader() {
           <div className="hidden sm:flex items-center gap-1">
             <DeliveryStatePickerDesktop />
 
-            <a
-              href={DASHBOARD_URL}
+            <Link
+              href="/sell"
               className="text-sm font-medium text-white/70 hover:text-white transition-colors px-3 py-2"
             >
               Sell on Stora
-            </a>
+            </Link>
 
             <button
               onClick={() => goAuthed("/wishlist")}
@@ -291,13 +290,14 @@ export default function SiteHeader() {
               </div>
 
               <div className="space-y-2">
-                <a
-                  href={DASHBOARD_URL}
+                <Link
+                  href="/sell"
+                  onClick={() => setShowMobileMenu(false)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors text-left"
                 >
                   <Package className="w-5 h-5 text-gray-500" />
                   <span className="font-medium">Sell on Stora</span>
-                </a>
+                </Link>
               </div>
 
               {isAuthenticated && (
