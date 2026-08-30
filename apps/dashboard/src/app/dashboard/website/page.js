@@ -355,28 +355,31 @@ export default function WebsitePage() {
           )}
 
           {/* Website Toggle */}
-          <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-gray-700">Website Status</span>
-            <button
-              onClick={toggleWebsiteStatus}
-              disabled={isTogglingWebsite}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 ${
-                store.website?.status === 'active'
-                  ? 'bg-brand-800'
-                  : 'bg-gray-200'
-              } ${isTogglingWebsite ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  store.website?.status === 'active' ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-            {isTogglingWebsite && (
-              <div className="w-4 h-4">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-800"></div>
-              </div>
-            )}
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center space-x-3">
+              <span className="text-sm font-medium text-gray-700">Website Status</span>
+              <button
+                onClick={toggleWebsiteStatus}
+                disabled={isTogglingWebsite}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 ${
+                  store.website?.status === 'active'
+                    ? 'bg-brand-800'
+                    : 'bg-gray-200'
+                } ${isTogglingWebsite ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    store.website?.status === 'active' ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              {isTogglingWebsite && (
+                <div className="w-4 h-4">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-800"></div>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-400">May take a few minutes to activate</p>
           </div>
         </div>
       </div>
