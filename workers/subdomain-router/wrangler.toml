@@ -12,6 +12,16 @@ routes = [
 ]
 
 [vars]
+# The zone this Worker is routing for -- src/index.js strips this suffix
+# off the incoming hostname to recover the vendor slug. Was missing here
+# entirely in an earlier deploy: env.ZONE_APEX resolved to undefined, so
+# `hostname.endsWith(".undefined")` was false for every real request, and
+# ALL traffic -- www, the apex, every vendor subdomain -- hit the "Unknown
+# host" 404 branch instead of ever reaching the reserved-subdomain
+# passthrough or a real store. Keep this in sync with the `routes` pattern
+# above.
+ZONE_APEX = "stora.com.ng"
+
 # The store app's own domain, already verified as a Vercel project domain
 # via a normal (non-wildcard) record -- every vendor request gets forwarded
 # here with the real subdomain preserved in X-Forwarded-Host.
