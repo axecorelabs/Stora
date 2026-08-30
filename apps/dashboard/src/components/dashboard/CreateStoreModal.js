@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Store, MapPin, Phone, Mail, Settings, Check, Sparkles, Info } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import CustomDropdown from "../ui/CustomDropdown";
@@ -94,6 +94,44 @@ export default function CreateStoreModal({ isOpen, onStoreCreated, embedded = fa
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Soft, informational only -- store_name isn't unique (store_slug is;
+  // see /api/stores/check-name's comment), so this never blocks submission,
+  // it just lets a vendor know someone else already has that name before
+  // they commit to it.
+  const [nameTaken, setNameTaken] = useState(false);
+
+  // Debounced so this isn't firing a request per keystroke -- 400ms is
+  // long enough to skip past normal typing cadence, short enough that the
+  // warning still feels responsive once someone pauses.
+  useEffect(() => {
+    const trimmed = formData.storeName.trim();
+    // Guards against an older, slower request resolving after a newer one
+    // already has -- without this, typing "Comfortingscents" then quickly
+    // continuing to type past it could have the stale first response land
+    // last and overwrite the correct, more recent result.
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      if (!trimmed) {
+        if (!cancelled) setNameTaken(false);
+        return;
+      }
+      try {
+        const response = await secureApiCall(`/api/stores/check-name?name=${encodeURIComponent(trimmed)}`);
+        if (!cancelled) setNameTaken(!!response?.exists);
+      } catch (error) {
+        // Fail quiet -- this is a nicety, not a blocker; no reason to
+        // surface a network hiccup here.
+        if (!cancelled) setNameTaken(false);
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.storeName]);
 
   // Nigerian states for dropdown
   const nigerianStates = [{ value: '', label: 'Select State' }, ...NIGERIAN_STATES];
@@ -279,6 +317,14 @@ export default function CreateStoreModal({ isOpen, onStoreCreated, embedded = fa
                   />
                   {errors.storeName && (
                     <p className="text-red-500 text-xs mt-1">{errors.storeName}</p>
+                  )}
+                  {!errors.storeName && nameTaken && (
+                    <p className="text-amber-600 text-xs mt-1.5 flex items-start gap-1">
+                      <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                      A store named &quot;{formData.storeName.trim()}&quot; already exists. You can
+                      still use this name, but shoppers may confuse the two -- consider something
+                      more distinct.
+                    </p>
                   )}
                 </div>
 

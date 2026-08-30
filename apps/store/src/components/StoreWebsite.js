@@ -693,15 +693,31 @@ export default function StoreWebsite({ store }) {
                 />
               )}
               <div className="min-w-0">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-gold-400/40 mb-2.5">
-                  <ShieldCheck className="w-3 h-3 text-gold-400" />
-                  <span className="text-[10.5px] font-semibold text-gold-400 tracking-wide uppercase">
-                    Verified by Stora
-                  </span>
-                </div>
+                {/* Tied to the vendor's real QoreID-based verification
+                    (store.isVerified, from buildPublicStoreData) -- this
+                    used to render unconditionally, which is exactly the
+                    kind of trust signal an impersonator would want to
+                    fake. No production store has actually verified yet
+                    (see findFeaturedStores' comment on the same field),
+                    so this currently shows for nobody -- expected, not a
+                    regression, until vendors start completing it. */}
+                {store.isVerified && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-gold-400/40 mb-2.5">
+                    <ShieldCheck className="w-3 h-3 text-gold-400" />
+                    <span className="text-[10.5px] font-semibold text-gold-400 tracking-wide uppercase">
+                      Verified by Stora
+                    </span>
+                  </div>
+                )}
                 <h1 className="font-display text-[28px] lg:text-[34px] font-semibold text-white tracking-tight truncate drop-shadow-sm">
                   {store.storeName}
                 </h1>
+                {/* Store names aren't unique (see CreateStoreModal's
+                    name-collision warning) -- the slug is, and it's what
+                    the URL/subdomain actually is, so surfacing it here
+                    gives a shopper a real way to tell two same-named
+                    stores apart, or to notice one isn't who it claims. */}
+                <p className="text-white/70 text-[13px] font-mono truncate drop-shadow-sm">@{store.storeSlug}</p>
                 {/* Always renders now (the delivery segment has no
                     condition of its own -- every store either ships
                     nationwide or to a specific list, always worth

@@ -62,11 +62,43 @@ function transformStore(store) {
     totalReviews: store.total_reviews || 0,
     website: websiteData,
     websitePath,
-    websiteUrl: websitePath ? `${storeBaseUrl}/${websitePath}` : null,
-    websiteFullPath: websitePath ? `${storeBaseUrl.replace(/^https?:\/\//, '')}/${websitePath}` : null,
+    // Shown to the vendor as their storefront's real address -- the
+    // wildcard vendor subdomain (see workers/subdomain-router), not the
+    // internal storeBaseUrl/slug path the marketplace itself still uses
+    // for in-app navigation between stores.
+    websiteUrl: websitePath ? `https://${websitePath}.${storeBaseUrl.replace(/^https?:\/\//, '')}` : null,
+    websiteFullPath: websitePath ? `${websitePath}.${storeBaseUrl.replace(/^https?:\/\//, '')}` : null,
     createdAt: store.created_at,
     updatedAt: store.updated_at
   };
+}
+
+// store_slug is UNIQUE at the DB level (see the initial schema migration),
+// but slugifying a store name alone never guaranteed that -- two vendors
+// both naming their store "John's Store" would both slugify to
+// "john-s-store", and the second insert would just fail. That was a latent
+// annoyance when the slug was only ever an internal /[slug] path segment;
+// it becomes a real product problem once it's also a vendor's public
+// subdomain (a vendor doesn't get to pick "john-s-store" if that identity
+// is already spoken for). Check-and-increment here rather than leaning on
+// the DB constraint to reject a collision, so a duplicate name still gets
+// a real store instead of a confusing failure.
+async function generateUniqueStoreSlug(storeName) {
+  const base = storeName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'store';
+
+  for (let suffix = 0; ; suffix += 1) {
+    const candidate = suffix === 0 ? base : `${base}-${suffix}`;
+    const { data: existing } = await supabaseAdmin
+      .from('stores')
+      .select('id')
+      .eq('store_slug', candidate)
+      .maybeSingle();
+    if (!existing) return candidate;
+  }
 }
 
 // GET - Fetch user's store
@@ -155,12 +187,7 @@ export async function POST(req) {
       );
     }
 
-    // Generate store slug
-    const storeSlug = storeData.storeName
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
+    const storeSlug = await generateUniqueStoreSlug(storeData.storeName);
 
     const { data: store, error } = await supabaseAdmin
       .from('stores')
@@ -195,11 +222,16 @@ export async function POST(req) {
 
     if (error) {
       console.error('Store creation error:', error);
+      // 23505 is a generic unique-violation code -- it doesn't say which
+      // constraint fired. store_slug is now pre-checked above, so this
+      // should really only mean the owner_id constraint (a rare
+      // create-twice race), but the message check keeps that assumption
+      // from being blindly trusted if it's ever wrong.
       if (error.code === '23505') {
-        return NextResponse.json(
-          { success: false, message: 'User already has a store' },
-          { status: 409 }
-        );
+        const message = error.message?.includes('store_slug')
+          ? 'That store name is already taken -- try a different one'
+          : 'User already has a store';
+        return NextResponse.json({ success: false, message }, { status: 409 });
       }
       return NextResponse.json(
         { success: false, message: 'Failed to create store' },

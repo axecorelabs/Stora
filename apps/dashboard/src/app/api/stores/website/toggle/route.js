@@ -36,8 +36,12 @@ function transformStore(store) {
     totalReviews: store.total_reviews || 0,
     website: websiteData,
     websitePath,
-    websiteUrl: websitePath ? `${storeBaseUrl}/${websitePath}` : null,
-    websiteFullPath: websitePath ? `${storeBaseUrl.replace(/^https?:\/\//, '')}/${websitePath}` : null,
+    // Shown to the vendor as their storefront's real address -- the
+    // wildcard vendor subdomain (see workers/subdomain-router), not the
+    // internal storeBaseUrl/slug path the marketplace itself still uses
+    // for in-app navigation between stores.
+    websiteUrl: websitePath ? `https://${websitePath}.${storeBaseUrl.replace(/^https?:\/\//, '')}` : null,
+    websiteFullPath: websitePath ? `${websitePath}.${storeBaseUrl.replace(/^https?:\/\//, '')}` : null,
     createdAt: store.created_at,
     updatedAt: store.updated_at
   };
