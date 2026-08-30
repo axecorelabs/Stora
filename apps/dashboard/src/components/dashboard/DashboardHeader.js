@@ -65,7 +65,7 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
           <div className="flex items-center gap-3 min-w-0">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl lg:text-2xl font-bold text-gray-900 truncate">{title}</h1>
+                <h1 className="font-display text-xl lg:text-2xl font-bold text-gray-900 truncate">{title}</h1>
                 {restaurantMode && (
                   <span
                     className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium bg-brand-100 text-brand-800 shrink-0"

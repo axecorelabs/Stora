@@ -118,7 +118,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
             <img src="/stora.png" alt="Stora Logo" className="object-contain w-full h-full" />
           </div>
           <div className={`flex flex-col ${isCollapsed ? 'lg:hidden' : ''}`}>
-            <span className="text-lg font-bold text-gray-900">Stora</span>
+            <span className="font-display text-lg font-bold text-gray-900">Stora</span>
           </div>
         </div>
         <button
@@ -144,7 +144,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
                 key={item.name}
                 onClick={() => handleNavigation(item)}
                 title={isCollapsed ? item.name : undefined}
-                className={`relative w-full flex items-center text-sm font-medium rounded-xl transition-all duration-200 ${
+                className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 ${
                   isCollapsed ? 'justify-between px-4 py-3 lg:justify-center lg:px-2 lg:py-3' : 'justify-between px-4 py-3'
                 } ${
                   isActive

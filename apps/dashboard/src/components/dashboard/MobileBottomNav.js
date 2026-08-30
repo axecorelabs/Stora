@@ -65,7 +65,7 @@ export default function MobileBottomNav({ onOpenMore }) {
                   </span>
                 )}
               </span>
-              <span className={`text-[11px] font-medium truncate ${active ? "text-brand-800" : "text-gray-500"}`}>
+              <span className={`font-display text-[11px] font-medium truncate ${active ? "text-brand-800" : "text-gray-500"}`}>
                 {tab.name}
               </span>
             </button>
@@ -77,7 +77,7 @@ export default function MobileBottomNav({ onOpenMore }) {
           className="relative flex-1 flex flex-col items-center justify-center gap-1 py-2.5 min-w-0"
         >
           <MoreHorizontal className="w-5 h-5 text-gray-400" />
-          <span className="text-[11px] font-medium text-gray-500">More</span>
+          <span className="font-display text-[11px] font-medium text-gray-500">More</span>
         </button>
       </div>
     </nav>

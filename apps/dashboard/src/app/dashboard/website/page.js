@@ -32,6 +32,7 @@ import {
   Info
 } from "lucide-react";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
+import StoreQrCode from "@/components/dashboard/StoreQrCode";
 
 // Website status -> literal badge classes (Tailwind can't resolve
 // dynamically-built class names like `bg-${color}-100` at build time)
@@ -813,6 +814,9 @@ export default function WebsitePage() {
 
         {/* Right Column - Social & Tips */}
         <div className="space-y-6">
+          {/* Store QR Code */}
+          <StoreQrCode store={store} />
+
           {/* Social Media Links */}
           <div className="bg-white rounded-2xl p-4 lg:p-6 border border-gray-100">
             <SectionHeader icon={Share2} title="Social Media Links" />
@@ -870,12 +874,12 @@ export default function WebsitePage() {
           </div>
 
           {/* Customization Tips */}
-          <div className="bg-blue-50 rounded-2xl p-4 lg:p-6 border border-blue-200">
-            <h4 className="text-sm font-medium text-blue-900 mb-2 flex items-center">
+          <div className="bg-brand-50 rounded-2xl p-4 lg:p-6 border border-brand-200">
+            <h4 className="text-sm font-medium text-brand-900 mb-2 flex items-center">
               <Info className="w-4 h-4 mr-2" />
               Customization Tips
             </h4>
-            <div className="text-xs text-blue-800 space-y-2">
+            <div className="text-xs text-brand-800 space-y-2">
               <p>
                 <strong>Design & Branding:</strong> Use "Customize Design" above to update your store logo, banner, and brand colors.
               </p>
