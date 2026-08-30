@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Search, ShoppingCart, User, Menu, Heart, LogOut, Package, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -9,17 +9,17 @@ import SignUpModal from '../auth/SignUpModal';
 import ForgotPasswordModal from '../auth/ForgotPasswordModal';
 import LoadingOverlay from '../ui/LoadingOverlay';
 import useStoreStore from '@/stores/storeStore';
+import { storeHref, isVendorSubdomain } from '@/lib/storeUrl';
 
 export default function StoreHeader({ store, onSignInClick }) {
   const router = useRouter();
-  const pathname = usePathname();
   const { customer, isAuthenticated, isLoading: authLoading, logout, setRedirectAfterLogin } = useAuth();
   const { getCartCount } = useCart();
-  
+
   // Get store from Zustand store
   const { currentStore } = useStoreStore();
   const primaryColor = currentStore?.branding?.primaryColor || '#0D9488';
-  
+
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -28,8 +28,12 @@ export default function StoreHeader({ store, onSignInClick }) {
   const [isNavigating, setIsNavigating] = useState(false);
   const [headerSearch, setHeaderSearch] = useState('');
 
-  // Extract store slug from pathname
-  const storeSlug = pathname.split('/')[1];
+  // From actual store data, not the URL -- on a vendor subdomain the path
+  // never contains the slug at all (it lives in the hostname instead), so
+  // pathname.split('/')[1] silently returned garbage (often '', which
+  // built a protocol-relative //product/... href that the browser
+  // resolved against the wrong host entirely -- confirmed live).
+  const storeSlug = currentStore?.storeSlug || store?.storeSlug;
 
   const handleSignOut = async () => {
     await logout();
@@ -53,11 +57,11 @@ export default function StoreHeader({ store, onSignInClick }) {
     }
     
     if (!isAuthenticated) {
-      setRedirectAfterLogin(`/${storeSlug}/cart`);
+      setRedirectAfterLogin(storeHref(storeSlug, '/cart'));
       setShowSignIn(true);
     } else {
       setIsNavigating(true);
-      router.push(`/${storeSlug}/cart`);
+      router.push(storeHref(storeSlug, '/cart'));
     }
     setShowMobileMenu(false);
   };
@@ -68,11 +72,11 @@ export default function StoreHeader({ store, onSignInClick }) {
     }
     
     if (!isAuthenticated) {
-      setRedirectAfterLogin(`/${storeSlug}/wishlist`);
+      setRedirectAfterLogin(storeHref(storeSlug, '/wishlist'));
       setShowSignIn(true);
     } else {
       setIsNavigating(true);
-      router.push(`/${storeSlug}/wishlist`);
+      router.push(storeHref(storeSlug, '/wishlist'));
     }
     setShowMobileMenu(false);
   };
@@ -86,7 +90,7 @@ export default function StoreHeader({ store, onSignInClick }) {
     e.preventDefault();
     if (!headerSearch.trim()) return;
     setIsNavigating(true);
-    router.push(`/${storeSlug}/products?search=${encodeURIComponent(headerSearch.trim())}`);
+    router.push(storeHref(storeSlug, `/products?search=${encodeURIComponent(headerSearch.trim())}`));
   };
 
 
@@ -219,7 +223,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                         onClick={() => {
                           setShowAccountMenu(false);
                           setIsNavigating(true);
-                          router.push(`/${storeSlug}/orders`);
+                          router.push(storeHref(storeSlug, '/orders'));
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                       >
@@ -231,7 +235,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                         onClick={() => {
                           setShowAccountMenu(false);
                           setIsNavigating(true);
-                          router.push(`/${storeSlug}/wishlist`);
+                          router.push(storeHref(storeSlug, '/wishlist'));
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                       >
@@ -356,7 +360,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                       onClick={() => {
                         setShowMobileMenu(false);
                         setIsNavigating(true);
-                        router.push(`/${storeSlug}/orders`);
+                        router.push(storeHref(storeSlug, '/orders'));
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors text-left"
                     >
@@ -434,7 +438,7 @@ export default function StoreHeader({ store, onSignInClick }) {
                   onClick={() => {
                     setShowMobileMenu(false);
                     setIsNavigating(true);
-                    router.push(`/${storeSlug}`);
+                    router.push(storeHref(storeSlug));
                   }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors text-left"
                 >
@@ -475,7 +479,13 @@ export default function StoreHeader({ store, onSignInClick }) {
           setShowSignIn(false);
           // Navigate to store-specific redirect if set
           const redirect = sessionStorage.getItem('redirectAfterLogin');
-          if (redirect && redirect.includes(storeSlug)) {
+          // On a vendor subdomain, sessionStorage is already origin-scoped
+          // (a different vendor's subdomain can never see this value at
+          // all), so any saved redirect here can only have come from this
+          // same store -- the storeSlug check below is only needed to
+          // guard against a stale redirect from a DIFFERENT vendor's path
+          // lingering on the shared stora.com.ng origin in path-based mode.
+          if (redirect && (isVendorSubdomain() || redirect.includes(storeSlug))) {
             router.push(redirect);
             sessionStorage.removeItem('redirectAfterLogin');
           }
@@ -489,7 +499,13 @@ export default function StoreHeader({ store, onSignInClick }) {
           setShowSignUp(false);
           // Navigate to store-specific redirect if set
           const redirect = sessionStorage.getItem('redirectAfterLogin');
-          if (redirect && redirect.includes(storeSlug)) {
+          // On a vendor subdomain, sessionStorage is already origin-scoped
+          // (a different vendor's subdomain can never see this value at
+          // all), so any saved redirect here can only have come from this
+          // same store -- the storeSlug check below is only needed to
+          // guard against a stale redirect from a DIFFERENT vendor's path
+          // lingering on the shared stora.com.ng origin in path-based mode.
+          if (redirect && (isVendorSubdomain() || redirect.includes(storeSlug))) {
             router.push(redirect);
             sessionStorage.removeItem('redirectAfterLogin');
           }

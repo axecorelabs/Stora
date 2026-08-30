@@ -1,15 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Heart, ShoppingCart, Check, Package } from 'lucide-react';
 import { normalizeExtraDefinitions } from '@stora/shared-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import QuickAddModal from '@/components/product/QuickAddModal';
+import useStoreStore from '@/stores/storeStore';
+import { storeHref } from '@/lib/storeUrl';
 
 export default function ProductCard({ product, primaryColor, currency, secondaryColor, onNavigate, onSignInRequired }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const { currentStore } = useStoreStore();
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const [liked, setLiked] = useState(false);
@@ -59,10 +61,8 @@ export default function ProductCard({ product, primaryColor, currency, secondary
   };
 
   const handleProductClick = () => {
-    // Extract store slug from current pathname
     if (onNavigate) onNavigate();
-    const storeSlug = pathname.split('/')[1];
-    router.push(`/${storeSlug}/product/${product.id}`);
+    router.push(storeHref(currentStore?.storeSlug, `/product/${product.id}`));
   };
 
   // Adds directly to cart for a simple product with nothing to customize --
@@ -109,8 +109,7 @@ export default function ProductCard({ product, primaryColor, currency, secondary
     
     if (!isAuthenticated) {
       // Redirect to sign in
-      const storeSlug = pathname.split('/')[1];
-      router.push(`/${storeSlug}?signin=true`);
+      router.push(`${storeHref(currentStore?.storeSlug)}?signin=true`);
       return;
     }
 

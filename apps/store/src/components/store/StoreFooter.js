@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { 
   MapPin, 
   Phone, 
@@ -17,10 +17,10 @@ import {
   ArrowUp
 } from 'lucide-react';
 import useStoreStore from '@/stores/storeStore';
+import { storeHref } from '@/lib/storeUrl';
 
 export default function StoreFooter() {
   const router = useRouter();
-  const pathname = usePathname();
   const { currentStore } = useStoreStore();
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -49,8 +49,10 @@ export default function StoreFooter() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Extract store slug from pathname
-  const storeSlug = pathname.split('/')[1];
+  // From actual store data, not the URL -- see StoreHeader's comment on
+  // the same fix for why pathname-derived slugs break on a vendor
+  // subdomain.
+  const storeSlug = currentStore?.storeSlug;
 
   // Store colors with fallbacks
   const primaryColor = currentStore?.branding?.primaryColor || '#0D9488';
@@ -96,10 +98,10 @@ export default function StoreFooter() {
   if (!currentStore) return null;
 
   const quickLinks = [
-    { label: 'Browse Products', path: `/${storeSlug}`, icon: Package },
-    { label: 'My Cart', path: `/${storeSlug}/cart`, icon: ShoppingBag },
-    { label: 'Wishlist', path: `/${storeSlug}/wishlist`, icon: Heart },
-    { label: 'My Orders', path: `/${storeSlug}/orders`, icon: Package },
+    { label: 'Browse Products', path: storeHref(storeSlug), icon: Package },
+    { label: 'My Cart', path: storeHref(storeSlug, '/cart'), icon: ShoppingBag },
+    { label: 'Wishlist', path: storeHref(storeSlug, '/wishlist'), icon: Heart },
+    { label: 'My Orders', path: storeHref(storeSlug, '/orders'), icon: Package },
   ];
 
   const socialMediaLinks = [

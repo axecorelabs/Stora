@@ -23,6 +23,7 @@ import ProductReviews from "@/components/product/ProductReviews";
 import ViewBeacon from "@/components/analytics/ViewBeacon";
 import Image from "next/image";
 import Link from "next/link";
+import { storeHref } from "@/lib/storeUrl";
 import { NOTE_PLACEHOLDERS } from "@/components/product/notePlaceholders";
 
 // Keeps unitConfigs in sync with quantity: growing copies entry 0 when
@@ -374,7 +375,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   };
 
   const handleShare = async () => {
-    const productUrl = `${window.location.origin}/${slug}/product/${initialProduct.id}`; // Also fix here
+    const productUrl = `${window.location.origin}${storeHref(slug, `/product/${initialProduct.id}`)}`;
     
     try {
       // Check if Web Share API is available (works on most mobile browsers)
@@ -964,7 +965,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             <button
               onClick={() => {
                 setIsNavigating(true);
-                router.push(cameFromDiscover ? '/products' : `/${slug}`);
+                router.push(cameFromDiscover ? '/products' : storeHref(slug));
               }}
               className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors group text-sm"
             >
@@ -1326,7 +1327,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                 </button>
 
                 <button
-                  onClick={() => router.push(cameFromDiscover ? '/products' : `/${slug}`)}
+                  onClick={() => router.push(cameFromDiscover ? '/products' : storeHref(slug))}
                   className="w-full py-3.5 sm:py-4 px-6 border border-gray-200 rounded-xl text-gray-700 text-base font-semibold hover:bg-gray-50 transition-colors"
                 >
                   Continue shopping
@@ -1339,7 +1340,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                   a redundant second link. */}
               {cameFromDiscover && (
                 <button
-                  onClick={() => router.push(`/${slug}`)}
+                  onClick={() => router.push(storeHref(slug))}
                   className="text-sm text-gray-500 hover:text-gray-900 transition-colors mt-3 text-center sm:text-left"
                 >
                   More from {store?.storeName || 'this store'} →

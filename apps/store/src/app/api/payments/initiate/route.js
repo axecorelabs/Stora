@@ -4,6 +4,8 @@ import { findCustomerById } from "@/lib/supabaseAuth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { initializeTransaction, verifyTransaction } from "@/lib/paystack";
 import { confirmOrderPayment } from "@/lib/supabasePayments";
+import { isVendorSubdomainHost } from "@/lib/apexDomain";
+import { resolveRequestHost } from "@/lib/vendorHost";
 
 export async function POST(request) {
   try {
@@ -21,14 +23,28 @@ export async function POST(request) {
     // back to -- only a same-origin relative path is accepted, built into a
     // full URL against our own known origin below. A bare "/" prefix check
     // alone would still let "//evil.com" (protocol-relative) or
-    // "/x://evil.com" through, so both are rejected explicitly.
+    // "/x://evil.com" through, so both are rejected explicitly, along with
+    // any backslash (browsers normalize \ to / when resolving a URL, so
+    // "/\evil.com" parses the same as "//evil.com" if this were ever handed
+    // to a browser bare -- callbackOrigin below always prefixes a real
+    // origin first so that specific trick isn't reachable today, but this
+    // guards the same class of bug google/start/route.js's isSafeReturnTo
+    // had to fix directly.
     const isSafeReturnPath = typeof returnPath === 'string'
       && returnPath.startsWith('/')
       && !returnPath.startsWith('//')
+      && !returnPath.includes('\\')
       && !returnPath.includes('://');
     if (!isSafeReturnPath) {
       return NextResponse.json({ success: false, message: "Invalid return path" }, { status: 400 });
     }
+
+    // /orders is one of proxy.js's permanently subdomain-rewrite-exempt
+    // paths, so returnPath is always bare there regardless of host -- but
+    // the customer still needs to land back on whichever host they actually
+    // checked out from, vendor subdomain or apex.
+    const requestHost = resolveRequestHost(request);
+    const callbackOrigin = isVendorSubdomainHost(requestHost) ? `https://${requestHost}` : process.env.NEXT_PUBLIC_APP_URL;
 
     // Scoped to this customer's own order -- confirms ownership, same
     // pattern as every other order route in this app.
@@ -215,7 +231,14 @@ export async function POST(request) {
         // customer's done (with ?reference= appended). The order page
         // picks that up and calls /api/payments/verify. This is never
         // trusted as proof of payment on its own, same as the webhook.
-        callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}${returnPath}`
+        //
+        // Built against the ORIGINATING host, not always the static apex --
+        // a customer checking out from a vendor subdomain must come back to
+        // that same subdomain, same reasoning as google/start/route.js's
+        // callbackURL (this route isn't behind proxy.js's page rewrite --
+        // /orders is one of its permanently-exempt paths -- but it's still
+        // the real host the browser is sitting on either way).
+        callbackUrl: `${callbackOrigin}${returnPath}`
       });
     } catch (error) {
       console.error('Paystack transaction initialize error:', error);

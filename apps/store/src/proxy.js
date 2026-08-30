@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { redis, withTimeout } from '@/lib/redis';
 import { isValidNigerianState } from '@stora/shared-constants';
+import { resolveRequestHost } from '@/lib/vendorHost';
 
 // Falls back to a literal default rather than throwing when unset -- this
 // only matters once vendor subdomains are actually wired up in DNS/Vercel;
@@ -15,25 +16,6 @@ const APEX_DOMAIN = process.env.NEXT_PUBLIC_STORE_APEX_DOMAIN || 'stora.com.ng';
 // without going through that Worker at all (local dev, or the origin
 // domain hit directly).
 const VALID_SUBDOMAIN_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
-
-// Shared secret with workers/subdomain-router (set there via
-// `wrangler secret put PROXY_SECRET`, here as a normal Vercel project env
-// var -- never NEXT_PUBLIC_, this must stay server-only). This app is a
-// normal public origin, reachable directly and not only through that
-// Worker, so without this check anyone could set X-Stora-Vendor-Host
-// themselves and make this app render an arbitrary vendor's page under
-// www.stora.com.ng -- worst case a cache-poisoning vector if any shared
-// cache layer keys responses by Host/path without accounting for this
-// header. Unset (or mismatched) fails closed to the SAFE behavior of
-// treating the request as the plain apex -- never to trusting an
-// unverified header -- so a missing secret breaks the subdomain feature
-// rather than reopening the hole it exists to close.
-const PROXY_SECRET = process.env.STORA_PROXY_SECRET || null;
-
-function isFromTrustedProxy(req) {
-  if (!PROXY_SECRET) return false;
-  return req.headers.get('x-stora-proxy-secret') === PROXY_SECRET;
-}
 
 const DELIVER_STATE_COOKIE = 'stora_deliver_state';
 // Marks a state cookie written from a bare IP guess, not a URL param or
@@ -155,23 +137,9 @@ function getClientIp(req) {
   return req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
 }
 
-// workers/subdomain-router's Cloudflare Worker forwards <slug>.stora.com.ng
-// requests to this app's own apex domain, preserving the real subdomain in
-// X-Stora-Vendor-Host -- deliberately NOT X-Forwarded-Host: Vercel's own
-// docs state that header "is identical to the host header", meaning the
-// platform overwrites it to match the actual connection regardless of what
-// an upstream proxy sets. Confirmed live -- every vendor subdomain was
-// rendering the plain homepage because X-Forwarded-Host arrived here as
-// www.stora.com.ng (the Worker's own Host to Vercel), never the real
-// subdomain, until this moved to a header name Vercel has no built-in
-// opinion about. A request reaching this app directly -- local dev, or the
-// apex domain itself -- has no such header, so `host` is exactly right for
-// those instead.
-//
-// X-Stora-Vendor-Host is only ever trusted when isFromTrustedProxy(req)
-// confirms it -- this app is a normal public origin, reachable directly,
-// so an unverified header here would let anyone spoof which vendor's page
-// renders under www.stora.com.ng.
+// hostname resolution (real vendor subdomain vs. the Worker's own Host to
+// Vercel) is shared with any Route Handler that needs it -- see
+// lib/vendorHost.js for why X-Stora-Vendor-Host, verified, wins over Host.
 //
 // Returns { rewriteUrl } when the request is for a real vendor subdomain,
 // { notFound: true } for a malformed/unrecognized one that still matched
@@ -180,8 +148,7 @@ function getClientIp(req) {
 // misconfigured DNS entry -- left to resolve exactly as it would with no
 // rewrite at all).
 function resolveVendorSubdomainRewrite(req) {
-  const forwardedHost = isFromTrustedProxy(req) ? req.headers.get('x-stora-vendor-host') : null;
-  const hostname = (forwardedHost || req.headers.get('host') || '').split(':')[0].toLowerCase();
+  const hostname = resolveRequestHost(req);
 
   const apexSuffix = `.${APEX_DOMAIN}`;
   const isApex = hostname === APEX_DOMAIN || hostname === `www.${APEX_DOMAIN}`;

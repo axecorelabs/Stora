@@ -14,6 +14,7 @@ import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 import { useProducts } from "@/hooks/useProducts";
 import { useStoreProductsSearch } from "@/hooks/useStoreProductsSearch";
 import useStoreStore from "@/stores/storeStore";
+import { storeHref } from "@/lib/storeUrl";
 
 const MENU_SECTION_ORDER = ['Starters', 'Mains', 'Sides', 'Desserts', 'Drinks', 'Other'];
 
@@ -250,9 +251,9 @@ export default function ProductsPageClient({ store, products: initialProducts, s
     setSelectedCategory(category);
     
     // Update URL without page reload
-    const newUrl = category === 'all' 
-      ? `/${slug}/products`
-      : `/${slug}/products?category=${encodeURIComponent(category)}`;
+    const newUrl = category === 'all'
+      ? storeHref(slug, '/products')
+      : storeHref(slug, `/products?category=${encodeURIComponent(category)}`);
     
     router.push(newUrl, { scroll: false });
   };
@@ -269,7 +270,7 @@ export default function ProductsPageClient({ store, products: initialProducts, s
               <button
                 onClick={() => {
                   setIsNavigating(true);
-                  router.push(`/${slug}`);
+                  router.push(storeHref(slug));
                 }}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
@@ -518,7 +519,7 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                   className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-lg transition-shadow cursor-pointer"
                   onClick={() => {
                     setIsNavigating(true);
-                    router.push(`/${slug}/product/${product.id}`);
+                    router.push(storeHref(slug, `/product/${product.id}`));
                   }}
                 >
                   <div className="flex gap-6">

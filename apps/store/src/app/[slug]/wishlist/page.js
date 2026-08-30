@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import useStoreStore from "@/stores/storeStore";
 import Toast from "@/components/ui/Toast";
+import { storeHref } from "@/lib/storeUrl";
 
 export default function StoreWishlistPage({ params }) {
   const router = useRouter();
@@ -63,7 +64,7 @@ export default function StoreWishlistPage({ params }) {
   // Auth redirect
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push(`/${resolvedParams.slug}`);
+      router.push(storeHref(resolvedParams.slug));
     }
   }, [isAuthenticated, authLoading, router, resolvedParams.slug]);
 
@@ -176,7 +177,7 @@ export default function StoreWishlistPage({ params }) {
   };
 
   const handleViewProduct = (item) => {
-    router.push(`/${resolvedParams.slug}/product/${item.product_id}`);
+    router.push(storeHref(resolvedParams.slug, `/product/${item.product_id}`));
   };
 
   if (authLoading || loading || !currentStore) {
@@ -200,7 +201,7 @@ export default function StoreWishlistPage({ params }) {
           <h2 className="font-display text-xl font-semibold text-gray-900 mb-2">Couldn&apos;t load your wishlist</h2>
           <p className="text-sm text-gray-500 mb-6">{error}</p>
           <button
-            onClick={() => router.push(`/${resolvedParams.slug}`)}
+            onClick={() => router.push(storeHref(resolvedParams.slug))}
             className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl text-sm font-semibold bg-brand-700 hover:bg-brand-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -217,7 +218,7 @@ export default function StoreWishlistPage({ params }) {
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4">
           <button
-            onClick={() => router.push(`/${resolvedParams.slug}`)}
+            onClick={() => router.push(storeHref(resolvedParams.slug))}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-3"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -262,7 +263,7 @@ export default function StoreWishlistPage({ params }) {
               Browse {currentStore?.storeName || 'this store'} and save items you love here.
             </p>
             <button
-              onClick={() => router.push(`/${resolvedParams.slug}`)}
+              onClick={() => router.push(storeHref(resolvedParams.slug))}
               className="inline-flex items-center gap-2 px-7 py-3.5 text-white rounded-xl text-sm font-semibold hover:brightness-95 transition-all"
               style={{ backgroundColor: primaryColor }}
             >

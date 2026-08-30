@@ -1,16 +1,18 @@
 'use client';
 import { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Heart, ShoppingCart, Check, Package } from 'lucide-react';
 import { normalizeExtraDefinitions } from '@stora/shared-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useIsInWishlist, useWishlistMutations } from '@/hooks/useWishlist';
 import QuickAddModal from '@/components/product/QuickAddModal';
+import useStoreStore from '@/stores/storeStore';
+import { storeHref } from '@/lib/storeUrl';
 
 export default function ProductCardMobile({ product, primaryColor, currency, secondaryColor, onNavigate, onSignInRequired }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const { currentStore } = useStoreStore();
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -32,8 +34,7 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
 
   const handleProductClick = () => {
     if (onNavigate) onNavigate();
-    const storeSlug = pathname.split('/')[1];
-    router.push(`/${storeSlug}/product/${product.id}`);
+    router.push(storeHref(currentStore?.storeSlug, `/product/${product.id}`));
   };
 
   const handleWishlistToggle = async (e) => {

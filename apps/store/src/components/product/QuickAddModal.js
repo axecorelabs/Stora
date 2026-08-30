@@ -1,10 +1,12 @@
 "use client";
 import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { normalizeExtraDefinitions } from "@stora/shared-constants";
 import ExtrasSelector from "@/components/product/ExtrasSelector";
 import { NOTE_PLACEHOLDERS } from "@/components/product/notePlaceholders";
+import useStoreStore from "@/stores/storeStore";
+import { storeHref } from "@/lib/storeUrl";
 
 // Quick customize-and-add from a product card, without leaving the grid --
 // only shown for a product with real priced extras (see ProductCard.js's
@@ -18,7 +20,7 @@ import { NOTE_PLACEHOLDERS } from "@/components/product/notePlaceholders";
 // hands off to the full product page instead of being crammed in here.
 export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, onNavigate, primaryColor = '#0D9488', currency = 'NGN' }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const { currentStore } = useStoreStore();
   const [quantity, setQuantity] = useState(1);
   const [selectedExtras, setSelectedExtras] = useState({});
   const [itemNote, setItemNote] = useState('');
@@ -87,8 +89,7 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, o
   // shopper's flow instead of starting over -- see ProductDetailsClient.js's
   // lazy useState initializers reading these same two params.
   const goToFullPageCustomization = () => {
-    const storeSlug = pathname.split('/')[1];
-    const target = `/${storeSlug}/product/${product.id}?quantity=${quantity}&customize=1`;
+    const target = storeHref(currentStore?.storeSlug, `/product/${product.id}?quantity=${quantity}&customize=1`);
     handleClose();
     onNavigate?.();
     router.push(target);

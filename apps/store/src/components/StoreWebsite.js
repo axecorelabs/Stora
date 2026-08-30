@@ -45,6 +45,7 @@ import {
 import { useCart } from "@/contexts/CartContext";
 import { useDeliveryState } from "@/contexts/DeliveryStateContext";
 import useStoreStore from "@/stores/storeStore";
+import { storeHref } from "@/lib/storeUrl";
 import SignInModal from "./auth/SignInModal";
 import SignUpModal from "./auth/SignUpModal";
 import ForgotPasswordModal from "./auth/ForgotPasswordModal";
@@ -271,7 +272,7 @@ export default function StoreWebsite({ store }) {
   const handleCategoryClick = (categoryName) => {
     // Navigate to products page with category filter
     setIsNavigating(true);
-    router.push(`/${store.storeSlug}/products?category=${encodeURIComponent(categoryName)}`);
+    router.push(storeHref(store.storeSlug, `/products?category=${encodeURIComponent(categoryName)}`));
   };
 
   // Get current filter labels
@@ -896,7 +897,7 @@ export default function StoreWebsite({ store }) {
               <button
                 onClick={() => {
                   setIsNavigating(true);
-                  router.push(`/${store.storeSlug}/products`);
+                  router.push(storeHref(store.storeSlug, '/products'));
                 }}
                 className="text-sm font-medium"
                 style={{ color: primaryColor }}
@@ -1146,7 +1147,7 @@ export default function StoreWebsite({ store }) {
                   <button
                     onClick={() => {
                       setIsNavigating(true);
-                      router.push(`/${store.storeSlug}/products`);
+                      router.push(storeHref(store.storeSlug, '/products'));
                     }}
                     className="inline-flex items-center gap-2.5 px-7 py-3.5 text-white rounded-xl font-semibold text-sm hover:brightness-95 transition-all shadow-sm hover:shadow-md"
                     style={{ backgroundColor: primaryColor }}

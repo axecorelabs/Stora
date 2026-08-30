@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import useStoreStore from '@/stores/storeStore';
+import { storeHref } from '@/lib/storeUrl';
 
 export default function FloatingCartButton({ onNavigate, onSignInRequired }) {
   const router = useRouter();
@@ -17,9 +18,11 @@ export default function FloatingCartButton({ onNavigate, onSignInRequired }) {
   const primaryColor = currentStore?.branding?.primaryColor || '#0D9488';
   const cartCount = getCartCount();
   
-  // Extract store slug from pathname
-  const storeSlug = pathname.split('/')[1];
-  
+  // From actual store data, not the URL -- see StoreHeader's comment on
+  // the same fix for why pathname-derived slugs break on a vendor
+  // subdomain.
+  const storeSlug = currentStore?.storeSlug;
+
   // Stop pulse animation after 5 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -46,7 +49,7 @@ export default function FloatingCartButton({ onNavigate, onSignInRequired }) {
     
     // User is authenticated, proceed with navigation
     if (onNavigate) onNavigate();
-    router.push(`/${storeSlug}/cart`);
+    router.push(storeHref(storeSlug, '/cart'));
   };
 
   return (
