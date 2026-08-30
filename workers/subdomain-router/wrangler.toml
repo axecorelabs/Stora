@@ -1,0 +1,25 @@
+name = "stora-vendor-subdomain-router"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Requires the zone (stora.com.ng) to stay on Cloudflare's nameservers --
+# this Worker exists specifically so it *can* stay there instead of
+# handing the zone to Vercel (which wildcard TLS issuance would otherwise
+# require). Cloudflare's own Universal SSL already covers the wildcard for
+# free once this route is proxied.
+routes = [
+  { pattern = "*.stora.com.ng/*", zone_name = "stora.com.ng" }
+]
+
+[vars]
+# The store app's own domain, already verified as a Vercel project domain
+# via a normal (non-wildcard) record -- every vendor request gets forwarded
+# here with the real subdomain preserved in X-Forwarded-Host.
+STORE_ORIGIN_HOST = "stora.com.ng"
+
+# Comma-separated subdomain labels that must NOT be treated as a vendor
+# slug, even though they match *.stora.com.ng -- each of these already has
+# its own DNS record in the zone (e.g. app.stora.com.ng -> the dashboard's
+# own Vercel project) and is passed through unmodified. Add to this list
+# before it's ever reachable as a vendor slug, not after.
+RESERVED_SUBDOMAINS = "www,app,api,mail,admin,support,help,status,cdn,assets,blog,docs"

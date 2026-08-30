@@ -3,6 +3,21 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { redis, withTimeout } from '@/lib/redis';
 import { isValidNigerianState } from '@stora/shared-constants';
 
+// Falls back to a literal default rather than throwing when unset -- this
+// only matters once vendor subdomains are actually wired up in DNS/Vercel;
+// until then every request's host is the apex anyway and the rewrite below
+// is a no-op.
+const APEX_DOMAIN = process.env.NEXT_PUBLIC_STORE_APEX_DOMAIN || 'stora.com.ng';
+
+// Same DNS-label shape check workers/subdomain-router's Cloudflare Worker
+// uses -- kept independent (not imported from anywhere shared) since a
+// request can reach this proxy directly against the Vercel deployment too,
+// without going through that Worker at all (local dev, or the origin
+// domain hit directly). This is the second, and only truly load-bearing,
+// line of defense: it decides what actually gets rewritten to a store's
+// [slug] routes, not just a sanity check.
+const VALID_SUBDOMAIN_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
 const DELIVER_STATE_COOKIE = 'stora_deliver_state';
 // Marks a state cookie written from a bare IP guess, not a URL param or
 // anything DeliveryStateContext.js itself confirmed -- see its own
@@ -123,8 +138,65 @@ function getClientIp(req) {
   return req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
 }
 
+// workers/subdomain-router's Cloudflare Worker forwards <slug>.stora.com.ng
+// requests to this app's own apex domain, preserving the real subdomain in
+// X-Forwarded-Host (see that Worker's comments for why the Host header
+// itself can't carry it -- Vercel routes by Host, so left alone it would
+// resolve to no project at all). A request reaching this app directly --
+// local dev, or the apex domain itself -- has no such header, so `host` is
+// exactly right for those instead.
+//
+// Returns { rewriteUrl } when the request is for a real vendor subdomain,
+// { notFound: true } for a malformed/unrecognized one that still matched
+// the apex suffix, or null when there's nothing to do (apex/www, or a host
+// that isn't under this domain at all -- a raw *.vercel.app request, a
+// misconfigured DNS entry -- left to resolve exactly as it would with no
+// rewrite at all).
+function resolveVendorSubdomainRewrite(req) {
+  const forwardedHost = req.headers.get('x-forwarded-host');
+  const hostname = (forwardedHost || req.headers.get('host') || '').split(':')[0].toLowerCase();
+
+  const apexSuffix = `.${APEX_DOMAIN}`;
+  const isApex = hostname === APEX_DOMAIN || hostname === `www.${APEX_DOMAIN}`;
+  if (isApex || !hostname.endsWith(apexSuffix)) return null;
+
+  const slug = hostname.slice(0, -apexSuffix.length);
+  if (slug.includes('.') || !VALID_SUBDOMAIN_LABEL.test(slug)) return { notFound: true };
+
+  const rewriteUrl = req.nextUrl.clone();
+  rewriteUrl.pathname = `/${slug}${req.nextUrl.pathname}`;
+  return { rewriteUrl };
+}
+
 export async function proxy(req) {
   const path = req.nextUrl.pathname;
+
+  // Page paths only -- API routes already carry whatever slug/id they
+  // need directly in their own path (e.g. /api/store/[slug]), so rewriting
+  // would only break them (prefixing a path they don't expect). Note this
+  // never runs at all for /cart, /wishlist, /orders or /reset-password --
+  // the matcher below excludes those from the page catch-all, so a vendor
+  // subdomain visiting one of those four falls back to the generic,
+  // unbranded page rather than the [slug]-prefixed one. Both render the
+  // same account-level data either way (cart contents aren't per-vendor),
+  // so this is a narrow, accepted cosmetic gap, not a functional break --
+  // widening that exclusion would also change this file's rate-limit/
+  // cookie behavior for those four paths, which isn't worth risking for it.
+  //
+  // A 404 short-circuits immediately below (nothing to rate-limit or set
+  // a delivery cookie for on a dead end), but a real vendor subdomain
+  // rewrite still flows through both -- rate limiting is IP-keyed, not
+  // path-keyed, for page loads, and the delivery-state cookie is just as
+  // relevant browsing a vendor's own subdomain as it is on the apex.
+  let rewriteUrl = null;
+  if (!path.startsWith('/api/')) {
+    const subdomainResult = resolveVendorSubdomainRewrite(req);
+    if (subdomainResult?.notFound) {
+      return new NextResponse('Not found', { status: 404 });
+    }
+    rewriteUrl = subdomainResult?.rewriteUrl || null;
+  }
+
   const limiter = authLimiters[path] || browseLimiter;
 
   try {
@@ -150,7 +222,7 @@ export async function proxy(req) {
     console.error('Rate limit check failed, allowing request:', error);
   }
 
-  const response = NextResponse.next();
+  const response = rewriteUrl ? NextResponse.rewrite(rewriteUrl) : NextResponse.next();
 
   const resolved = resolveDeliverStateCookie(req);
   if (resolved) {
