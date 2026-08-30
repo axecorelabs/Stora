@@ -140,11 +140,16 @@ function getClientIp(req) {
 
 // workers/subdomain-router's Cloudflare Worker forwards <slug>.stora.com.ng
 // requests to this app's own apex domain, preserving the real subdomain in
-// X-Forwarded-Host (see that Worker's comments for why the Host header
-// itself can't carry it -- Vercel routes by Host, so left alone it would
-// resolve to no project at all). A request reaching this app directly --
-// local dev, or the apex domain itself -- has no such header, so `host` is
-// exactly right for those instead.
+// X-Stora-Vendor-Host -- deliberately NOT X-Forwarded-Host: Vercel's own
+// docs state that header "is identical to the host header", meaning the
+// platform overwrites it to match the actual connection regardless of what
+// an upstream proxy sets. Confirmed live -- every vendor subdomain was
+// rendering the plain homepage because X-Forwarded-Host arrived here as
+// www.stora.com.ng (the Worker's own Host to Vercel), never the real
+// subdomain, until this moved to a header name Vercel has no built-in
+// opinion about. A request reaching this app directly -- local dev, or the
+// apex domain itself -- has no such header, so `host` is exactly right for
+// those instead.
 //
 // Returns { rewriteUrl } when the request is for a real vendor subdomain,
 // { notFound: true } for a malformed/unrecognized one that still matched
@@ -153,7 +158,7 @@ function getClientIp(req) {
 // misconfigured DNS entry -- left to resolve exactly as it would with no
 // rewrite at all).
 function resolveVendorSubdomainRewrite(req) {
-  const forwardedHost = req.headers.get('x-forwarded-host');
+  const forwardedHost = req.headers.get('x-stora-vendor-host');
   const hostname = (forwardedHost || req.headers.get('host') || '').split(':')[0].toLowerCase();
 
   const apexSuffix = `.${APEX_DOMAIN}`;

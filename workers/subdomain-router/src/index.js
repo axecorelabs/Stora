@@ -6,11 +6,19 @@
 //
 // A request to <slug>.stora.com.ng is forwarded to the store app's own
 // verified Vercel domain (STORE_ORIGIN_HOST), with the original hostname
-// preserved in X-Forwarded-Host -- apps/store's middleware reads that
-// header to decide which vendor's /[slug] routes to rewrite to. This
-// Worker never parses store slugs against a database; it only extracts
-// the subdomain label and does light shape validation before forwarding,
-// same as any reverse proxy would.
+// preserved in X-Stora-Vendor-Host -- apps/store's proxy.js reads that
+// header to decide which vendor's /[slug] routes to rewrite to.
+//
+// NOT X-Forwarded-Host: Vercel's own platform documents that header as
+// "identical to the host header" -- it overwrites whatever an upstream
+// proxy sets to match the actual connection's Host, discarding the real
+// subdomain before the app ever sees it. Confirmed live: every vendor
+// subdomain rendered the plain homepage instead of that vendor's store
+// until this moved to a custom header name Vercel has no reason to touch.
+//
+// This Worker never parses store slugs against a database; it only
+// extracts the subdomain label and does light shape validation before
+// forwarding, same as any reverse proxy would.
 //
 // A handful of subdomains are reserved (the dashboard at app.stora.com.ng,
 // www, etc.) -- those already have their own DNS records in this zone, so
@@ -70,11 +78,11 @@ export default {
     // Constructing from `request` carries its Host header along
     // (<slug>.stora.com.ng) -- Vercel routes incoming requests by Host, so
     // left as-is this would hit no project at all. Overwriting it to the
-    // store app's own verified domain is what actually gets it there; the
-    // original hostname travels in X-Forwarded-Host instead, for the store
-    // app's middleware to recover the slug from.
+    // store app's own verified domain is what actually gets it there.
     originRequest.headers.set('Host', env.STORE_ORIGIN_HOST);
-    originRequest.headers.set('X-Forwarded-Host', url.hostname);
+    // The real subdomain, in a header name Vercel has no built-in opinion
+    // about (see the file-level comment on why this isn't X-Forwarded-Host).
+    originRequest.headers.set('X-Stora-Vendor-Host', url.hostname);
     originRequest.headers.set('X-Forwarded-Proto', 'https');
 
     return fetch(originRequest);
