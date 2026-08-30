@@ -15,9 +15,13 @@ import {
   Code,
   ExternalLink,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Loader2,
+  XCircle
 } from "lucide-react";
 import CustomDropdown from "../ui/CustomDropdown";
+
+const STORE_APEX_DOMAIN = (process.env.NEXT_PUBLIC_STORE_URL || 'https://stora.com.ng').replace(/^https?:\/\//, '');
 
 export default function WebsiteSettingsView({ onBack, store, onStoreUpdated }) {
   const { secureApiCall } = useAuth();
@@ -26,6 +30,13 @@ export default function WebsiteSettingsView({ onBack, store, onStoreUpdated }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Separate from `settings`/`errors` above -- this has its own async,
+  // debounced, DB-hitting check, unlike everything else on this page.
+  const [websitePathInput, setWebsitePathInput] = useState('');
+  // 'idle' | 'checking' | 'available' | 'taken' | 'invalid' | 'unchanged'
+  const [websitePathStatus, setWebsitePathStatus] = useState('idle');
+  const [websitePathReason, setWebsitePathReason] = useState('');
 
   // Theme options
   const themeOptions = [
@@ -78,9 +89,60 @@ export default function WebsiteSettingsView({ onBack, store, onStoreUpdated }) {
         testimonials: store.website.settings?.testimonials ?? false,
         blog: store.website.settings?.blog ?? false
       });
+      setWebsitePathInput(store.websitePath || '');
+      setWebsitePathStatus('idle');
       setLoading(false);
     }
   }, [store]);
+
+  // Debounced (400ms) live availability check, same pattern as
+  // CreateStoreModal's store-name warning -- including the `cancelled`
+  // guard, which fixed a real bug there (a slower, older check response
+  // landing after a newer one and overwriting it with a stale result).
+  useEffect(() => {
+    const normalized = websitePathInput.trim().toLowerCase();
+    const currentlyResolvedPath = store?.websitePath || '';
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+
+      if (!normalized || normalized === currentlyResolvedPath) {
+        setWebsitePathStatus(normalized ? 'unchanged' : 'invalid');
+        setWebsitePathReason(normalized ? '' : 'Website address is required');
+        return;
+      }
+
+      setWebsitePathStatus('checking');
+      try {
+        const response = await secureApiCall(`/api/stores/website/check-path?path=${encodeURIComponent(normalized)}`);
+        if (cancelled) return;
+        if (response?.available) {
+          setWebsitePathStatus('available');
+          setWebsitePathReason('');
+        } else {
+          setWebsitePathStatus('taken');
+          setWebsitePathReason(response?.reason || 'Not available');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setWebsitePathStatus('idle');
+          setWebsitePathReason('');
+        }
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [websitePathInput]);
+
+  const handleWebsitePathChange = (value) => {
+    setWebsitePathInput(value);
+    if (successMessage) setSuccessMessage('');
+  };
 
   const handleChange = (field, value) => {
     setSettings(prev => ({
@@ -115,7 +177,15 @@ export default function WebsiteSettingsView({ onBack, store, onStoreUpdated }) {
     if (settings.customDomain && !/^[a-zA-Z0-9][a-zA-Z0-9-_.]*[a-zA-Z0-9]$/.test(settings.customDomain)) {
       newErrors.customDomain = 'Please enter a valid domain name';
     }
-    
+
+    // websitePathStatus is either the answer to "is this free" (available)
+    // or "nothing changed, keep what's already saved" (unchanged) --
+    // anything else (still checking, taken, or plain invalid) means this
+    // isn't in a savable state yet.
+    if (websitePathStatus !== 'available' && websitePathStatus !== 'unchanged') {
+      newErrors.websitePath = websitePathReason || 'Please wait for the availability check to finish';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -130,6 +200,7 @@ export default function WebsiteSettingsView({ onBack, store, onStoreUpdated }) {
       const updateData = {
         website: {
           ...store.website,
+          websitePath: websitePathInput.trim().toLowerCase(),
           seoSettings: {
             metaTitle: settings.metaTitle,
             metaDescription: settings.metaDescription,
@@ -261,6 +332,61 @@ export default function WebsiteSettingsView({ onBack, store, onStoreUpdated }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Settings */}
         <div className="lg:col-span-2 space-y-8">
+          {/* Website Address */}
+          <div className="bg-white rounded-2xl p-6 border border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+              <Globe className="w-5 h-5 mr-2 text-gray-600" />
+              Website Address
+            </h2>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Choose your own, or keep the one generated from your store name
+              </label>
+              <div className="flex items-center">
+                <input
+                  type="text"
+                  value={websitePathInput}
+                  onChange={(e) => handleWebsitePathChange(e.target.value.toLowerCase())}
+                  placeholder="your-store-name"
+                  className={`flex-1 min-w-0 px-4 py-3 border rounded-l-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
+                    errors.websitePath ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                <span className="px-4 py-3 border border-l-0 border-gray-300 rounded-r-xl bg-gray-50 text-gray-500 text-sm whitespace-nowrap">
+                  .{STORE_APEX_DOMAIN}
+                </span>
+              </div>
+
+              <div className="mt-2 min-h-[20px]">
+                {websitePathStatus === 'checking' && (
+                  <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Checking availability…
+                  </p>
+                )}
+                {websitePathStatus === 'available' && (
+                  <p className="text-xs text-green-600 flex items-center gap-1.5">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Available
+                  </p>
+                )}
+                {websitePathStatus === 'unchanged' && (
+                  <p className="text-xs text-gray-400">This is your current address</p>
+                )}
+                {(websitePathStatus === 'taken' || websitePathStatus === 'invalid') && (
+                  <p className="text-xs text-red-600 flex items-center gap-1.5">
+                    <XCircle className="w-3.5 h-3.5" />
+                    {websitePathReason}
+                  </p>
+                )}
+                {errors.websitePath && websitePathStatus !== 'taken' && websitePathStatus !== 'invalid' && (
+                  <p className="text-xs text-red-600">{errors.websitePath}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* SEO Settings */}
           <div className="bg-white rounded-2xl p-6 border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">

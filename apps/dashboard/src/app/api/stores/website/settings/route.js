@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
+import { normalizeWebsitePath, getWebsitePathShapeError, isWebsitePathTaken } from '@/lib/websitePath';
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -89,14 +90,44 @@ export async function PUT(req) {
       const updatedWebsite = { ...currentWebsite };
       
       if (updateData.website) {
-        // websitePath is deliberately never accepted here -- it's derived
-        // from store_slug (already unique, already collision-checked at
-        // creation) rather than an independently settable value, so
-        // there's nothing for it to collide with another store's slug or
-        // subdomain on. Dropped rather than validated: no UI exposes this
-        // field today, so there's no legitimate update to preserve.
+        // websitePath is handled separately below (it needs an async
+        // uniqueness check, unlike everything else merged here) --
+        // stripped out first so a bare Object.assign can't set it
+        // unvalidated.
         const { websitePath, ...safeWebsiteUpdate } = updateData.website;
         Object.assign(updatedWebsite, safeWebsiteUpdate);
+
+        if (websitePath !== undefined) {
+          const normalized = normalizeWebsitePath(websitePath);
+
+          if (!normalized) {
+            // Explicit clear -- revert to deriving from store_slug
+            // (transformStore's own fallback) rather than storing an
+            // empty value.
+            delete updatedWebsite.websitePath;
+          } else {
+            const shapeError = getWebsitePathShapeError(normalized);
+            if (shapeError) {
+              return NextResponse.json({ success: false, message: shapeError }, { status: 400 });
+            }
+
+            // Re-saving the store's own current value (whichever field
+            // it's presently resolved from) is always fine -- only a
+            // genuine change needs the availability check.
+            const currentlyResolvedPath = currentWebsite.websitePath || store.store_slug;
+            if (normalized !== currentlyResolvedPath) {
+              const taken = await isWebsitePathTaken(normalized, { excludeStoreId: store.id });
+              if (taken) {
+                return NextResponse.json(
+                  { success: false, message: 'That website address is already taken' },
+                  { status: 409 }
+                );
+              }
+            }
+
+            updatedWebsite.websitePath = normalized;
+          }
+        }
       }
       if (updateData['website.seoSettings']) {
         updatedWebsite.seoSettings = { ...updatedWebsite.seoSettings, ...updateData['website.seoSettings'] };
