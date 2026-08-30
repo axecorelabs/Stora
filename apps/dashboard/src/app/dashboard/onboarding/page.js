@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Globe, CheckCircle2, AlertCircle } from "lucide-react";
+import { Globe, UtensilsCrossed, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWebsiteData } from "@/hooks/useWebsiteData";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
 import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
+import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import VerificationForm from "@/components/dashboard/VerificationForm";
 import Button from "@/components/ui/Button";
 
@@ -28,13 +29,13 @@ export default function OnboardingPage() {
   const verificationEnabled = useVerificationEnabled();
   const [createdStore, setCreatedStore] = useState(null);
 
-  // Steps: 'name' -> 'store' -> 'verification' -> 'website' -> 'done'.
-  // Always starts at 'name' -- there's no persisted "step 1 done" flag,
-  // so re-entering the wizard (e.g. a refresh mid-flow) just re-shows a
-  // pre-filled, one-click confirm rather than needing its own progress
-  // column. Verification and website are skippable (that's unchanged),
-  // but they're real inline steps here, not links out to a page that
-  // leaves the vendor to figure out the rest alone -- and nothing here
+  // Steps: 'name' -> 'store' -> 'branding' -> 'restaurant' -> 'verification'
+  // -> 'website' -> 'done'. Always starts at 'name' -- there's no persisted
+  // "step 1 done" flag, so re-entering the wizard (e.g. a refresh mid-flow)
+  // just re-shows a pre-filled, one-click confirm rather than needing its
+  // own progress column. Every step from 'branding' on is skippable (that's
+  // unchanged), but they're real inline steps here, not links out to a page
+  // that leaves the vendor to figure out the rest alone -- and nothing here
   // calls them "optional": they're skippable, not unimportant.
   const [step, setStep] = useState('name');
 
@@ -43,6 +44,7 @@ export default function OnboardingPage() {
   const [nameError, setNameError] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const [websiteError, setWebsiteError] = useState(null);
+  const [isUpdatingRestaurantMode, setIsUpdatingRestaurantMode] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -105,10 +107,32 @@ export default function OnboardingPage() {
     // reads it straight from context. Without this, navigating away
     // later would immediately bounce back here.
     await checkAuth();
-    // Skip straight past the verification step while QoreID's keys aren't
-    // configured yet (see useVerificationEnabled) -- there's nothing to
-    // show that wouldn't just fail if submitted.
-    setStep(verificationEnabled === true ? 'verification' : 'website');
+    setStep('branding');
+  };
+
+  const handleBrandingUpdated = (updatedStore) => {
+    setCreatedStore((prev) => ({ ...prev, branding: updatedStore.branding }));
+    setStep('restaurant');
+  };
+
+  const handleRestaurantModeChange = async (restaurantMode) => {
+    if (isUpdatingRestaurantMode) return;
+    setIsUpdatingRestaurantMode(true);
+    try {
+      const response = await secureApiCall('/api/stores/restaurant-mode', {
+        method: 'PATCH',
+        body: JSON.stringify({ restaurantMode })
+      });
+      if (response?.success) {
+        setCreatedStore((prev) => ({ ...prev, restaurantMode: response.data.restaurantMode }));
+      }
+    } finally {
+      setIsUpdatingRestaurantMode(false);
+      // Skip straight past the verification step while QoreID's keys aren't
+      // configured yet (see useVerificationEnabled) -- there's nothing to
+      // show that wouldn't just fail if submitted.
+      setStep(verificationEnabled === true ? 'verification' : 'website');
+    }
   };
 
   const handleTurnOnWebsite = async () => {
@@ -125,7 +149,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-10 sm:py-16">
       <img src="/stora.png" alt="Stora" className="w-12 h-12 object-contain mb-6" />
 
-      <div className={`w-full ${step === 'store' ? 'max-w-2xl' : 'max-w-lg'}`}>
+      <div className={`w-full ${step === 'store' ? 'max-w-2xl' : step === 'branding' ? 'max-w-3xl' : 'max-w-lg'}`}>
         {step === 'name' && (
           <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100">
             <h1 className="text-lg font-semibold text-gray-900 mb-1.5">Confirm your legal name</h1>
@@ -168,6 +192,45 @@ export default function OnboardingPage() {
 
         {step === 'store' && (
           <CreateStoreModal isOpen={true} onStoreCreated={handleStoreCreated} embedded />
+        )}
+
+        {step === 'branding' && (
+          <StoreBrandingModal
+            isOpen={true}
+            embedded
+            store={createdStore}
+            onClose={() => setStep('restaurant')}
+            onBrandingUpdated={handleBrandingUpdated}
+          />
+        )}
+
+        {step === 'restaurant' && (
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100 text-center">
+            <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
+              <UtensilsCrossed className="w-7 h-7 text-brand-800" />
+            </div>
+            <h1 className="text-lg font-semibold text-gray-900 mb-1.5">Do you sell food?</h1>
+            <p className="text-sm text-gray-500 mb-6">
+              Restaurant Mode switches on a menu-first item form and a menu-style layout for
+              shoppers -- extras, made-to-order items, the works. It doesn&apos;t restrict what
+              else you can sell.
+            </p>
+            <Button
+              variant="primary"
+              onClick={() => handleRestaurantModeChange(true)}
+              disabled={isUpdatingRestaurantMode}
+              className="w-full mb-3"
+            >
+              {isUpdatingRestaurantMode ? 'Turning on…' : 'Yes, turn on Restaurant Mode'}
+            </Button>
+            <button
+              onClick={() => handleRestaurantModeChange(false)}
+              disabled={isUpdatingRestaurantMode}
+              className="w-full text-center text-sm text-gray-500 hover:text-gray-700"
+            >
+              No -- you can turn this on anytime from Store settings
+            </button>
+          </div>
         )}
 
         {step === 'verification' && (
