@@ -83,6 +83,22 @@ export const auth = betterAuth({
   // customers.id/every FK in this schema is uuid-typed.
   advanced: {
     database: { generateId: false },
+    // apps/dashboard runs its own, separate Better Auth instance and
+    // neither app customizes this, so both would otherwise set the exact
+    // same default cookie name ("better-auth.session_token"). That was
+    // harmless while this app's cookie was host-only, but crossSubDomainCookies
+    // below now scopes it to the whole apex family, which includes
+    // app.stora.com.ng -- the dashboard's own domain (see workers/
+    // subdomain-router/wrangler.toml's RESERVED_SUBDOMAINS). Without a
+    // distinct prefix, anyone signed into both the store (as a customer)
+    // and the dashboard (as a vendor) in the same browser would carry two
+    // identically-named cookies with overlapping scope there, which can
+    // make the dashboard's own session flaky depending on which same-named
+    // cookie the browser presents first. A distinct prefix here removes
+    // the name collision entirely; the two apps' sessions were never meant
+    // to share an identity anyway (separate customer_sessions/sessions
+    // tables, separate user models).
+    cookiePrefix: 'stora-store',
     // Google's redirect_uri is pinned to baseURL (see socialProviders.google
     // below and api/auth/callback/google/route.js), so every Google sign-in
     // completes on the apex host regardless of which vendor subdomain the

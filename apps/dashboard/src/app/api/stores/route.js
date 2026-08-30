@@ -5,6 +5,7 @@ import { invalidateStorefrontCache } from '@/lib/redis';
 import { isValidNigerianState } from '@stora/shared-constants';
 import { embedStoreById } from '@/lib/openrouter';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { RESERVED_SUBDOMAINS } from '@/lib/websitePath';
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -98,6 +99,14 @@ async function generateUniqueStoreSlug(storeName) {
 
   for (let suffix = 0; ; suffix += 1) {
     const candidate = suffix === 0 ? base : `${base}-${suffix}`;
+    // A store's default public subdomain IS its store_slug (transformStore
+    // falls back to it whenever no custom websitePath is set) -- a vendor
+    // naming their store "Admin" or "App" must not walk away with the
+    // subdomain workers/subdomain-router reserves for real infrastructure,
+    // same reserved list lib/websitePath.js's custom-address path already
+    // enforces. Treated exactly like a DB collision: skip to the next
+    // numbered suffix instead of handing it out.
+    if (RESERVED_SUBDOMAINS.has(candidate)) continue;
     const { data: existing } = await supabaseAdmin
       .from('stores')
       .select('id')

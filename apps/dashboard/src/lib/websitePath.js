@@ -6,7 +6,13 @@ import { supabaseAdmin } from './supabase';
 // public host for something else entirely), so a vendor claiming one as
 // their website address would mean that name isn't reachable as a
 // vendor subdomain at all.
-const RESERVED_SUBDOMAINS = new Set([
+// Exported so generateUniqueStoreSlug (apps/dashboard/src/app/api/stores/
+// route.js) can skip these too -- a store's DEFAULT public subdomain is its
+// store_slug (transformStore falls back to it whenever no custom
+// websitePath is set), so the very same reserved words need blocking right
+// where that slug is first generated, not just on the separate opt-in
+// custom-address path this file was originally written for.
+export const RESERVED_SUBDOMAINS = new Set([
   'www', 'app', 'api', 'mail', 'admin', 'support', 'help', 'status',
   'cdn', 'assets', 'blog', 'docs', 'storage'
 ]);
