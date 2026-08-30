@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Globe, UtensilsCrossed, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWebsiteData } from "@/hooks/useWebsiteData";
@@ -19,12 +20,18 @@ const GOOGLE_FALLBACK_NAMES = new Set(['Google', 'User']);
 export default function OnboardingPage() {
   const { user, loading, isAuthenticated, secureApiCall, checkAuth } = useAuth();
   const router = useRouter();
-  // Only the mutation is used from this hook, not its own `store` query --
-  // that query fetches on mount (during the 'name' step, before any store
-  // exists yet), caches a "no store" result for its 5-minute staleTime,
-  // and nothing here ever invalidates it once CreateStoreModal creates the
-  // store via a plain fetch call. The website URL preview below instead
-  // uses the store object CreateStoreModal already hands back on success.
+  const queryClient = useQueryClient();
+  // This hook's own `['store']` query fetches on mount (during the 'name'
+  // step, before any store exists yet) and caches a "no store" result for
+  // its 5-minute staleTime. That key is shared with useDashboardData's own
+  // storeQuery on /dashboard/overview -- since CreateStoreModal creates the
+  // store via a plain fetch call (not a react-query mutation), nothing
+  // invalidates it, and landing on Overview right after onboarding would
+  // read the stale "no store" cache and show "Create Your Store" again.
+  // handleStoreCreated below invalidates it explicitly once a store exists.
+  // The website URL preview further down instead uses the store object
+  // CreateStoreModal already hands back on success, sidestepping the same
+  // staleness for its own display.
   const { toggleWebsite, isTogglingWebsite } = useWebsiteData();
   const verificationEnabled = useVerificationEnabled();
   const [createdStore, setCreatedStore] = useState(null);
@@ -107,6 +114,12 @@ export default function OnboardingPage() {
     // reads it straight from context. Without this, navigating away
     // later would immediately bounce back here.
     await checkAuth();
+    // See this file's top comment: the store now exists, so the stale
+    // pre-creation "no store" result cached under this same key (by this
+    // page's own useWebsiteData call, and possibly other dashboard pages
+    // visited earlier in the session) must not be left for Overview to
+    // read once this wizard finishes.
+    queryClient.invalidateQueries({ queryKey: ['store'] });
     setStep('branding');
   };
 
