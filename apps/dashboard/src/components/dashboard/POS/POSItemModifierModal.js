@@ -22,7 +22,7 @@ const formatCurrency = (amount) => {
 // `item` through an effect -- that keeps the lazy useState initializers
 // below as the single source of the modal's starting values, with no
 // setState-in-effect render cascade.
-export default function POSItemModifierModal({ isOpen, onClose, item, onSave }) {
+export default function POSItemModifierModal({ isOpen, onClose, item, onSave, saveLabel = 'Save' }) {
   const extras = normalizeExtraDefinitions(item?.categoryDetails?.food?.extras);
 
   // Map of extra name -> selected quantity, seeded from whatever this line
@@ -151,7 +151,7 @@ export default function POSItemModifierModal({ isOpen, onClose, item, onSave }) 
             onClick={handleSave}
             className="flex-1 px-4 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors font-medium"
           >
-            Save
+            {saveLabel}
           </button>
         </div>
       </div>

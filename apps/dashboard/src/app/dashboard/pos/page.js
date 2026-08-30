@@ -96,6 +96,11 @@ export default function POSPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [addedToCartMessage, setAddedToCartMessage] = useState(null);
   const [modifierModalIndex, setModifierModalIndex] = useState(null);
+  // The item awaiting an extras/notes choice BEFORE it's committed to the
+  // cart -- see addToCart below. Distinct from modifierModalIndex (which
+  // re-opens the same modal to edit a line ALREADY in the cart); only one
+  // of the two is ever set at a time.
+  const [pendingCartItem, setPendingCartItem] = useState(null);
 
   const searchInputRef = useRef(null);
   const toastTimeoutRef = useRef(null);
@@ -182,22 +187,25 @@ export default function POSPage() {
     }
   };
 
-  // Add item to cart
-  const addToCart = (item) => {
-    // Check if item has variants
-    if (item.hasVariants && item.variants && item.variants.length > 0) {
-      // Open variant selection modal
-      setSelectedItemForVariant(item);
-      setIsVariantModalOpen(true);
-      return;
-    }
+  // Resolves `modifiersRequest` (an {extras, note} choice from the
+  // customize modal, or null for a plain add) against `item`'s own extras
+  // definitions and either merges into a matching existing line or inserts
+  // a new one. Shared by the plain-add path below and by the modal's
+  // pending-item save handler (near the modal's render), so a customized
+  // first-add and a customized post-add edit (handleSaveModifiers) always
+  // agree on how a line's identity/price is computed.
+  const addResolvedItemToCart = (item, modifiersRequest) => {
+    const extrasDefinitions = normalizeExtraDefinitions(item.categoryDetails?.food?.extras);
+    const { unitCost, snapshot } = resolveExtrasSelection(extrasDefinitions, modifiersRequest?.extras);
+    const resolvedModifiers = normalizeModifiers({ extras: snapshot, note: modifiersRequest?.note });
+    const basePrice = item.sellingPrice;
 
-    // Regular non-variant item -- modifiers are part of line identity too
-    // (same reasoning as the storefront cart's findCartItem fix): a plain
-    // re-add from the product grid always carries no modifiers, so it
-    // should only merge into an existing line that also has none.
+    // Modifiers are part of line identity (same reasoning as the
+    // storefront cart's findCartItem fix): this only merges into an
+    // existing line whose resolved modifiers match exactly, never a
+    // differently- or un-customized one.
     const existingItem = cart.find(cartItem =>
-      cartItem._id === item._id && !cartItem.variant && modifiersEqual(cartItem.modifiers, null)
+      cartItem._id === item._id && !cartItem.variant && modifiersEqual(cartItem.modifiers, resolvedModifiers)
     );
 
     if (existingItem) {
@@ -217,9 +225,38 @@ export default function POSPage() {
       // recomputes sellingPrice from this, never from the current
       // (possibly already-modified) sellingPrice, so re-customizing a line
       // twice never compounds the price.
-      setCart([...cart, { ...item, quantity: 1, basePrice: item.sellingPrice }]);
+      setCart([...cart, {
+        ...item,
+        quantity: 1,
+        basePrice,
+        modifiers: resolvedModifiers,
+        sellingPrice: basePrice + unitCost
+      }]);
       showAddedToCartToast(`${item.productName} added to cart`);
     }
+  };
+
+  // Add item to cart
+  const addToCart = (item) => {
+    // Check if item has variants
+    if (item.hasVariants && item.variants && item.variants.length > 0) {
+      // Open variant selection modal
+      setSelectedItemForVariant(item);
+      setIsVariantModalOpen(true);
+      return;
+    }
+
+    // A food item with real extras gets a chance to pick them (and add a
+    // note) BEFORE the line is committed to the cart -- same moment the
+    // storefront's QuickAddModal opens at, not a follow-up edit required
+    // after the fact (the small "Customize" icon on the cart line below
+    // still covers changing your mind once it's already in the cart).
+    if (normalizeExtraDefinitions(item.categoryDetails?.food?.extras).length > 0) {
+      setPendingCartItem(item);
+      return;
+    }
+
+    addResolvedItemToCart(item, null);
   };
 
   // Handle adding variant item to cart
@@ -1480,15 +1517,26 @@ export default function POSPage() {
         onAddToCart={handleAddVariantToCart}
       />
 
-      {/* POS Item Modifier Modal -- keyed so it remounts fresh across every
-          open/close cycle (see the component's own comment) instead of
-          syncing to a changing `item` prop via an effect. */}
+      {/* POS Item Modifier Modal -- doubles as the pre-add customize step
+          (pendingCartItem, set by addToCart above) and the existing-line
+          edit step (modifierModalIndex, set by a cart line's own
+          "Customize" button) -- only one is ever set at a time. Keyed so
+          it remounts fresh across every open/close cycle (see the
+          component's own comment) instead of syncing to a changing `item`
+          prop via an effect. */}
       <POSItemModifierModal
-        key={modifierModalIndex !== null ? `modifier-${modifierModalIndex}` : 'modifier-closed'}
-        isOpen={modifierModalIndex !== null}
-        onClose={() => setModifierModalIndex(null)}
-        item={modifierModalIndex !== null ? cart[modifierModalIndex] : null}
-        onSave={(modifiers) => handleSaveModifiers(modifierModalIndex, modifiers)}
+        key={modifierModalIndex !== null ? `edit-${modifierModalIndex}` : pendingCartItem ? `add-${pendingCartItem._id}` : 'modifier-closed'}
+        isOpen={modifierModalIndex !== null || pendingCartItem !== null}
+        onClose={() => { setModifierModalIndex(null); setPendingCartItem(null); }}
+        item={modifierModalIndex !== null ? cart[modifierModalIndex] : pendingCartItem}
+        saveLabel={pendingCartItem ? 'Add to cart' : 'Save'}
+        onSave={(modifiers) => {
+          if (modifierModalIndex !== null) {
+            handleSaveModifiers(modifierModalIndex, modifiers);
+          } else if (pendingCartItem) {
+            addResolvedItemToCart(pendingCartItem, modifiers);
+          }
+        }}
       />
 
       {/* "Added to cart" toast -- the tap-to-add grid gave no feedback at

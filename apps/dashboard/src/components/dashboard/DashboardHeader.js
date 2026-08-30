@@ -2,9 +2,10 @@
 import { Bell, ChevronDown, LogOut, Settings, UtensilsCrossed } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import NotificationPanel from "./NotificationPanel";
+import NavigationProgressBar from "./NavigationProgressBar";
 
 export default function DashboardHeader({ title = "Inventory Management", subtitle = "Today, August 16th 2024", isSidebarCollapsed = false }) {
   const { user, signOut, secureApiCall } = useAuth();
@@ -162,6 +163,14 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
             </div>
           </div>
         </div>
+
+        {/* useSearchParams() inside needs its own boundary -- same pattern
+            settings/page.js and others already use, scoped tight here so
+            only this piece opts out of static rendering, not the whole
+            header. */}
+        <Suspense fallback={null}>
+          <NavigationProgressBar />
+        </Suspense>
       </header>
 
       {/* Notification Panel */}
