@@ -89,7 +89,14 @@ export async function PUT(req) {
       const updatedWebsite = { ...currentWebsite };
       
       if (updateData.website) {
-        Object.assign(updatedWebsite, updateData.website);
+        // websitePath is deliberately never accepted here -- it's derived
+        // from store_slug (already unique, already collision-checked at
+        // creation) rather than an independently settable value, so
+        // there's nothing for it to collide with another store's slug or
+        // subdomain on. Dropped rather than validated: no UI exposes this
+        // field today, so there's no legitimate update to preserve.
+        const { websitePath, ...safeWebsiteUpdate } = updateData.website;
+        Object.assign(updatedWebsite, safeWebsiteUpdate);
       }
       if (updateData['website.seoSettings']) {
         updatedWebsite.seoSettings = { ...updatedWebsite.seoSettings, ...updateData['website.seoSettings'] };

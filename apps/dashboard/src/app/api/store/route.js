@@ -141,10 +141,12 @@ export async function POST(req) {
         },
         bank_details: storeData.bankDetails || {},
         is_active: true,
+        // No websitePath -- derived from store_slug at read time instead
+        // of stored independently; see /api/stores/route.js's comment on
+        // the same change.
         website: {
           status: 'inactive',
-          isEnabled: false,
-          websitePath: storeSlug
+          isEnabled: false
         }
       })
       .select()

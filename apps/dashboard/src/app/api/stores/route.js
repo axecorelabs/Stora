@@ -217,10 +217,15 @@ export async function POST(req) {
         },
         bank_details: storeData.bankDetails || {},
         is_active: true,
+        // No websitePath here -- it's derived from store_slug at read time
+        // (transformStore below) rather than stored as its own value, so
+        // there's nothing for it to independently drift from or collide
+        // on. Legacy stores with a websitePath already saved from before
+        // this change keep using it (transformStore still prefers it when
+        // present); this only affects stores created from now on.
         website: {
           status: 'inactive',
-          isEnabled: false,
-          websitePath: storeSlug
+          isEnabled: false
         }
       })
       .select()
