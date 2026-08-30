@@ -350,11 +350,22 @@ async function attachVariants(items) {
 
 export async function findInventoryByStoreId(storeId, filters = {}) {
   try {
+    // web_visibility is always enforced here, not opt-in -- every caller of
+    // this function lives in the customer-facing store app (never the
+    // dashboard), so there's no legitimate case where a hidden item should
+    // ever reach a shopper. This used to be conditional on filters.webVisibility
+    // being explicitly passed, and two of this function's three call sites
+    // (the store's own "hottest read in the app" and the client-side
+    // useProducts() endpoint both new products pages revalidate through)
+    // never passed it -- confirmed live: a vendor toggling an item to
+    // "hidden from website" had it keep showing up on their storefront
+    // regardless, exactly because of that gap.
     let query = supabaseAdmin
       .from('inventory')
       .select('*')
       .eq('store_id', storeId)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('web_visibility', true);
 
     // Apply additional filters
     if (filters.category) {
@@ -363,10 +374,6 @@ export async function findInventoryByStoreId(storeId, filters = {}) {
 
     if (filters.isActive !== undefined) {
       query = query.eq('is_active', filters.isActive);
-    }
-
-    if (filters.webVisibility !== undefined) {
-      query = query.eq('web_visibility', filters.webVisibility);
     }
 
     const { data, error } = await query

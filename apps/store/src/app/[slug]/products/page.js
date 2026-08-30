@@ -75,9 +75,7 @@ export default async function ProductsPage({ params }) {
     // (useProducts -> /api/stores/[storeId]/products) already applies -- SSR
     // and client must render identical data, since useProducts is now seeded
     // with this SSR result as its initialData (see ProductsPageClient.js).
-    const rawProducts = await findInventoryByStoreId(store.id, {
-      webVisibility: true
-    });
+    const rawProducts = await findInventoryByStoreId(store.id);
     const products = await enrichProductsWithBatches(rawProducts);
     clientProps = { mode: 'client', products: JSON.parse(JSON.stringify(products)) };
   } else {
