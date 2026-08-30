@@ -1,12 +1,13 @@
 "use client";
-import { Edit, Package, RefreshCw, Activity, BarChart3 } from "lucide-react";
+import { Edit, Package, RefreshCw, Activity, BarChart3, ExternalLink } from "lucide-react";
 
-export default function InventoryQuickActions({ 
-  onEdit, 
-  onAddBatch, 
-  onUpdateStock, 
+export default function InventoryQuickActions({
+  onEdit,
+  onAddBatch,
+  onUpdateStock,
   onViewActivity,
-  onViewAnalytics
+  onViewAnalytics,
+  storefrontUrl
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6">
@@ -51,6 +52,18 @@ export default function InventoryQuickActions({
           <BarChart3 className="w-5 h-5" />
           <span className="font-medium">View Analytics</span>
         </button>
+
+        {storefrontUrl && (
+          <a
+            href={storefrontUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+          >
+            <ExternalLink className="w-5 h-5" />
+            <span className="font-medium">View in Storefront</span>
+          </a>
+        )}
       </div>
     </div>
   );

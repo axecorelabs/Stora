@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertTriangle } from "lucide-react";
@@ -13,6 +14,7 @@ import InventoryQuickActions from "@/components/dashboard/Inventory/InventoryQui
 import InventoryBatchStatus from "@/components/dashboard/Inventory/InventoryBatchStatus";
 import InventoryStockAlert from "@/components/dashboard/Inventory/InventoryStockAlert";
 import InventoryVariantsSection from "@/components/dashboard/Inventory/InventoryVariantsSection";
+import ProductQrCode from "@/components/dashboard/Inventory/ProductQrCode";
 
 // Import existing modals
 import EditInventoryModal from "@/components/dashboard/EditInventoryModal";
@@ -36,6 +38,27 @@ export default function InventoryDetailPage() {
   const [isAddBatchModalOpen, setIsAddBatchModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeletingItem, setIsDeletingItem] = useState(false);
+
+  // Same ['store'] queryKey every other hook (useDashboardData, usePOSData,
+  // useWebsiteData, useInventoryData) already uses -- rides the shared
+  // cache instead of firing a redundant fetch. Needed for the storefront
+  // link/QR code below (websiteUrl + the brand color to render it in).
+  const storeQuery = useQuery({
+    queryKey: ['store'],
+    queryFn: async () => {
+      try {
+        return await secureApiCall('/api/stores');
+      } catch (err) {
+        console.error('Store query error:', err);
+        return { success: false, hasStore: false };
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+    throwOnError: false,
+  });
+  const store = storeQuery.data?.success && storeQuery.data?.hasStore ? storeQuery.data.data : null;
+  const storefrontUrl = store?.websiteUrl && item ? `${store.websiteUrl}/product/${item._id}` : null;
 
   // Fetch inventory item details
   const fetchItemDetails = async () => {
@@ -327,6 +350,7 @@ export default function InventoryDetailPage() {
             batchPricing={batchPricing}
             onEdit={() => setIsEditModalOpen(true)}
             onDelete={() => setIsDeleteModalOpen(true)}
+            storefrontUrl={storefrontUrl}
           />
 
           <InventoryAdditionalInfo item={item} />
@@ -340,6 +364,13 @@ export default function InventoryDetailPage() {
             onUpdateStock={() => setIsStockModalOpen(true)}
             onViewActivity={() => setIsActivityPanelOpen(true)}
             onViewAnalytics={() => router.push(`/dashboard/analytics?item=${item._id}`)}
+            storefrontUrl={storefrontUrl}
+          />
+
+          <ProductQrCode
+            url={storefrontUrl}
+            color={store?.branding?.primaryColor || '#0B3B2E'}
+            filename={`${item.sku || item._id}-qr-code.png`}
           />
 
           <InventoryBatchStatus

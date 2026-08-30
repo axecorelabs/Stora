@@ -100,6 +100,17 @@ function transformInventory(item, variants = []) {
     tags: typeof item.tags === 'string' ? JSON.parse(item.tags || '[]') : item.tags || [],
     isActive: item.is_active,
     status: item.is_active ? 'Active' : 'Inactive',
+    // Was missing entirely -- every response item had webVisibility
+    // undefined, so WebsiteInventoryView.js's own "default to true when
+    // undefined" fallback masked whatever was actually saved, making a
+    // hidden item look visible again on every reload even though the
+    // PUT /web-visibility endpoint had genuinely persisted it as hidden
+    // (confirmed live: the storefront's own product queries already
+    // correctly filter on this column, so hidden items were never
+    // actually showing to customers -- only the dashboard's own toggle
+    // state was wrong). Nullable, default true at the DB level, so `!==
+    // false` treats an unset legacy row the same as an explicit true.
+    webVisibility: item.web_visibility !== false,
     createdAt: item.created_at,
     updatedAt: item.updated_at
   };

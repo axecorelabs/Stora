@@ -316,7 +316,7 @@ export default function WebsitePage() {
             </Button>
             <Button variant="secondary" size="sm" onClick={() => setCurrentView('inventory')}>
               <Package className="w-4 h-4" />
-              <span>Manage Inventory</span>
+              <span>Manage Inventory Visibility</span>
             </Button>
             <Button variant="secondary" size="sm" onClick={() => setCurrentView('settings')}>
               <Settings className="w-4 h-4" />
@@ -884,7 +884,7 @@ export default function WebsitePage() {
                 <strong>Design & Branding:</strong> Use "Customize Design" above to update your store logo, banner, and brand colors.
               </p>
               <p>
-                <strong>Product Display:</strong> Control what products appear on your website using "Manage Inventory".
+                <strong>Product Display:</strong> Control what products appear on your website using "Manage Inventory Visibility".
               </p>
               {socialMediaLinks.length > 0 && (
                 <p>

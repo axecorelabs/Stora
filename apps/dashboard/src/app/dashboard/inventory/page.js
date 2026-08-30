@@ -8,6 +8,7 @@ import EditInventoryModal from "@/components/dashboard/EditInventoryModal";
 import StockUpdateModal from "@/components/dashboard/StockUpdateModal";
 import DeleteConfirmationModal from "@/components/dashboard/DeleteConfirmationModal";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import ProductQrDownloadButton from "@/components/dashboard/Inventory/ProductQrDownloadButton";
 import { useInventoryData } from "@/hooks/useInventoryData";
 import {
   Package,
@@ -19,6 +20,8 @@ import {
   Plus,
   Edit,
   Eye,
+  EyeOff,
+  ExternalLink,
   X,
   TrendingUp,
   RefreshCw,
@@ -86,6 +89,7 @@ export default function InventoryPage() {
     staleTime: 5 * 60 * 1000
   });
   const restaurantMode = !!storeResponse?.data?.restaurantMode;
+  const store = storeResponse?.success && storeResponse?.hasStore ? storeResponse.data : null;
   const [isUpdatingRestaurantMode, setIsUpdatingRestaurantMode] = useState(false);
 
   // Same endpoint/pattern as StorePreferencesTab's own toggle (Store
@@ -124,6 +128,7 @@ export default function InventoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [expandedItemId, setExpandedItemId] = useState(null);
+  const [togglingVisibilityIds, setTogglingVisibilityIds] = useState(new Set());
 
   // Use TanStack Query for data fetching
   const {
@@ -139,6 +144,10 @@ export default function InventoryPage() {
     statsError,
     isLoadingStats,
   } = useInventoryData();
+
+  // Storefront's real product-detail URL for a given item -- null while
+  // the store's websiteUrl hasn't loaded yet (no website set up at all).
+  const storefrontUrl = (item) => (store?.websiteUrl ? `${store.websiteUrl}/product/${item._id}` : null);
 
   // Debug log when stats change
   useEffect(() => {
@@ -290,6 +299,43 @@ export default function InventoryPage() {
   const openDeleteModal = (item) => {
     setItemToDelete(item);
     setIsDeleteModalOpen(true);
+  };
+
+  // Same PUT endpoint/toggle semantics as WebsiteInventoryView.js's own
+  // visibility switch -- kept here too so hiding/showing a product from
+  // the storefront doesn't require leaving the Catalogue page first.
+  // Patches the ['inventory'] query's cache directly with the value the
+  // PUT response already confirms, rather than invalidating and waiting
+  // on a second full GET /api/inventory round trip (every item, with
+  // variants/batches) just to show the one field that actually changed --
+  // that extra round trip was the entire reason this felt slow.
+  const handleToggleWebVisibility = async (item) => {
+    const currentlyVisible = item.webVisibility !== false;
+    setTogglingVisibilityIds(prev => new Set([...prev, item._id]));
+    try {
+      const response = await secureApiCall(`/api/inventory/${item._id}/web-visibility`, {
+        method: 'PUT',
+        body: JSON.stringify({ webVisibility: !currentlyVisible })
+      });
+      if (response?.success) {
+        queryClient.setQueryData(['inventory'], (old) =>
+          Array.isArray(old)
+            ? old.map(i => i._id === item._id ? { ...i, webVisibility: response.data.webVisibility } : i)
+            : old
+        );
+      } else {
+        alert('Failed to update visibility. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+      alert('Error updating visibility. Please try again.');
+    } finally {
+      setTogglingVisibilityIds(prev => {
+        const next = new Set(prev);
+        next.delete(item._id);
+        return next;
+      });
+    }
   };
 
   const closeDeleteModal = () => {
@@ -866,6 +912,44 @@ export default function InventoryPage() {
                                     <Eye className="w-3.5 h-3.5" />
                                     View full page
                                   </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleToggleWebVisibility(item); }}
+                                    disabled={togglingVisibilityIds.has(item._id)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium border transition-colors disabled:opacity-50 ${
+                                      item.webVisibility !== false
+                                        ? 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
+                                        : 'text-gold-700 bg-gold-500/10 border-gold-500/30 hover:bg-gold-500/15'
+                                    }`}
+                                  >
+                                    {togglingVisibilityIds.has(item._id) ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : item.webVisibility !== false ? (
+                                      <Eye className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <EyeOff className="w-3.5 h-3.5" />
+                                    )}
+                                    {item.webVisibility !== false ? 'Visible on website' : 'Hidden from website'}
+                                  </button>
+                                  {storefrontUrl(item) && (
+                                    <>
+                                      <a
+                                        href={storefrontUrl(item)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+                                      >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                        View in storefront
+                                      </a>
+                                      <ProductQrDownloadButton
+                                        url={storefrontUrl(item)}
+                                        color={store?.branding?.primaryColor || '#0B3B2E'}
+                                        filename={`${item.sku || item._id}-qr-code.png`}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                                      />
+                                    </>
+                                  )}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); openDeleteModal(item); }}
                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 transition-colors ml-auto"

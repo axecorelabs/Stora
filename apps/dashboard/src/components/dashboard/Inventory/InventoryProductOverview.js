@@ -1,5 +1,5 @@
 "use client";
-import { Edit, Delete, Package } from "lucide-react";
+import { Edit, Delete, Package, ExternalLink } from "lucide-react";
 
 export default function InventoryProductOverview({
   item,
@@ -8,7 +8,8 @@ export default function InventoryProductOverview({
   allBatches,
   batchPricing,
   onEdit,
-  onDelete
+  onDelete,
+  storefrontUrl
 }) {
   const getStatusColor = (item) => {
     if (!item) return 'bg-gray-100 text-gray-800';
@@ -78,7 +79,18 @@ export default function InventoryProductOverview({
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <button 
+          {storefrontUrl && (
+            <a
+              href={storefrontUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="View in storefront"
+              className="p-2 text-gray-400 hover:text-brand-800 hover:bg-brand-50 rounded-lg transition-all"
+            >
+              <ExternalLink className="w-5 h-5" />
+            </a>
+          )}
+          <button
             onClick={onEdit}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
           >

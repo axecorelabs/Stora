@@ -93,6 +93,11 @@ function transformInventory(item, variants = []) {
     tags: typeof item.tags === 'string' ? JSON.parse(item.tags || '[]') : item.tags || [],
     isActive: item.is_active,
     status: item.is_active ? 'Active' : 'Inactive',
+    // Nullable, default true at the DB level -- `!== false` treats an
+    // unset legacy row the same as an explicit true. See the matching fix
+    // in ../route.js's own transformInventory for why this must be here:
+    // without it, a hidden item looks visible again on every reload.
+    webVisibility: item.web_visibility !== false,
     createdAt: item.created_at,
     updatedAt: item.updated_at
   };
