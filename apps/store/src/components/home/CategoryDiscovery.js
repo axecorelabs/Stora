@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { CATEGORIES } from "@/lib/categories";
@@ -18,8 +18,7 @@ const AI_SEARCH_TEMPLATES = [
 ];
 
 // Which category gets the dark treatment -- purely a visual rhythm, not a
-// ranking. Hand-picked rather than cycled by index so it can't land in
-// lockstep with the bento span pattern below.
+// ranking.
 const DARK_CATEGORIES = new Set([
   "Clothing",
   "Perfumes",
@@ -30,36 +29,61 @@ const DARK_CATEGORIES = new Set([
 ]);
 
 // Desktop layout: a real CSS grid (not multi-column masonry), so every row
-// resolves to the same height and the grid's outer edges stay flush --
-// masonry columns pack independently and end at different heights.
-// One "big" tile spanning 2 rows, next to a 2-wide/1-wide/1-wide row and a
-// 2-wide/2-wide row underneath -- six spans that add up to exactly
-// 5 cols x 2 rows (2+2+1+1+2+2=10), so the browser's own left-to-right,
-// top-to-bottom auto-placement tiles it with zero gaps, no explicit
-// grid-column/row positioning needed. Repeats every 6 categories.
-const BENTO_BLOCK = [
-  "lg:col-span-1 lg:row-span-2", // big
-  "lg:col-span-2 lg:row-span-1", // wide
-  "lg:col-span-1 lg:row-span-1", // small
-  "lg:col-span-1 lg:row-span-1", // small
-  "lg:col-span-2 lg:row-span-1", // wide
-  "lg:col-span-2 lg:row-span-1", // wide
+// resolves to the same height. One "big" tile spanning 2 rows, next to a
+// 2-wide/1-wide/1-wide row and a 2-wide/2-wide row underneath -- six tiles
+// that add up to exactly 5 cols x 2 rows per block (2+2+1+1+2+2=10),
+// repeating every 6 categories.
+//
+// Explicit gridColumn/gridRow per tile (computed below in bentoStyle), not
+// just span classes left to auto-placement -- the grid's own column
+// TEMPLATE has to be wider than one block's 5 columns to fit every block
+// side by side (see gridTemplateColumns further down), and once it's wider
+// than that, the browser's auto-placement stops respecting each block's
+// intended boundary: it just greedily packs left-to-right across the
+// WHOLE wide row, which drifts tile 4 onward out of the block it's
+// supposed to belong to (confirmed live -- "wide" tiles meant for a
+// block's row 2 kept sliding into row 1 of the next block over instead).
+// Pinning each tile to its own block's column range via an explicit
+// column offset is what actually keeps every block self-contained.
+const BENTO_POSITIONS = [
+  { col: 1, colSpan: 1, row: 1, rowSpan: 2 }, // big
+  { col: 2, colSpan: 2, row: 1, rowSpan: 1 }, // wide
+  { col: 4, colSpan: 1, row: 1, rowSpan: 1 }, // small
+  { col: 5, colSpan: 1, row: 1, rowSpan: 1 }, // small
+  { col: 2, colSpan: 2, row: 2, rowSpan: 1 }, // wide
+  { col: 4, colSpan: 2, row: 2, rowSpan: 1 }, // wide
 ];
+const BENTO_COLS_PER_BLOCK = 5;
 
-function bentoSpanClass(i, total) {
-  const patternedCount = Math.floor(total / BENTO_BLOCK.length) * BENTO_BLOCK.length;
-  if (i < patternedCount) return BENTO_BLOCK[i % BENTO_BLOCK.length];
+function bentoStyle(i, total) {
+  const patternedCount = Math.floor(total / BENTO_POSITIONS.length) * BENTO_POSITIONS.length;
+
+  if (i < patternedCount) {
+    const blockOffset = Math.floor(i / BENTO_POSITIONS.length) * BENTO_COLS_PER_BLOCK;
+    const { col, colSpan, row, rowSpan } = BENTO_POSITIONS[i % BENTO_POSITIONS.length];
+    return {
+      gridColumn: `${blockOffset + col} / span ${colSpan}`,
+      gridRow: `${row} / span ${rowSpan}`
+    };
+  }
+
   // Whatever's left over after the last full block: a single leftover tile
-  // closes the grid out as a full-width banner; more than one just falls
-  // back to plain 1x1 cells -- still flush, since grid rows stay uniform
-  // either way.
+  // gets the same tall "big" treatment as the very first tile in each
+  // block, rather than a wide banner -- reads as a natural closing tile
+  // instead of an oddly-stretched one-off. More than one leftover just
+  // lines up left-to-right along the block's row 1, one column each --
+  // still flush, since grid rows stay uniform either way.
+  const blockOffset = Math.floor(patternedCount / BENTO_POSITIONS.length) * BENTO_COLS_PER_BLOCK;
   const remainder = total - patternedCount;
-  return remainder === 1 ? "lg:col-span-5 lg:row-span-1" : "lg:col-span-1 lg:row-span-1";
+  if (remainder === 1) {
+    return { gridColumn: `${blockOffset + 1} / span 1`, gridRow: "1 / span 2" };
+  }
+  return { gridColumn: `${blockOffset + 1 + (i - patternedCount)} / span 1`, gridRow: "1 / span 1" };
 }
 
 // How many category tiles show before mobile/tablet needs "See more" --
-// desktop's bento grid has room for all of them, so the collapse only
-// applies below the lg breakpoint (see the hidden/lg:flex split below).
+// desktop scrolls horizontally instead and has room for all of them, so
+// this collapse only ever applies below the lg breakpoint.
 const INITIAL_VISIBLE_COUNT = 6;
 
 // Sits between the vendor showcase and the product discovery teaser on the
@@ -72,10 +96,54 @@ export default function CategoryDiscovery() {
   const [expanded, setExpanded] = useState(false);
   const hasMore = CATEGORIES.length > INITIAL_VISIBLE_COUNT;
 
+  // Slow, continuous auto-scroll for the desktop shelf -- bounces back and
+  // forth between the two ends rather than snapping back to the start,
+  // so reaching an edge doesn't produce a jarring jump. Paused while the
+  // pointer is over it (or mid-touch) so a shopper can actually read/click
+  // a tile instead of it drifting out from under the cursor.
+  const scrollRef = useRef(null);
+  const pausedRef = useRef(false);
+  const directionRef = useRef(1);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    // 0.6px/frame (~36px/s) was too subtle to actually notice at a glance --
+    // confirmed moving in an automated scrollLeft check, but reads as
+    // stationary to an eye briefly looking at the page. This is a
+    // deliberately visible drift, not just a technically-true one.
+    const SPEED_PX_PER_FRAME = 2;
+    let frameId;
+
+    const step = () => {
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (!pausedRef.current && maxScroll > 0) {
+        let next = el.scrollLeft + SPEED_PX_PER_FRAME * directionRef.current;
+        if (next >= maxScroll) {
+          next = maxScroll;
+          directionRef.current = -1;
+        } else if (next <= 0) {
+          next = 0;
+          directionRef.current = 1;
+        }
+        el.scrollLeft = next;
+      }
+      frameId = requestAnimationFrame(step);
+    };
+    frameId = requestAnimationFrame(step);
+
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
+  const pause = () => { pausedRef.current = true; };
+  const resume = () => { pausedRef.current = false; };
+
   return (
     <div>
-      {/* Category grid: plain 2/3-col grid + "See more" below lg, bento grid at lg+ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:auto-rows-[10rem]">
+      {/* Mobile/tablet: plain 2/3-col wrapping grid + "See more", unchanged.
+          Hidden at lg+ now that desktop gets its own horizontal shelf below. */}
+      <div className="lg:hidden grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {CATEGORIES.map(({ value, icon: Icon }, i) => {
           const dark = DARK_CATEGORIES.has(value);
           const collapsedOnMobile = i >= INITIAL_VISIBLE_COUNT && !expanded;
@@ -83,7 +151,7 @@ export default function CategoryDiscovery() {
             <Link
               key={value}
               href={`/products?category=${encodeURIComponent(value)}`}
-              className={`${collapsedOnMobile ? "hidden lg:flex" : "flex"} ${bentoSpanClass(i, CATEGORIES.length)} aspect-square lg:aspect-auto flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
+              className={`${collapsedOnMobile ? "hidden" : "flex"} aspect-square flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
                 dark
                   ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
                   : "bg-brand-50/60 border-brand-100 hover:border-brand-300 hover:bg-brand-50"
@@ -110,6 +178,55 @@ export default function CategoryDiscovery() {
           </button>
         </div>
       )}
+
+      {/* Desktop: the same bento tile-size variety as before, just capped at
+          2 rows and scrolling horizontally instead of wrapping into more
+          row-pairs as categories are added. gridTemplateColumns has to be
+          set inline, not as a Tailwind class -- its column count depends on
+          CATEGORIES.length at runtime, and Tailwind's JIT can only pick up
+          arbitrary values that are static, literal strings in source.
+          w-screen + left-1/2 + -translate-x-1/2 breaks this out of the
+          page's own max-w-7xl-centered container to bleed full viewport
+          width, regardless of how much that ancestor's own padding
+          constrains it -- the "Shop by category" heading above stays
+          inside the normal container, only this shelf escapes it. */}
+      <div
+        ref={scrollRef}
+        onMouseEnter={pause}
+        onMouseLeave={resume}
+        onTouchStart={pause}
+        onTouchEnd={resume}
+        className="hidden lg:block w-screen relative left-1/2 -translate-x-1/2 overflow-x-auto pl-4 sm:pl-6 lg:pl-8 pr-4 sm:pr-6 lg:pr-8 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div
+          className="grid gap-4"
+          style={{
+            gridTemplateColumns: `repeat(${Math.ceil(CATEGORIES.length / BENTO_POSITIONS.length) * BENTO_COLS_PER_BLOCK}, 14rem)`,
+            gridAutoRows: "13rem"
+          }}
+        >
+          {CATEGORIES.map(({ value, icon: Icon }, i) => {
+            const dark = DARK_CATEGORIES.has(value);
+            return (
+              <Link
+                key={value}
+                href={`/products?category=${encodeURIComponent(value)}`}
+                style={bentoStyle(i, CATEGORIES.length)}
+                className={`flex flex-col justify-between rounded-2xl border p-6 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
+                  dark
+                    ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
+                    : "bg-brand-50/60 border-brand-100 hover:border-brand-300 hover:bg-brand-50"
+                }`}
+              >
+                {Icon && <Icon className={`w-8 h-8 ${dark ? "text-gold-400" : "text-brand-700"}`} strokeWidth={1.75} />}
+                <span className={`font-display text-xl font-semibold leading-tight ${dark ? "text-white" : "text-brand-900"}`}>
+                  {value}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
 
       {/* AI search templates -- horizontal scroll on mobile, wraps on desktop,
           same interaction pattern as DiscoverySection's own category pills. */}
