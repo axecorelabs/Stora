@@ -8,6 +8,9 @@ import { CATEGORIES } from "@/lib/categories";
 // examples -- tapping one lands straight on /products with AI mode already
 // on and the query already submitted (mode=ai + q is exactly what
 // products/page.js reads to do that on load, see urlAiMode/urlQ there).
+// Desktop keeps just this original set, wrapped in place with no
+// animation -- mobile's own auto-scrolling row has room for a longer list
+// (AI_SEARCH_TEMPLATES_MOBILE below), so it doesn't need to stay this short.
 const AI_SEARCH_TEMPLATES = [
   "Ankara styles for a wedding",
   "A gift under ₦20k",
@@ -15,6 +18,24 @@ const AI_SEARCH_TEMPLATES = [
   "Vendors that deliver same day",
   "Native wears for men",
   "Home office setup",
+];
+
+// Mobile's own longer list -- the auto-scroll (see useAutoScrollX) means
+// there's no "wall of pills" problem the way there would be wrapping this
+// many on a narrow screen, so it can afford more variety than desktop's
+// wrapped, unanimated row.
+const AI_SEARCH_TEMPLATES_MOBILE = [
+  ...AI_SEARCH_TEMPLATES,
+  "Affordable phones under ₦100k",
+  "Same-day birthday cake",
+  "Ankara for kids",
+  "Sneakers under ₦15k",
+  "Organic skincare",
+  "Baby essentials starter pack",
+  "Vendors based in Lagos",
+  "Perfumes that last all day",
+  "Home decor on a budget",
+  "Everyday native wear for women",
 ];
 
 // Which category gets the dark treatment -- purely a visual rhythm, not a
@@ -86,6 +107,41 @@ function bentoStyle(i, total) {
 // this collapse only ever applies below the lg breakpoint.
 const INITIAL_VISIBLE_COUNT = 6;
 
+// Slow, continuous auto-scroll for a horizontal shelf -- bounces back and
+// forth between the two ends rather than snapping back to the start, so
+// reaching an edge doesn't produce a jarring jump. `el` is read fresh from
+// the ref inside the effect (not passed in), and pause/resume are plain
+// functions closed over the same ref rather than a returned object from a
+// shared custom hook -- eslint's react-hooks/refs rule flags a
+// ref-mutating callback returned FROM a custom hook as "accessed during
+// render" even though it's only ever invoked from an event handler, so
+// this stays inlined per call site (desktop's category shelf, mobile's
+// AI-suggestions row) instead of being extracted.
+function attachAutoScroll(ref, pausedRef, directionRef, speedPxPerFrame) {
+  const el = ref.current;
+  if (!el) return () => {};
+
+  let frameId;
+  const step = () => {
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (!pausedRef.current && maxScroll > 0) {
+      let next = el.scrollLeft + speedPxPerFrame * directionRef.current;
+      if (next >= maxScroll) {
+        next = maxScroll;
+        directionRef.current = -1;
+      } else if (next <= 0) {
+        next = 0;
+        directionRef.current = 1;
+      }
+      el.scrollLeft = next;
+    }
+    frameId = requestAnimationFrame(step);
+  };
+  frameId = requestAnimationFrame(step);
+
+  return () => cancelAnimationFrame(frameId);
+}
+
 // Sits between the vendor showcase and the product discovery teaser on the
 // homepage. Two separate ways in: a category tile filters /products by
 // category (same URL param DiscoverySection's own pills already use), an
@@ -96,48 +152,31 @@ export default function CategoryDiscovery() {
   const [expanded, setExpanded] = useState(false);
   const hasMore = CATEGORIES.length > INITIAL_VISIBLE_COUNT;
 
-  // Slow, continuous auto-scroll for the desktop shelf -- bounces back and
-  // forth between the two ends rather than snapping back to the start,
-  // so reaching an edge doesn't produce a jarring jump. Paused while the
-  // pointer is over it (or mid-touch) so a shopper can actually read/click
-  // a tile instead of it drifting out from under the cursor.
-  const scrollRef = useRef(null);
-  const pausedRef = useRef(false);
-  const directionRef = useRef(1);
+  // 0.6px/frame (~36px/s) was too subtle to actually notice at a glance --
+  // confirmed moving in an automated scrollLeft check, but reads as
+  // stationary to an eye briefly looking at the page. 2 is a deliberately
+  // visible drift, not just a technically-true one. The AI row runs a
+  // touch slower (1.2) since its pills are narrower and pass by faster at
+  // the same pixel speed.
+  const categoryScrollRef = useRef(null);
+  const categoryPausedRef = useRef(false);
+  const categoryDirectionRef = useRef(1);
+  useEffect(
+    () => attachAutoScroll(categoryScrollRef, categoryPausedRef, categoryDirectionRef, 2),
+    []
+  );
+  const pauseCategoryScroll = () => { categoryPausedRef.current = true; };
+  const resumeCategoryScroll = () => { categoryPausedRef.current = false; };
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    // 0.6px/frame (~36px/s) was too subtle to actually notice at a glance --
-    // confirmed moving in an automated scrollLeft check, but reads as
-    // stationary to an eye briefly looking at the page. This is a
-    // deliberately visible drift, not just a technically-true one.
-    const SPEED_PX_PER_FRAME = 2;
-    let frameId;
-
-    const step = () => {
-      const maxScroll = el.scrollWidth - el.clientWidth;
-      if (!pausedRef.current && maxScroll > 0) {
-        let next = el.scrollLeft + SPEED_PX_PER_FRAME * directionRef.current;
-        if (next >= maxScroll) {
-          next = maxScroll;
-          directionRef.current = -1;
-        } else if (next <= 0) {
-          next = 0;
-          directionRef.current = 1;
-        }
-        el.scrollLeft = next;
-      }
-      frameId = requestAnimationFrame(step);
-    };
-    frameId = requestAnimationFrame(step);
-
-    return () => cancelAnimationFrame(frameId);
-  }, []);
-
-  const pause = () => { pausedRef.current = true; };
-  const resume = () => { pausedRef.current = false; };
+  const aiScrollRef = useRef(null);
+  const aiPausedRef = useRef(false);
+  const aiDirectionRef = useRef(1);
+  useEffect(
+    () => attachAutoScroll(aiScrollRef, aiPausedRef, aiDirectionRef, 1.2),
+    []
+  );
+  const pauseAiScroll = () => { aiPausedRef.current = true; };
+  const resumeAiScroll = () => { aiPausedRef.current = false; };
 
   return (
     <div>
@@ -191,11 +230,11 @@ export default function CategoryDiscovery() {
           constrains it -- the "Shop by category" heading above stays
           inside the normal container, only this shelf escapes it. */}
       <div
-        ref={scrollRef}
-        onMouseEnter={pause}
-        onMouseLeave={resume}
-        onTouchStart={pause}
-        onTouchEnd={resume}
+        ref={categoryScrollRef}
+        onMouseEnter={pauseCategoryScroll}
+        onMouseLeave={resumeCategoryScroll}
+        onTouchStart={pauseCategoryScroll}
+        onTouchEnd={resumeCategoryScroll}
         className="hidden lg:block w-screen relative left-1/2 -translate-x-1/2 overflow-x-auto pl-4 sm:pl-6 lg:pl-8 pr-4 sm:pr-6 lg:pr-8 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         <div
@@ -228,14 +267,37 @@ export default function CategoryDiscovery() {
         </div>
       </div>
 
-      {/* AI search templates -- horizontal scroll on mobile, wraps on desktop,
-          same interaction pattern as DiscoverySection's own category pills. */}
+      {/* AI search templates. Mobile/tablet: auto-scrolling row with the
+          longer list -- same interaction as the category shelf above, own
+          (slower) speed. Desktop: the original short list, wrapped in
+          place with no animation, unchanged from before. */}
       <div className="mt-8">
         <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-gold-600 mb-3">
           <Sparkles className="w-3.5 h-3.5" />
           Try asking Stora AI
         </p>
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
+
+        <div
+          ref={aiScrollRef}
+          onMouseEnter={pauseAiScroll}
+          onMouseLeave={resumeAiScroll}
+          onTouchStart={pauseAiScroll}
+          onTouchEnd={resumeAiScroll}
+          className="lg:hidden flex gap-2 overflow-x-auto -mx-4 px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {AI_SEARCH_TEMPLATES_MOBILE.map((templateQuery) => (
+            <Link
+              key={templateQuery}
+              href={`/products?mode=ai&q=${encodeURIComponent(templateQuery)}`}
+              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-brand-100 bg-white text-brand-800 hover:border-brand-300 transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-gold-500" />
+              {templateQuery}
+            </Link>
+          ))}
+        </div>
+
+        <div className="hidden lg:flex gap-2 flex-wrap">
           {AI_SEARCH_TEMPLATES.map((templateQuery) => (
             <Link
               key={templateQuery}
