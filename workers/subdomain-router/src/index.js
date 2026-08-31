@@ -41,23 +41,47 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const zoneSuffix = `.${env.ZONE_APEX}`;
-    // The bare apex (stora.com.ng, no subdomain) needs its own entry in
-    // wrangler.toml's `routes` array -- *.stora.com.ng/* never matches a
-    // zero-subdomain host -- so
-    // it can't be recovered by stripping zoneSuffix the way every other
-    // label is; treated as label === '' below, same as the reserved/
-    // marketplace passthrough branch already expected before this file
-    // ever saw apex traffic.
-    const isApexHost = url.hostname === env.ZONE_APEX;
+
+    // Bare apex (stora.com.ng, no subdomain) canonicalizes to www, same as
+    // it always has -- but answered directly at the edge now instead of
+    // round-tripping to Vercel just to bounce the identical redirect back.
+    // That round trip (a full TLS handshake + origin invocation) bought
+    // nothing: the response body is empty either way, just a Location
+    // header. Requires its own entry in wrangler.toml's `routes` array --
+    // *.stora.com.ng/* alone never matches a zero-subdomain host, so
+    // without it this branch would never run and apex traffic wouldn't
+    // reach this Worker at all. The equivalent redirect at Vercel
+    // (STORE_ORIGIN_HOST's own comment explains why it must stay www, not
+    // apex) is left in place as a fallback for anything that reaches the
+    // origin directly -- costs nothing to keep, and covers any path that
+    // somehow bypasses this Worker.
+    if (url.hostname === env.ZONE_APEX) {
+      // Deliberately NOT `new URL(url.pathname + url.search, base)` -- the
+      // constructor treats a relative reference starting with `//` as
+      // protocol-relative, replacing base's AUTHORITY with whatever comes
+      // after those slashes. A request to stora.com.ng//evil.com/x (a
+      // literal, requestable path -- confirmed live) would then resolve
+      // to https://evil.com/x, turning this into an open redirect off a
+      // trusted domain. Setting `.pathname`/`.search` on an already-
+      // constructed URL re-parses them strictly as path/query components
+      // instead, so the same input safely becomes
+      // https://www.stora.com.ng//evil.com/x -- confirmed via the same
+      // test. This is the identical class of bug already found and fixed
+      // in isSafeReturnTo/isSafeReturnPath elsewhere in apps/store.
+      const target = new URL(`https://www.${env.ZONE_APEX}`);
+      target.pathname = url.pathname;
+      target.search = url.search;
+      return Response.redirect(target.toString(), 308);
+    }
 
     // Anything not actually under the zone apex (e.g. the worker's own
     // *.workers.dev testing URL) -- nothing sensible to route, so just
     // say so rather than silently guessing.
-    if (!isApexHost && !url.hostname.endsWith(zoneSuffix)) {
+    if (!url.hostname.endsWith(zoneSuffix)) {
       return new Response('Unknown host', { status: 404 });
     }
 
-    const label = isApexHost ? '' : url.hostname.slice(0, -zoneSuffix.length);
+    const label = url.hostname.slice(0, -zoneSuffix.length);
     const reserved = new Set(
       (env.RESERVED_SUBDOMAINS || '')
         .split(',')
@@ -67,14 +91,16 @@ export default {
     // Of the reserved labels, the ones that are actually the marketplace
     // site itself (www) rather than some other reserved service (the
     // dashboard at app, R2 at storage/cdn, ...) -- see wrangler.toml's own
-    // comment on this var for why only these get rate-limited here.
+    // comment on this var for why only these get rate-limited here. The
+    // bare apex doesn't appear here at all any more -- it's answered above
+    // before label is even computed.
     const marketplaceLabels = new Set(
       (env.MARKETPLACE_SUBDOMAINS || '')
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
     );
-    const isMarketplace = label === '' || marketplaceLabels.has(label);
+    const isMarketplace = marketplaceLabels.has(label);
 
     // Reserved-but-not-marketplace (app, api, mail, ...) -- these have
     // their own DNS records in the zone already, so let the request
@@ -88,7 +114,8 @@ export default {
     // Multi-level subdomains (foo.bar.stora.com.ng) and anything that
     // doesn't look like a real slug label never map to a store -- fail
     // fast instead of forwarding garbage to the origin. Never reached for
-    // marketplace hosts (label is '' or 'www', both handled above/below).
+    // the marketplace host (www, handled below) -- 'www' passes VALID_LABEL
+    // anyway, but this guard only ever applies to a real vendor slug.
     if (!isMarketplace && (label.includes('.') || !VALID_LABEL.test(label))) {
       return new Response('Not found', { status: 404 });
     }
@@ -99,9 +126,10 @@ export default {
     // load and every Next.js <Link> prefetch), so it's the dominant
     // consumer of both Redis command quota and Vercel invocations. A
     // request rejected here never costs either. Applies to marketplace
-    // traffic (www/apex) exactly the same as a vendor slug -- same
-    // shared bucket, same key (client IP), since it's the identical kind
-    // of traffic just not rewritten to a per-vendor path. The per-route
+    // traffic (www) exactly the same as a vendor slug -- same shared
+    // bucket, same key (client IP), since it's the identical kind of
+    // traffic just not rewritten to a per-vendor path (the bare apex never
+    // reaches this point at all -- see the redirect above). The per-route
     // limiters for login/register/payments/etc. deliberately stay on
     // Redis: they're already low-volume by design, and several use
     // windows longer than 60s, which this binding can't represent
@@ -130,18 +158,32 @@ export default {
     }
 
     if (isMarketplace) {
-      // www / bare apex already have their own DNS records pointing
-      // straight at this Vercel project -- unlike a vendor slug, there's
-      // no rewrite to do and no Host header to fix, just proof that this
-      // request already got rate-limited here so proxy.js's own
-      // browseLimiter can skip its now-redundant Redis check.
+      // www already has its own DNS record pointing straight at this
+      // Vercel project -- unlike a vendor slug, there's no rewrite to do
+      // and no Host header to fix, just proof that this request already
+      // got rate-limited here so proxy.js's own browseLimiter can skip
+      // its now-redundant Redis check.
       const marketplaceRequest = new Request(request);
       marketplaceRequest.headers.set('X-Stora-Proxy-Secret', env.PROXY_SECRET || '');
       marketplaceRequest.headers.set('X-Stora-Worker-Ratelimited', '1');
       return fetch(marketplaceRequest);
     }
 
-    const originUrl = new URL(url.pathname + url.search, `https://${env.STORE_ORIGIN_HOST}`);
+    // Deliberately NOT `new URL(url.pathname + url.search, base)` -- see
+    // the identical comment on the apex redirect above. Here the stakes
+    // are higher than a redirect: `url.pathname` starting with `//` would
+    // make THIS WORKER itself fetch() an attacker-controlled origin (SSRF)
+    // and return that response as if it were the vendor's page, forwarding
+    // along every header the browser sent -- including any
+    // `.stora.com.ng`-scoped session cookie (see betterAuth.js's
+    // crossSubDomainCookies), which would then leak directly to that
+    // origin. Confirmed live: some-vendor.stora.com.ng//evil.com/x
+    // resolved to https://evil.com/x before this fix. Setting
+    // `.pathname`/`.search` on an already-constructed URL avoids the
+    // protocol-relative reinterpretation entirely.
+    const originUrl = new URL(`https://${env.STORE_ORIGIN_HOST}`);
+    originUrl.pathname = url.pathname;
+    originUrl.search = url.search;
 
     const originRequest = new Request(originUrl, request);
     // Constructing from `request` carries its Host header along

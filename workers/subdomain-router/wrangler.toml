@@ -33,12 +33,14 @@ ZONE_APEX = "stora.com.ng"
 # The store app's own domain, already verified as a Vercel project domain
 # via a normal (non-wildcard) record -- every vendor request gets forwarded
 # here with the real subdomain preserved in X-Stora-Vendor-Host. Must be
-# www.stora.com.ng, NOT the bare apex: stora.com.ng itself unconditionally
-# 308-redirects to www.stora.com.ng (a plain apex -> www canonicalization,
-# unrelated to this Worker) -- forwarding to the apex meant every vendor
-# subdomain request hit that redirect before Next.js ever saw the header,
-# landing every visitor on the plain www homepage instead of the store
-# they asked for.
+# www.stora.com.ng, NOT the bare apex: stora.com.ng unconditionally
+# 308-redirects to www.stora.com.ng -- src/index.js now answers that
+# redirect itself, straight from the edge, before any request reaches
+# Vercel at all (a fallback redirect still lives at the Vercel/Next.js
+# layer too, for anything that somehow reaches the origin directly) --
+# forwarding to the apex meant every vendor subdomain request hit that
+# redirect before Next.js ever saw the header, landing every visitor on
+# the plain www homepage instead of the store they asked for.
 STORE_ORIGIN_HOST = "www.stora.com.ng"
 
 # REQUIRED, but deliberately NOT set here -- this file is committed to git,
@@ -66,15 +68,17 @@ STORE_ORIGIN_HOST = "www.stora.com.ng"
 # app instead of served straight from R2.
 RESERVED_SUBDOMAINS = "www,app,api,mail,admin,support,help,status,cdn,assets,blog,docs,storage"
 
-# Which of the reserved labels above (plus the bare apex, always included
-# implicitly) are the actual marketplace site rather than some other
-# reserved service (the dashboard at app, R2 at storage/cdn, etc.) --
-# these get the same edge rate-limit check as a real vendor slug, since
-# they're genuine end-user browsing/API traffic at real volume, just
-# forwarded unchanged rather than rewritten to a per-vendor path. Every
-# other reserved label keeps today's plain, unlimited passthrough --
-# they're not marketplace browsing traffic and have their own DNS
-# records already, so there's no shared budget to apply here.
+# Which of the reserved labels above is the actual marketplace site
+# rather than some other reserved service (the dashboard at app, R2 at
+# storage/cdn, etc.) -- gets the same edge rate-limit check as a real
+# vendor slug, since it's genuine end-user browsing/API traffic at real
+# volume, just forwarded unchanged rather than rewritten to a per-vendor
+# path. Every other reserved label keeps today's plain, unlimited
+# passthrough -- they're not marketplace browsing traffic and have their
+# own DNS records already, so there's no shared budget to apply here. The
+# bare apex isn't listed here (or anywhere in this var) -- it never
+# reaches this check at all, since src/index.js answers it with a
+# redirect straight from the edge before the request gets this far.
 MARKETPLACE_SUBDOMAINS = "www"
 
 # General browse-traffic rate limiting -- moved here from apps/store's own
