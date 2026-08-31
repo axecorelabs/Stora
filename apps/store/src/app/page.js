@@ -5,6 +5,7 @@ import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import HeroSearch from "@/components/home/HeroSearch";
 import VendorShowcase from "@/components/home/VendorShowcase";
+import CategoryDiscovery from "@/components/home/CategoryDiscovery";
 import DiscoverySection from "@/components/home/DiscoverySection";
 
 export default function Home() {
@@ -56,6 +57,17 @@ export default function Home() {
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* Browse by category / AI search */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Browse</p>
+            <h2 className="font-display text-2xl font-bold text-brand-900">Shop by category</h2>
+          </div>
+          <CategoryDiscovery />
         </div>
       </section>
 
