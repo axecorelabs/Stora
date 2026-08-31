@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { redis, withTimeout } from '@/lib/redis';
 import { isValidNigerianState } from '@stora/shared-constants';
-import { resolveRequestHost } from '@/lib/vendorHost';
+import { resolveRequestHost, isFromTrustedProxy } from '@/lib/vendorHost';
 
 // Falls back to a literal default rather than throwing when unset -- this
 // only matters once vendor subdomains are actually wired up in DNS/Vercel;
@@ -133,6 +133,36 @@ const browseLimiter = new Ratelimit({
   prefix: 'store:rl:browse'
 });
 
+function applyDeliverStateCookie(req, response) {
+  const resolved = resolveDeliverStateCookie(req);
+  if (!resolved) return;
+
+  response.cookies.set(DELIVER_STATE_COOKIE, resolved.value, {
+    path: '/',
+    maxAge: DELIVER_STATE_COOKIE_MAX_AGE,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production'
+  });
+  if (resolved.isGuess) {
+    response.cookies.set(DELIVER_STATE_GUESS_COOKIE, '1', {
+      path: '/',
+      maxAge: DELIVER_STATE_COOKIE_MAX_AGE,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    });
+  } else {
+    // A URL param is a real, confirmed value -- clear any stale guess
+    // flag so DeliveryStateContext.js's rule 2 doesn't later treat it
+    // as one it should still override once the real profile resolves.
+    response.cookies.set(DELIVER_STATE_GUESS_COOKIE, '', {
+      path: '/',
+      maxAge: 0,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    });
+  }
+}
+
 function getClientIp(req) {
   return req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
 }
@@ -193,6 +223,33 @@ export async function proxy(req) {
 
   const limiter = authLimiters[path] || browseLimiter;
 
+  // The Worker in front of every vendor-subdomain request (see
+  // workers/subdomain-router/src/index.js) already enforces this exact
+  // browseLimiter budget at the edge before forwarding here, keyed the
+  // same way (per client IP) via Cloudflare's own Rate Limiting binding --
+  // paying for it again in Redis on every request would just double the
+  // command count for no extra protection. Only ever skip the fallback
+  // browse bucket this way, never one of the named authLimiters above:
+  // those cover login/payment/order routes the Worker doesn't limit at
+  // all (it only ever sets this header for the generic browse path), and
+  // trusting a spoofed header there would be a real gap, not a redundant
+  // check. `isFromTrustedProxy` verifies the shared-secret header the
+  // Worker signs its forwarded requests with (see lib/vendorHost.js) --
+  // without a match here, this always falls through to the Redis check
+  // exactly as before, so an unconfigured PROXY_SECRET or a request that
+  // bypassed the Worker (local dev, hitting the Vercel origin directly)
+  // fails safe rather than silently skipping rate limiting.
+  const alreadyLimitedByWorker =
+    limiter === browseLimiter &&
+    isFromTrustedProxy(req) &&
+    req.headers.get('x-stora-worker-ratelimited') === '1';
+
+  if (alreadyLimitedByWorker) {
+    const response = rewriteUrl ? NextResponse.rewrite(rewriteUrl) : NextResponse.next();
+    applyDeliverStateCookie(req, response);
+    return response;
+  }
+
   try {
     const ip = getClientIp(req);
     const { success, limit, remaining, reset } = await withTimeout(limiter.limit(ip));
@@ -217,35 +274,7 @@ export async function proxy(req) {
   }
 
   const response = rewriteUrl ? NextResponse.rewrite(rewriteUrl) : NextResponse.next();
-
-  const resolved = resolveDeliverStateCookie(req);
-  if (resolved) {
-    response.cookies.set(DELIVER_STATE_COOKIE, resolved.value, {
-      path: '/',
-      maxAge: DELIVER_STATE_COOKIE_MAX_AGE,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    });
-    if (resolved.isGuess) {
-      response.cookies.set(DELIVER_STATE_GUESS_COOKIE, '1', {
-        path: '/',
-        maxAge: DELIVER_STATE_COOKIE_MAX_AGE,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production'
-      });
-    } else {
-      // A URL param is a real, confirmed value -- clear any stale guess
-      // flag so DeliveryStateContext.js's rule 2 doesn't later treat it
-      // as one it should still override once the real profile resolves.
-      response.cookies.set(DELIVER_STATE_GUESS_COOKIE, '', {
-        path: '/',
-        maxAge: 0,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production'
-      });
-    }
-  }
-
+  applyDeliverStateCookie(req, response);
   return response;
 }
 

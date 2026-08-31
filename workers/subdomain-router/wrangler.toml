@@ -8,7 +8,15 @@ compatibility_date = "2024-11-01"
 # require). Cloudflare's own Universal SSL already covers the wildcard for
 # free once this route is proxied.
 routes = [
-  { pattern = "*.stora.com.ng/*", zone_name = "stora.com.ng" }
+  { pattern = "*.stora.com.ng/*", zone_name = "stora.com.ng" },
+  # Bare apex added alongside the wildcard so www AND the bare apex both
+  # pass through this Worker's rate limiting too -- *.stora.com.ng/* alone
+  # never matches the zero-subdomain host. www itself was already covered
+  # by the wildcard route (it's a one-level subdomain), but previously hit
+  # the reserved-passthrough branch in src/index.js with no rate limiting
+  # applied at all -- see MARKETPLACE_SUBDOMAINS below for why it (and the
+  # apex) now get the same edge check every vendor slug does.
+  { pattern = "stora.com.ng/*", zone_name = "stora.com.ng" }
 ]
 
 [vars]
@@ -57,3 +65,32 @@ STORE_ORIGIN_HOST = "www.stora.com.ng"
 # image on the live site: requests were getting forwarded into the store
 # app instead of served straight from R2.
 RESERVED_SUBDOMAINS = "www,app,api,mail,admin,support,help,status,cdn,assets,blog,docs,storage"
+
+# Which of the reserved labels above (plus the bare apex, always included
+# implicitly) are the actual marketplace site rather than some other
+# reserved service (the dashboard at app, R2 at storage/cdn, etc.) --
+# these get the same edge rate-limit check as a real vendor slug, since
+# they're genuine end-user browsing/API traffic at real volume, just
+# forwarded unchanged rather than rewritten to a per-vendor path. Every
+# other reserved label keeps today's plain, unlimited passthrough --
+# they're not marketplace browsing traffic and have their own DNS
+# records already, so there's no shared budget to apply here.
+MARKETPLACE_SUBDOMAINS = "www"
+
+# General browse-traffic rate limiting -- moved here from apps/store's own
+# Redis-backed browseLimiter (see src/index.js for why: this is the one
+# limiter that fires on nearly every request, so running it at the edge
+# means an abusive burst never costs a Redis command or a Vercel
+# invocation at all). `period` is a hard Cloudflare constraint: only 10 or
+# 60 are valid, no other window. `namespace_id` just needs to be unique
+# within this account across all Workers' [[ratelimits]] blocks -- 1001 is
+# a placeholder; verify it doesn't collide with anything already
+# provisioned on this Cloudflare account before deploying, and change it
+# if it does.
+[[ratelimits]]
+name = "BROWSE_RATE_LIMITER"
+namespace_id = "1001"
+
+[ratelimits.simple]
+limit = 180
+period = 60
