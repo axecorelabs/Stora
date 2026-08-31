@@ -5,6 +5,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { DeliveryStateProvider } from "@/contexts/DeliveryStateContext";
 import QueryProvider from "@/providers/QueryProvider";
 import GoogleAuthErrorBanner from "@/components/auth/GoogleAuthErrorBanner";
+import NavigationLoadingOverlay from "@/components/ui/NavigationLoadingOverlay";
 import Head from "next/head";
 
 // Same pairing as apps/dashboard -- one typographic identity across both
@@ -98,6 +99,7 @@ export default function RootLayout({ children }) {
             <DeliveryStateProvider>
               <CartProvider>
                 <GoogleAuthErrorBanner />
+                <NavigationLoadingOverlay />
                 {children}
               </CartProvider>
             </DeliveryStateProvider>

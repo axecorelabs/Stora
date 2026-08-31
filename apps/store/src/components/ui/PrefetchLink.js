@@ -1,7 +1,26 @@
 "use client";
-import { useCallback, useRef } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef } from "react";
+import Link, { useLinkStatus } from "next/link";
 import { useRouter } from "next/navigation";
+import { reportLinkPending } from "./linkNavigationStore";
+
+// useLinkStatus() only works rendered inside the <Link> it reports on
+// (Next wires it via context scoped to that one Link) -- this is that
+// required child, invisible, just forwarding `pending` out to the shared
+// store so NavigationLoadingOverlay can show feedback for a click that
+// hasn't been prefetched. `pending` is exactly Next's own signal for "this
+// navigation hasn't resolved yet," true whether or not prefetch ran.
+function PendingReporter() {
+  const { pending } = useLinkStatus();
+  useEffect(() => {
+    reportLinkPending(pending);
+    // Covers the unmount case too -- if this Link's subtree goes away
+    // mid-navigation (e.g. the page it's on gets replaced by something
+    // else first), the count must still drop back down.
+    return () => reportLinkPending(false);
+  }, [pending]);
+  return null;
+}
 
 // Drop-in replacement for next/link's <Link> in "browse many" grids
 // (vendor/product/category cards) -- Next's default prefetch fires for
@@ -30,6 +49,7 @@ export default function PrefetchLink({ href, children, ...rest }) {
       onTouchStart={triggerPrefetch}
       {...rest}
     >
+      <PendingReporter />
       {children}
     </Link>
   );
