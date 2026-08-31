@@ -46,6 +46,16 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        // New uploads' public URL (R2_PUBLIC_URL) -- storage.stora.com.ng
+        // above stays for images uploaded before this domain existed;
+        // nothing rewrites those to the new host, so both entries are
+        // needed until old inventory naturally ages out.
+        protocol: 'https',
+        hostname: 'cdn.ivma.ng',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };
