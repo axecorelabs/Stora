@@ -1,5 +1,6 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import sharp from 'sharp';
 
 // Cloudflare R2 — S3-compatible API, but no per-object ACLs. Public access comes
 // from a custom domain (or the r2.dev subdomain) connected to the bucket, not
@@ -86,12 +87,17 @@ export function extractKeyFromUrl(url) {
   }
 }
 
-// Generate a unique file key
-export function generateFileKey(userId, originalName) {
+// Generate a unique file key. Always .webp -- every upload now passes
+// through compressImage() below on its way out of validateImageFile, so
+// whatever format the file arrived in (JPEG/PNG/WebP), what actually gets
+// stored is always WebP. Keying it by the ORIGINAL upload's extension
+// would leave a mismatch between the URL's apparent format and its real
+// content (harmless to browsers, which trust the Content-Type header, but
+// confusing to anyone reading a "photo.jpg" URL that's actually WebP).
+export function generateFileKey(userId) {
   const timestamp = Date.now();
   const randomString = Math.random().toString(36).substring(2, 15);
-  const extension = originalName.split('.').pop().toLowerCase();
-  return `inventory/${userId}/${timestamp}-${randomString}.${extension}`;
+  return `inventory/${userId}/${timestamp}-${randomString}.webp`;
 }
 
 // The browser-reported file.type checked below is trivially spoofable in a
@@ -121,10 +127,38 @@ function detectImageMimeType(buffer) {
   return null;
 }
 
-// Validate image file. Returns { buffer, contentType } on success -- the
-// buffer so callers don't need to read the file a second time, and
-// contentType so uploadToR2 stores/serves the format actually verified from
-// the bytes, never the client's (unverified) claim.
+// Product/branding photos land here straight from phone cameras -- often
+// several MB at 3000px+ wide, far larger than any context they're ever
+// displayed at (a homepage measurement found images alone accounted for
+// 11.5MB of an 11.6MB page load). Capping the long edge at 1600px covers
+// every current display size, including a 2x-retina render of a
+// moderate-width hero image, without keeping resolution nobody asked for.
+// `fit: 'inside'` preserves aspect ratio; `withoutEnlargement` means a
+// already-small image is never upscaled. WebP at quality 80 is the
+// standard "visually near-lossless, meaningfully smaller than JPEG/PNG"
+// tradeoff, and (unlike PNG) still supports the transparency a logo
+// upload needs -- one output format covers every input type this
+// validator accepts.
+const MAX_IMAGE_DIMENSION = 1600;
+const WEBP_QUALITY = 80;
+
+async function compressImage(buffer) {
+  return sharp(buffer)
+    .resize({
+      width: MAX_IMAGE_DIMENSION,
+      height: MAX_IMAGE_DIMENSION,
+      fit: 'inside',
+      withoutEnlargement: true
+    })
+    .webp({ quality: WEBP_QUALITY })
+    .toBuffer();
+}
+
+// Validate image file. Returns { buffer, contentType } on success -- buffer
+// is the RESIZED/RECOMPRESSED WebP output (not the raw upload) so callers
+// never need to touch the original bytes again, and contentType is always
+// 'image/webp' now, reflecting what's actually about to be stored rather
+// than the client's (unverified, and now also stale) format claim.
 export async function validateImageFile(file) {
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   // Vercel's Node.js serverless functions hard-cap the request BODY at
@@ -136,7 +170,9 @@ export async function validateImageFile(file) {
   // response to show a real error for -- this validation never even runs
   // in that case, since the request never reaches it. 2MB per file keeps
   // any single request (including two files together) comfortably under
-  // the platform limit, with room for multipart overhead.
+  // the platform limit, with room for multipart overhead. This is a limit
+  // on the INCOMING upload only -- what's actually stored after
+  // compressImage() runs is typically far smaller than this cap.
   const maxSize = 2 * 1024 * 1024; // 2MB
 
   if (!allowedTypes.includes(file.type)) {
@@ -147,13 +183,13 @@ export async function validateImageFile(file) {
     throw new Error('Image size must be less than 2MB');
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const contentType = detectImageMimeType(buffer);
-  if (!contentType) {
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+  if (!detectImageMimeType(rawBuffer)) {
     throw new Error('This file does not appear to be a valid JPEG, PNG, or WebP image');
   }
 
-  return { buffer, contentType };
+  const buffer = await compressImage(rawBuffer);
+  return { buffer, contentType: 'image/webp' };
 }
 
 // Generate presigned URL for private access (if needed)

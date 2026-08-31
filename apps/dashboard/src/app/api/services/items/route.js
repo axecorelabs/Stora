@@ -40,7 +40,7 @@ export async function POST(request) {
       if (file && file.size > 0) {
         try {
           const { buffer, contentType } = await validateImageFile(file);
-          const fileKey = generateFileKey(user.id.toString(), file.name);
+          const fileKey = generateFileKey(user.id.toString());
           const imageUrl = await uploadToR2(buffer, fileKey, contentType);
           portfolioUrls.push(imageUrl);
         } catch (error) {

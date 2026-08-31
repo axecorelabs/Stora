@@ -110,7 +110,7 @@ export async function PUT(req) {
         }
 
         // Upload new logo
-        const logoKey = generateFileKey(user.id, `logo-${logoFile.name}`);
+        const logoKey = generateFileKey(user.id);
         const logoUrl = await uploadToR2(buffer, logoKey, contentType);
         updatedBranding.logo = logoUrl;
         
@@ -140,7 +140,7 @@ export async function PUT(req) {
         }
 
         // Upload new banner
-        const bannerKey = generateFileKey(user.id, `banner-${bannerFile.name}`);
+        const bannerKey = generateFileKey(user.id);
         const bannerUrl = await uploadToR2(buffer, bannerKey, contentType);
         updatedBranding.banner = bannerUrl;
         

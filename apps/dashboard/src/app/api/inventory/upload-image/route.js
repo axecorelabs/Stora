@@ -36,7 +36,7 @@ export async function POST(req) {
     }
 
     // Generate unique file key (use user.id instead of user._id)
-    const fileKey = generateFileKey(user.id, file.name);
+    const fileKey = generateFileKey(user.id);
 
     // Upload to R2
     const imageUrl = await uploadToR2(buffer, fileKey, contentType);
