@@ -1,6 +1,7 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { CATEGORIES } from "@/lib/categories";
 
 // Natural-language prompts, same tone as AISearchInput's own placeholder
@@ -16,29 +17,50 @@ const AI_SEARCH_TEMPLATES = [
   "Home office setup",
 ];
 
-// Purely a visual rhythm for the masonry -- which category gets a taller
-// tile or the dark treatment, not a ranking. Hand-assigned per category
-// (rather than cycled by index) on purpose: a short repeating cycle lines
-// up with the column count at some breakpoint -- e.g. a 4-item cycle
-// against columns-4 puts the same style at the top of every column --
-// since CSS multi-column layout balances items into columns rather than
-// placing them in simple left-to-right order.
-const TILE_STYLE_BY_CATEGORY = {
-  Clothing: { aspect: "aspect-[4/5]", dark: true },
-  Shoes: { aspect: "aspect-square", dark: false },
-  Accessories: { aspect: "aspect-[4/5]", dark: false },
-  Perfumes: { aspect: "aspect-square", dark: true },
-  Food: { aspect: "aspect-[4/5]", dark: false },
-  Beverages: { aspect: "aspect-square", dark: true },
-  Electronics: { aspect: "aspect-square", dark: false },
-  Books: { aspect: "aspect-[4/5]", dark: true },
-  "Home & Garden": { aspect: "aspect-square", dark: false },
-  Sports: { aspect: "aspect-[4/5]", dark: true },
-  Automotive: { aspect: "aspect-square", dark: false },
-  "Health & Beauty": { aspect: "aspect-[4/5]", dark: false },
-  "Wigs & Hair": { aspect: "aspect-square", dark: true },
-};
-const DEFAULT_TILE_STYLE = { aspect: "aspect-square", dark: false };
+// Which category gets the dark treatment -- purely a visual rhythm, not a
+// ranking. Hand-picked rather than cycled by index so it can't land in
+// lockstep with the bento span pattern below.
+const DARK_CATEGORIES = new Set([
+  "Clothing",
+  "Perfumes",
+  "Beverages",
+  "Books",
+  "Sports",
+  "Wigs & Hair",
+]);
+
+// Desktop layout: a real CSS grid (not multi-column masonry), so every row
+// resolves to the same height and the grid's outer edges stay flush --
+// masonry columns pack independently and end at different heights.
+// One "big" tile spanning 2 rows, next to a 2-wide/1-wide/1-wide row and a
+// 2-wide/2-wide row underneath -- six spans that add up to exactly
+// 5 cols x 2 rows (2+2+1+1+2+2=10), so the browser's own left-to-right,
+// top-to-bottom auto-placement tiles it with zero gaps, no explicit
+// grid-column/row positioning needed. Repeats every 6 categories.
+const BENTO_BLOCK = [
+  "lg:col-span-1 lg:row-span-2", // big
+  "lg:col-span-2 lg:row-span-1", // wide
+  "lg:col-span-1 lg:row-span-1", // small
+  "lg:col-span-1 lg:row-span-1", // small
+  "lg:col-span-2 lg:row-span-1", // wide
+  "lg:col-span-2 lg:row-span-1", // wide
+];
+
+function bentoSpanClass(i, total) {
+  const patternedCount = Math.floor(total / BENTO_BLOCK.length) * BENTO_BLOCK.length;
+  if (i < patternedCount) return BENTO_BLOCK[i % BENTO_BLOCK.length];
+  // Whatever's left over after the last full block: a single leftover tile
+  // closes the grid out as a full-width banner; more than one just falls
+  // back to plain 1x1 cells -- still flush, since grid rows stay uniform
+  // either way.
+  const remainder = total - patternedCount;
+  return remainder === 1 ? "lg:col-span-5 lg:row-span-1" : "lg:col-span-1 lg:row-span-1";
+}
+
+// How many category tiles show before mobile/tablet needs "See more" --
+// desktop's bento grid has room for all of them, so the collapse only
+// applies below the lg breakpoint (see the hidden/lg:flex split below).
+const INITIAL_VISIBLE_COUNT = 6;
 
 // Sits between the vendor showcase and the product discovery teaser on the
 // homepage. Two separate ways in: a category tile filters /products by
@@ -47,17 +69,21 @@ const DEFAULT_TILE_STYLE = { aspect: "aspect-square", dark: false };
 // search mode. The category pills inside DiscoverySection stay -- this
 // isn't a replacement for them, just an earlier, more visual entry point.
 export default function CategoryDiscovery() {
+  const [expanded, setExpanded] = useState(false);
+  const hasMore = CATEGORIES.length > INITIAL_VISIBLE_COUNT;
+
   return (
     <div>
-      {/* Category masonry grid */}
-      <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 sm:gap-4">
-        {CATEGORIES.map(({ value, icon: Icon }) => {
-          const { aspect, dark } = TILE_STYLE_BY_CATEGORY[value] || DEFAULT_TILE_STYLE;
+      {/* Category grid: plain 2/3-col grid + "See more" below lg, bento grid at lg+ */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:auto-rows-[10rem]">
+        {CATEGORIES.map(({ value, icon: Icon }, i) => {
+          const dark = DARK_CATEGORIES.has(value);
+          const collapsedOnMobile = i >= INITIAL_VISIBLE_COUNT && !expanded;
           return (
             <Link
               key={value}
               href={`/products?category=${encodeURIComponent(value)}`}
-              className={`mb-3 sm:mb-4 flex break-inside-avoid flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${aspect} ${
+              className={`${collapsedOnMobile ? "hidden lg:flex" : "flex"} ${bentoSpanClass(i, CATEGORIES.length)} aspect-square lg:aspect-auto flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
                 dark
                   ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
                   : "bg-brand-50/60 border-brand-100 hover:border-brand-300 hover:bg-brand-50"
@@ -71,6 +97,19 @@ export default function CategoryDiscovery() {
           );
         })}
       </div>
+
+      {hasMore && (
+        <div className="mt-4 flex justify-center lg:hidden">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-brand-100 text-sm font-semibold text-brand-800 hover:border-brand-300 hover:bg-brand-50/50 transition-colors"
+          >
+            {expanded ? "See less" : "See more"}
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
+      )}
 
       {/* AI search templates -- horizontal scroll on mobile, wraps on desktop,
           same interaction pattern as DiscoverySection's own category pills. */}
