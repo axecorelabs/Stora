@@ -1,6 +1,6 @@
 "use client";
-import Link from "next/link";
 import { Store, BadgeCheck } from "lucide-react";
+import PrefetchLink from "@/components/ui/PrefetchLink";
 
 // Each vendor's own brand color shows through as a swatch inside Stora's
 // frame -- the two-layer brand rule made visible: many identities, one
@@ -11,7 +11,7 @@ export default function VendorCard({ store }) {
   const initial = (store.storeName || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <Link
+    <PrefetchLink
       href={`/${store.storeSlug}`}
       className="group flex-shrink-0 w-[220px] sm:w-auto bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200"
     >
@@ -54,6 +54,6 @@ export default function VendorCard({ store }) {
           </p>
         )}
       </div>
-    </Link>
+    </PrefetchLink>
   );
 }

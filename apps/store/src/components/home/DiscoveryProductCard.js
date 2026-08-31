@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
 import { Package, Heart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsInWishlist, useWishlistMutations } from "@/hooks/useWishlist";
+import PrefetchLink from "@/components/ui/PrefetchLink";
 
 // Deliberately lighter than store/ProductCard.js -- that card's job is
 // browsing and transacting inside one already-chosen vendor's storefront
@@ -149,8 +149,8 @@ export default function DiscoveryProductCard({ product }) {
     // session). No param at all (e.g. a direct link, or store/ProductCard.js
     // within the storefront itself) is the correct default for "this really
     // is a vendor-storefront visit."
-    <Link href={`/${storeSlug}/product/${product.id}?from=discover`} className="block h-full">
+    <PrefetchLink href={`/${storeSlug}/product/${product.id}?from=discover`} className="block h-full">
       {card}
-    </Link>
+    </PrefetchLink>
   );
 }

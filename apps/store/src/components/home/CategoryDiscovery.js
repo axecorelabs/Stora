@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { CATEGORIES } from "@/lib/categories";
+import PrefetchLink from "@/components/ui/PrefetchLink";
 
 // Natural-language prompts, same tone as AISearchInput's own placeholder
 // examples -- tapping one lands straight on /products with AI mode already
@@ -187,7 +187,7 @@ export default function CategoryDiscovery() {
           const dark = DARK_CATEGORIES.has(value);
           const collapsedOnMobile = i >= INITIAL_VISIBLE_COUNT && !expanded;
           return (
-            <Link
+            <PrefetchLink
               key={value}
               href={`/products?category=${encodeURIComponent(value)}`}
               className={`${collapsedOnMobile ? "hidden" : "flex"} aspect-square flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
@@ -200,7 +200,7 @@ export default function CategoryDiscovery() {
               <span className={`font-display text-lg font-semibold leading-tight ${dark ? "text-white" : "text-brand-900"}`}>
                 {value}
               </span>
-            </Link>
+            </PrefetchLink>
           );
         })}
       </div>
@@ -247,7 +247,7 @@ export default function CategoryDiscovery() {
           {CATEGORIES.map(({ value, icon: Icon }, i) => {
             const dark = DARK_CATEGORIES.has(value);
             return (
-              <Link
+              <PrefetchLink
                 key={value}
                 href={`/products?category=${encodeURIComponent(value)}`}
                 style={bentoStyle(i, CATEGORIES.length)}
@@ -261,7 +261,7 @@ export default function CategoryDiscovery() {
                 <span className={`font-display text-xl font-semibold leading-tight ${dark ? "text-white" : "text-brand-900"}`}>
                   {value}
                 </span>
-              </Link>
+              </PrefetchLink>
             );
           })}
         </div>
@@ -286,27 +286,27 @@ export default function CategoryDiscovery() {
           className="lg:hidden flex gap-2 overflow-x-auto -mx-4 px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {AI_SEARCH_TEMPLATES_MOBILE.map((templateQuery) => (
-            <Link
+            <PrefetchLink
               key={templateQuery}
               href={`/products?mode=ai&q=${encodeURIComponent(templateQuery)}`}
               className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-brand-100 bg-white text-brand-800 hover:border-brand-300 transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5 text-gold-500" />
               {templateQuery}
-            </Link>
+            </PrefetchLink>
           ))}
         </div>
 
         <div className="hidden lg:flex gap-2 flex-wrap">
           {AI_SEARCH_TEMPLATES.map((templateQuery) => (
-            <Link
+            <PrefetchLink
               key={templateQuery}
               href={`/products?mode=ai&q=${encodeURIComponent(templateQuery)}`}
               className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-brand-100 bg-white text-brand-800 hover:border-brand-300 transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5 text-gold-500" />
               {templateQuery}
-            </Link>
+            </PrefetchLink>
           ))}
         </div>
       </div>

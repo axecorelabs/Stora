@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Package, ArrowRight } from "lucide-react";
 import DiscoveryProductCard from "./DiscoveryProductCard";
+import PrefetchLink from "@/components/ui/PrefetchLink";
 import { CATEGORIES } from "@/lib/categories";
 
 // Homepage teaser only -- a curated trending/new taste of the catalog, not
@@ -49,14 +50,14 @@ export default function DiscoverySection() {
           All
         </button>
         {CATEGORIES.map(({ value, icon: Icon }) => (
-          <Link
+          <PrefetchLink
             key={value}
             href={`/products?category=${encodeURIComponent(value)}`}
             className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors border bg-white text-brand-800 border-brand-100 hover:border-brand-300"
           >
             <Icon className="w-3.5 h-3.5" />
             {value}
-          </Link>
+          </PrefetchLink>
         ))}
       </div>
 

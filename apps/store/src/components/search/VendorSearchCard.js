@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
 import { BadgeCheck, MapPin, MessageCircle, ArrowRight } from "lucide-react";
+import PrefetchLink from "@/components/ui/PrefetchLink";
 
 // Distinct from home/VendorCard.js -- that one is sized for a dense,
 // horizontal-scroll teaser (5+ per row); this one is built for the
@@ -19,7 +19,7 @@ export default function VendorSearchCard({ store }) {
   const showLogoImage = store.branding?.logo && !logoErrored;
 
   return (
-    <Link
+    <PrefetchLink
       href={`/${store.storeSlug}`}
       className="group flex flex-col bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_8px_24px_rgba(11,59,46,0.10)] hover:-translate-y-0.5 transition-all duration-200"
     >
@@ -93,6 +93,6 @@ export default function VendorSearchCard({ store }) {
           </span>
         </div>
       </div>
-    </Link>
+    </PrefetchLink>
   );
 }
