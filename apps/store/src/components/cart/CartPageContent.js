@@ -42,11 +42,16 @@ function computeCheckoutFeePreview(groups, commissionRate, minimumCommission) {
 
   for (const group of payableGroups) {
     const grossAmount = group.items.reduce((sum, item) => sum + (item.subtotal || item.price * item.quantity), 0);
+    // partnerCommissionAmount always comes out of the vendor's side, never
+    // the customer's, so it's not read here -- this preview only ever
+    // reflects what the customer pays.
     const { commissionAmount, customerAmount, bearer } = computeStoreCheckoutAmount({
       grossAmount,
-      commissionBearer: group.commissionBearer,
+      commissionBearer: group.partnerContract ? 'customer' : group.commissionBearer,
       commissionRate,
-      minimumCommission
+      minimumCommission,
+      partnerCommissionType: group.partnerContract?.rate_type,
+      partnerCommissionValue: group.partnerContract?.rate_value ?? 0
     });
     payableSubtotal += customerAmount;
     if (bearer === 'customer') commissionPassThrough += commissionAmount;
@@ -505,6 +510,12 @@ export default function CartPageContent({ slug }) {
           deliveryStates: item.store_delivery_states ?? null,
           paystackReady: item.store_paystack_ready ?? false,
           commissionBearer: item.store_commission_bearer ?? 'vendor',
+          // Set only when this cart has a live campaign attribution AND
+          // the store has a currently-accepted partner contract (see
+          // enrichCartWithProductData/resolveCampaignAttribution) --
+          // forces the base commission onto the customer in the preview
+          // below, matching computePaymentSplit's real math exactly.
+          partnerContract: item.store_partner_contract ?? null,
           deliveryFees: item.store_delivery_fees ?? {},
           fulfillmentMethod: item.store_fulfillment_method ?? 'platform_collected',
           items: [],

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardHeader from "./DashboardHeader";
 import MobileBottomNav from "./MobileBottomNav";
+import PartnershipProposalModal from "./PartnershipProposalModal";
 
 const SIDEBAR_COLLAPSED_KEY = "stora-sidebar-collapsed";
 
@@ -111,6 +112,10 @@ export default function DashboardLayout({ children, title, subtitle }) {
       {/* Primary mobile nav -- replaces the header hamburger entirely
           below lg (see DashboardHeader.js), not an addition alongside it. */}
       <MobileBottomNav onOpenMore={() => setIsMobileSidebarOpen(true)} />
+
+      {/* Mounted here (not per-page) so a pending partnership proposal
+          surfaces regardless of which page the vendor lands on first. */}
+      <PartnershipProposalModal />
     </div>
   );
 }

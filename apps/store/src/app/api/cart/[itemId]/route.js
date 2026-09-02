@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyCustomerSession } from "@/lib/supabaseAuth";
 import { getOrCreateCart, removeCartItemById, enrichCartWithProductData, sanitizeCart } from "@/lib/supabaseCart";
+import { resolveCampaignAttribution } from "@/lib/campaignAttribution";
 
 export async function DELETE(request, { params }) {
   try {
@@ -42,7 +43,8 @@ export async function DELETE(request, { params }) {
     cart = await removeCartItemById(cart, itemId);
 
     // Enrich cart
-    cart = await enrichCartWithProductData(cart);
+    const attributionByStoreId = await resolveCampaignAttribution(request);
+    cart = await enrichCartWithProductData(cart, attributionByStoreId);
 
     return NextResponse.json({
       success: true,

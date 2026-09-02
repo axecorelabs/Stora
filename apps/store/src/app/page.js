@@ -7,6 +7,7 @@ import HeroSearch from "@/components/home/HeroSearch";
 import VendorShowcase from "@/components/home/VendorShowcase";
 import CategoryDiscovery from "@/components/home/CategoryDiscovery";
 import DiscoverySection from "@/components/home/DiscoverySection";
+import CampaignsShowcase from "@/components/home/CampaignsShowcase";
 
 export default function Home() {
   return (
@@ -81,6 +82,10 @@ export default function Home() {
           <DiscoverySection />
         </div>
       </section>
+
+      {/* Campaigns/quizzes teaser -- owns its own visibility, renders
+          nothing when there are no active campaigns (see the component). */}
+      <CampaignsShowcase />
 
       {/* Sell on Stora */}
       <section className="border-t-2 border-gold-500 bg-brand-800 py-16 px-4 sm:px-6 lg:px-8">

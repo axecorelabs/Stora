@@ -49,6 +49,12 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   // for "back"/"continue shopping" returning to this vendor, unchanged from
   // before this existed.
   const cameFromDiscover = searchParams.get('from') === 'discover';
+  // Set by a campaign quiz's results screen (CampaignQuizClient.js) linking
+  // to a recommended product -- same "carry context across the handoff"
+  // pattern as cameFromDiscover above, just returning to the quiz results
+  // instead of the general /products browse page.
+  const cameFromCampaign = searchParams.get('from') === 'campaign';
+  const campaignIdParam = searchParams.get('campaign');
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
 
@@ -965,13 +971,17 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             <button
               onClick={() => {
                 setIsNavigating(true);
-                router.push(cameFromDiscover ? '/products' : storeHref(slug));
+                if (cameFromCampaign && campaignIdParam) {
+                  router.push(storeHref(slug, `/campaign/${campaignIdParam}`));
+                } else {
+                  router.push(cameFromDiscover ? '/products' : storeHref(slug));
+                }
               }}
               className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors group text-sm"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               <span className="font-medium">
-                {cameFromDiscover ? 'Back to shopping' : `Back to ${store?.storeName || 'Store'}`}
+                {cameFromCampaign ? 'Back to quiz results' : cameFromDiscover ? 'Back to shopping' : `Back to ${store?.storeName || 'Store'}`}
               </span>
             </button>
 

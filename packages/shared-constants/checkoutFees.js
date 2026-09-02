@@ -47,6 +47,8 @@ export function computeStoreCheckoutAmount({
   commissionBearer,
   commissionRate,
   minimumCommission,
+  partnerCommissionType = 'percentage',
+  partnerCommissionValue = 0,
   deliveryFee = 0,
   fulfillmentMethod = 'platform_collected'
 }) {
@@ -60,6 +62,20 @@ export function computeStoreCheckoutAmount({
   const commissionAmount = Math.min(Math.max(rateBasedCommission, minimumCommission), grossAmount);
   const bearer = commissionBearer === 'customer' ? 'customer' : 'vendor';
 
+  // Partner-contract commission (see apps/store/src/app/api/orders/create/
+  // route.js's computePaymentSplit) -- the vendor's negotiated
+  // partner_contracts rate, either a percentage of grossAmount or a flat
+  // amount, with no floor unlike commissionAmount's minimumCommission.
+  // Clamped so the two commissions combined never exceed grossAmount; the
+  // clamp always squeezes this partner portion first, never
+  // commissionAmount, so that one's existing guarantee is untouched
+  // either way. A flat fee larger than the order can therefore never push
+  // netAmount negative.
+  const rateBasedPartnerCommission = partnerCommissionType === 'flat'
+    ? partnerCommissionValue
+    : Math.round(grossAmount * partnerCommissionValue * 100) / 100;
+  const partnerCommissionAmount = Math.max(0, Math.min(rateBasedPartnerCommission, grossAmount - commissionAmount));
+
   // 'platform_collected' folds the fee into what's charged/paid out here
   // (same payment as the merchandise). 'pay_on_delivery' keeps it out of
   // both entirely -- the rider collects it directly, off-platform -- and
@@ -68,8 +84,13 @@ export function computeStoreCheckoutAmount({
   const deliveryFeeAmount = fulfillmentMethod === 'platform_collected' ? deliveryFee : 0;
   const payOnDeliveryAmount = fulfillmentMethod === 'pay_on_delivery' ? deliveryFee : 0;
 
-  const netAmount = (bearer === 'customer' ? grossAmount : grossAmount - commissionAmount) + deliveryFeeAmount;
+  // Partner commission ALWAYS comes out of the vendor's net -- never added
+  // to customerAmount -- regardless of this store's own commissionBearer
+  // choice for the base fee. That bearer toggle only ever governs
+  // commissionAmount; a partner-attributed sale is never allowed to raise
+  // the price the customer sees.
+  const netAmount = (bearer === 'customer' ? grossAmount : grossAmount - commissionAmount) - partnerCommissionAmount + deliveryFeeAmount;
   const customerAmount = (bearer === 'customer' ? grossAmount + commissionAmount : grossAmount) + deliveryFeeAmount;
 
-  return { commissionAmount, netAmount, customerAmount, bearer, deliveryFeeAmount, payOnDeliveryAmount };
+  return { commissionAmount, partnerCommissionAmount, netAmount, customerAmount, bearer, deliveryFeeAmount, payOnDeliveryAmount };
 }

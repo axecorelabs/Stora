@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyCustomerSession } from "@/lib/supabaseAuth";
 import { getOrCreateCart, enrichCartWithProductData, clearCart, addItemToCart, prepareCartItemData, sanitizeCart } from "@/lib/supabaseCart";
+import { resolveCampaignAttribution } from "@/lib/campaignAttribution";
 
 // GET - Get customer's cart
 export async function GET(request) {
@@ -27,7 +28,8 @@ export async function GET(request) {
     let cart = await getOrCreateCart(customerId);
     
     // Enrich cart with current product data
-    cart = await enrichCartWithProductData(cart);
+    const attributionByStoreId = await resolveCampaignAttribution(request);
+    cart = await enrichCartWithProductData(cart, attributionByStoreId);
 
     return NextResponse.json({
       success: true,
@@ -113,12 +115,13 @@ export async function POST(request) {
     cart = await addItemToCart(cart, itemData);
     
     // Enrich and return
-    cart = await enrichCartWithProductData(cart);
+    const attributionByStoreId = await resolveCampaignAttribution(request);
+    cart = await enrichCartWithProductData(cart, attributionByStoreId);
 
     return NextResponse.json({
       success: true,
       cart: sanitizeCart(cart),
-      message: variantData 
+      message: variantData
         ? `${color} - ${size} added to cart successfully`
         : "Item added to cart successfully"
     });

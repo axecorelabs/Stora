@@ -14,7 +14,8 @@ import {
   Heart,
   ShoppingBag,
   Package,
-  ArrowUp
+  ArrowUp,
+  Sparkles
 } from 'lucide-react';
 import useStoreStore from '@/stores/storeStore';
 import { storeHref } from '@/lib/storeUrl';
@@ -24,6 +25,21 @@ export default function StoreFooter() {
   const { currentStore } = useStoreStore();
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [hasActiveCampaigns, setHasActiveCampaigns] = useState(false);
+
+  // The "Take a Quiz" quick link only makes sense while at least one
+  // campaign is actually live -- defaults to hidden (fail-closed) so a
+  // slow/failed check never shows a link that lands on an empty listing.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/campaigns/active?limit=1')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setHasActiveCampaigns(Boolean(data?.campaigns?.length));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Screen size detection function
   const detectScreenSize = () => {
@@ -102,6 +118,14 @@ export default function StoreFooter() {
     { label: 'My Cart', path: storeHref(storeSlug, '/cart'), icon: ShoppingBag },
     { label: 'Wishlist', path: storeHref(storeSlug, '/wishlist'), icon: Heart },
     { label: 'My Orders', path: storeHref(storeSlug, '/orders'), icon: Package },
+    // Lives on the apex marketplace, not within this vendor's own
+    // slug/subdomain (a campaign can pool several vendors now) -- a real
+    // cross-origin navigation, same "leave this store" convention this
+    // file's own "Powered by Stora" link below already uses, not
+    // router.push (internal-routing only).
+    ...(hasActiveCampaigns
+      ? [{ label: 'Take a Quiz', path: 'https://stora.com.ng/campaigns', icon: Sparkles, external: true }]
+      : []),
   ];
 
   const socialMediaLinks = [
@@ -232,7 +256,7 @@ export default function StoreFooter() {
                 return (
                   <li key={index}>
                     <button
-                      onClick={() => router.push(link.path)}
+                      onClick={() => (link.external ? window.open(link.path, '_self') : router.push(link.path))}
                       className="flex items-center gap-2.5 text-sm text-gray-600 hover:text-gray-900 transition-colors group w-full text-left"
                     >
                       <div 

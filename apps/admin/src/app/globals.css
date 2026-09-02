@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Same Stora brand palette as apps/dashboard/apps/store -- one visual
+     identity across every app, including this internal one. */
+  --color-brand-50: #EAF1EE;
+  --color-brand-100: #D2E3DC;
+  --color-brand-200: #A8C9BB;
+  --color-brand-300: #7FAE99;
+  --color-brand-400: #4C8870;
+  --color-brand-500: #2A6B52;
+  --color-brand-600: #145C41;
+  --color-brand-700: #0F4A38;
+  --color-brand-800: #0B3B2E;
+  --color-brand-900: #082A20;
+
+  --color-gold-400: #D8BC85;
+  --color-gold-500: #C6A15B;
+  --color-gold-600: #AD874A;
+  --color-gold-700: #8A6A36;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}

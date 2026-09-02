@@ -1,32 +1,56 @@
+"use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Mail, ArrowUpRight } from "lucide-react";
 
-const LINK_GROUPS = [
-  {
-    heading: "Shop",
-    links: [
-      { label: "All vendors", href: "/vendors" },
-      { label: "All products", href: "/products" },
-    ],
-  },
-  {
-    heading: "Your account",
-    links: [
-      { label: "Orders", href: "/orders" },
-      { label: "Wishlist", href: "/wishlist" },
-      { label: "Cart", href: "/cart" },
-    ],
-  },
-];
-
-// Shared across / and the dedicated /vendors, /products search pages.
+// Shared across / and the dedicated /vendors, /products search pages --
+// several of which are Client Components themselves (page.js etc.), so
+// this can't do a server-side DB read directly; a lightweight client
+// fetch against the same public endpoint the homepage teaser uses
+// (components/home/CampaignsShowcase.js) keeps it consistent.
+//
 // Deliberately the platform's own dark-green anchor -- distinct from the
 // blurred brand-800 header -- so the page has a clear floor, with the
 // same gold-to-green gradient used on the search capsule as a hairline
 // top edge, tying the two together as one signature rather than two
 // unrelated brand touches.
 export default function SiteFooter() {
+  const [hasActiveCampaigns, setHasActiveCampaigns] = useState(false);
+
+  // "Quizzes" only makes sense while at least one campaign is actually
+  // live -- defaults to hidden (fail-closed) so a slow/failed check never
+  // shows a link that lands on an empty listing.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/campaigns/active?limit=1")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setHasActiveCampaigns(Boolean(data?.campaigns?.length));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const LINK_GROUPS = [
+    {
+      heading: "Shop",
+      links: [
+        { label: "All vendors", href: "/vendors" },
+        { label: "All products", href: "/products" },
+        ...(hasActiveCampaigns ? [{ label: "Quizzes", href: "/campaigns" }] : []),
+      ],
+    },
+    {
+      heading: "Your account",
+      links: [
+        { label: "Orders", href: "/orders" },
+        { label: "Wishlist", href: "/wishlist" },
+        { label: "Cart", href: "/cart" },
+      ],
+    },
+  ];
+
   return (
     <footer className="relative bg-brand-900">
       <div

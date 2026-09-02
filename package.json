@@ -10,9 +10,12 @@
   "scripts": {
     "dev:dashboard": "npm run dev --workspace=apps/dashboard",
     "dev:store": "npm run dev --workspace=apps/store",
+    "dev:admin": "npm run dev --workspace=apps/admin -- -p 3002",
     "build:dashboard": "npm run build --workspace=apps/dashboard",
     "build:store": "npm run build --workspace=apps/store",
+    "build:admin": "npm run build --workspace=apps/admin",
     "lint:dashboard": "npm run lint --workspace=apps/dashboard",
-    "lint:store": "npm run lint --workspace=apps/store"
+    "lint:store": "npm run lint --workspace=apps/store",
+    "lint:admin": "npm run lint --workspace=apps/admin"
   }
 }

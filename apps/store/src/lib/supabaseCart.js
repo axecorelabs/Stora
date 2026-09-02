@@ -385,7 +385,15 @@ export async function clearCart(cart) {
 
 // ============ CART HELPERS ============
 
-export async function enrichCartWithProductData(cart) {
+// attributionByStoreId (optional): the Map<storeId, {attribution, contract}>
+// from resolveCampaignAttribution (apps/store/src/lib/campaignAttribution.js)
+// -- passed in by callers that resolved it from the request's cookie, so
+// the cart preview (CartPageContent.js) can force the same
+// customer-bears-the-base-fee + contract-rate math computePaymentSplit
+// applies at actual order creation. Previously attribution was never
+// resolved here at all, so a partner-attributed cart could preview a
+// lower total than what the customer was actually charged at checkout.
+export async function enrichCartWithProductData(cart, attributionByStoreId = new Map()) {
   if (!cart || !cart.items || cart.items.length === 0) {
     return cart;
   }
@@ -466,7 +474,8 @@ export async function enrichCartWithProductData(cart) {
           store_paystack_ready: paystackReadyByStore[item.store_id] ?? false,
           store_commission_bearer: commissionBearerByStore[item.store_id] ?? 'vendor',
           store_delivery_fees: deliveryFeesByStore[item.store_id] ?? {},
-          store_fulfillment_method: fulfillmentMethodByStore[item.store_id] ?? 'platform_collected'
+          store_fulfillment_method: fulfillmentMethodByStore[item.store_id] ?? 'platform_collected',
+          store_partner_contract: attributionByStoreId.get(item.store_id)?.contract ?? null
         };
       } catch (error) {
         console.error(`Error enriching cart item ${item.product_id}:`, error);
@@ -478,7 +487,8 @@ export async function enrichCartWithProductData(cart) {
           store_paystack_ready: paystackReadyByStore[item.store_id] ?? false,
           store_commission_bearer: commissionBearerByStore[item.store_id] ?? 'vendor',
           store_delivery_fees: deliveryFeesByStore[item.store_id] ?? {},
-          store_fulfillment_method: fulfillmentMethodByStore[item.store_id] ?? 'platform_collected'
+          store_fulfillment_method: fulfillmentMethodByStore[item.store_id] ?? 'platform_collected',
+          store_partner_contract: attributionByStoreId.get(item.store_id)?.contract ?? null
         };
       }
     })

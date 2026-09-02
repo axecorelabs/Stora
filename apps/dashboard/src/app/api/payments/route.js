@@ -153,6 +153,13 @@ export async function GET(req) {
       grossAmount: parseFloat(split.gross_amount),
       commissionRate: parseFloat(split.platform_commission_rate),
       commissionAmount: parseFloat(split.platform_commission_amount),
+      // Set only when this sale was driven by a Stora-built partner
+      // campaign (see apps/store's orders/create/route.js) -- 0/false for
+      // every ordinary order, so this is purely additive to what a vendor
+      // already sees. Explains why netAmount is lower than
+      // grossAmount - commissionAmount on an attributed order.
+      isPartnerAttributed: !!split.is_partner_attributed,
+      partnerCommissionAmount: parseFloat(split.partner_commission_amount || 0),
       netAmount: parseFloat(split.net_amount_to_vendor),
       // Exact, not approximated -- set once by the refund route at the
       // moment a split is reversed (see the order_payment_splits
@@ -192,7 +199,7 @@ export async function GET(req) {
     // refund on a paid one must not make it disappear from them either).
     const { data: allSplits } = await supabaseAdmin
       .from('order_payment_splits')
-      .select('gross_amount, platform_commission_amount, net_amount_to_vendor, refunded_amount, delivery_fee_amount, fulfillment_method, status, order_payments!inner(status)')
+      .select('gross_amount, platform_commission_amount, partner_commission_amount, net_amount_to_vendor, refunded_amount, delivery_fee_amount, fulfillment_method, status, order_payments!inner(status)')
       .eq('store_id', store.id)
       .in('order_payments.status', CHARGED_STATUSES);
 
@@ -205,6 +212,10 @@ export async function GET(req) {
       // policy is that the platform commission is never refunded, so every
       // charged split contributes here, reversed or not.
       totalCommission: (allSplits || []).reduce((sum, s) => sum + parseFloat(s.platform_commission_amount || 0), 0),
+      // Separate line from totalCommission above -- keeps the base-rate
+      // figure meaning exactly what it always has, with the partner-driven
+      // portion broken out rather than silently folded in.
+      totalPartnerCommission: (allSplits || []).reduce((sum, s) => sum + parseFloat(s.partner_commission_amount || 0), 0),
       // This vendor's true current take-home: full net for an untouched
       // split, net minus whatever was actually refunded for a reversed one
       // -- not zero, since a partial refund still leaves them the

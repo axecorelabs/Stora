@@ -106,6 +106,11 @@ export async function POST(req, { params }) {
     // commission is set aside), not the full gross_amount they paid.
     const netAmount = parseFloat(split.net_amount_to_vendor);
     const commissionAmount = parseFloat(split.platform_commission_amount);
+    // Same non-refundable policy applies to the partner-attribution
+    // commission (see apps/store's orders/create/route.js) -- netAmount
+    // above already has both subtracted, so the refundable-ceiling math
+    // needs no change; this is purely for the timeline note's wording.
+    const partnerCommissionAmount = parseFloat(split.partner_commission_amount || 0);
     const refundAmount = amount != null ? Math.min(parseFloat(amount), netAmount) : netAmount;
     if (!(refundAmount > 0)) {
       return NextResponse.json({ success: false, message: 'Invalid refund amount' }, { status: 400 });
@@ -270,7 +275,7 @@ export async function POST(req, { params }) {
       order_id: id,
       status: newPaymentStatus,
       from_status: orderPayment.status,
-      note: `${isFullRefund ? 'Full' : 'Partial'} refund of ₦${refundAmount.toLocaleString('en-NG')} recorded for ${store.store_name} (₦${commissionAmount.toLocaleString('en-NG')} platform fee retained, non-refundable): ${note.trim()}`,
+      note: `${isFullRefund ? 'Full' : 'Partial'} refund of ₦${refundAmount.toLocaleString('en-NG')} recorded for ${store.store_name} (₦${commissionAmount.toLocaleString('en-NG')} platform fee${partnerCommissionAmount > 0 ? ` + ₦${partnerCommissionAmount.toLocaleString('en-NG')} partner commission` : ''} retained, non-refundable): ${note.trim()}`,
       updated_by: 'seller',
       changed_by: user.id,
       timestamp: now

@@ -614,12 +614,8 @@ export default function StoreWebsite({ store }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, isAutoPlaying]);
 
-  // Carousel slides data -- trimmed from 4 to 2: the store's own banner,
-  // plus one on-brand Stora trust slide. The previous 3 "Stora" slides
-  // were near-duplicate generic marketplace ad copy over random Unsplash
-  // stock photos (a real external dependency + load cost for content that
-  // said nothing specific) -- one honest trust signal says more than three
-  // interchangeable ones.
+  // Carousel slides data -- trimmed to just the store's own banner for now
+  // (the second "Stora trust" slide is parked pending a better replacement).
   const carouselSlides = [
     {
       type: 'store',
@@ -627,13 +623,6 @@ export default function StoreWebsite({ store }) {
       description: store.storeDescription,
       badge: store.storeType === 'physical' ? 'Physical store' : 'Online store',
       showLogo: true
-    },
-    {
-      type: 'stora',
-      title: 'Secure checkout, every order',
-      description: 'Payments are held safely and released to the seller once your order is confirmed.',
-      badge: 'Verified by Stora',
-      showLogo: false
     }
   ];
 
@@ -759,7 +748,7 @@ export default function StoreWebsite({ store }) {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8 relative z-10 min-h-screen">
+      <main className={`max-w-7xl mx-auto px-6 lg:px-8 ${isMobile ? 'pt-0' : 'pt-8'} pb-8 relative z-10 min-h-screen`}>
         {/* Proactive heads-up, not a hard block -- this store still takes
             the order, delivery just needs to be worked out directly (same
             spirit as store.deliveryStates elsewhere: a real list is a
@@ -782,9 +771,9 @@ export default function StoreWebsite({ store }) {
 
         {/* Enhanced Mobile Store Banner with Carousel */}
         {isMobile && (
-          <div className="mb-6 -mx-6 mx-auto relative overflow-hidden" ref={mainRef}>
-            {/* Carousel Container - Increased height and border radius */}
-            <div className="relative h-40 rounded-2xl overflow-hidden" ref={bannerRef}>
+          <div className="mb-6 -mx-6 relative overflow-hidden" ref={mainRef}>
+            {/* Carousel Container - full-bleed on mobile, no rounding */}
+            <div className="relative h-64 overflow-hidden" ref={bannerRef}>
               {/* Slides */}
               <div 
                 className="flex transition-transform duration-500 ease-out h-full"
@@ -793,7 +782,7 @@ export default function StoreWebsite({ store }) {
                 {carouselSlides.map((slide, index) => (
                   <div
                     key={index}
-                    className={`min-w-full h-40 relative flex-shrink-0 ${slide.type !== 'store' ? 'bg-gradient-to-br from-brand-800 to-brand-900' : ''}`}
+                    className={`min-w-full h-64 relative flex-shrink-0 ${slide.type !== 'store' ? 'bg-gradient-to-br from-brand-800 to-brand-900' : ''}`}
                     style={
                       slide.type === 'store'
                         ? {
@@ -858,7 +847,8 @@ export default function StoreWebsite({ store }) {
               )}
             </div>
 
-            {/* Carousel Dots - Now outside with dark styling */}
+            {/* Carousel Dots - only meaningful with more than one slide */}
+            {carouselSlides.length > 1 && (
             <div className="flex items-center justify-center gap-2 mt-3 z-20">
               {carouselSlides.map((_, index) => (
                 <button
@@ -882,6 +872,7 @@ export default function StoreWebsite({ store }) {
                 </button>
               ))}
             </div>
+            )}
           </div>
         )}
 

@@ -6,6 +6,7 @@ import { createOrder, reserveStock, releaseStockReservation } from "@/lib/supaba
 import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseCart";
 import { findInventoryByIds, findActiveBatchesByInventoryIds, resolveBatchPricing } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveCampaignAttribution } from "@/lib/campaignAttribution";
 import { isValidNigerianState, computeStoreCheckoutAmount, estimatePaystackFee, normalizeExtraDefinitions, resolveExtrasSelection } from "@stora/shared-constants";
 
 const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
@@ -50,7 +51,7 @@ async function groupOrderItemsByStore(order) {
 // here must not silently disappear the way a failed notification email
 // can, since a missing split record breaks payment initiation later --
 // callers check the returned paymentSplitError instead.
-async function computePaymentSplit(order, storeGroupedItems, destinationState) {
+async function computePaymentSplit(order, storeGroupedItems, destinationState, attributionByStoreId) {
   const storeIds = Object.keys(storeGroupedItems);
   const { data: stores, error: storesError } = await supabaseAdmin
     .from('stores')
@@ -123,11 +124,24 @@ async function computePaymentSplit(order, storeGroupedItems, destinationState) {
     // modes too, which is why the refund route needs no changes for this
     // feature.
     const { fee: deliveryFee, method: fulfillmentMethod } = deliveryByStoreId.get(storeId);
-    const { commissionAmount, netAmount, customerAmount } = computeStoreCheckoutAmount({
+    // resolveCampaignAttribution already re-checks live (not trusted from
+    // attribution-creation time) that the store is still is_partner AND
+    // has a currently-accepted contract -- see that file's own comment.
+    // A live attribution+contract forces the base commission onto the
+    // customer, always, overriding this store's own commission_bearer
+    // choice for this transaction only (never written back to the store).
+    const resolved = attributionByStoreId?.get(storeId);
+    const attribution = resolved?.attribution;
+    const contract = resolved?.contract;
+    const effectiveBearer = contract ? 'customer' : bearer;
+
+    const { commissionAmount, partnerCommissionAmount, netAmount, customerAmount } = computeStoreCheckoutAmount({
       grossAmount,
-      commissionBearer: bearer,
+      commissionBearer: effectiveBearer,
       commissionRate: PLATFORM_COMMISSION_RATE,
       minimumCommission: PLATFORM_MINIMUM_COMMISSION,
+      partnerCommissionType: contract?.rate_type,
+      partnerCommissionValue: contract?.rate_value ?? 0,
       deliveryFee,
       fulfillmentMethod
     });
@@ -143,13 +157,19 @@ async function computePaymentSplit(order, storeGroupedItems, destinationState) {
       platform_commission_rate: PLATFORM_COMMISSION_RATE,
       platform_commission_amount: commissionAmount,
       net_amount_to_vendor: netAmount,
-      commission_bearer: bearer,
+      commission_bearer: effectiveBearer,
       customer_amount: customerAmount,
       // Full raw fee regardless of method -- needed for the dashboard's
       // "customer owes you on delivery" display even when it never entered
       // customer_amount/net_amount_to_vendor above (pay_on_delivery).
       delivery_fee_amount: deliveryFee,
-      fulfillment_method: fulfillmentMethod
+      fulfillment_method: fulfillmentMethod,
+      is_partner_attributed: !!contract,
+      campaign_attribution_id: contract ? attribution.id : null,
+      partner_commission_rate: contract?.rate_type === 'percentage' ? contract.rate_value : 0,
+      partner_commission_amount: partnerCommissionAmount,
+      partner_rate_type: contract?.rate_type ?? null,
+      partner_contract_id: contract?.id ?? null
     });
   }
 
@@ -181,6 +201,24 @@ async function computePaymentSplit(order, storeGroupedItems, destinationState) {
 
   const { error: splitInsertError } = await supabaseAdmin.from('order_payment_splits').insert(splitRows);
   if (splitInsertError) throw splitInsertError;
+
+  // first_converted_at is purely informational (time from quiz completion
+  // to first purchase) -- it never gates reuse, so setting it never blocks
+  // a second/third order from also earning the partner rate within the
+  // window. Set once: the `.is('first_converted_at', null)` filter means a
+  // second conversion's update simply matches zero rows rather than
+  // overwriting the original first-conversion timestamp. Non-fatal: a
+  // failure here shouldn't fail an otherwise-successful order, it would
+  // just leave first_converted_at unset for reporting.
+  const convertedAttributionIds = splitRows.filter(r => r.is_partner_attributed).map(r => r.campaign_attribution_id);
+  if (convertedAttributionIds.length > 0) {
+    const { error: attributionUpdateError } = await supabaseAdmin
+      .from('campaign_attributions')
+      .update({ first_converted_at: new Date().toISOString() })
+      .in('id', convertedAttributionIds)
+      .is('first_converted_at', null);
+    if (attributionUpdateError) console.error('Error marking campaign attribution converted (non-fatal):', attributionUpdateError);
+  }
 
   // order_payments.amount only ever covers the payable portion -- never
   // the full order total on a mixed cart, since Paystack is only ever
@@ -653,7 +691,8 @@ export async function POST(request) {
     let paymentSplitError = null;
     if (paymentMethod === 'paystack') {
       try {
-        paymentSplitResult = await computePaymentSplit(order, storeGroupedItems, shippingAddress.state);
+        const attributionByStoreId = await resolveCampaignAttribution(request);
+        paymentSplitResult = await computePaymentSplit(order, storeGroupedItems, shippingAddress.state, attributionByStoreId);
       } catch (splitError) {
         console.error('Error computing payment split:', splitError);
         paymentSplitError = 'Failed to set up payment for this order. Please try again.';

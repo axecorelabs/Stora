@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyCustomerSession } from "@/lib/supabaseAuth";
 import { getOrCreateCart, updateCartItemQuantityById, removeCartItemById, enrichCartWithProductData, sanitizeCart } from "@/lib/supabaseCart";
+import { resolveCampaignAttribution } from "@/lib/campaignAttribution";
 
 // PATCH - Update item quantity
 export async function PATCH(request, { params }) {
@@ -34,7 +35,8 @@ export async function PATCH(request, { params }) {
     cart = await updateCartItemQuantityById(cart, itemId, quantity);
 
     // Enrich cart
-    cart = await enrichCartWithProductData(cart);
+    const attributionByStoreId = await resolveCampaignAttribution(request);
+    cart = await enrichCartWithProductData(cart, attributionByStoreId);
 
     return NextResponse.json({
       success: true,
@@ -69,7 +71,8 @@ export async function DELETE(request, { params }) {
     cart = await removeCartItemById(cart, itemId);
 
     // Enrich cart
-    cart = await enrichCartWithProductData(cart);
+    const attributionByStoreId = await resolveCampaignAttribution(request);
+    cart = await enrichCartWithProductData(cart, attributionByStoreId);
 
     return NextResponse.json({
       success: true,

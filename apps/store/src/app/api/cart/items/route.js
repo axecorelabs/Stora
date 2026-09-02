@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyCustomerSession } from "@/lib/supabaseAuth";
 import { getOrCreateCart, addItemToCart, prepareCartItemData, enrichCartWithProductData, sanitizeCart } from "@/lib/supabaseCart";
+import { resolveCampaignAttribution } from "@/lib/campaignAttribution";
 
 // POST - Add item to cart
 export async function POST(request) {
@@ -38,7 +39,8 @@ export async function POST(request) {
     cart = await addItemToCart(cart, itemData);
     
     // Enrich cart with product data
-    cart = await enrichCartWithProductData(cart);
+    const attributionByStoreId = await resolveCampaignAttribution(request);
+    cart = await enrichCartWithProductData(cart, attributionByStoreId);
 
     return NextResponse.json({
       success: true,

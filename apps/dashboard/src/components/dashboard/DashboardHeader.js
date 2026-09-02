@@ -1,6 +1,7 @@
 "use client";
-import { Bell, ChevronDown, LogOut, Settings, UtensilsCrossed } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Settings, UtensilsCrossed, Handshake } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePartnershipProposal } from "@/contexts/PartnershipProposalContext";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +10,7 @@ import NavigationProgressBar from "./NavigationProgressBar";
 
 export default function DashboardHeader({ title = "Inventory Management", subtitle = "Today, August 16th 2024", isSidebarCollapsed = false }) {
   const { user, signOut, secureApiCall } = useAuth();
+  const { contract: pendingProposal, justDismissed, openModal } = usePartnershipProposal();
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
@@ -82,6 +84,30 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
+            {/* Pending partnership proposal -- only rendered while one
+                exists, so it never appears as a dead button. The "just
+                dismissed" tooltip is the confirmed "show them where to
+                find it again" hint. */}
+            {pendingProposal && (
+              <div className="relative">
+                <button
+                  onClick={openModal}
+                  className="relative p-2.5 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-50 transition-all duration-200"
+                  title="Pending partnership proposal"
+                  aria-label="Pending partnership proposal"
+                >
+                  <Handshake className="w-5 h-5" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-gold-500 animate-pulse"></span>
+                </button>
+                {justDismissed && (
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-brand-900 text-white text-xs rounded-xl p-3 shadow-lg z-30">
+                    <div className="absolute -top-1 right-4 w-2 h-2 bg-brand-900 rotate-45"></div>
+                    Find that partnership proposal here anytime.
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Notifications */}
             <button 
               onClick={() => setIsNotificationPanelOpen(true)}
