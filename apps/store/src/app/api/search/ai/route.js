@@ -79,6 +79,11 @@ export async function GET(request) {
     // occasional misclassification leak a non-food result.
     const isBiterave = searchParams.get("source") === "biterave";
     const mealOnly = searchParams.get("type") !== "groceries";
+    // Only meaningful with source=biterave -- scopes results to one
+    // restaurant's own menu (apps/store/src/app/biterave/[storeSlug]),
+    // rather than the whole Biterave catalog /biterave/meals and
+    // /biterave/groceries search across.
+    const storeId = searchParams.get("storeId") || undefined;
     const pageParam = parseInt(searchParams.get("page"), 10);
     const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
     const offset = (page - 1) * PAGE_SIZE;
@@ -114,6 +119,7 @@ export async function GET(request) {
             searchBiteraveProductsByEmbedding({
               mealOnly,
               embedding,
+              storeId,
               minPrice: intent.priceMin ?? undefined,
               maxPrice: intent.priceMax ?? undefined,
               state,
@@ -217,6 +223,7 @@ export async function GET(request) {
             searchBiteraveProducts({
               mealOnly,
               search: query,
+              storeId,
               state,
               buyerState,
               deliverableOnly,

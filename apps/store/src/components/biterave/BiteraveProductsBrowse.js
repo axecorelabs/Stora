@@ -7,6 +7,7 @@ import SiteFooter from "@/components/home/SiteFooter";
 import AISearchInput from "@/components/search/AISearchInput";
 import FoodItemCard from "./FoodItemCard";
 import RestaurantCard from "./RestaurantCard";
+import BiteraveAuthGateProvider from "./BiteraveAuthGateProvider";
 
 // Same fixed taxonomy FoodDetailsSection.js's own cuisineType multi-select
 // uses in apps/dashboard -- duplicated here rather than shared, matching
@@ -109,6 +110,7 @@ function BiteraveProductsBrowseInner({ type }) {
   };
 
   return (
+    <BiteraveAuthGateProvider>
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <SiteHeader brand="biterave" />
 
@@ -274,6 +276,7 @@ function BiteraveProductsBrowseInner({ type }) {
 
       <SiteFooter brand="biterave" />
     </div>
+    </BiteraveAuthGateProvider>
   );
 }
 

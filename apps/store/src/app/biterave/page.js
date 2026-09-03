@@ -5,6 +5,7 @@ import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import RestaurantCard from "@/components/biterave/RestaurantCard";
 import FoodItemCard from "@/components/biterave/FoodItemCard";
+import BiteraveAuthGateProvider from "@/components/biterave/BiteraveAuthGateProvider";
 import { searchBiteraveVendors, searchBiteraveProducts } from "@/lib/supabaseStore";
 import { resolveRequestHost } from "@/lib/vendorHost";
 
@@ -66,6 +67,7 @@ export default async function BiteravePage() {
   const { restaurants, groceryVendors, meals, groceries } = await loadTeaserData();
 
   return (
+    <BiteraveAuthGateProvider>
     <div className="min-h-screen bg-gray-50">
       <SiteHeader brand="biterave" />
 
@@ -223,5 +225,6 @@ export default async function BiteravePage() {
 
       <SiteFooter brand="biterave" />
     </div>
+    </BiteraveAuthGateProvider>
   );
 }

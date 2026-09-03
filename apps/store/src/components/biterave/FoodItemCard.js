@@ -1,10 +1,14 @@
 "use client";
 import { useState } from "react";
-import { ShoppingBag, Loader2, Check, Flame, Clock, Heart } from "lucide-react";
+import { ShoppingBag, ShoppingCart, Loader2, Check, Flame, Clock, Heart } from "lucide-react";
+import { normalizeExtraDefinitions } from "@stora/shared-constants";
 import PrefetchLink from "@/components/ui/PrefetchLink";
+import QuickAddModal from "@/components/product/QuickAddModal";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsInWishlist, useWishlistMutations } from "@/hooks/useWishlist";
+import useStoreStore from "@/stores/storeStore";
+import { useRequireBiteraveAuth } from "./BiteraveAuthGateProvider";
 
 // Shared by the pooled cross-restaurant grid (/biterave) and a single
 // restaurant's own menu (/biterave/[storeSlug]) -- storeSlug/storeName are
@@ -17,17 +21,28 @@ import { useIsInWishlist, useWishlistMutations } from "@/hooks/useWishlist";
 // storeHref assumes "on a non-apex host = already on this exact vendor's
 // own subdomain," which is wrong on biterave.stora.com.ng (a shared host,
 // never any one vendor's own subdomain). See proxy.js's resolveBiteraveRewrite.
+//
+// Add-to-cart mirrors components/store/ProductCard.js's own gate exactly:
+// variants -> product page (unchanged), priced extras -> QuickAddModal,
+// else -> instant add. Signed-out customers get the shared sign-in modal
+// (BiteraveAuthGateProvider, mounted once per page) instead of a silent
+// failure -- same "open the modal and stop" shape ProductCard.js uses, no
+// auto-retry of the add after a successful sign-in.
 export default function FoodItemCard({ product, storeSlug, storeName }) {
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
+  const requireAuth = useRequireBiteraveAuth();
+  const setCurrentStore = useStoreStore((s) => s.setStore);
   const liked = useIsInWishlist(product.id);
   const { addToWishlist, removeFromWishlist } = useWishlistMutations();
   const isUpdatingWishlist = addToWishlist.isPending || removeFromWishlist.isPending;
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [error, setError] = useState(null);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   const food = product.categoryDetails?.food || {};
+  const extrasDefinitions = normalizeExtraDefinitions(food.extras);
   const productHref = `/${storeSlug}/product/${product.id}`;
 
   // Same optimistic pattern as components/home/DiscoveryProductCard.js.
@@ -46,6 +61,23 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
   };
 
   const handleAdd = async () => {
+    if (!isAuthenticated) {
+      requireAuth();
+      return;
+    }
+
+    if (extrasDefinitions.length > 0) {
+      // QuickAddModal's own "customize on the product page" sub-link
+      // builds its URL via storeHref() off this same global store --
+      // never populated by a cross-vendor Biterave listing, only by a
+      // real vendor page. A minimal { storeSlug } is all storeHref()
+      // actually reads, so this is enough to keep that sub-link correct
+      // here too, not just on /biterave/[storeSlug].
+      setCurrentStore({ storeSlug });
+      setShowQuickAdd(true);
+      return;
+    }
+
     setAdding(true);
     setError(null);
     try {
@@ -134,10 +166,12 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : added ? (
                 <Check className="w-3.5 h-3.5" />
+              ) : extrasDefinitions.length > 0 ? (
+                <ShoppingCart className="w-3.5 h-3.5" />
               ) : (
                 <ShoppingBag className="w-3.5 h-3.5" />
               )}
-              {added ? "Added" : "Add to cart"}
+              {added ? "Added" : extrasDefinitions.length > 0 ? "Customize" : "Add to cart"}
             </button>
           ) : (
             <PrefetchLink
@@ -149,6 +183,14 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
           )}
         </div>
       </div>
+
+      <QuickAddModal
+        isOpen={showQuickAdd}
+        onClose={() => setShowQuickAdd(false)}
+        product={product}
+        onAddToCart={addToCart}
+        primaryColor="#145C41"
+      />
     </div>
   );
 }

@@ -321,10 +321,11 @@ export async function searchVendorsByEmbedding({ embedding, categories, state, b
 // pagination correct here (a JS-side meal/grocery filter after the fact
 // would silently break pagination across pages).
 
-export async function searchBiteraveProducts({ mealOnly, search, cuisine, sort = 'trending', limit = 24, offset = 0, minPrice, maxPrice, state, buyerState, deliverableOnly } = {}) {
+export async function searchBiteraveProducts({ mealOnly, search, storeId, cuisine, sort = 'trending', limit = 24, offset = 0, minPrice, maxPrice, state, buyerState, deliverableOnly } = {}) {
   const rpcParams = {
     p_meal_only: mealOnly,
     p_search: search || null,
+    p_store_id: storeId || null,
     p_cuisine: cuisine || null,
     p_sort: sort,
     p_limit: limit,
@@ -379,10 +380,11 @@ export async function searchBiteraveProducts({ mealOnly, search, cuisine, sort =
   return { products: await enrichProductsWithBatches(withStores), totalCount };
 }
 
-export async function searchBiteraveProductsByEmbedding({ mealOnly, embedding, cuisine, minPrice, maxPrice, state, buyerState, deliverableOnly, limit = 24, offset = 0 } = {}) {
+export async function searchBiteraveProductsByEmbedding({ mealOnly, embedding, storeId, cuisine, minPrice, maxPrice, state, buyerState, deliverableOnly, limit = 24, offset = 0 } = {}) {
   const rpcParams = {
     p_meal_only: mealOnly,
     p_embedding: embedding,
+    p_store_id: storeId || null,
     p_cuisine: cuisine || null,
     p_min_price: minPrice ?? null,
     p_max_price: maxPrice ?? null,
