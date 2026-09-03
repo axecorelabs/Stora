@@ -95,8 +95,10 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
     }
   };
 
+  const hasBadges = (food.spiceLevel && food.spiceLevel !== "Not Spicy") || food.deliveryTime?.value;
+
   return (
-    <div className="group flex flex-col bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] transition-shadow duration-200">
+    <div className="group flex flex-col bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-[0_1px_3px_rgba(11,59,46,0.06)] hover:shadow-[0_10px_28px_rgba(11,59,46,0.12)] hover:-translate-y-0.5 transition-all duration-200">
       <PrefetchLink href={productHref} className="relative block aspect-square bg-gray-50 overflow-hidden">
         {product.image ? (
           <img
@@ -123,6 +125,24 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
             />
           </button>
         )}
+
+        {/* Spice level / prep time as pill badges over the photo itself --
+            a menu photo carrying its own quick facts reads as a food app,
+            not just plain gray text tucked into the panel below. */}
+        {hasBadges && (
+          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5">
+            {food.spiceLevel && food.spiceLevel !== "Not Spicy" && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/55 backdrop-blur-sm text-[11px] font-medium text-white">
+                <Flame className="w-3 h-3 text-orange-400" /> {food.spiceLevel}
+              </span>
+            )}
+            {food.deliveryTime?.value && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/55 backdrop-blur-sm text-[11px] font-medium text-white">
+                <Clock className="w-3 h-3" /> {food.deliveryTime.value} {food.deliveryTime.unit === "hours" ? "hr" : "min"}
+              </span>
+            )}
+          </div>
+        )}
       </PrefetchLink>
 
       <div className="p-4 flex flex-col flex-1">
@@ -132,24 +152,9 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
         <PrefetchLink href={productHref} className="text-sm font-semibold text-gray-900 truncate hover:text-brand-700">
           {product.productName}
         </PrefetchLink>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <p className="text-base font-bold text-brand-900 mt-0.5">
           ₦{Number(product.sellingPrice || 0).toLocaleString("en-NG")}
         </p>
-
-        {(food.spiceLevel && food.spiceLevel !== "Not Spicy") || food.deliveryTime?.value ? (
-          <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-            {food.spiceLevel && food.spiceLevel !== "Not Spicy" && (
-              <span className="inline-flex items-center gap-0.5 text-orange-500">
-                <Flame className="w-3.5 h-3.5" /> {food.spiceLevel}
-              </span>
-            )}
-            {food.deliveryTime?.value && (
-              <span className="inline-flex items-center gap-0.5">
-                <Clock className="w-3.5 h-3.5" /> {food.deliveryTime.value} {food.deliveryTime.unit === "hours" ? "hr" : "min"}
-              </span>
-            )}
-          </div>
-        ) : null}
 
         {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
 
@@ -158,7 +163,7 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
             <button
               onClick={handleAdd}
               disabled={adding || added}
-              className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-70 ${
+              className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold transition-colors disabled:opacity-70 ${
                 added ? "bg-green-50 text-green-700" : "bg-brand-800 text-white hover:bg-brand-900"
               }`}
             >
@@ -176,7 +181,7 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
           ) : (
             <PrefetchLink
               href={productHref}
-              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-brand-50 text-brand-800 hover:bg-brand-100 transition-colors"
+              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-800 hover:bg-brand-100 transition-colors"
             >
               Choose options
             </PrefetchLink>
