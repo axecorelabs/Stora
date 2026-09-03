@@ -157,7 +157,7 @@ export default async function BiteraveRestaurantPage({ params }) {
           </div>
         )}
 
-        <BiteraveStoreMenu storeId={store.id} storeSlug={store.storeSlug} menuSections={menuSections} groceries={groceries} />
+        <BiteraveStoreMenu storeSlug={store.storeSlug} menuSections={menuSections} groceries={groceries} />
       </div>
 
       <SiteFooter brand="biterave" />
