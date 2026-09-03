@@ -1,6 +1,6 @@
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import Link from "next/link";
-import { ArrowRight, UtensilsCrossed, ShoppingBasket } from "lucide-react";
+import { ArrowRight, UtensilsCrossed, ShoppingBasket, MapPin } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import RestaurantCard from "@/components/biterave/RestaurantCard";
@@ -8,6 +8,12 @@ import FoodItemCard from "@/components/biterave/FoodItemCard";
 import BiteraveAuthGateProvider from "@/components/biterave/BiteraveAuthGateProvider";
 import { searchBiteraveVendors, searchBiteraveProducts } from "@/lib/supabaseStore";
 import { resolveRequestHost } from "@/lib/vendorHost";
+
+// Matches DeliveryStateContext.js's own cookie name -- this landing page
+// is a Server Component (async, no client context to read it from
+// instead), same reason /biterave/[storeSlug]/page.js already reads this
+// cookie server-side for its own delivery-mismatch check.
+const DELIVER_STATE_COOKIE = "stora_deliver_state";
 
 // A curated teaser, the same relationship the main homepage
 // (apps/store/src/app/page.js) has to /products and /vendors -- small,
@@ -23,12 +29,13 @@ import { resolveRequestHost } from "@/lib/vendorHost";
 // failed section to an empty array is a real, working fallback, not a
 // placeholder -- same fail-open discipline /api/search/ai already applies
 // to its own backend calls.
-async function loadTeaserData() {
+async function loadTeaserData(buyerState) {
+  const deliverableOnly = Boolean(buyerState);
   const results = await Promise.allSettled([
-    searchBiteraveVendors({ mealOnly: true, limit: 3, sort: "featured" }),
-    searchBiteraveVendors({ mealOnly: false, limit: 3, sort: "featured" }),
-    searchBiteraveProducts({ mealOnly: true, limit: 8, sort: "trending" }),
-    searchBiteraveProducts({ mealOnly: false, limit: 8, sort: "trending" })
+    searchBiteraveVendors({ mealOnly: true, limit: 3, sort: "featured", buyerState, deliverableOnly }),
+    searchBiteraveVendors({ mealOnly: false, limit: 3, sort: "featured", buyerState, deliverableOnly }),
+    searchBiteraveProducts({ mealOnly: true, limit: 8, sort: "trending", buyerState, deliverableOnly }),
+    searchBiteraveProducts({ mealOnly: false, limit: 8, sort: "trending", buyerState, deliverableOnly })
   ]);
   results.forEach((result, i) => {
     if (result.status === "rejected") {
@@ -64,7 +71,9 @@ export async function generateMetadata() {
 }
 
 export default async function BiteravePage() {
-  const { restaurants, groceryVendors, meals, groceries } = await loadTeaserData();
+  const cookieStore = await cookies();
+  const buyerState = cookieStore.get(DELIVER_STATE_COOKIE)?.value || undefined;
+  const { restaurants, groceryVendors, meals, groceries } = await loadTeaserData(buyerState);
 
   return (
     <BiteraveAuthGateProvider>
@@ -80,9 +89,15 @@ export default async function BiteravePage() {
           <h1 className="font-display text-3xl sm:text-5xl font-bold text-white leading-tight mb-4">
             Craving a meal, or restocking the kitchen?
           </h1>
-          <p className="text-white/60 text-base sm:text-lg max-w-xl mx-auto mb-8">
+          <p className="text-white/60 text-base sm:text-lg max-w-xl mx-auto mb-4">
             Order from restaurants and home kitchens, or shop groceries from real vendors -- all in one cart.
           </p>
+          {buyerState && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/70 text-xs font-medium mb-6">
+              <MapPin className="w-3 h-3" />
+              Showing what&apos;s near {buyerState}
+            </div>
+          )}
           <div className="flex flex-wrap justify-center gap-3">
             <Link
               href="/biterave/meals"
@@ -127,7 +142,9 @@ export default async function BiteravePage() {
             </Link>
           </div>
           {restaurants.length === 0 ? (
-            <p className="text-sm text-gray-400 py-12 text-center">No restaurants yet -- check back soon.</p>
+            <p className="text-sm text-gray-400 py-12 text-center">
+              {buyerState ? `No restaurants near ${buyerState} yet.` : "No restaurants yet -- check back soon."}
+            </p>
           ) : (
             <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:overflow-visible">
               {restaurants.map((store) => <RestaurantCard key={store.id} store={store} />)}
@@ -153,7 +170,9 @@ export default async function BiteravePage() {
             </Link>
           </div>
           {meals.length === 0 ? (
-            <p className="text-sm text-gray-400 py-12 text-center">Nothing to show yet -- check back soon.</p>
+            <p className="text-sm text-gray-400 py-12 text-center">
+              {buyerState ? `No dishes from restaurants near ${buyerState} yet.` : "Nothing to show yet -- check back soon."}
+            </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {meals.map((product) => (
@@ -181,7 +200,9 @@ export default async function BiteravePage() {
             </Link>
           </div>
           {groceryVendors.length === 0 ? (
-            <p className="text-sm text-gray-400 py-12 text-center">No grocery vendors yet -- check back soon.</p>
+            <p className="text-sm text-gray-400 py-12 text-center">
+              {buyerState ? `No grocery vendors near ${buyerState} yet.` : "No grocery vendors yet -- check back soon."}
+            </p>
           ) : (
             <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:overflow-visible">
               {groceryVendors.map((store) => <RestaurantCard key={store.id} store={store} />)}
@@ -207,7 +228,9 @@ export default async function BiteravePage() {
             </Link>
           </div>
           {groceries.length === 0 ? (
-            <p className="text-sm text-gray-400 py-12 text-center">Nothing to show yet -- check back soon.</p>
+            <p className="text-sm text-gray-400 py-12 text-center">
+              {buyerState ? `No groceries from vendors near ${buyerState} yet.` : "Nothing to show yet -- check back soon."}
+            </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {groceries.map((product) => (

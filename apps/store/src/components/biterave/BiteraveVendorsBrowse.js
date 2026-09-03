@@ -8,6 +8,8 @@ import AISearchInput from "@/components/search/AISearchInput";
 import RestaurantCard from "./RestaurantCard";
 import FoodItemCard from "./FoodItemCard";
 import BiteraveAuthGateProvider from "./BiteraveAuthGateProvider";
+import BiteraveLocationBar from "./BiteraveLocationBar";
+import { useBiteraveLocationScope } from "./useBiteraveLocationScope";
 
 // Real, indexed pagination for one Biterave vendor type (restaurants or
 // grocery vendors) -- shared by apps/store/src/app/biterave/restaurants
@@ -35,6 +37,8 @@ function BiteraveVendorsBrowseInner({ type }) {
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const scope = useBiteraveLocationScope();
+  const { buyerState, deliverableOnly } = scope;
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -59,6 +63,8 @@ function BiteraveVendorsBrowseInner({ type }) {
     try {
       if (aiMode) {
         const params = new URLSearchParams({ q, source: "biterave", type, primary: "vendors", page: String(pageNum) });
+        if (buyerState) params.set("buyerState", buyerState);
+        if (deliverableOnly) params.set("deliverableOnly", "true");
         const res = await fetch(`/api/search/ai?${params}`);
         const data = await res.json();
         if (data.success) {
@@ -71,6 +77,8 @@ function BiteraveVendorsBrowseInner({ type }) {
 
       const params = new URLSearchParams({ type, page: String(pageNum) });
       if (q) params.set("q", q);
+      if (buyerState) params.set("buyerState", buyerState);
+      if (deliverableOnly) params.set("deliverableOnly", "true");
       const res = await fetch(`/api/biterave/vendors/search?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -83,7 +91,7 @@ function BiteraveVendorsBrowseInner({ type }) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [q, aiMode, type]);
+  }, [q, aiMode, type, buyerState, deliverableOnly]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -104,9 +112,11 @@ function BiteraveVendorsBrowseInner({ type }) {
           {isMeals ? <UtensilsCrossed className="w-3.5 h-3.5" /> : <ShoppingBasket className="w-3.5 h-3.5" />}
           Biterave
         </div>
-        <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-6">
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-4">
           {isMeals ? "All restaurants" : "All grocery vendors"}
         </h1>
+
+        <BiteraveLocationBar scope={scope} />
 
         <div className="flex justify-end mb-3">
           <button
@@ -168,8 +178,21 @@ function BiteraveVendorsBrowseInner({ type }) {
           <div className="text-center py-20">
             <Store className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
             <p className="text-gray-500 text-sm">
-              {q ? `No ${isMeals ? "restaurants" : "grocery vendors"} match "${q}".` : "Nothing here yet -- check back soon."}
+              {q
+                ? `No ${isMeals ? "restaurants" : "grocery vendors"} match "${q}"${deliverableOnly ? ` near ${scope.deliveryState}` : ""}.`
+                : deliverableOnly
+                  ? `No ${isMeals ? "restaurants" : "grocery vendors"} deliver to ${scope.deliveryState} yet.`
+                  : "Nothing here yet -- check back soon."}
             </p>
+            {deliverableOnly && (
+              <button
+                type="button"
+                onClick={() => scope.setSeeAll(true)}
+                className="mt-3 text-sm font-medium text-brand-700 hover:text-brand-800 underline underline-offset-2"
+              >
+                See all locations
+              </button>
+            )}
           </div>
         ) : (
           <>
