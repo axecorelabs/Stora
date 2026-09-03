@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Mail, ArrowUpRight } from "lucide-react";
+import { Mail, ArrowUpRight, UtensilsCrossed } from "lucide-react";
 
 // Shared across / and the dedicated /vendors, /products search pages --
 // several of which are Client Components themselves (page.js etc.), so
@@ -15,8 +15,15 @@ import { Mail, ArrowUpRight } from "lucide-react";
 // same gold-to-green gradient used on the search capsule as a hairline
 // top edge, tying the two together as one signature rather than two
 // unrelated brand touches.
-export default function SiteFooter() {
+// brand="biterave" swaps the wordmark/home link/tagline for the Biterave
+// section (apps/store/src/app/biterave/**), same prop SiteHeader.js uses --
+// the shop/account link groups, vendor CTA, and support email stay as-is
+// (real shared infrastructure, not a display name).
+export default function SiteFooter({ brand = "stora" }) {
   const [hasActiveCampaigns, setHasActiveCampaigns] = useState(false);
+  const isBiterave = brand === "biterave";
+  const homeHref = isBiterave ? "/biterave" : "/";
+  const brandLabel = isBiterave ? "biterave" : "stora";
 
   // "Quizzes" only makes sense while at least one campaign is actually
   // live -- defaults to hidden (fail-closed) so a slow/failed check never
@@ -63,13 +70,18 @@ export default function SiteFooter() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-8">
           <div className="lg:col-span-5">
-            <Link href="/" className="inline-flex items-center gap-2.5">
-              <Image src="/stora-icon.png" alt="" width={24} height={28} className="h-7 w-auto" />
-              <span className="font-display text-2xl font-bold text-white tracking-tight">stora</span>
+            <Link href={homeHref} className="inline-flex items-center gap-2.5">
+              {isBiterave ? (
+                <UtensilsCrossed className="w-6 h-6 text-gold-400" />
+              ) : (
+                <Image src="/stora-icon.png" alt="" width={24} height={28} className="h-7 w-auto" />
+              )}
+              <span className="font-display text-2xl font-bold text-white tracking-tight">{brandLabel}</span>
             </Link>
             <p className="mt-3 text-sm text-white/60 leading-relaxed max-w-xs">
-              A marketplace for Nigeria&apos;s independent vendors -- browse hundreds of
-              stores and shop them all in one place.
+              {isBiterave
+                ? "Order meals or shop groceries from real vendors across Nigeria, all in one cart."
+                : "A marketplace for Nigeria's independent vendors -- browse hundreds of stores and shop them all in one place."}
             </p>
             <a
               href="mailto:support@stora.com.ng"
@@ -115,7 +127,9 @@ export default function SiteFooter() {
 
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-white/40">© {new Date().getFullYear()} Stora. All rights reserved.</p>
+          <p className="text-xs text-white/40">
+            © {new Date().getFullYear()} {isBiterave ? "Biterave" : "Stora"}. All rights reserved.
+          </p>
           <p className="text-xs text-white/40">Made for Nigerian vendors and the people who shop with them.</p>
         </div>
       </div>

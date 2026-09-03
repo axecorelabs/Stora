@@ -1,11 +1,24 @@
 import { supabaseAdmin } from './supabase';
 
-// Kept in sync with workers/subdomain-router/wrangler.toml's
-// RESERVED_SUBDOMAINS -- if one changes, so must the other. These already
-// have their own DNS records in the zone (or, like "storage", are a
-// public host for something else entirely), so a vendor claiming one as
+// Most of these are kept in sync with workers/subdomain-router/wrangler.toml's
+// RESERVED_SUBDOMAINS -- if one of THOSE changes, so must this. They
+// already have their own DNS records in the zone (or, like "storage", are
+// a public host for something else entirely), so a vendor claiming one as
 // their website address would mean that name isn't reachable as a
 // vendor subdomain at all.
+// "biterave" is different in kind -- not a separate DNS destination, just
+// apps/store's own reserved food-storefront route (see proxy.js's
+// resolveBiteraveRewrite, which already takes priority over any vendor-slug
+// rewrite regardless of this list) -- deliberately NOT added to the
+// Worker's own env var, which would wrongly stop biterave.stora.com.ng from
+// ever reaching apps/store at all. Blocking it here too is just defense in
+// depth so a vendor is never confusingly assigned the same label.
+// "meals"/"groceries"/"restaurants" are the same kind of reservation, one
+// level down -- static top-level segments under apps/store/src/app/biterave/
+// (meals, groceries, restaurants, groceries/vendors) that Next.js's router
+// already prioritizes over the dynamic [storeSlug] catch-all at that same
+// level, so a vendor assigned one of these as their own slug would simply
+// never be reachable there -- reserved so that mismatch can't happen at all.
 // Exported so generateUniqueStoreSlug (apps/dashboard/src/app/api/stores/
 // route.js) can skip these too -- a store's DEFAULT public subdomain is its
 // store_slug (transformStore falls back to it whenever no custom
@@ -14,7 +27,8 @@ import { supabaseAdmin } from './supabase';
 // custom-address path this file was originally written for.
 export const RESERVED_SUBDOMAINS = new Set([
   'www', 'app', 'api', 'mail', 'admin', 'support', 'help', 'status',
-  'cdn', 'assets', 'blog', 'docs', 'storage'
+  'cdn', 'assets', 'blog', 'docs', 'storage', 'biterave',
+  'meals', 'groceries', 'restaurants'
 ]);
 
 // Same DNS-label shape check workers/subdomain-router's Cloudflare Worker

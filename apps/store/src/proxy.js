@@ -192,6 +192,34 @@ function resolveVendorSubdomainRewrite(req) {
   return { rewriteUrl };
 }
 
+// Biterave (the food-only storefront pooling every vendor's Food-category
+// products into one experience) is addressable two ways: biterave.<apex>
+// (rides the exact same wildcard *.stora.com.ng Worker route every vendor
+// subdomain already uses, no separate DNS/Worker config needed) or a real
+// standalone domain once one is registered and added to this Vercel
+// project (NEXT_PUBLIC_BITERAVE_DOMAIN). Checked BEFORE
+// resolveVendorSubdomainRewrite so "biterave" is never mistakenly resolved
+// as if it were an actual vendor's own store slug -- see
+// apps/dashboard/src/lib/websitePath.js's RESERVED_SUBDOMAINS for the
+// matching defense-in-depth block on the slug-assignment side.
+const BITERAVE_LABEL = 'biterave';
+const BITERAVE_DOMAIN = process.env.NEXT_PUBLIC_BITERAVE_DOMAIN || null;
+
+function resolveBiteraveRewrite(req) {
+  const hostname = resolveRequestHost(req);
+  const apexSuffix = `.${APEX_DOMAIN}`;
+  const isBiteraveSubdomain = hostname === `${BITERAVE_LABEL}${apexSuffix}`;
+  const isBiteraveDomain = Boolean(BITERAVE_DOMAIN)
+    && (hostname === BITERAVE_DOMAIN || hostname === `www.${BITERAVE_DOMAIN}`);
+  if (!isBiteraveSubdomain && !isBiteraveDomain) return null;
+
+  const rewriteUrl = req.nextUrl.clone();
+  if (!rewriteUrl.pathname.startsWith(`/${BITERAVE_LABEL}`)) {
+    rewriteUrl.pathname = `/${BITERAVE_LABEL}${rewriteUrl.pathname}`;
+  }
+  return { rewriteUrl };
+}
+
 export async function proxy(req) {
   const path = req.nextUrl.pathname;
 
@@ -214,11 +242,16 @@ export async function proxy(req) {
   // relevant browsing a vendor's own subdomain as it is on the apex.
   let rewriteUrl = null;
   if (!path.startsWith('/api/')) {
-    const subdomainResult = resolveVendorSubdomainRewrite(req);
-    if (subdomainResult?.notFound) {
-      return new NextResponse('Not found', { status: 404 });
+    const biteraveResult = resolveBiteraveRewrite(req);
+    if (biteraveResult?.rewriteUrl) {
+      rewriteUrl = biteraveResult.rewriteUrl;
+    } else {
+      const subdomainResult = resolveVendorSubdomainRewrite(req);
+      if (subdomainResult?.notFound) {
+        return new NextResponse('Not found', { status: 404 });
+      }
+      rewriteUrl = subdomainResult?.rewriteUrl || null;
     }
-    rewriteUrl = subdomainResult?.rewriteUrl || null;
   }
 
   const limiter = authLimiters[path] || browseLimiter;
@@ -289,6 +322,10 @@ export const config = {
     '/api/search/:path*',
     '/api/orders/:path*',
     '/api/cart/:path*',
+    // /api/vendors/* has no entry here (a pre-existing gap on the main
+    // marketplace, out of scope to fix under this change) -- explicitly
+    // not repeating that gap for Biterave's own new routes.
+    '/api/biterave/:path*',
     // .*\..* (any remaining dot anywhere in the path) excludes every
     // public/ static asset -- stora-icon.png, favicons, robots.txt, etc.
     // Missing this meant the subdomain rewrite below prefixed them with

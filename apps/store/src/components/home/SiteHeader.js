@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, Heart, User, Menu, X, Package, LogOut } from "lucide-react";
+import { ShoppingBag, Heart, User, Menu, X, Package, LogOut, UtensilsCrossed } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useDeliveryState } from "@/contexts/DeliveryStateContext";
@@ -20,8 +20,15 @@ const BRAND_PRIMARY = "#145C41";
 // they're inside a vendor's storefront), just without anything store-specific
 // (no per-vendor logo/colors, no in-header product search -- the hero below
 // already owns that job on this page).
-export default function SiteHeader() {
+// brand="biterave" swaps the wordmark/home link for the Biterave section
+// (apps/store/src/app/biterave/**) -- everything else about this header
+// (auth, cart, wishlist, mobile menu) stays identical, so this is a prop,
+// not a separate component.
+export default function SiteHeader({ brand = "stora" }) {
   const router = useRouter();
+  const isBiterave = brand === "biterave";
+  const homeHref = isBiterave ? "/biterave" : "/";
+  const brandLabel = isBiterave ? "biterave" : "stora";
   const { customer, isAuthenticated, isLoading: authLoading, logout, setRedirectAfterLogin } = useAuth();
   const { getCartCount } = useCart();
   const cartCount = getCartCount();
@@ -71,9 +78,13 @@ export default function SiteHeader() {
     <>
       <header className="sticky top-0 z-40 bg-brand-800/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <Image src="/stora-icon.png" alt="" width={20} height={24} className="h-6 w-auto" priority />
-            <span className="font-display text-xl font-bold text-white tracking-tight">stora</span>
+          <Link href={homeHref} className="flex items-center gap-2 shrink-0">
+            {isBiterave ? (
+              <UtensilsCrossed className="w-5 h-5 text-gold-400" />
+            ) : (
+              <Image src="/stora-icon.png" alt="" width={20} height={24} className="h-6 w-auto" priority />
+            )}
+            <span className="font-display text-xl font-bold text-white tracking-tight">{brandLabel}</span>
           </Link>
 
           {/* Desktop actions */}
@@ -200,8 +211,12 @@ export default function SiteHeader() {
           <div className="fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-white shadow-xl z-50 sm:hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div className="flex items-center gap-2">
-                <Image src="/stora-icon.png" alt="" width={18} height={21} className="h-5 w-auto" />
-                <span className="font-display text-lg font-bold text-brand-900">stora</span>
+                {isBiterave ? (
+                  <UtensilsCrossed className="w-4 h-4 text-gold-600" />
+                ) : (
+                  <Image src="/stora-icon.png" alt="" width={18} height={21} className="h-5 w-auto" />
+                )}
+                <span className="font-display text-lg font-bold text-brand-900">{brandLabel}</span>
               </div>
               <button onClick={() => setShowMobileMenu(false)} className="p-2 hover:bg-gray-50 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-gray-600" />

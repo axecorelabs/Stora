@@ -310,6 +310,183 @@ export async function searchVendorsByEmbedding({ embedding, categories, state, b
   };
 }
 
+// ============ BITERAVE (FOOD-ONLY STOREFRONT) SEARCH ============
+// Mirrors searchProductsPaginated/searchProductsByEmbedding/
+// searchVendorsPaginated/searchVendorsByEmbedding above exactly (same
+// post-processing pipeline), calling the search_biterave_* SQL functions
+// (20260905000000_biterave_search.sql) instead -- those hard-scope every
+// result to category='Food' and a real, indexed is_meal_item column
+// (never a caller-supplied category, since Biterave's whole premise is a
+// food-only storefront), which is also what makes real LIMIT/OFFSET
+// pagination correct here (a JS-side meal/grocery filter after the fact
+// would silently break pagination across pages).
+
+export async function searchBiteraveProducts({ mealOnly, search, cuisine, sort = 'trending', limit = 24, offset = 0, minPrice, maxPrice, state, buyerState, deliverableOnly } = {}) {
+  const rpcParams = {
+    p_meal_only: mealOnly,
+    p_search: search || null,
+    p_cuisine: cuisine || null,
+    p_sort: sort,
+    p_limit: limit,
+    p_offset: offset,
+    p_min_price: minPrice ?? null,
+    p_max_price: maxPrice ?? null,
+    p_state: state || null,
+    p_buyer_state: buyerState || null
+  };
+  if (deliverableOnly) rpcParams.p_deliverable_only = true;
+
+  const { data, error } = await supabaseAdmin.rpc('search_biterave_products', rpcParams);
+
+  if (error) {
+    console.error('Error searching Biterave products:', error);
+    throw new Error('Failed to search products');
+  }
+
+  const rows = data || [];
+  const totalCount = rows[0]?.total_count ?? 0;
+  const items = rows.map(row => row.product);
+  if (items.length === 0) return { products: [], totalCount };
+
+  const withVariants = await attachVariants(items);
+  const products = withVariants.map(transformInventoryToProduct);
+
+  const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
+  const { data: stores, error: storesError } = storeIds.length > 0
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding, state').in('id', storeIds)
+    : { data: [], error: null };
+
+  if (storesError) {
+    console.error('Error fetching stores for Biterave product search:', storesError);
+  }
+
+  const storeById = new Map((stores || []).map(s => [s.id, s]));
+  const withStores = products.map(product => {
+    const store = storeById.get(product.storeId);
+    return {
+      ...product,
+      store: store ? {
+        storeName: store.store_name,
+        storeSlug: store.store_slug,
+        logo: store.branding?.logo || null,
+        primaryColor: store.branding?.primaryColor || null,
+        secondaryColor: store.branding?.secondaryColor || null,
+        state: store.state
+      } : null
+    };
+  });
+
+  return { products: await enrichProductsWithBatches(withStores), totalCount };
+}
+
+export async function searchBiteraveProductsByEmbedding({ mealOnly, embedding, cuisine, minPrice, maxPrice, state, buyerState, deliverableOnly, limit = 24, offset = 0 } = {}) {
+  const rpcParams = {
+    p_meal_only: mealOnly,
+    p_embedding: embedding,
+    p_cuisine: cuisine || null,
+    p_min_price: minPrice ?? null,
+    p_max_price: maxPrice ?? null,
+    p_state: state || null,
+    p_buyer_state: buyerState || null,
+    p_limit: limit,
+    p_offset: offset
+  };
+  if (deliverableOnly) rpcParams.p_deliverable_only = true;
+
+  const { data, error } = await supabaseAdmin.rpc('search_biterave_products_ai', rpcParams);
+
+  if (error) {
+    console.error('Error searching Biterave products by embedding:', error);
+    throw new Error('Failed to search products');
+  }
+
+  const rows = data || [];
+  const totalCount = rows[0]?.total_count ?? 0;
+  const items = rows.map(row => row.product);
+  if (items.length === 0) return { products: [], totalCount };
+
+  const withVariants = await attachVariants(items);
+  const products = withVariants.map(transformInventoryToProduct);
+
+  const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
+  const { data: stores, error: storesError } = storeIds.length > 0
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding, state').in('id', storeIds)
+    : { data: [], error: null };
+
+  if (storesError) {
+    console.error('Error fetching stores for Biterave AI product search:', storesError);
+  }
+
+  const storeById = new Map((stores || []).map(s => [s.id, s]));
+  const withStores = products.map(product => {
+    const store = storeById.get(product.storeId);
+    return {
+      ...product,
+      store: store ? {
+        storeName: store.store_name,
+        storeSlug: store.store_slug,
+        logo: store.branding?.logo || null,
+        primaryColor: store.branding?.primaryColor || null,
+        secondaryColor: store.branding?.secondaryColor || null,
+        state: store.state
+      } : null
+    };
+  });
+
+  return { products: await enrichProductsWithBatches(withStores), totalCount };
+}
+
+export async function searchBiteraveVendors({ mealOnly, search, sort = 'featured', limit = 24, offset = 0, state, buyerState, deliverableOnly } = {}) {
+  const rpcParams = {
+    p_meal_only: mealOnly,
+    p_search: search || null,
+    p_sort: sort,
+    p_limit: limit,
+    p_offset: offset,
+    p_state: state || null,
+    p_buyer_state: buyerState || null
+  };
+  if (deliverableOnly) rpcParams.p_deliverable_only = true;
+
+  const { data, error } = await supabaseAdmin.rpc('search_biterave_vendors', rpcParams);
+
+  if (error) {
+    console.error('Error searching Biterave vendors:', error);
+    throw new Error('Failed to search vendors');
+  }
+
+  const rows = data || [];
+  return {
+    vendors: rows.map(row => buildPublicStoreData(row.vendor)),
+    totalCount: rows[0]?.total_count ?? 0
+  };
+}
+
+export async function searchBiteraveVendorsByEmbedding({ mealOnly, embedding, state, buyerState, deliverableOnly, limit = 24, offset = 0 } = {}) {
+  const rpcParams = {
+    p_meal_only: mealOnly,
+    p_embedding: embedding,
+    p_state: state || null,
+    p_buyer_state: buyerState || null,
+    p_limit: limit,
+    p_offset: offset
+  };
+  if (deliverableOnly) rpcParams.p_deliverable_only = true;
+
+  const { data, error } = await supabaseAdmin.rpc('search_biterave_vendors_ai', rpcParams);
+
+  if (error) {
+    console.error('Error searching Biterave vendors by embedding:', error);
+    throw new Error('Failed to search vendors');
+  }
+
+  const rows = data || [];
+  return {
+    vendors: rows.map(row => buildPublicStoreData(row.vendor)),
+    totalCount: rows[0]?.total_count ?? 0
+  };
+}
+
 // ============ INVENTORY/PRODUCT OPERATIONS ============
 
 // Defensive cap, not real pagination UI -- a typical Nigerian SME catalog on
