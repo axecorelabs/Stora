@@ -8,6 +8,8 @@ import AISearchInput from "@/components/search/AISearchInput";
 import FoodItemCard from "./FoodItemCard";
 import RestaurantCard from "./RestaurantCard";
 import BiteraveAuthGateProvider from "./BiteraveAuthGateProvider";
+import BiteraveLocationBar from "./BiteraveLocationBar";
+import { useBiteraveLocationScope } from "./useBiteraveLocationScope";
 
 // Same fixed taxonomy FoodDetailsSection.js's own cuisineType multi-select
 // uses in apps/dashboard -- duplicated here rather than shared, matching
@@ -46,6 +48,8 @@ function BiteraveProductsBrowseInner({ type }) {
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const scope = useBiteraveLocationScope();
+  const { buyerState, deliverableOnly } = scope;
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -72,6 +76,8 @@ function BiteraveProductsBrowseInner({ type }) {
     try {
       if (aiMode) {
         const params = new URLSearchParams({ q, source: "biterave", type, primary: "products", page: String(pageNum) });
+        if (buyerState) params.set("buyerState", buyerState);
+        if (deliverableOnly) params.set("deliverableOnly", "true");
         const res = await fetch(`/api/search/ai?${params}`);
         const data = await res.json();
         if (data.success) {
@@ -85,6 +91,8 @@ function BiteraveProductsBrowseInner({ type }) {
       const params = new URLSearchParams({ type, sort, page: String(pageNum) });
       if (q) params.set("q", q);
       if (isMeals && cuisine) params.set("cuisine", cuisine);
+      if (buyerState) params.set("buyerState", buyerState);
+      if (deliverableOnly) params.set("deliverableOnly", "true");
       const res = await fetch(`/api/biterave/products/search?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -98,7 +106,7 @@ function BiteraveProductsBrowseInner({ type }) {
       setLoadingMore(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, cuisine, sort, aiMode, type]);
+  }, [q, cuisine, sort, aiMode, type, buyerState, deliverableOnly]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -119,9 +127,11 @@ function BiteraveProductsBrowseInner({ type }) {
           {isMeals ? <UtensilsCrossed className="w-3.5 h-3.5" /> : <ShoppingBasket className="w-3.5 h-3.5" />}
           Biterave
         </div>
-        <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-6">
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-4">
           {q ? `Results for "${q}"` : isMeals ? "All meals" : "All groceries"}
         </h1>
+
+        <BiteraveLocationBar scope={scope} />
 
         {/* Small settings-style toggle above the bar, right-aligned -- same
             placement/sizing as components/search/SearchConsole.js's own "AI
@@ -227,8 +237,21 @@ function BiteraveProductsBrowseInner({ type }) {
           <div className="text-center py-20">
             <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
             <p className="text-gray-500 text-sm">
-              {q ? `No ${isMeals ? "dishes" : "groceries"} match "${q}".` : "Nothing here yet -- check back soon."}
+              {q
+                ? `No ${isMeals ? "dishes" : "groceries"} match "${q}"${deliverableOnly ? ` near ${scope.deliveryState}` : ""}.`
+                : deliverableOnly
+                  ? `No ${isMeals ? "dishes" : "groceries"} from vendors near ${scope.deliveryState} yet.`
+                  : "Nothing here yet -- check back soon."}
             </p>
+            {deliverableOnly && (
+              <button
+                type="button"
+                onClick={() => scope.setSeeAll(true)}
+                className="mt-3 text-sm font-medium text-brand-700 hover:text-brand-800 underline underline-offset-2"
+              >
+                See all locations
+              </button>
+            )}
           </div>
         ) : (
           <>
