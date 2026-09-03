@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeExtraDefinitions } from "@stora/shared-constants";
 import UnitExtrasConfigurator from "@/components/product/UnitExtrasConfigurator";
-import { 
+import {
   ArrowLeft, Plus, Minus, ShoppingCart, Heart, MapPin, Tag, Package, Share2, Check, X,
-  Shirt, Footprints, Watch, Droplets, UtensilsCrossed, Coffee, Smartphone, 
-  BookOpen, Home, Dumbbell, Car, Sparkles, ChevronLeft, ChevronRight
+  Shirt, Footprints, Watch, Droplets, UtensilsCrossed, Coffee, Smartphone,
+  BookOpen, Home, Dumbbell, Car, Sparkles, ChevronLeft, ChevronRight, Flame, Clock
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,6 +65,15 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   // on older products (price 0, maxQuantity 1). A handful of extras at
   // most, so a plain recompute each render isn't worth memoizing.
   const extrasDefinitions = normalizeExtraDefinitions(initialProduct.categoryDetails?.food?.extras);
+  // Same spice-level/prep-time quick facts Biterave's FoodItemCard already
+  // shows as badges over its photo -- surfaced here too, right by the
+  // title, since a food product's full detail page shouldn't make a
+  // shopper scroll all the way down to renderCategoryDetails' "Food
+  // Information" section just to see how hot or how long. Gated to Food
+  // so every other category's page renders exactly as it did before.
+  const foodQuickFacts = initialProduct.category === 'Food' ? (initialProduct.categoryDetails?.food || {}) : null;
+  const hasFoodQuickFacts =
+    foodQuickFacts && ((foodQuickFacts.spiceLevel && foodQuickFacts.spiceLevel !== 'Not Spicy') || foodQuickFacts.deliveryTime?.value);
 
   // QuickAddModal.js's "Customize on the product page" link lands here
   // with ?quantity=&customize=1 -- read once via lazy useState
@@ -1176,6 +1185,21 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                     <span className="text-xs sm:text-sm text-gray-500 tabular-nums">
                       {initialProduct.averageRating.toFixed(1)} · {initialProduct.totalReviews} review{initialProduct.totalReviews === 1 ? '' : 's'}
                     </span>
+                  </div>
+                )}
+
+                {hasFoodQuickFacts && (
+                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                    {foodQuickFacts.spiceLevel && foodQuickFacts.spiceLevel !== 'Not Spicy' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-orange-600 text-xs font-medium">
+                        <Flame className="w-3.5 h-3.5" /> {foodQuickFacts.spiceLevel}
+                      </span>
+                    )}
+                    {foodQuickFacts.deliveryTime?.value && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+                        <Clock className="w-3.5 h-3.5" /> {foodQuickFacts.deliveryTime.value} {foodQuickFacts.deliveryTime.unit === 'hours' ? 'hr' : 'min'}
+                      </span>
+                    )}
                   </div>
                 )}
 
