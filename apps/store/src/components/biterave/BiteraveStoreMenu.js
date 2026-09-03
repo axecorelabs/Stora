@@ -2,6 +2,18 @@
 import { useMemo, useState } from "react";
 import { Search, ChefHat } from "lucide-react";
 import FoodItemCard from "./FoodItemCard";
+import CategorySectionStrip from "./CategorySectionStrip";
+
+// Matches the id given to each section heading below -- kept in sync with
+// GROCERIES_ANCHOR since "Groceries" isn't one of menuSections' own
+// entries (it's a separate prop), so it needs the same treatment by hand.
+function slugifySection(label) {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+const GROCERIES_ANCHOR = slugifySection("Groceries");
 
 // Client-side text filter over the already-fetched menu/groceries arrays
 // (the whole store's food catalogue is fetched once, server-side, by
@@ -37,6 +49,25 @@ export default function BiteraveStoreMenu({ storeSlug, menuSections, groceries }
   const hasAnyItemsAtAll = menuSections.some(({ items }) => items.length > 0) || groceries.length > 0;
   const hasAnyResults = filteredMenuSections.some(({ items }) => items.length > 0) || filteredGroceries.length > 0;
 
+  // Strip built off the FULL (unfiltered) menu, not the search results --
+  // it's a jump-nav across the whole menu's sections, which stops making
+  // sense once a search query has already narrowed the page down to a
+  // flat set of matches, so it's hidden below whenever q is set.
+  const stripSections = useMemo(() => {
+    const fromMenu = menuSections
+      .filter(({ items }) => items.length > 0)
+      .map(({ section, items }) => ({
+        label: section,
+        anchor: slugifySection(section),
+        image: items.find((p) => p.image)?.image || null
+      }));
+    const groceryEntry =
+      groceries.length > 0
+        ? [{ label: "Groceries", anchor: GROCERIES_ANCHOR, image: groceries.find((p) => p.image)?.image || null }]
+        : [];
+    return [...fromMenu, ...groceryEntry];
+  }, [menuSections, groceries]);
+
   if (!hasAnyItemsAtAll) {
     return (
       <div className="text-center py-16">
@@ -59,6 +90,8 @@ export default function BiteraveStoreMenu({ storeSlug, menuSections, groceries }
         />
       </div>
 
+      {!q && <CategorySectionStrip sections={stripSections} />}
+
       {!hasAnyResults ? (
         <p className="text-sm text-gray-400 py-12 text-center">No items match &quot;{query}&quot;.</p>
       ) : (
@@ -67,7 +100,9 @@ export default function BiteraveStoreMenu({ storeSlug, menuSections, groceries }
             <div className="space-y-10">
               {filteredMenuSections.map(({ section, items }) => (
                 <div key={section}>
-                  <h2 className="font-display text-lg font-bold text-brand-900 mb-4">{section}</h2>
+                  <h2 id={slugifySection(section)} className="font-display text-lg font-bold text-brand-900 mb-4 scroll-mt-20">
+                    {section}
+                  </h2>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                     {items.map((product) => (
                       <FoodItemCard key={product.id} product={product} storeSlug={storeSlug} />
@@ -80,7 +115,9 @@ export default function BiteraveStoreMenu({ storeSlug, menuSections, groceries }
 
           {filteredGroceries.length > 0 && (
             <div>
-              <h2 className="font-display text-lg font-bold text-brand-900 mb-4">Groceries</h2>
+              <h2 id={GROCERIES_ANCHOR} className="font-display text-lg font-bold text-brand-900 mb-4 scroll-mt-20">
+                Groceries
+              </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {filteredGroceries.map((product) => (
                   <FoodItemCard key={product.id} product={product} storeSlug={storeSlug} />
