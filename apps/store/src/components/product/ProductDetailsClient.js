@@ -75,11 +75,15 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   const hasFoodQuickFacts =
     foodQuickFacts && ((foodQuickFacts.spiceLevel && foodQuickFacts.spiceLevel !== 'Not Spicy') || foodQuickFacts.deliveryTime?.value);
 
-  // QuickAddModal.js's "Customize on the product page" link lands here
-  // with ?quantity=&customize=1 -- read once via lazy useState
-  // initializers (not an effect) so the handoff continues the shopper's
-  // intent (prefilled quantity, "customize each" already on) without a
-  // synchronous setState-in-effect render cascade.
+  // ?quantity=&customize=1 prefill contract -- read once via lazy
+  // useState initializers (not an effect) so a deep link carrying intent
+  // (prefilled quantity, "customize each" already on) continues it
+  // without a synchronous setState-in-effect render cascade.
+  // QuickAddModal.js used to build links like this ("customize each item
+  // on the product page") but does its own per-unit customization inline
+  // now instead of handing off here -- this stays as a still-valid, still
+  // read prefill contract for any other deep link into the page, not
+  // dead code left over from that.
   const initialQuantity = (() => {
     const fromParams = parseInt(searchParams.get('quantity'), 10);
     if (!fromParams || fromParams < 1) return 1;

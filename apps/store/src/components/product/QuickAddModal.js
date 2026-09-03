@@ -1,29 +1,47 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { X, Plus, Minus, ShoppingCart } from "lucide-react";
 import { normalizeExtraDefinitions } from "@stora/shared-constants";
-import ExtrasSelector from "@/components/product/ExtrasSelector";
+import UnitExtrasConfigurator from "@/components/product/UnitExtrasConfigurator";
 import { NOTE_PLACEHOLDERS } from "@/components/product/notePlaceholders";
-import useStoreStore from "@/stores/storeStore";
-import { storeHref } from "@/lib/storeUrl";
+
+// Same resize helper ProductDetailsClient.js uses for its own unitConfigs
+// state -- growing copies entry 0 when mirroring ("same for all"), or
+// blank entries when customizing each unit separately; shrinking
+// truncates from the end.
+function resizeUnitConfigs(prev, newLength, sameForAll) {
+  if (newLength === prev.length) return prev;
+  if (newLength < prev.length) return prev.slice(0, newLength);
+  const template = sameForAll ? (prev[0] || { extras: {}, note: '' }) : { extras: {}, note: '' };
+  const grown = [...prev];
+  while (grown.length < newLength) grown.push({ extras: { ...template.extras }, note: template.note });
+  return grown;
+}
 
 // Quick customize-and-add from a product card, without leaving the grid --
 // only shown for a product with real priced extras (see ProductCard.js's
 // gating); a plain product still adds instantly, and a variant product
 // still goes to its full page for the size/color picker, unchanged.
 //
-// One shared extras selection applies to the whole quantity here -- that's
-// correct for the common case (identical items). Configuring each unit
-// separately needs real screen space (a stacked panel per unit), which
-// fights the point of a *quick* add in a mobile bottom sheet, so that case
-// hands off to the full product page instead of being crammed in here.
-export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, onNavigate, primaryColor = '#0D9488', currency = 'NGN' }) {
-  const router = useRouter();
-  const { currentStore } = useStoreStore();
+// Per-unit customization (UnitExtrasConfigurator, the same component the
+// full product page uses) lives right here now instead of handing off to
+// that page -- this used to have a "customize each item separately? do it
+// on the product page" link built via storeHref(), which assumes any
+// non-apex subdomain is the vendor's own; true for a real vendor storefront,
+// false on biterave.stora.com.ng (a shared host, never any one vendor's own
+// subdomain) -- confirmed live: that link 404'd there. Reusing the same
+// unitConfigs/sameForAll state shape and buildUnitPayload/sequential-add
+// logic ProductDetailsClient.js already has, rather than inventing a
+// second way to do the same thing, fixes the broken link by removing the
+// navigation it needed in the first place.
+export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, primaryColor = '#0D9488', currency = 'NGN' }) {
   const [quantity, setQuantity] = useState(1);
-  const [selectedExtras, setSelectedExtras] = useState({});
-  const [itemNote, setItemNote] = useState('');
+  const [unitConfigs, setUnitConfigs] = useState([{ extras: {}, note: '' }]);
+  const [sameForAll, setSameForAll] = useState(true);
+  // How many unitConfigs entries are already committed to the cart this
+  // add-to-cart attempt -- lets a retry after a partial failure resume
+  // instead of resubmitting units already in the cart.
+  const [submittedCount, setSubmittedCount] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState(null);
 
@@ -37,62 +55,106 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, o
     return `$${price?.toLocaleString()}`;
   };
 
-  const selectedExtrasList = extrasDefinitions
-    .map(def => ({ ...def, quantity: selectedExtras[def.name] || 0 }))
-    .filter(e => e.quantity > 0);
-  const extrasUnitCost = selectedExtrasList.reduce((sum, e) => sum + e.price * e.quantity, 0);
-  const totalPrice = (product.sellingPrice + extrasUnitCost) * quantity;
+  const handleQuantityChange = (newQuantity) => {
+    if (newQuantity < 1) return;
+    const clamped = maxQuantity > 0 ? Math.min(newQuantity, maxQuantity) : newQuantity;
+    setQuantity(clamped);
+    setUnitConfigs((prev) => resizeUnitConfigs(prev, clamped, sameForAll));
+    setSubmittedCount(0);
+  };
 
-  const buildModifiers = () => ({
-    extras: selectedExtrasList.map(e => ({ name: e.name, quantity: e.quantity })),
-    note: itemNote.trim()
-  });
-
-  const composeNotes = () => {
-    const parts = [];
-    if (selectedExtrasList.length > 0) {
-      parts.push(selectedExtrasList.map(e => `${e.quantity}x ${e.name}`).join(', '));
+  // Switching TO "same for all" mirrors unit 0 across every entry
+  // (lossy by definition); switching away just changes how future writes
+  // are targeted, existing per-unit data stays put.
+  const handleSameForAllChange = (next) => {
+    setSameForAll(next);
+    if (next) {
+      setUnitConfigs((prev) => {
+        const base = prev[0] || { extras: {}, note: '' };
+        return prev.map(() => ({ extras: { ...base.extras }, note: base.note }));
+      });
     }
-    if (itemNote.trim()) parts.push(itemNote.trim());
-    return parts.join(' -- ');
+    setSubmittedCount(0);
+  };
+
+  const handleSharedExtrasChange = (next) => setUnitConfigs((prev) => prev.map((cfg) => ({ ...cfg, extras: next })));
+  const handleSharedNoteChange = (next) => setUnitConfigs((prev) => prev.map((cfg) => ({ ...cfg, note: next })));
+  const handleUnitExtrasChange = (index, next) => setUnitConfigs((prev) => prev.map((cfg, i) => (i === index ? { ...cfg, extras: next } : cfg)));
+  const handleUnitNoteChange = (index, next) => setUnitConfigs((prev) => prev.map((cfg, i) => (i === index ? { ...cfg, note: next } : cfg)));
+
+  const extrasCostFor = (cfg) => extrasDefinitions.reduce((sum, def) => sum + def.price * (cfg.extras[def.name] || 0), 0);
+  const totalPrice = unitConfigs.reduce((sum, cfg) => sum + product.sellingPrice + extrasCostFor(cfg), 0);
+
+  // Extras + freeform note both fold into the one notes column
+  // cart_items already carries -- same shape ProductDetailsClient.js's
+  // own buildUnitPayload produces.
+  const buildUnitPayload = (cfg) => {
+    const list = extrasDefinitions
+      .map((def) => ({ ...def, quantity: cfg.extras[def.name] || 0 }))
+      .filter((e) => e.quantity > 0);
+    const parts = [];
+    if (list.length > 0) parts.push(list.map((e) => `${e.quantity}x ${e.name}`).join(', '));
+    if (cfg.note.trim()) parts.push(cfg.note.trim());
+    return {
+      notes: parts.join(' -- '),
+      modifiers: { extras: list.map((e) => ({ name: e.name, quantity: e.quantity })), note: cfg.note.trim() }
+    };
   };
 
   const handleClose = () => {
     setQuantity(1);
-    setSelectedExtras({});
-    setItemNote('');
+    setUnitConfigs([{ extras: {}, note: '' }]);
+    setSameForAll(true);
+    setSubmittedCount(0);
     setError(null);
     onClose();
   };
 
+  // "Same for all" is one addToCart call. Customizing each unit
+  // separately fires one addToCart per unit IN SEQUENCE (not parallel --
+  // avoids racing the cart's own read-modify-write per request); two
+  // units that happen to end up with identical modifiers still merge into
+  // one line via the cart's existing identity logic. submittedCount
+  // tracks how many units are already committed so a retry after a
+  // mid-loop failure resumes instead of resubmitting (and duplicating)
+  // units already added.
   const handleAdd = async () => {
     setIsAdding(true);
     setError(null);
     try {
-      const result = await onAddToCart(product.id, quantity, {
-        notes: composeNotes(),
-        modifiers: buildModifiers()
-      });
-      if (result.success) {
-        handleClose();
-      } else {
-        setError(result.error || 'Failed to add item to cart');
+      if (sameForAll) {
+        const { notes, modifiers } = buildUnitPayload(unitConfigs[0] || { extras: {}, note: '' });
+        const result = await onAddToCart(product.id, quantity, { notes, modifiers });
+        if (result.success) {
+          handleClose();
+        } else {
+          setError(result.error || 'Failed to add item to cart');
+        }
+        return;
       }
+
+      let addedCount = submittedCount;
+      for (let i = submittedCount; i < unitConfigs.length; i++) {
+        const { notes, modifiers } = buildUnitPayload(unitConfigs[i]);
+        const result = await onAddToCart(product.id, 1, { notes, modifiers });
+        if (!result.success) {
+          setSubmittedCount(addedCount);
+          setError(
+            addedCount > 0
+              ? `Added ${addedCount} of ${quantity} -- item ${i + 1} failed: ${result.error || 'unknown error'}. Adjust it and try again.`
+              : `Failed to add item ${i + 1}: ${result.error || 'unknown error'}`
+          );
+          return;
+        }
+        addedCount += 1;
+        setSubmittedCount(addedCount);
+      }
+      handleClose();
     } catch (err) {
       setError('Failed to add item to cart');
     } finally {
       setIsAdding(false);
     }
-  };
-
-  // Carries quantity + intent along so the product page continues this
-  // shopper's flow instead of starting over -- see ProductDetailsClient.js's
-  // lazy useState initializers reading these same two params.
-  const goToFullPageCustomization = () => {
-    const target = storeHref(currentStore?.storeSlug, `/product/${product.id}?quantity=${quantity}&customize=1`);
-    handleClose();
-    onNavigate?.();
-    router.push(target);
   };
 
   return (
@@ -114,7 +176,7 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, o
             <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden w-fit">
               <button
                 type="button"
-                onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                onClick={() => handleQuantityChange(quantity - 1)}
                 disabled={quantity <= 1}
                 className="px-4 py-2.5 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
@@ -123,57 +185,37 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, o
               <span className="w-12 text-center text-base font-semibold text-gray-900 tabular-nums">{quantity}</span>
               <button
                 type="button"
-                onClick={() => setQuantity(q => Math.min(maxQuantity, q + 1))}
+                onClick={() => handleQuantityChange(quantity + 1)}
                 disabled={quantity >= maxQuantity}
                 className="px-4 py-2.5 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <Plus className="w-4 h-4 text-gray-600" />
               </button>
             </div>
-            {quantity >= 2 && extrasDefinitions.length > 0 && (
-              <button
-                type="button"
-                onClick={goToFullPageCustomization}
-                className="text-xs font-medium mt-2 underline underline-offset-2 decoration-1 hover:opacity-80"
-                style={{ color: primaryColor }}
-              >
-                Want different extras per item? Customize on the product page
-              </button>
-            )}
           </div>
 
-          <ExtrasSelector
+          <UnitExtrasConfigurator
+            quantity={quantity}
             extrasDefinitions={extrasDefinitions}
-            selectedExtras={selectedExtras}
-            onChange={setSelectedExtras}
+            unitConfigs={unitConfigs}
+            sameForAll={sameForAll}
+            onSameForAllChange={handleSameForAllChange}
+            onSharedExtrasChange={handleSharedExtrasChange}
+            onSharedNoteChange={handleSharedNoteChange}
+            onUnitExtrasChange={handleUnitExtrasChange}
+            onUnitNoteChange={handleUnitNoteChange}
+            submittedCount={submittedCount}
             formatPrice={formatPrice}
             primaryColor={primaryColor}
+            notePlaceholder={NOTE_PLACEHOLDERS[product.category] || NOTE_PLACEHOLDERS.default}
           />
-
-          <div>
-            <label htmlFor="quick-add-note" className="text-sm font-semibold text-gray-900 mb-2 block">
-              Note for the seller <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <textarea
-              id="quick-add-note"
-              value={itemNote}
-              onChange={(e) => setItemNote(e.target.value)}
-              placeholder={NOTE_PLACEHOLDERS[product.category] || NOTE_PLACEHOLDERS.default}
-              rows={2}
-              maxLength={300}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700 transition-colors resize-none"
-            />
-          </div>
 
           <div className="bg-brand-50/60 border border-brand-100/70 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <span className="text-gray-600 text-sm">Total</span>
               <span className="text-xl font-bold text-brand-800 tabular-nums">{formatPrice(totalPrice)}</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {quantity} {quantity === 1 ? 'item' : 'items'} × {formatPrice(product.sellingPrice + extrasUnitCost)}
-              {extrasUnitCost > 0 && ` (${formatPrice(product.sellingPrice)} + ${formatPrice(extrasUnitCost)} extras)`}
-            </p>
+            <p className="text-xs text-gray-500 mt-1">{quantity} {quantity === 1 ? 'item' : 'items'}</p>
           </div>
 
           {error && (

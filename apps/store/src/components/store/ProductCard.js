@@ -289,7 +289,6 @@ export default function ProductCard({ product, primaryColor, currency, secondary
       onClose={() => setShowQuickAdd(false)}
       product={product}
       onAddToCart={addToCart}
-      onNavigate={onNavigate}
       primaryColor={primaryColor}
       currency={currency}
     />

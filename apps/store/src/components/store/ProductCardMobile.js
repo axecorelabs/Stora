@@ -247,7 +247,6 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
       onClose={() => setShowQuickAdd(false)}
       product={product}
       onAddToCart={addToCart}
-      onNavigate={onNavigate}
       primaryColor={primaryColor}
       currency={currency}
     />
