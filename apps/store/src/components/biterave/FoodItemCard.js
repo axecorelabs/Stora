@@ -7,7 +7,6 @@ import QuickAddModal from "@/components/product/QuickAddModal";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsInWishlist, useWishlistMutations } from "@/hooks/useWishlist";
-import useStoreStore from "@/stores/storeStore";
 import { useRequireBiteraveAuth } from "./BiteraveAuthGateProvider";
 
 // Shared by the pooled cross-restaurant grid (/biterave) and a single
@@ -32,7 +31,6 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
   const requireAuth = useRequireBiteraveAuth();
-  const setCurrentStore = useStoreStore((s) => s.setStore);
   const liked = useIsInWishlist(product.id);
   const { addToWishlist, removeFromWishlist } = useWishlistMutations();
   const isUpdatingWishlist = addToWishlist.isPending || removeFromWishlist.isPending;
@@ -67,13 +65,6 @@ export default function FoodItemCard({ product, storeSlug, storeName }) {
     }
 
     if (extrasDefinitions.length > 0) {
-      // QuickAddModal's own "customize on the product page" sub-link
-      // builds its URL via storeHref() off this same global store --
-      // never populated by a cross-vendor Biterave listing, only by a
-      // real vendor page. A minimal { storeSlug } is all storeHref()
-      // actually reads, so this is enough to keep that sub-link correct
-      // here too, not just on /biterave/[storeSlug].
-      setCurrentStore({ storeSlug });
       setShowQuickAdd(true);
       return;
     }
