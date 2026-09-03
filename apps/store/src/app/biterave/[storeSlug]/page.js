@@ -1,10 +1,10 @@
 import { headers, cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { ShieldCheck, Store, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
-import StarRating from "@/components/ui/StarRating";
 import BiteraveAuthGateProvider from "@/components/biterave/BiteraveAuthGateProvider";
+import BiteraveRestaurantHero from "@/components/biterave/BiteraveRestaurantHero";
 import BiteraveStoreMenu from "@/components/biterave/BiteraveStoreMenu";
 import { findStoreByWebsitePath, searchStoreProducts } from "@/lib/supabaseStore";
 import { resolveRequestHost } from "@/lib/vendorHost";
@@ -94,54 +94,7 @@ export default async function BiteraveRestaurantPage({ params }) {
     <div className="min-h-screen bg-gray-50">
       <SiteHeader brand="biterave" />
 
-      <div className="bg-brand-800">
-        {store.branding?.banner && (
-          <div className="h-40 sm:h-56 w-full overflow-hidden">
-            <img src={store.branding.banner} alt="" className="w-full h-full object-cover opacity-90" />
-          </div>
-        )}
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white/10 flex-shrink-0 flex items-center justify-center">
-            {store.branding?.logo ? (
-              <img src={store.branding.logo} alt={store.storeName} className="w-full h-full object-cover" />
-            ) : (
-              <Store className="w-6 h-6 text-white/70" />
-            )}
-          </div>
-          <div className="min-w-0">
-            {store.isVerified && (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-gold-400/40 mb-2">
-                <ShieldCheck className="w-3 h-3 text-gold-400" />
-                <span className="text-[10.5px] font-semibold text-gold-400 tracking-wide uppercase">Verified by Stora</span>
-              </div>
-            )}
-            <h1 className="font-display text-xl sm:text-2xl font-bold text-white truncate">{store.storeName}</h1>
-            <div className="flex items-center gap-1.5 mt-1">
-              {store.totalReviews > 0 && (
-                <>
-                  <StarRating rating={store.averageRating} size={12} />
-                  <span className="text-white/80 text-xs tabular-nums">
-                    {store.averageRating.toFixed(1)} · {store.totalReviews} review{store.totalReviews === 1 ? "" : "s"}
-                  </span>
-                </>
-              )}
-              <span className="text-white/80 text-xs">
-                {store.totalReviews > 0 && <span className="text-white/40 mx-0.5">·</span>}
-                {store.deliveryStates && store.deliveryStates.length > 0
-                  ? `Delivers to ${
-                      store.deliveryStates.length > 3
-                        ? `${store.deliveryStates.slice(0, 3).join(", ")} +${store.deliveryStates.length - 3} more`
-                        : store.deliveryStates.join(", ")
-                    }`
-                  : "Delivers nationwide"}
-              </span>
-            </div>
-            {store.storeDescription && (
-              <p className="text-white/60 text-sm mt-1.5 line-clamp-2">{store.storeDescription}</p>
-            )}
-          </div>
-        </div>
-      </div>
+      <BiteraveRestaurantHero store={store} />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {hasDeliveryMismatch && (
