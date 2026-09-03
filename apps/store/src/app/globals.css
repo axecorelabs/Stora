@@ -53,3 +53,20 @@ body {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+/* iOS Safari auto-zooms the whole page when a form control's font-size is
+   under 16px at the moment it gets focus -- search bars, filter inputs,
+   and native <select> dropdowns across the site mostly use text-sm/
+   text-xs (14px/12px), which is exactly what triggers it. Forcing 16px
+   on every input/select/textarea below the sm breakpoint kills the zoom
+   without touching the viewport meta tag itself (leaving pinch-zoom
+   intact for anyone who needs it, unlike a maximum-scale=1 hack). Kept
+   as one global rule rather than editing every component's own
+   className, so it also catches anything added later. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
