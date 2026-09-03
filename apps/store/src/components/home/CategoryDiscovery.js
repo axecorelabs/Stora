@@ -1,8 +1,22 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles, ArrowUpRight } from "lucide-react";
 import { CATEGORIES } from "@/lib/categories";
 import PrefetchLink from "@/components/ui/PrefetchLink";
+import { APEX_DOMAIN } from "@/lib/apexDomain";
+
+// Food isn't just another /products?category= filter -- Biterave
+// (biterave.<apex>) is Stora's own dedicated food-ordering experience,
+// a separate subdomain with its own cart/checkout, restaurant menus, and
+// grocery listings, not a subset of the general catalogue. Landing
+// straight on /meals rather than Biterave's own marketing homepage
+// mirrors what every other category tile does (go straight to a
+// listing, not a teaser page). A plain <a target="_blank">, not
+// PrefetchLink -- that wraps next/link and calls router.prefetch() on
+// hover, which is for same-origin app routes; prefetching a different
+// subdomain doesn't make sense, and "opens in a new tab" calls for a
+// real anchor over client-side routing anyway.
+const BITERAVE_URL = `https://biterave.${APEX_DOMAIN}/meals`;
 
 // Natural-language prompts, same tone as AISearchInput's own placeholder
 // examples -- tapping one lands straight on /products with AI mode already
@@ -185,21 +199,35 @@ export default function CategoryDiscovery() {
       <div className="lg:hidden grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {CATEGORIES.map(({ value, icon: Icon }, i) => {
           const dark = DARK_CATEGORIES.has(value);
+          const isFood = value === "Food";
           const collapsedOnMobile = i >= INITIAL_VISIBLE_COUNT && !expanded;
-          return (
-            <PrefetchLink
-              key={value}
-              href={`/products?category=${encodeURIComponent(value)}`}
-              className={`${collapsedOnMobile ? "hidden" : "flex"} aspect-square flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
-                dark
-                  ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
-                  : "bg-brand-50/60 border-brand-100 hover:border-brand-300 hover:bg-brand-50"
-              }`}
-            >
+          const tileClassName = `${collapsedOnMobile ? "hidden" : "flex"} relative aspect-square flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
+            dark
+              ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
+              : "bg-brand-50/60 border-brand-100 hover:border-brand-300 hover:bg-brand-50"
+          }`;
+          const tileContent = (
+            <>
+              {isFood && (
+                <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${dark ? "text-white/40" : "text-brand-700/40"}`} />
+              )}
               {Icon && <Icon className={`w-7 h-7 ${dark ? "text-gold-400" : "text-brand-700"}`} strokeWidth={1.75} />}
               <span className={`font-display text-lg font-semibold leading-tight ${dark ? "text-white" : "text-brand-900"}`}>
                 {value}
               </span>
+            </>
+          );
+          return isFood ? (
+            <a key={value} href={BITERAVE_URL} target="_blank" rel="noopener noreferrer" className={tileClassName}>
+              {tileContent}
+            </a>
+          ) : (
+            <PrefetchLink
+              key={value}
+              href={`/products?category=${encodeURIComponent(value)}`}
+              className={tileClassName}
+            >
+              {tileContent}
             </PrefetchLink>
           );
         })}
@@ -246,21 +274,36 @@ export default function CategoryDiscovery() {
         >
           {CATEGORIES.map(({ value, icon: Icon }, i) => {
             const dark = DARK_CATEGORIES.has(value);
-            return (
-              <PrefetchLink
-                key={value}
-                href={`/products?category=${encodeURIComponent(value)}`}
-                style={bentoStyle(i, CATEGORIES.length)}
-                className={`flex flex-col justify-between rounded-2xl border p-6 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
-                  dark
-                    ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
-                    : "bg-brand-50/60 border-brand-100 hover:border-brand-300 hover:bg-brand-50"
-                }`}
-              >
+            const isFood = value === "Food";
+            const tileStyle = bentoStyle(i, CATEGORIES.length);
+            const tileClassName = `relative flex flex-col justify-between rounded-2xl border p-6 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
+              dark
+                ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
+                : "bg-brand-50/60 border-brand-100 hover:border-brand-300 hover:bg-brand-50"
+            }`;
+            const tileContent = (
+              <>
+                {isFood && (
+                  <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${dark ? "text-white/40" : "text-brand-700/40"}`} />
+                )}
                 {Icon && <Icon className={`w-8 h-8 ${dark ? "text-gold-400" : "text-brand-700"}`} strokeWidth={1.75} />}
                 <span className={`font-display text-xl font-semibold leading-tight ${dark ? "text-white" : "text-brand-900"}`}>
                   {value}
                 </span>
+              </>
+            );
+            return isFood ? (
+              <a key={value} href={BITERAVE_URL} target="_blank" rel="noopener noreferrer" style={tileStyle} className={tileClassName}>
+                {tileContent}
+              </a>
+            ) : (
+              <PrefetchLink
+                key={value}
+                href={`/products?category=${encodeURIComponent(value)}`}
+                style={tileStyle}
+                className={tileClassName}
+              >
+                {tileContent}
               </PrefetchLink>
             );
           })}
