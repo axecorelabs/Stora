@@ -127,7 +127,7 @@ export default async function BiteravePage() {
           {restaurants.length === 0 ? (
             <p className="text-sm text-gray-400 py-12 text-center">No restaurants yet -- check back soon.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:overflow-visible">
               {restaurants.map((store) => <RestaurantCard key={store.id} store={store} />)}
             </div>
           )}
@@ -181,7 +181,7 @@ export default async function BiteravePage() {
           {groceryVendors.length === 0 ? (
             <p className="text-sm text-gray-400 py-12 text-center">No grocery vendors yet -- check back soon.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:overflow-visible">
               {groceryVendors.map((store) => <RestaurantCard key={store.id} store={store} />)}
             </div>
           )}

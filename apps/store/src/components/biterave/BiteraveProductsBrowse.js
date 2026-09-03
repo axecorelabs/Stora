@@ -4,7 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Package, Loader2, Sparkles, Search, UtensilsCrossed, ShoppingBasket } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
+import AISearchInput from "@/components/search/AISearchInput";
 import FoodItemCard from "./FoodItemCard";
+import RestaurantCard from "./RestaurantCard";
 
 // Same fixed taxonomy FoodDetailsSection.js's own cuisineType multi-select
 // uses in apps/dashboard -- duplicated here rather than shared, matching
@@ -36,6 +38,10 @@ function BiteraveProductsBrowseInner({ type }) {
   const [sort, setSort] = useState(urlSort);
   const [aiMode, setAiMode] = useState(urlAiMode);
   const [products, setProducts] = useState([]);
+  // AI mode's supplementary strip -- the vendors /api/search/ai returns
+  // alongside products (see the route's SECONDARY_LIMIT), same "Vendors
+  // worth checking out" treatment /products/page.js already has.
+  const [aiVendors, setAiVendors] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -54,6 +60,7 @@ function BiteraveProductsBrowseInner({ type }) {
   const fetchPage = useCallback(async (pageNum, replace) => {
     if (aiMode && !q) {
       setProducts([]);
+      setAiVendors([]);
       setPagination(null);
       setLoading(false);
       return;
@@ -68,6 +75,7 @@ function BiteraveProductsBrowseInner({ type }) {
         const data = await res.json();
         if (data.success) {
           setProducts((prev) => (replace ? data.products : [...prev, ...data.products]));
+          setAiVendors(data.vendors || []);
           setPagination(data.pagination);
         }
         return;
@@ -113,8 +121,42 @@ function BiteraveProductsBrowseInner({ type }) {
           {q ? `Results for "${q}"` : isMeals ? "All meals" : "All groceries"}
         </h1>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="relative flex-1">
+        {/* Small settings-style toggle above the bar, right-aligned -- same
+            placement/sizing as components/search/SearchConsole.js's own "AI
+            Search" toggle, not a same-weight button sitting beside the
+            input. */}
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={() => setAiMode((v) => !v)}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              aiMode ? "bg-brand-700 text-white border-brand-700" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Ask Biterave AI
+          </button>
+        </div>
+
+        {aiMode ? (
+          <div
+            className="rounded-2xl p-[1.5px] mb-4"
+            style={{
+              background: "linear-gradient(115deg, #D8BC85 0%, rgba(216,188,133,0) 35%, rgba(20,92,65,0) 65%, #145C41 100%)"
+            }}
+          >
+            <div className="flex items-start bg-white px-6 py-3.5 rounded-2xl shadow-[0_1px_2px_rgba(11,59,46,0.04),0_20px_48px_-16px_rgba(11,59,46,0.2)]">
+              <AISearchInput
+                value={q}
+                onChange={setQ}
+                placeholder={
+                  isMeals
+                    ? "Describe what you're craving — something spicy, a quick lunch, jollof rice…"
+                    : "Describe what you need — ingredients for jollof rice, snacks for a trip…"
+                }
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="relative mb-4">
             <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -124,15 +166,7 @@ function BiteraveProductsBrowseInner({ type }) {
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-700/20 focus:border-brand-700"
             />
           </div>
-          <button
-            onClick={() => setAiMode((v) => !v)}
-            className={`inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-semibold border transition-colors ${
-              aiMode ? "bg-brand-800 text-white border-brand-800" : "bg-white text-brand-800 border-gray-200 hover:border-brand-300"
-            }`}
-          >
-            <Sparkles className="w-4 h-4" /> Ask Biterave AI
-          </button>
-        </div>
+        )}
 
         {isMeals && (
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
@@ -196,6 +230,21 @@ function BiteraveProductsBrowseInner({ type }) {
           </div>
         ) : (
           <>
+            {aiMode && aiVendors.length > 0 && (
+              <div className="mb-8">
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
+                  {isMeals ? "Restaurants worth checking out" : "Vendors worth checking out"}
+                </p>
+                <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                  {aiVendors.map((vendor) => (
+                    <div key={vendor.id} className="w-48 flex-shrink-0">
+                      <RestaurantCard store={vendor} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {products.map((product) => (
                 <FoodItemCard
