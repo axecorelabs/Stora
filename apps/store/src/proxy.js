@@ -205,6 +205,30 @@ function resolveVendorSubdomainRewrite(req) {
 const BITERAVE_LABEL = 'biterave';
 const BITERAVE_DOMAIN = process.env.NEXT_PUBLIC_BITERAVE_DOMAIN || null;
 
+// Confirmed live: FoodItemCard.js deliberately builds product links as
+// plain /<storeSlug>/product/<id> paths (not storeHref()), meaning to
+// reach the REAL, shared vendor product page -- not a Biterave-specific
+// one (no such route exists). On a Biterave host, only paths actually
+// SHAPED like a Biterave route get the /biterave prefix: the bare root,
+// one path segment (a top-level page like /meals, or a restaurant slug
+// like /dotun-s-store-697203 -- both one segment, so both are handled by
+// this same rule and Next.js's own static-over-dynamic route priority),
+// or exactly /groceries/vendors. Anything else (a real vendor page's own
+// /<slug>/product/<id>, /<slug>/cart, etc.) must pass through completely
+// untouched -- confirmed live this was rewritten to a nonexistent
+// /biterave/<slug>/product/<id> and 404'd before this fix.
+function isBiteraveShapedPath(pathname) {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length <= 1) return true;
+  return segments.length === 2 && segments[0] === 'groceries' && segments[1] === 'vendors';
+}
+
+// Returns { rewriteUrl } to send this request into /biterave/..., or
+// { passthrough: true } for a Biterave host whose path must resolve
+// exactly as requested (a real vendor page, reached via this shared
+// host) -- distinct from returning null, which means "not a Biterave
+// host at all, let the generic vendor-slug rewrite decide" and must
+// never be returned once a request is already confirmed to be on one.
 function resolveBiteraveRewrite(req) {
   const hostname = resolveRequestHost(req);
   const apexSuffix = `.${APEX_DOMAIN}`;
@@ -214,9 +238,10 @@ function resolveBiteraveRewrite(req) {
   if (!isBiteraveSubdomain && !isBiteraveDomain) return null;
 
   const rewriteUrl = req.nextUrl.clone();
-  if (!rewriteUrl.pathname.startsWith(`/${BITERAVE_LABEL}`)) {
-    rewriteUrl.pathname = `/${BITERAVE_LABEL}${rewriteUrl.pathname}`;
-  }
+  if (rewriteUrl.pathname.startsWith(`/${BITERAVE_LABEL}`)) return { passthrough: true };
+  if (!isBiteraveShapedPath(rewriteUrl.pathname)) return { passthrough: true };
+
+  rewriteUrl.pathname = `/${BITERAVE_LABEL}${rewriteUrl.pathname}`;
   return { rewriteUrl };
 }
 
@@ -245,6 +270,14 @@ export async function proxy(req) {
     const biteraveResult = resolveBiteraveRewrite(req);
     if (biteraveResult?.rewriteUrl) {
       rewriteUrl = biteraveResult.rewriteUrl;
+    } else if (biteraveResult?.passthrough) {
+      // A Biterave host (biterave.<apex> or the standalone domain), but
+      // this path is a real, unrelated route (a vendor's own product
+      // page, etc.) -- resolve it exactly as requested. Deliberately
+      // skips resolveVendorSubdomainRewrite entirely: falling through to
+      // it here would treat "biterave" as if it were a real vendor's own
+      // slug and reintroduce the same bug this passthrough exists to fix.
+      rewriteUrl = null;
     } else {
       const subdomainResult = resolveVendorSubdomainRewrite(req);
       if (subdomainResult?.notFound) {
