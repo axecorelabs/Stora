@@ -52,6 +52,7 @@ export default function OnboardingPage() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [websiteError, setWebsiteError] = useState(null);
   const [isUpdatingRestaurantMode, setIsUpdatingRestaurantMode] = useState(false);
+  const [restaurantModeError, setRestaurantModeError] = useState(null);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -131,20 +132,36 @@ export default function OnboardingPage() {
   const handleRestaurantModeChange = async (restaurantMode) => {
     if (isUpdatingRestaurantMode) return;
     setIsUpdatingRestaurantMode(true);
+    setRestaurantModeError(null);
     try {
       const response = await secureApiCall('/api/stores/restaurant-mode', {
         method: 'PATCH',
         body: JSON.stringify({ restaurantMode })
       });
-      if (response?.success) {
-        setCreatedStore((prev) => ({ ...prev, restaurantMode: response.data.restaurantMode }));
+      if (!response?.success) {
+        setRestaurantModeError(response?.message || 'Could not save -- try again');
+        return;
       }
-    } finally {
-      setIsUpdatingRestaurantMode(false);
+      setCreatedStore((prev) => ({ ...prev, restaurantMode: response.data.restaurantMode }));
+      // DashboardHeader's badge and the inventory page's "Add Menu Item"
+      // button both read restaurantMode from this same shared ['store']
+      // query (see handleStoreCreated's own comment above) -- without
+      // this, they'd keep showing the pre-toggle mode for up to that
+      // query's 5-minute staleTime right after finishing onboarding.
+      queryClient.invalidateQueries({ queryKey: ['store'] });
       // Skip straight past the verification step while QoreID's keys aren't
       // configured yet (see useVerificationEnabled) -- there's nothing to
       // show that wouldn't just fail if submitted.
       setStep(verificationEnabled === true ? 'verification' : 'website');
+    } catch (error) {
+      // Previously a bare try/finally: any thrown error (a 401 before the
+      // session cookie settles, a network blip, a 500) was swallowed
+      // silently and the wizard advanced anyway, leaving restaurant_mode
+      // at its DB default of false regardless of what the vendor picked,
+      // with no error shown and no way to retry from this step.
+      setRestaurantModeError(error.message || 'Could not save -- try again');
+    } finally {
+      setIsUpdatingRestaurantMode(false);
     }
   };
 
@@ -228,6 +245,12 @@ export default function OnboardingPage() {
               shoppers -- extras, made-to-order items, the works. It doesn&apos;t restrict what
               else you can sell.
             </p>
+            {restaurantModeError && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 flex items-start gap-2 text-left">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{restaurantModeError}</p>
+              </div>
+            )}
             <Button
               variant="primary"
               onClick={() => handleRestaurantModeChange(true)}
@@ -236,13 +259,22 @@ export default function OnboardingPage() {
             >
               {isUpdatingRestaurantMode ? 'Turning on…' : 'Yes, turn on Restaurant Mode'}
             </Button>
-            <button
+            {/* Previously a bare-text <button> styled identically to the
+                description paragraph above it (text-sm text-gray-500,
+                no border/background) -- read as a caption, not a second
+                choice, which is why this looked like a single-button
+                screen. A real secondary button gives "No" the same
+                visual weight as "Yes" for what is a genuine either/or
+                decision, not a "skip for later" throwaway. */}
+            <Button
+              variant="secondary"
               onClick={() => handleRestaurantModeChange(false)}
               disabled={isUpdatingRestaurantMode}
-              className="w-full text-center text-sm text-gray-500 hover:text-gray-700"
+              className="w-full"
             >
-              No -- you can turn this on anytime from Store settings
-            </button>
+              No, I don&apos;t sell food
+            </Button>
+            <p className="text-xs text-gray-400 mt-3">You can change this anytime from Store settings.</p>
           </div>
         )}
 
