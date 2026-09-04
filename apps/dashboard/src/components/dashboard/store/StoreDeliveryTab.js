@@ -29,6 +29,26 @@ export default function StoreDeliveryTab({
     ? NIGERIAN_STATES.map((s) => s.value)
     : (editData.deliveryStates || []);
 
+  // A state with no fee entry isn't "free delivery" -- checkout tells the
+  // customer their fee will be confirmed directly with the vendor instead.
+  // Surfaced here so a vendor notices before a customer does. Computed from
+  // editData while editing (feeStates above already reads editData too) but
+  // from store directly for the read-only view below -- editData resets to
+  // {} outside edit mode (see cancelEditing in the parent page), so reusing
+  // feeStates there would silently show zero unset states regardless of the
+  // real data.
+  const unsetFeeStates = feeStates.filter((s) => {
+    const value = editData.deliveryFees?.[s];
+    return value === undefined || value === null || value === '';
+  });
+  const readOnlyFeeStates = store.deliveryNationwide
+    ? NIGERIAN_STATES.map((s) => s.value)
+    : (store.deliveryStates || []);
+  const readOnlyUnsetFeeStates = readOnlyFeeStates.filter((s) => {
+    const value = store.deliveryFees?.[s];
+    return value === undefined || value === null || value === '';
+  });
+
   const applyZoneFee = (zone) => {
     const amount = Number(zoneInputs[zone]);
     if (!Number.isFinite(amount) || amount < 0) return;
@@ -97,6 +117,17 @@ export default function StoreDeliveryTab({
           A flat fee per state, charged to the customer at checkout.
         </p>
 
+        {isEditing && unsetFeeStates.length > 0 && (
+          <p className="flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>
+              {unsetFeeStates.length} state{unsetFeeStates.length !== 1 ? 's' : ''} below {unsetFeeStates.length !== 1 ? "don't" : "doesn't"} have a fee yet.
+              Customers there will be told delivery isn&apos;t free and to expect the fee to be confirmed with you directly, rather than seeing a price.
+              Set a fee (or 0 for genuinely free delivery) to charge it automatically instead.
+            </span>
+          </p>
+        )}
+
         {isEditing ? (
           feeStates.length === 0 ? (
             <p className="text-sm text-gray-400">Select at least one delivery state above first.</p>
@@ -135,37 +166,55 @@ export default function StoreDeliveryTab({
               </div>
 
               <div className="space-y-1.5 max-h-72 overflow-y-auto -mx-1 px-1">
-                {feeStates.map((state) => (
-                  <div key={state} className="flex items-center justify-between gap-3 py-1">
-                    <span className="text-sm text-gray-700">{STATE_LABEL[state] || state}</span>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <span className="text-sm text-gray-400">₦</span>
-                      <input
-                        type="number"
-                        min="0"
-                        inputMode="numeric"
-                        placeholder="0"
-                        value={editData.deliveryFees?.[state] ?? ''}
-                        onChange={(e) => {
-                          const value = e.target.value === '' ? undefined : Number(e.target.value);
-                          setDeliveryFee(state, value);
-                        }}
-                        className="w-24 px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900 text-right focus:outline-none focus:ring-2 focus:ring-brand-600"
-                      />
+                {feeStates.map((state) => {
+                  const isUnset = unsetFeeStates.includes(state);
+                  return (
+                    <div key={state} className="flex items-center justify-between gap-3 py-1">
+                      <span className="text-sm text-gray-700 flex items-center gap-1.5">
+                        {STATE_LABEL[state] || state}
+                        {isUnset && <span className="text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">Not set</span>}
+                      </span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-sm text-gray-400">₦</span>
+                        <input
+                          type="number"
+                          min="0"
+                          inputMode="numeric"
+                          placeholder="Not set"
+                          value={editData.deliveryFees?.[state] ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? undefined : Number(e.target.value);
+                            setDeliveryFee(state, value);
+                          }}
+                          className={`w-24 px-2.5 py-1.5 border rounded-lg text-sm text-gray-900 text-right focus:outline-none focus:ring-2 focus:ring-brand-600 ${
+                            isUnset ? 'border-amber-300 bg-amber-50/50' : 'border-gray-300'
+                          }`}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )
         ) : (
-          <p className="text-gray-900 py-1 text-sm">
-            {Object.keys(store.deliveryFees || {}).length === 0
-              ? 'No delivery fees set'
-              : Object.entries(store.deliveryFees)
-                  .map(([state, fee]) => `${STATE_LABEL[state] || state}: ₦${Number(fee).toLocaleString('en-NG')}`)
-                  .join(', ')}
-          </p>
+          <div className="py-1 space-y-2">
+            <p className="text-gray-900 text-sm">
+              {Object.keys(store.deliveryFees || {}).length === 0
+                ? 'No delivery fees set'
+                : Object.entries(store.deliveryFees)
+                    .map(([state, fee]) => `${STATE_LABEL[state] || state}: ₦${Number(fee).toLocaleString('en-NG')}`)
+                    .join(', ')}
+            </p>
+            {readOnlyUnsetFeeStates.length > 0 && (
+              <p className="flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                <span>
+                  No fee set for {readOnlyUnsetFeeStates.map((s) => STATE_LABEL[s] || s).join(', ')}. Customers ordering delivery there will be told the fee is confirmed with you directly, not free.
+                </span>
+              </p>
+            )}
+          </div>
         )}
       </div>
 

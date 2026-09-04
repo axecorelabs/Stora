@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { X, MapPin, Package, AlertCircle, CheckCircle, Truck, ChevronDown, ChevronUp } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
-import { NIGERIAN_STATES } from "@stora/shared-constants";
+import { NIGERIAN_STATES, resolveDeliveryFee } from "@stora/shared-constants";
 
 export default function OrderModal({
   isOpen,
@@ -66,20 +66,29 @@ export default function OrderModal({
   const deliveryBreakdown = useMemo(() => {
     const destinationState = formData.state;
     const perStore = (storeDeliveryInfo || []).map((info) => {
-      const fee = destinationState ? (Number(info.deliveryFees?.[destinationState]) || 0) : 0;
+      // isSet=false means this vendor hasn't configured a delivery fee for
+      // destinationState at all -- distinct from a genuine ₦0 (free
+      // delivery). Nothing can be charged for an unknown amount, so this
+      // is always effectively "pay the rider directly, amount to be
+      // confirmed" regardless of the vendor's platform_collected/
+      // pay_on_delivery setting -- there's no other way it could work.
+      const { amount: fee, isSet: feeIsSet } = destinationState
+        ? resolveDeliveryFee(info.deliveryFees, destinationState)
+        : { amount: 0, isSet: true };
       const method = (info.paystackReady && info.fulfillmentMethod !== 'pay_on_delivery')
         ? 'platform_collected'
         : 'pay_on_delivery';
-      return { storeId: info.storeId, storeName: info.storeName, fee, method };
+      return { storeId: info.storeId, storeName: info.storeName, fee, feeIsSet, method };
     });
     const platformCollectedTotal = perStore
       .filter((s) => s.method === 'platform_collected')
       .reduce((sum, s) => sum + s.fee, 0);
     const payOnDeliveryTotal = perStore
-      .filter((s) => s.method === 'pay_on_delivery')
+      .filter((s) => s.method === 'pay_on_delivery' && s.feeIsSet)
       .reduce((sum, s) => sum + s.fee, 0);
+    const unsetFeeStores = destinationState ? perStore.filter((s) => !s.feeIsSet) : [];
     const isMixedFulfillment = new Set(perStore.filter((s) => s.fee > 0).map((s) => s.method)).size > 1;
-    return { platformCollectedTotal, payOnDeliveryTotal, perStore, isMixedFulfillment };
+    return { platformCollectedTotal, payOnDeliveryTotal, perStore, unsetFeeStores, isMixedFulfillment };
   }, [formData.state, storeDeliveryInfo]);
 
   // Lock body scroll when modal is open
@@ -520,7 +529,7 @@ export default function OrderModal({
                     below instead). Reuses the same chevron-toggle idiom
                     already used for cart item details in
                     CartPageContent.js, not a new generic component. */}
-                {deliveryBreakdown.perStore.length > 1 && (deliveryBreakdown.platformCollectedTotal > 0 || deliveryBreakdown.payOnDeliveryTotal > 0) && (
+                {deliveryBreakdown.perStore.length > 1 && (deliveryBreakdown.platformCollectedTotal > 0 || deliveryBreakdown.payOnDeliveryTotal > 0 || deliveryBreakdown.unsetFeeStores.length > 0) && (
                   <div>
                     <button
                       type="button"
@@ -537,8 +546,10 @@ export default function OrderModal({
                           <div key={s.storeId} className="flex justify-between text-xs">
                             <span className="text-gray-600">{s.storeName}</span>
                             <span className="text-gray-700 font-medium">
-                              {s.method === "pay_on_delivery" ? "Pay on arrival" : "Paid now"}
-                              {s.fee > 0 && ` · ${formatPrice(s.fee)}`}
+                              {!s.feeIsSet
+                                ? "Confirmed on delivery"
+                                : s.method === "pay_on_delivery" ? "Pay on arrival" : "Paid now"}
+                              {s.feeIsSet && s.fee > 0 && ` · ${formatPrice(s.fee)}`}
                             </span>
                           </div>
                         ))}
@@ -547,6 +558,22 @@ export default function OrderModal({
                         </p>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* A vendor hasn't priced delivery to this state at all --
+                    distinct from the known-amount pay-on-arrival box below.
+                    There's no number to show, so this box exists purely to
+                    stop the customer from assuming delivery is free here. */}
+                {deliveryBreakdown.unsetFeeStores.length > 0 && (
+                  <div className="flex items-start gap-2 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2.5 text-xs sm:text-sm text-amber-800">
+                    <Truck className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      {deliveryBreakdown.unsetFeeStores.length > 1
+                        ? "These vendors haven't set a delivery fee for your state yet."
+                        : `${deliveryBreakdown.unsetFeeStores[0].storeName} hasn't set a delivery fee for your state yet.`}{" "}
+                      Delivery isn't free — the fee will be confirmed with you and paid directly to the vendor/rider when your order arrives.
+                    </span>
                   </div>
                 )}
 

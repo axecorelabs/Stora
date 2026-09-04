@@ -7,7 +7,7 @@ import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseC
 import { findInventoryByIds, findActiveBatchesByInventoryIds, resolveBatchPricing } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveCampaignAttribution } from "@/lib/campaignAttribution";
-import { isValidNigerianState, computeStoreCheckoutAmount, estimatePaystackFee, normalizeExtraDefinitions, resolveExtrasSelection } from "@stora/shared-constants";
+import { isValidNigerianState, computeStoreCheckoutAmount, estimatePaystackFee, normalizeExtraDefinitions, resolveExtrasSelection, resolveDeliveryFee } from "@stora/shared-constants";
 
 const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
 // A flat 2% is too thin to be worth collecting on small orders (Paystack's
@@ -72,15 +72,19 @@ async function computePaymentSplit(order, storeGroupedItems, destinationState, a
   // subaccount later deactivated), so this falls back to pay_on_delivery
   // regardless of what's stored whenever readiness says otherwise.
   const deliveryByStoreId = new Map(
-    (stores || []).map(s => [
-      s.id,
-      {
-        fee: Number(s.delivery_fees?.[destinationState]) || 0,
-        method: (s.paystack_ready && s.fulfillment_method !== 'pay_on_delivery')
-          ? 'platform_collected'
-          : 'pay_on_delivery'
-      }
-    ])
+    (stores || []).map(s => {
+      const { amount, isSet } = resolveDeliveryFee(s.delivery_fees, destinationState);
+      return [
+        s.id,
+        {
+          fee: amount,
+          feeIsSet: isSet,
+          method: (s.paystack_ready && s.fulfillment_method !== 'pay_on_delivery')
+            ? 'platform_collected'
+            : 'pay_on_delivery'
+        }
+      ];
+    })
   );
 
   const payableStoreIds = storeIds.filter(id => readyStoreIds.has(id));
@@ -123,7 +127,7 @@ async function computePaymentSplit(order, storeGroupedItems, destinationState, a
     // in both directions -- exactly the correct refundable ceiling in both
     // modes too, which is why the refund route needs no changes for this
     // feature.
-    const { fee: deliveryFee, method: fulfillmentMethod } = deliveryByStoreId.get(storeId);
+    const { fee: deliveryFee, feeIsSet: deliveryFeeIsSet, method: fulfillmentMethod } = deliveryByStoreId.get(storeId);
     // resolveCampaignAttribution already re-checks live (not trusted from
     // attribution-creation time) that the store is still is_partner AND
     // has a currently-accepted contract -- see that file's own comment.
@@ -163,6 +167,14 @@ async function computePaymentSplit(order, storeGroupedItems, destinationState, a
       // "customer owes you on delivery" display even when it never entered
       // customer_amount/net_amount_to_vendor above (pay_on_delivery).
       delivery_fee_amount: deliveryFee,
+      // false means the vendor never configured a fee for destinationState
+      // at all (see resolveDeliveryFee) -- distinct from a genuine ₦0. Without
+      // this, delivery_fee_amount: 0 is indistinguishable from "vendor
+      // deliberately offers free delivery here", so nothing downstream (this
+      // order's own confirmation, the vendor's order view) could ever tell
+      // the customer their delivery fee is still to be worked out with the
+      // vendor rather than free.
+      delivery_fee_is_set: deliveryFeeIsSet,
       fulfillment_method: fulfillmentMethod,
       is_partner_attributed: !!contract,
       campaign_attribution_id: contract ? attribution.id : null,
@@ -611,7 +623,7 @@ export async function POST(request) {
             ? 'platform_collected'
             : 'pay_on_delivery';
           if (effectiveMethod !== 'platform_collected') return sum;
-          return sum + (Number(store.delivery_fees?.[shippingAddress.state]) || 0);
+          return sum + resolveDeliveryFee(store.delivery_fees, shippingAddress.state).amount;
         }, 0)
       : 0;
 

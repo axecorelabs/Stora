@@ -175,7 +175,7 @@ export async function GET(req) {
         supabaseAdmin.from('order_customers').select('*').in('order_id', orderIds),
         supabaseAdmin.from('order_addresses').select('*').in('order_id', orderIds),
         supabaseAdmin.from('order_payments').select('*').in('order_id', orderIds),
-        supabaseAdmin.from('order_payment_splits').select('order_id, delivery_fee_amount, fulfillment_method').eq('store_id', store.id).in('order_id', orderIds)
+        supabaseAdmin.from('order_payment_splits').select('order_id, delivery_fee_amount, delivery_fee_is_set, fulfillment_method').eq('store_id', store.id).in('order_id', orderIds)
       ]);
       (orderCustomers || []).forEach(c => { orderCustomerMap[c.order_id] = c; });
       (orderAddresses || []).forEach(a => {
@@ -291,6 +291,10 @@ export async function GET(req) {
         // on arrival -- never part of the Paystack settlement, so it's
         // deliberately not folded into shippingFee/totalAmount above.
         payOnDeliveryFee: vendorSplit?.fulfillment_method === 'pay_on_delivery' ? (Number(vendorSplit?.delivery_fee_amount) || 0) : 0,
+        // false means this store hadn't priced delivery to the customer's
+        // state at checkout time -- see the matching comment in
+        // apps/dashboard/src/app/api/orders/[id]/route.js.
+        deliveryFeeIsSet: vendorSplit ? vendorSplit.delivery_fee_is_set !== false : true,
         discount: isMultiVendor ? 0 : (order.discount || 0),
         tax: isMultiVendor ? 0 : (order.tax || 0),
         totalAmount: isMultiVendor ? vendorItemsSubtotal : order.total_amount,

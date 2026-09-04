@@ -10,6 +10,28 @@
 // that rarer shortfall is absorbed by the vendor's settlement share (see
 // bearer_type: 'subaccount' in apps/store/src/app/api/payments/initiate/route.js),
 // not silently mischarged to anyone.
+// Distinguishes "vendor hasn't configured a fee for this state" (missing/
+// undefined/blank key) from "vendor configured it as zero, i.e. genuinely
+// free delivery" (key present, value 0) -- the ubiquitous
+// `Number(fees?.[state]) || 0` pattern collapses both into the same ₦0,
+// which silently tells a customer delivery is free when really the vendor
+// just never got around to pricing that state. Every fee lookup should go
+// through this instead of reaching into the fees object directly.
+export function resolveDeliveryFee(deliveryFees, state) {
+  if (!state || !deliveryFees || typeof deliveryFees !== 'object') {
+    return { amount: 0, isSet: false };
+  }
+  const raw = deliveryFees[state];
+  if (raw === undefined || raw === null || raw === '') {
+    return { amount: 0, isSet: false };
+  }
+  const amount = Number(raw);
+  if (!Number.isFinite(amount) || amount < 0) {
+    return { amount: 0, isSet: false };
+  }
+  return { amount, isSet: true };
+}
+
 export const PAYSTACK_LOCAL_FEE_RATE = 0.015;
 export const PAYSTACK_LOCAL_FEE_FLAT = 100;
 export const PAYSTACK_LOCAL_FEE_FLAT_WAIVER_THRESHOLD = 2500;

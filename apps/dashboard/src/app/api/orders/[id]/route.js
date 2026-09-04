@@ -74,7 +74,7 @@ export async function GET(req, { params }) {
       // a cash_to_vendor order or a contact-only (no subaccount) store --
       // both already off the structured-payment path entirely, so the
       // 0/'platform_collected' fallbacks below are correct, not a gap.
-      supabaseAdmin.from('order_payment_splits').select('id, delivery_fee_amount, fulfillment_method, net_amount_to_vendor, platform_commission_amount, status, refunded_amount').eq('order_id', id).eq('store_id', store.id).maybeSingle()
+      supabaseAdmin.from('order_payment_splits').select('id, delivery_fee_amount, delivery_fee_is_set, fulfillment_method, net_amount_to_vendor, platform_commission_amount, status, refunded_amount').eq('order_id', id).eq('store_id', store.id).maybeSingle()
     ]);
 
     const shippingAddr = (addresses || []).find(a => a.address_type === 'shipping') || {};
@@ -157,6 +157,12 @@ export async function GET(req, { params }) {
         // on arrival -- never part of the Paystack settlement, so it's
         // deliberately not folded into shippingFee/totalAmount above.
         payOnDeliveryFee: split?.fulfillment_method === 'pay_on_delivery' ? (Number(split?.delivery_fee_amount) || 0) : 0,
+        // false means this store hadn't priced delivery to the customer's
+        // state at checkout time -- a ₦0 shippingFee/payOnDeliveryFee above
+        // is ambiguous between "genuinely free" and "never configured";
+        // this disambiguates so the dashboard can tell the vendor to
+        // arrange the fee directly rather than implying none is owed.
+        deliveryFeeIsSet: split ? split.delivery_fee_is_set !== false : true,
         // This vendor's own payment_splits row, for the Refund modal --
         // absent for a cash_to_vendor order or a contact-only store (no
         // structured payment exists to refund).

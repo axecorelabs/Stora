@@ -603,6 +603,22 @@ export default function OrderDetailsContent({
                       </div>
                     )}
 
+                    {/* order.deliveryFeeIsSet === false means you hadn't
+                        priced delivery to this state at checkout -- the
+                        customer was told delivery isn't free and to expect
+                        this, but there's no number on record to show here,
+                        so this is a reminder to agree one with them directly
+                        rather than a silent ₦0. */}
+                    {order.deliveryFeeIsSet === false && (
+                      <div className="flex items-center justify-between text-sm rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 mt-1">
+                        <span className="flex items-center gap-1.5 text-amber-800">
+                          <Truck className="w-3.5 h-3.5 flex-shrink-0" />
+                          No delivery fee set for {order.shippingAddress?.state || 'this state'}
+                        </span>
+                        <span className="text-amber-800 font-medium text-xs">Agree a fee with the customer</span>
+                      </div>
+                    )}
+
                     {order.discount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Discount</span>
