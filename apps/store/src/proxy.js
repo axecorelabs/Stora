@@ -217,7 +217,19 @@ const BITERAVE_DOMAIN = process.env.NEXT_PUBLIC_BITERAVE_DOMAIN || null;
 // /<slug>/product/<id>, /<slug>/cart, etc.) must pass through completely
 // untouched -- confirmed live this was rewritten to a nonexistent
 // /biterave/<slug>/product/<id> and 404'd before this fix.
+// Real top-level pages of this same app -- not a vendor slug, not a
+// Biterave-specific route (no apps/store/src/app/biterave/terms/page.js
+// or similar exists). Indistinguishable from a one-segment restaurant
+// slug by shape alone (isBiteraveShapedPath's own comment covers this
+// ambiguity for the general case), so listed explicitly rather than
+// relying on segment-counting to get it right. Confirmed live: linking
+// to /terms from SiteFooter.js's brand="biterave" footer 404'd on
+// biterave.stora.com.ng before this, since it rewrote to the nonexistent
+// /biterave/terms and fell through to the [storeSlug] catch-all instead.
+const BITERAVE_HOST_RESERVED_PATHS = new Set(['/terms', '/privacy', '/refund-policy', '/delivery-policy']);
+
 function isBiteraveShapedPath(pathname) {
+  if (BITERAVE_HOST_RESERVED_PATHS.has(pathname)) return false;
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length <= 1) return true;
   return segments.length === 2 && segments[0] === 'groceries' && segments[1] === 'vendors';

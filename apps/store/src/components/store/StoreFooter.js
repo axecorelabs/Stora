@@ -447,6 +447,16 @@ export default function StoreFooter() {
                   Stora
                 </a>
               </p>
+              {/* Absolute apex links, same reasoning as "Powered by Stora"
+                  above -- this footer renders on a vendor's own subdomain,
+                  and /terms etc. only exist on the main app, not under
+                  every vendor host. */}
+              <div className="flex items-center justify-center sm:justify-start gap-3 mt-2">
+                <a href="https://stora.com.ng/terms" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</a>
+                <a href="https://stora.com.ng/privacy" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy</a>
+                <a href="https://stora.com.ng/refund-policy" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Refunds</a>
+                <a href="https://stora.com.ng/delivery-policy" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Delivery</a>
+              </div>
             </div>
 
             {/* Scroll to Top Button */}

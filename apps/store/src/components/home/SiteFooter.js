@@ -130,6 +130,12 @@ export default function SiteFooter({ brand = "stora" }) {
           <p className="text-xs text-white/40">
             © {new Date().getFullYear()} {isBiterave ? "Biterave" : "Stora"}. All rights reserved.
           </p>
+          <div className="flex items-center gap-4">
+            <Link href="/terms" className="text-xs text-white/40 hover:text-white/70 transition-colors">Terms</Link>
+            <Link href="/privacy" className="text-xs text-white/40 hover:text-white/70 transition-colors">Privacy</Link>
+            <Link href="/refund-policy" className="text-xs text-white/40 hover:text-white/70 transition-colors">Refunds</Link>
+            <Link href="/delivery-policy" className="text-xs text-white/40 hover:text-white/70 transition-colors">Delivery</Link>
+          </div>
           <p className="text-xs text-white/40">Made for Nigerian vendors and the people who shop with them.</p>
         </div>
       </div>
