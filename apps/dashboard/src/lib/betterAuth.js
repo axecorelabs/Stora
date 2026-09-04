@@ -62,6 +62,21 @@ async function createTrialSubscription(userId) {
   );
 }
 
+// Fail-safe default, not an opt-in flag: flags EVERY new account as
+// needing legal review the moment it's created, regardless of how. Google
+// OAuth sign-up has no checkbox to log consent from, which is exactly the
+// gap this exists to close -- the two paths that actually capture consent
+// (email/password's own recordLegalAcceptance() call, and the
+// review-and-accept interstitial after Google) are each responsible for
+// clearing this back to NULL. A future signup path nobody wires that
+// into fails closed (stays gated) instead of silently exempt.
+async function flagPendingLegalReview(userId) {
+  await pool.query(
+    `UPDATE users SET legal_review_pending_at = NOW() WHERE id = $1`,
+    [userId]
+  );
+}
+
 // Fires for every new session row -- password sign-in, Google sign-in, and
 // the auto-login right after email verification all create one the same
 // way, so one hook covers every login path instead of duplicating the send
@@ -98,6 +113,11 @@ export const auth = betterAuth({
             await createTrialSubscription(user.id);
           } catch (error) {
             console.error('Failed to create trial subscription for new user:', error);
+          }
+          try {
+            await flagPendingLegalReview(user.id);
+          } catch (error) {
+            console.error('Failed to flag pending legal review for new user:', error);
           }
         }
       }

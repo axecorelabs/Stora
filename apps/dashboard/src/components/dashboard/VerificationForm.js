@@ -203,7 +203,16 @@ export default function VerificationForm({ onVerified }) {
               />
               <span className="text-sm text-gray-700">
                 I consent to Stora sharing my NIN and selfie with QoreID, our identity verification
-                provider, solely to confirm my identity. My NIN is not stored by Stora.
+                provider, solely to confirm my identity. My NIN is not stored by Stora. See our{" "}
+                <a
+                  href="/vendor-kyc-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-700 underline hover:text-brand-800"
+                >
+                  Vendor KYC &amp; Verification Policy
+                </a>{" "}
+                for details.
               </span>
             </label>
             {errors.consent && <p className="text-red-500 text-xs mt-1">{errors.consent}</p>}

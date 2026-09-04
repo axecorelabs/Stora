@@ -49,10 +49,21 @@ export async function GET(req) {
   const origin = onVendorSubdomain ? `https://${host}` : '';
   const callbackURL = `${origin}${safeReturnTo}`;
 
+  // Better Auth's own new-vs-existing-user distinction (isRegister, set
+  // when this call actually inserts a new customers row rather than
+  // linking an existing one by matching provider/email) -- a brand-new
+  // Google signup lands here instead of callbackURL, an existing
+  // customer's Google sign-in doesn't. This is what the review-and-accept
+  // interstitial (databaseHooks.user.create.after flags every new row as
+  // legal_review_pending_at, this route sends the ones that need to clear
+  // it to the one place that can) hooks off of.
+  const newUserCallbackURL = `${origin}/auth/review-and-accept?returnTo=${encodeURIComponent(safeReturnTo)}`;
+
   const result = await auth.api.signInSocial({
     body: {
       provider: "google",
       callbackURL,
+      newUserCallbackURL,
       errorCallbackURL: `${origin}/?authError=google_failed`
     },
     asResponse: true

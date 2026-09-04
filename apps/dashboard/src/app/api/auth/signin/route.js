@@ -95,6 +95,7 @@ export async function POST(req) {
         role: user.role,
         isActive: user.is_active,
         onboardingCompletedAt: user.onboarding_completed_at,
+        legalReviewPendingAt: user.legal_review_pending_at,
         createdAt: user.created_at,
         updatedAt: user.updated_at,
         lastLogin: user.last_login

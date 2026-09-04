@@ -38,13 +38,26 @@ export default function DashboardLayout({ children, title, subtitle }) {
     }
   }, [isAuthenticated, loading, router]);
 
+  // Catches every path INTO the dashboard for an account that still has
+  // legalReviewPendingAt set (databaseHooks.user.create.after in
+  // betterAuth.js flags every new vendor; only email/password signup and
+  // the review-and-accept interstitial itself clear it) -- this is what a
+  // Google sign-up lands as, since there's no Terms/Privacy checkbox on
+  // that path. Checked before the onboarding gate below: a vendor should
+  // agree to the Terms before the store-creation wizard, not after.
+  useEffect(() => {
+    if (!loading && isAuthenticated && user && user.legalReviewPendingAt) {
+      router.push('/auth/review-and-accept');
+    }
+  }, [isAuthenticated, loading, user, router]);
+
   // The two onboarding hard-blockers (legal name + store creation) aren't
   // done yet -- every dashboard page routes through this layout, so this
   // is the one place that needs to catch it, rather than each sign-in/
   // sign-up entry point redirecting conditionally. The wizard page itself
   // isn't wrapped in DashboardLayout, so there's no redirect loop here.
   useEffect(() => {
-    if (!loading && isAuthenticated && user && !user.onboardingCompletedAt) {
+    if (!loading && isAuthenticated && user && !user.legalReviewPendingAt && !user.onboardingCompletedAt) {
       router.push('/dashboard/onboarding');
     }
   }, [isAuthenticated, loading, user, router]);
@@ -69,10 +82,11 @@ export default function DashboardLayout({ children, title, subtitle }) {
     );
   }
 
-  // Redirect if not authenticated, or if onboarding isn't complete yet --
-  // both cases render nothing while the effects above navigate away, to
-  // avoid a flash of dashboard content first.
-  if (!isAuthenticated || (user && !user.onboardingCompletedAt)) {
+  // Redirect if not authenticated, if legal review is pending, or if
+  // onboarding isn't complete yet -- all three cases render nothing while
+  // the effects above navigate away, to avoid a flash of dashboard content
+  // first.
+  if (!isAuthenticated || (user && (user.legalReviewPendingAt || !user.onboardingCompletedAt))) {
     return null;
   }
 

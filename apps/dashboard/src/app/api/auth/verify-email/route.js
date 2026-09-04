@@ -57,6 +57,7 @@ export async function POST(req) {
         dateSubscribed: updatedUser.date_subscribed,
         currentSubscription: updatedUser.current_subscription_id,
         onboardingCompletedAt: updatedUser.onboarding_completed_at,
+        legalReviewPendingAt: updatedUser.legal_review_pending_at,
         createdAt: updatedUser.created_at,
         updatedAt: updatedUser.updated_at
       }

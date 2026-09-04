@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Eye, EyeOff, X, Mail, Phone } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -350,13 +351,13 @@ export default function SignUpModal({ isOpen, onClose, onSuccess, onSwitchToSign
                 />
                 <label className="ml-2 block text-sm text-gray-700">
                   I agree to the{" "}
-                  <a href="/terms" className="text-brand-700 hover:text-brand-800 underline">
+                  <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-700 hover:text-brand-800 underline">
                     Terms of Service
-                  </a>{" "}
+                  </Link>{" "}
                   and{" "}
-                  <a href="/privacy" className="text-brand-700 hover:text-brand-800 underline">
+                  <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-700 hover:text-brand-800 underline">
                     Privacy Policy
-                  </a>
+                  </Link>
                 </label>
               </div>
               {errors.agreeToTerms && <p className="text-red-500 text-xs mt-1">{errors.agreeToTerms}</p>}
@@ -395,7 +396,12 @@ export default function SignUpModal({ isOpen, onClose, onSuccess, onSwitchToSign
 
             <a
               href={googleStartUrl}
-              className="mt-4 flex items-center justify-center gap-3 w-full px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={(e) => { if (!formData.agreeToTerms) e.preventDefault(); }}
+              aria-disabled={!formData.agreeToTerms}
+              title={!formData.agreeToTerms ? "Check the box above agreeing to our Terms of Service and Privacy Policy first" : undefined}
+              className={`mt-4 flex items-center justify-center gap-3 w-full px-4 py-2.5 border border-gray-300 rounded-lg transition-colors ${
+                formData.agreeToTerms ? "hover:bg-gray-50" : "opacity-50 cursor-not-allowed"
+              }`}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path

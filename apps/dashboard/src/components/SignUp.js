@@ -286,7 +286,26 @@ export default function SignUp({ onToggleMode }) {
                   onChange={handleChange}
                   className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#0B3B2E] cursor-pointer"
                 />
-                I agree to the Terms of Service and Privacy Policy
+                <span>
+                  I agree to the{" "}
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#0B3B2E] underline hover:text-[#0B3B2E]/80"
+                  >
+                    Terms of Service
+                  </a>{" "}
+                  and{" "}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#0B3B2E] underline hover:text-[#0B3B2E]/80"
+                  >
+                    Privacy Policy
+                  </a>
+                </span>
               </label>
               {errors.agreeToTerms && (
                 <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.agreeToTerms}</p>
@@ -336,7 +355,12 @@ export default function SignUp({ onToggleMode }) {
 
           <a
             href="/api/auth/google/start"
-            className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 text-[15px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            onClick={(e) => { if (!formData.agreeToTerms) e.preventDefault(); }}
+            aria-disabled={!formData.agreeToTerms}
+            title={!formData.agreeToTerms ? "Check the box above agreeing to our Terms of Service and Privacy Policy first" : undefined}
+            className={`w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 text-[15px] font-medium text-gray-700 transition-colors ${
+              formData.agreeToTerms ? "hover:bg-gray-50" : "opacity-50 cursor-not-allowed"
+            }`}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 01-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82z" />

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { verificationLimiter } from '@/lib/redis';
 import { verifyNIN, verifyNINFaceMatch } from '@/lib/qoreid';
+import { recordLegalAcceptance } from '@/lib/legalAcceptance';
 
 const NIN_REGEX = /^\d{11}$/;
 
@@ -84,6 +85,21 @@ export async function POST(req) {
         { status: 400 }
       );
     }
+
+    // Consent to share the NIN/selfie with QoreID is a separate fact from
+    // whether the verification itself later succeeds -- this happens as
+    // soon as the checkbox clears validation, alongside the existing
+    // vendor_verifications.consent_given_at column (that one's scoped to
+    // this specific attempt row; this is the same event in the
+    // cross-document audit trail every other acceptance goes through).
+    await recordLegalAcceptance({
+      actorType: 'vendor_user',
+      actorId: user.id,
+      documents: ['vendor_kyc_policy'],
+      context: 'kyc_verification',
+      request: req
+    });
+
     if (!idNumber || !NIN_REGEX.test(idNumber)) {
       return NextResponse.json({ success: false, message: 'Enter a valid 11-digit NIN' }, { status: 400 });
     }

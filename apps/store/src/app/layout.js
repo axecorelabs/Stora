@@ -5,6 +5,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { DeliveryStateProvider } from "@/contexts/DeliveryStateContext";
 import QueryProvider from "@/providers/QueryProvider";
 import GoogleAuthErrorBanner from "@/components/auth/GoogleAuthErrorBanner";
+import LegalReviewGate from "@/components/auth/LegalReviewGate";
 import NavigationLoadingOverlay from "@/components/ui/NavigationLoadingOverlay";
 import Head from "next/head";
 
@@ -99,6 +100,7 @@ export default function RootLayout({ children }) {
             <DeliveryStateProvider>
               <CartProvider>
                 <GoogleAuthErrorBanner />
+                <LegalReviewGate />
                 <NavigationLoadingOverlay />
                 {children}
               </CartProvider>
