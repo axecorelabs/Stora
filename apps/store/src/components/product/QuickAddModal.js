@@ -34,7 +34,7 @@ function resizeUnitConfigs(prev, newLength, sameForAll) {
 // logic ProductDetailsClient.js already has, rather than inventing a
 // second way to do the same thing, fixes the broken link by removing the
 // navigation it needed in the first place.
-export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, primaryColor = '#0D9488', currency = 'NGN' }) {
+export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, primaryColor = '#0D9488' }) {
   const [quantity, setQuantity] = useState(1);
   const [unitConfigs, setUnitConfigs] = useState([{ extras: {}, note: '' }]);
   const [sameForAll, setSameForAll] = useState(true);
@@ -50,10 +50,7 @@ export default function QuickAddModal({ isOpen, onClose, product, onAddToCart, p
   const extrasDefinitions = normalizeExtraDefinitions(product.categoryDetails?.food?.extras);
   const maxQuantity = product.availableQuantity || 0;
 
-  const formatPrice = (price) => {
-    if (currency === 'NGN') return `₦${price?.toLocaleString()}`;
-    return `$${price?.toLocaleString()}`;
-  };
+  const formatPrice = (price) => `₦${price?.toLocaleString()}`;
 
   const handleQuantityChange = (newQuantity) => {
     if (newQuantity < 1) return;

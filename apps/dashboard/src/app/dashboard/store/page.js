@@ -62,14 +62,6 @@ export default function StorePage() {
   // Nigerian states for dropdown
   const nigerianStates = [{ value: '', label: 'Select State' }, ...NIGERIAN_STATES];
 
-  // Currency options
-  const currencyOptions = [
-    { value: 'NGN', label: 'Nigerian Naira (₦)' },
-    { value: 'USD', label: 'US Dollar ($)' },
-    { value: 'EUR', label: 'Euro (€)' },
-    { value: 'GBP', label: 'British Pound (£)' }
-  ];
-
   // Fetch store information
   const fetchStore = async () => {
     try {
@@ -547,7 +539,6 @@ export default function StorePage() {
               isEditing={isEditing}
               editData={editData}
               handleChange={handleChange}
-              currencyOptions={currencyOptions}
               onRestaurantModeChange={handleRestaurantModeChange}
               isUpdatingRestaurantMode={isUpdatingRestaurantMode}
             />

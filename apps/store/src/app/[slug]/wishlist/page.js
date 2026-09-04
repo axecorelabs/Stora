@@ -71,7 +71,6 @@ export default function StoreWishlistPage({ params }) {
   // Store colors with fallbacks
   const primaryColor = currentStore?.branding?.primaryColor || '#0D9488';
   const secondaryColor = currentStore?.branding?.secondaryColor || '#F3F4F6';
-  const currency = currentStore?.settings?.currency || 'NGN';
 
   const fetchWishlist = async () => {
     try {
@@ -122,12 +121,7 @@ export default function StoreWishlistPage({ params }) {
     [storeItems]
   );
 
-  const formatPrice = (price) => {
-    if (currency === 'NGN') {
-      return `₦${price?.toLocaleString()}`;
-    }
-    return `$${price?.toLocaleString()}`;
-  };
+  const formatPrice = (price) => `₦${price?.toLocaleString()}`;
 
   const handleAddToCart = async (item) => {
     if (!isAuthenticated) return;

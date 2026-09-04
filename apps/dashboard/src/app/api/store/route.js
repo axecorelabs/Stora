@@ -134,10 +134,14 @@ export async function POST(req) {
         online_store_info: storeData.onlineStoreInfo || {},
         branding: storeData.branding || {},
         business_hours: storeData.businessHours || {},
-        settings: storeData.settings || {
-          currency: 'NGN',
+        // Currency is always NGN -- Paystack only ever charges NGN
+        // regardless of this setting, so it's forced server-side rather
+        // than trusted from the client.
+        settings: {
           timezone: 'Africa/Lagos',
-          allowOnlineOrders: true
+          allowOnlineOrders: true,
+          ...(storeData.settings || {}),
+          currency: 'NGN'
         },
         bank_details: storeData.bankDetails || {},
         is_active: true,
@@ -205,7 +209,10 @@ export async function PUT(req) {
     if (updateData.onlineStoreInfo) dbUpdate.online_store_info = updateData.onlineStoreInfo;
     if (updateData.branding) dbUpdate.branding = updateData.branding;
     if (updateData.businessHours) dbUpdate.business_hours = updateData.businessHours;
-    if (updateData.settings) dbUpdate.settings = updateData.settings;
+    // Currency is always NGN -- Paystack only ever charges NGN regardless
+    // of this setting, so it's forced server-side rather than trusted
+    // from the client.
+    if (updateData.settings) dbUpdate.settings = { ...updateData.settings, currency: 'NGN' };
     if (updateData.bankDetails) dbUpdate.bank_details = updateData.bankDetails;
     
     dbUpdate.updated_at = new Date().toISOString();

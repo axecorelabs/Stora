@@ -1115,7 +1115,6 @@ export default function StoreWebsite({ store }) {
                       product={product}
                       primaryColor={primaryColor || "#0D9488"} // Ensure fallback
                       secondaryColor={secondaryColor || "#F3F4F6"} // Ensure fallback
-                      currency={store.settings?.currency || "NGN"}
                       onNavigate={() => setIsNavigating(true)}
                       onSignInRequired={() => setShowSignInModal(true)}
                     />
@@ -1125,7 +1124,6 @@ export default function StoreWebsite({ store }) {
                       product={product}
                       primaryColor={primaryColor}
                       secondaryColor={secondaryColor}
-                      currency={store.settings?.currency || "NGN"}
                       onNavigate={() => setIsNavigating(true)}
                       onSignInRequired={() => setShowSignInModal(true)}
                     />

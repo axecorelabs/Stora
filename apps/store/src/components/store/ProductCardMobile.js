@@ -10,7 +10,7 @@ import QuickAddModal from '@/components/product/QuickAddModal';
 import useStoreStore from '@/stores/storeStore';
 import { storeHref } from '@/lib/storeUrl';
 
-export default function ProductCardMobile({ product, primaryColor, currency, secondaryColor, onNavigate, onSignInRequired }) {
+export default function ProductCardMobile({ product, primaryColor, secondaryColor, onNavigate, onSignInRequired }) {
   const router = useRouter();
   const { currentStore } = useStoreStore();
   const { isAuthenticated } = useAuth();
@@ -25,12 +25,7 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
   const liked = useIsInWishlist(product.id);
   const { addToWishlist, removeFromWishlist } = useWishlistMutations();
 
-  const formatPrice = (price) => {
-    if (currency === 'NGN') {
-      return `₦${price?.toLocaleString()}`;
-    }
-    return `$${price?.toLocaleString()}`;
-  };
+  const formatPrice = (price) => `₦${price?.toLocaleString()}`;
 
   const handleProductClick = () => {
     if (onNavigate) onNavigate();
@@ -248,7 +243,6 @@ export default function ProductCardMobile({ product, primaryColor, currency, sec
       product={product}
       onAddToCart={addToCart}
       primaryColor={primaryColor}
-      currency={currency}
     />
     </>
   );

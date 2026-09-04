@@ -241,10 +241,7 @@ export default function ProductsPageClient({ store, products: initialProducts, s
       .map(name => ({ name, products: groups[name] }));
   }, [store.restaurantMode, displayProducts]);
 
-  const formatPrice = (price) => {
-    const currency = store.settings?.currency || 'NGN';
-    return currency === 'NGN' ? `₦${price?.toLocaleString()}` : `$${price?.toLocaleString()}`;
-  };
+  const formatPrice = (price) => `₦${price?.toLocaleString()}`;
 
   // Update URL when category changes
   const handleCategoryChange = (category) => {
@@ -461,7 +458,6 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                         product={product}
                         primaryColor={primaryColor}
                         secondaryColor={secondaryColor}
-                        currency={store.settings?.currency || "NGN"}
                         onNavigate={() => setIsNavigating(true)}
                         onSignInRequired={() => setShowSignInModal(true)}
                       />
@@ -471,7 +467,6 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                         product={product}
                         primaryColor={primaryColor}
                         secondaryColor={secondaryColor}
-                        currency={store.settings?.currency || "NGN"}
                         onNavigate={() => setIsNavigating(true)}
                         onSignInRequired={() => setShowSignInModal(true)}
                       />
@@ -498,7 +493,6 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                   product={product}
                   primaryColor={primaryColor}
                   secondaryColor={secondaryColor}
-                  currency={store.settings?.currency || "NGN"}
                   onNavigate={() => setIsNavigating(true)}
                   onSignInRequired={() => setShowSignInModal(true)}
                 />
@@ -508,7 +502,6 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                   product={product}
                   primaryColor={primaryColor}
                   secondaryColor={secondaryColor}
-                  currency={store.settings?.currency || "NGN"}
                   onNavigate={() => setIsNavigating(true)}
                   onSignInRequired={() => setShowSignInModal(true)}
                 />

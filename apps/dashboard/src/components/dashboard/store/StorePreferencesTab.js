@@ -1,9 +1,8 @@
 "use client";
 import { Settings, DollarSign, Loader2 } from "lucide-react";
 import SectionHeader from "@/components/ui/SectionHeader";
-import CustomDropdown from "@/components/ui/CustomDropdown";
 
-export default function StorePreferencesTab({ store, isEditing, editData, handleChange, currencyOptions, onRestaurantModeChange, isUpdatingRestaurantMode }) {
+export default function StorePreferencesTab({ store, isEditing, editData, handleChange, onRestaurantModeChange, isUpdatingRestaurantMode }) {
   return (
     <div className="bg-white rounded-2xl p-6 border border-gray-100">
       <SectionHeader icon={Settings} title="Store Preferences" tone="gold" />
@@ -12,19 +11,12 @@ export default function StorePreferencesTab({ store, isEditing, editData, handle
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
-            {isEditing ? (
-              <CustomDropdown
-                options={currencyOptions}
-                value={editData.settings.currency}
-                onChange={(value) => handleChange({ target: { name: 'settings.currency', value } })}
-                placeholder="Select currency"
-              />
-            ) : (
-              <div className="flex items-center py-3">
-                <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
-                <span className="text-gray-900">{currencyOptions.find(opt => opt.value === store.settings.currency)?.label || store.settings.currency}</span>
-              </div>
-            )}
+            {/* All payments settle in NGN through Paystack, so this isn't a real
+                choice -- shown as a fixed fact, not an editable preference. */}
+            <div className="flex items-center py-3">
+              <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
+              <span className="text-gray-900">Nigerian Naira (₦)</span>
+            </div>
           </div>
 
           <div>

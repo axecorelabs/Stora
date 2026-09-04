@@ -78,7 +78,7 @@ export async function generateMetadata({ params }) {
       },
       other: {
         'product:price:amount': currentPrice?.toString(),
-        'product:price:currency': store.settings?.currency || 'NGN',
+        'product:price:currency': 'NGN',
         'product:availability': totalAvailableQuantity > 0 ? 'in stock' : 'out of stock',
         'product:category': product.category,
         'product:brand': product.brand || store.storeName,

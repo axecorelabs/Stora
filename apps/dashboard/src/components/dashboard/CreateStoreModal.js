@@ -142,14 +142,6 @@ export default function CreateStoreModal({ isOpen, onStoreCreated, embedded = fa
     { value: 'online', label: 'Online Store Only' }
   ];
 
-  // Currency options
-  const currencyOptions = [
-    { value: 'NGN', label: 'Nigerian Naira (₦)' },
-    { value: 'USD', label: 'US Dollar ($)' },
-    { value: 'EUR', label: 'Euro (€)' },
-    { value: 'GBP', label: 'British Pound (£)' }
-  ];
-
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -597,12 +589,11 @@ export default function CreateStoreModal({ isOpen, onStoreCreated, embedded = fa
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Currency
                     </label>
-                    <CustomDropdown
-                      options={currencyOptions}
-                      value={formData.settings.currency}
-                      onChange={(value) => handleChange({ target: { name: 'settings.currency', value } })}
-                      placeholder="Select currency"
-                    />
+                    {/* All payments settle in NGN through Paystack -- not a real
+                        choice, so shown as a fixed fact rather than a dropdown. */}
+                    <div className="flex items-center h-[46px] px-4 border border-gray-200 rounded-xl text-gray-700 bg-gray-50">
+                      Nigerian Naira (₦)
+                    </div>
                   </div>
 
                   <div>

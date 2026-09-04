@@ -118,7 +118,6 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
   const primaryColor = store?.branding?.primaryColor || '#0D9488';
   const secondaryColor = store?.branding?.secondaryColor || '#F3F4F6';
-  const currency = store?.settings?.currency || 'NGN';
 
   // Get images array (prefer images array over single image)
   const productImages = initialProduct.images && initialProduct.images.length > 0
@@ -211,12 +210,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
     checkWishlistStatus();
   }, [isAuthenticated, initialProduct?.id]);
 
-  const formatPrice = (price) => {
-    if (currency === 'NGN') {
-      return `₦${price?.toLocaleString()}`;
-    }
-    return `$${price?.toLocaleString()}`;
-  };
+  const formatPrice = (price) => `₦${price?.toLocaleString()}`;
 
   // Image navigation (independent of color selection)
   const handlePrevImage = () => {

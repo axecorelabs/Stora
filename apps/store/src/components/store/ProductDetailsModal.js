@@ -5,11 +5,10 @@ import { X, Plus, Minus, ShoppingCart, Heart, MapPin, Tag, Package } from "lucid
 export default function ProductDetailsModal({ 
   isOpen, 
   onClose, 
-  product, 
+  product,
   primaryColor,
   secondaryColor,
-  currency,
-  onAddToCart 
+  onAddToCart
 }) {
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
@@ -21,12 +20,7 @@ export default function ProductDetailsModal({
   const isOutOfStock = maxQuantity === 0;
   const isLowStock = maxQuantity > 0 && maxQuantity <= product.reorderLevel;
 
-  const formatPrice = (price) => {
-    if (currency === 'NGN') {
-      return `₦${price?.toLocaleString()}`;
-    }
-    return `$${price?.toLocaleString()}`;
-  };
+  const formatPrice = (price) => `₦${price?.toLocaleString()}`;
 
   const handleQuantityChange = (newQuantity) => {
     if (newQuantity < 1) return;
