@@ -30,10 +30,11 @@ export default function Home() {
       <section className="relative bg-white pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <AIHeroSearch />
 
-        {/* Wavy bottom edge, not a straight cut -- same technique as
-            Biterave's own hero (apps/store/src/app/biterave/page.js), just
-            colored to match the dark trust badges band right below instead
-            of the white section that used to follow directly. */}
+        {/* Curved bottom edge, not a straight cut -- a single smooth arc,
+            not an undulating multi-crest wave (that read as busier than
+            intended) -- colored to match the dark trust badges band right
+            below instead of the white section that used to follow
+            directly. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
@@ -42,7 +43,7 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,40 C240,90 480,0 720,40 C960,80 1200,10 1440,50 L1440,100 L0,100 Z"
+            d="M0,60 Q720,0 1440,60 L1440,100 L0,100 Z"
           />
         </svg>
       </section>
@@ -75,9 +76,10 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Bottom wave -- white, matching "Discover vendors" right below
-            (inherits the page wrapper's own bg-white). block, not
-            absolute -- see the comment above for why. */}
+        {/* Bottom curve -- same single-arc shape as the hero's own curve
+            above, white to match "Discover vendors" right below (inherits
+            the page wrapper's own bg-white). block, not absolute -- see
+            the comment above the badges for why. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
@@ -86,7 +88,7 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,40 C240,90 480,0 720,40 C960,80 1200,10 1440,50 L1440,100 L0,100 Z"
+            d="M0,60 Q720,0 1440,60 L1440,100 L0,100 Z"
           />
         </svg>
       </section>
