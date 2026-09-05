@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ShieldCheck, Award, Headphones } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import AIHeroSearch from "@/components/home/AIHeroSearch";
@@ -9,31 +9,32 @@ import CategoryDiscovery from "@/components/home/CategoryDiscovery";
 import DiscoverySection from "@/components/home/DiscoverySection";
 import CampaignsShowcase from "@/components/home/CampaignsShowcase";
 
+const TRUST_BADGES = [
+  { icon: ShieldCheck, title: "Trusted vendors", subtitle: "Verified & reliable" },
+  { icon: Award, title: "Quality assured", subtitle: "Only the best" },
+  { icon: Headphones, title: "We're here", subtitle: "24/7 support" }
+];
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       <SiteHeader />
 
-      {/* Hero -- min-h-[80vh] only below sm: an AI-first hero (headline,
-          search, quick options, template row) is naturally taller content
-          than the old plain-search version, and on a small screen it's
-          worth the extra room to breathe as a real "first screen" rather
-          than immediately running into the section below. Desktop has
-          enough width that the same content never gets close to needing
-          it, so it's left to size to its own content there instead of
-          forcing a tall, sparse-looking section. */}
-      <section className="relative bg-brand-800 pt-14 pb-20 sm:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden min-h-[80vh] sm:min-h-0 flex flex-col justify-center">
+      {/* Hero -- light, content-sized rather than forced to a tall viewport
+          fraction: white background (dark green now belongs to the trust
+          badges band right below, not the hero itself) keeps this reading
+          as a clean "first screen" that doesn't overstay its content. */}
+      <section className="relative bg-white pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <AIHeroSearch />
 
-        {/* Wavy bottom edge, not a straight cut -- same treatment as
-            Biterave's hero (apps/store/src/app/biterave/page.js). White
-            matches this page's own bg-white (set on the outer wrapper,
-            inherited by the "Discover vendors" section right below), so
-            the curve is what actually reads as the section boundary. */}
+        {/* Wavy bottom edge, not a straight cut -- same technique as
+            Biterave's own hero (apps/store/src/app/biterave/page.js), just
+            colored to match the dark trust badges band right below instead
+            of the white section that used to follow directly. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
-          className="absolute bottom-0 left-0 w-full h-10 sm:h-16 text-white"
+          className="absolute bottom-0 left-0 w-full h-10 sm:h-16 text-brand-800"
           aria-hidden="true"
         >
           <path
@@ -41,6 +42,21 @@ export default function Home() {
             d="M0,40 C240,90 480,0 720,40 C960,80 1200,10 1440,50 L1440,100 L0,100 Z"
           />
         </svg>
+      </section>
+
+      {/* Trust badges -- the hero's old dark-green real estate, now a
+          focused trio of reassurances instead of stretching the whole
+          hero dark. */}
+      <section className="bg-brand-800 pt-8 pb-10 sm:pt-10 sm:pb-14 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto grid grid-cols-3 gap-4 sm:gap-8 text-center">
+          {TRUST_BADGES.map(({ icon: Icon, title, subtitle }) => (
+            <div key={title} className="flex flex-col items-center">
+              <Icon className="w-7 h-7 sm:w-8 sm:h-8 text-gold-400 mb-2" strokeWidth={1.5} />
+              <p className="text-white text-sm sm:text-base font-semibold leading-tight">{title}</p>
+              <p className="text-white/50 text-xs sm:text-sm mt-0.5">{subtitle}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Discover vendors */}
