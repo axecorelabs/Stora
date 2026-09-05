@@ -70,9 +70,17 @@ export default function Home() {
           px at the curve's shallowest spots), which read as the text
           sitting noticeably closer to the bottom edge than the top --
           confirmed by measuring both paddings directly rather than just
-          eyeballing it. */}
-      <section className="relative bg-brand-800 pt-10 sm:pt-14 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl lg:max-w-4xl mx-auto grid grid-cols-3 gap-3 sm:gap-8 lg:gap-16 pb-10 sm:pb-14">
+          eyeballing it.
+          Horizontal padding lives on the badges' own wrapper div, not on
+          this section -- a normal-flow ("block") svg sizes its w-full
+          against its containing block's CONTENT box, which excludes
+          padding, so px-4 etc. on the section itself would have left the
+          svg inset from the true edges on both sides. That gap showed the
+          section's own flat background color, uncovered by either the
+          curve or its fill -- a rectangular block with a diagonal cut
+          where the svg's edge met it, not a wave problem at all. */}
+      <section className="relative bg-brand-800 pt-10 sm:pt-14">
+        <div className="max-w-2xl lg:max-w-4xl mx-auto grid grid-cols-3 gap-3 sm:gap-8 lg:gap-16 px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14">
           {TRUST_BADGES.map(({ icon: Icon, title, subtitle }) => (
             <div key={title} className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
               <Icon className="w-5 h-5 sm:w-7 sm:h-7 text-gold-400 flex-shrink-0" strokeWidth={1.5} />
