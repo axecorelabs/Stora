@@ -79,10 +79,11 @@ function TemplateRow() {
 // question this whole box is really asking is "what are you looking for
 // today?", so that's the AI input's own placeholder rather than a generic
 // one. "Just browsing" and "Need a service?" cover the two people who'd
-// rather not type a sentence: one wants the full vendor directory with no
-// filter, the other wants /vendors' own scope=services toggle (see the
-// search-consolidation work) rather than a product search that could
-// never have surfaced a service provider anyway.
+// rather not type a sentence: one wants the same /products catalog
+// HeroSearch always defaulted to with no filter, the other wants
+// /vendors' own scope=services toggle (see the search-consolidation
+// work) rather than a product search that could never have surfaced a
+// service provider anyway.
 export default function AIHeroSearch() {
   const router = useRouter();
 
@@ -115,7 +116,7 @@ export default function AIHeroSearch() {
 
       <div className="flex items-center justify-center gap-3 mb-8">
         <PrefetchLink
-          href="/vendors"
+          href="/products"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-white/20 text-white/80 hover:text-white hover:border-white/40 transition-colors"
         >
           <Compass className="w-3.5 h-3.5" />
