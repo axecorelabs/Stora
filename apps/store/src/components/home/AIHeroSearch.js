@@ -32,7 +32,7 @@ function TemplateRow() {
   const resume = () => { pausedRef.current = false; };
 
   const pillClassName =
-    "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-brand-100 bg-white text-brand-800 hover:border-brand-300 transition-colors";
+    "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium border border-brand-100 bg-white text-brand-800 hover:border-brand-300 transition-colors";
 
   return (
     <>
@@ -122,6 +122,7 @@ export default function AIHeroSearch() {
             value=""
             onChange={(query) => submitAiQuery(router, query)}
             placeholder="What are you looking for today?"
+            textClassName="text-xs sm:text-sm"
           />
         </div>
       </div>
@@ -129,7 +130,7 @@ export default function AIHeroSearch() {
       <div className="flex items-center justify-center gap-3 mb-8">
         <PrefetchLink
           href="/products"
-          className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-brand-900 hover:bg-gray-200 transition-colors"
+          className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-brand-900 hover:bg-gray-200 transition-colors"
         >
           <Compass className="w-3.5 h-3.5 text-brand-700" />
           Just browsing
@@ -137,7 +138,7 @@ export default function AIHeroSearch() {
         </PrefetchLink>
         <PrefetchLink
           href="/vendors?scope=services"
-          className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-brand-900 hover:bg-gray-200 transition-colors"
+          className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-brand-900 hover:bg-gray-200 transition-colors"
         >
           <Wrench className="w-3.5 h-3.5 text-brand-700" />
           Need a service?
