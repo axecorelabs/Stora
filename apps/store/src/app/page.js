@@ -49,8 +49,14 @@ export default function Home() {
 
       {/* Trust badges -- one line each (icon + label, no subtitle), so the
           band reads as a quick reassurance strip rather than a second
-          headline-sized block. */}
-      <section className="bg-brand-800 py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
+          headline-sized block. Waved on both edges now, not just the top
+          (which only existed to close out the hero above it) -- a matching
+          wave at the bottom transitions back into "Discover vendors"
+          below, so the band reads as its own distinct shape rather than a
+          flat rectangle with one decorated edge. Taller padding gives both
+          waves real room to breathe instead of the content butting up
+          against them. */}
+      <section className="relative bg-brand-800 pt-10 pb-12 sm:pt-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="max-w-2xl mx-auto grid grid-cols-3 gap-1 sm:gap-6">
           {TRUST_BADGES.map(({ icon: Icon, label }) => (
             <div key={label} className="flex items-center justify-center gap-1 sm:gap-2">
@@ -59,6 +65,22 @@ export default function Home() {
             </div>
           ))}
         </div>
+
+        {/* Bottom wave -- white, matching "Discover vendors" right below
+            (inherits the page wrapper's own bg-white), same technique as
+            the hero's own wave above just flipped to the section's other
+            edge. */}
+        <svg
+          viewBox="0 0 1440 100"
+          preserveAspectRatio="none"
+          className="absolute bottom-0 left-0 w-full h-10 sm:h-16 text-white"
+          aria-hidden="true"
+        >
+          <path
+            fill="currentColor"
+            d="M0,40 C240,90 480,0 720,40 C960,80 1200,10 1440,50 L1440,100 L0,100 Z"
+          />
+        </svg>
       </section>
 
       {/* Discover vendors */}
