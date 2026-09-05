@@ -96,11 +96,10 @@ export default function AIHeroSearch() {
   return (
     <div className="max-w-3xl mx-auto text-center w-full">
       <h1 className="font-display text-2xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6">
-        Real vendors.
-        <br className="sm:hidden" />
-        {" "}Real products.
+        What are you looking for today?{" "}
+        <span className="text-xl sm:text-4xl align-middle">😊</span>
         <br />
-        <span className="text-brand-600">One place to find them.</span>
+        <span className="text-brand-600">Let&apos;s help you find it.</span>
       </h1>
       <p className="text-gray-500 text-sm sm:text-lg mb-10 max-w-xl mx-auto">
         Tell Stora AI what you need, in your own words — we&apos;ll match you with the
