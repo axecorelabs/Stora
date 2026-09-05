@@ -76,16 +76,18 @@ export default function AISearchInput({ value, onChange, placeholder }) {
             <X className="w-3.5 h-3.5" />
           </button>
         )}
-        {draft.trim() && (
-          <button
-            type="button"
-            onClick={submit}
-            className="w-6 h-6 rounded-full bg-brand-700 text-white flex items-center justify-center hover:bg-brand-800 transition-colors flex-shrink-0"
-            aria-label="Search"
-          >
-            <ArrowUp className="w-3.5 h-3.5" />
-          </button>
-        )}
+        {/* Always rendered, not just once there's a draft -- submit()
+            already no-ops on an empty/whitespace-only draft, so this
+            just gives the box a permanent, consistent submit affordance
+            instead of one that pops in only after the first keystroke. */}
+        <button
+          type="button"
+          onClick={submit}
+          className="w-6 h-6 rounded-full bg-brand-700 text-white flex items-center justify-center hover:bg-brand-800 transition-colors flex-shrink-0"
+          aria-label="Search"
+        >
+          <ArrowUp className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );
