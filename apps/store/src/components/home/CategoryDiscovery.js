@@ -4,6 +4,8 @@ import { ChevronDown, ChevronUp, Sparkles, ArrowUpRight } from "lucide-react";
 import { CATEGORIES } from "@/lib/categories";
 import PrefetchLink from "@/components/ui/PrefetchLink";
 import { APEX_DOMAIN } from "@/lib/apexDomain";
+import { attachAutoScroll } from "@/lib/autoScroll";
+import { AI_SEARCH_TEMPLATES, AI_SEARCH_TEMPLATES_MOBILE } from "@/lib/aiSearchTemplates";
 
 // Food isn't just another /products?category= filter -- Biterave
 // (biterave.<apex>) is Stora's own dedicated food-ordering experience,
@@ -17,40 +19,6 @@ import { APEX_DOMAIN } from "@/lib/apexDomain";
 // subdomain doesn't make sense, and "opens in a new tab" calls for a
 // real anchor over client-side routing anyway.
 const BITERAVE_URL = `https://biterave.${APEX_DOMAIN}/meals`;
-
-// Natural-language prompts, same tone as AISearchInput's own placeholder
-// examples -- tapping one lands straight on /products with AI mode already
-// on and the query already submitted (mode=ai + q is exactly what
-// products/page.js reads to do that on load, see urlAiMode/urlQ there).
-// Desktop keeps just this original set, wrapped in place with no
-// animation -- mobile's own auto-scrolling row has room for a longer list
-// (AI_SEARCH_TEMPLATES_MOBILE below), so it doesn't need to stay this short.
-const AI_SEARCH_TEMPLATES = [
-  "Ankara styles for a wedding",
-  "A gift under ₦20k",
-  "Skincare for oily skin",
-  "Vendors that deliver same day",
-  "Native wears for men",
-  "Home office setup",
-];
-
-// Mobile's own longer list -- the auto-scroll (see useAutoScrollX) means
-// there's no "wall of pills" problem the way there would be wrapping this
-// many on a narrow screen, so it can afford more variety than desktop's
-// wrapped, unanimated row.
-const AI_SEARCH_TEMPLATES_MOBILE = [
-  ...AI_SEARCH_TEMPLATES,
-  "Affordable phones under ₦100k",
-  "Same-day birthday cake",
-  "Ankara for kids",
-  "Sneakers under ₦15k",
-  "Organic skincare",
-  "Baby essentials starter pack",
-  "Vendors based in Lagos",
-  "Perfumes that last all day",
-  "Home decor on a budget",
-  "Everyday native wear for women",
-];
 
 // Which category gets the dark treatment -- purely a visual rhythm, not a
 // ranking.
@@ -120,41 +88,6 @@ function bentoStyle(i, total) {
 // desktop scrolls horizontally instead and has room for all of them, so
 // this collapse only ever applies below the lg breakpoint.
 const INITIAL_VISIBLE_COUNT = 6;
-
-// Slow, continuous auto-scroll for a horizontal shelf -- bounces back and
-// forth between the two ends rather than snapping back to the start, so
-// reaching an edge doesn't produce a jarring jump. `el` is read fresh from
-// the ref inside the effect (not passed in), and pause/resume are plain
-// functions closed over the same ref rather than a returned object from a
-// shared custom hook -- eslint's react-hooks/refs rule flags a
-// ref-mutating callback returned FROM a custom hook as "accessed during
-// render" even though it's only ever invoked from an event handler, so
-// this stays inlined per call site (desktop's category shelf, mobile's
-// AI-suggestions row) instead of being extracted.
-function attachAutoScroll(ref, pausedRef, directionRef, speedPxPerFrame) {
-  const el = ref.current;
-  if (!el) return () => {};
-
-  let frameId;
-  const step = () => {
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    if (!pausedRef.current && maxScroll > 0) {
-      let next = el.scrollLeft + speedPxPerFrame * directionRef.current;
-      if (next >= maxScroll) {
-        next = maxScroll;
-        directionRef.current = -1;
-      } else if (next <= 0) {
-        next = 0;
-        directionRef.current = 1;
-      }
-      el.scrollLeft = next;
-    }
-    frameId = requestAnimationFrame(step);
-  };
-  frameId = requestAnimationFrame(step);
-
-  return () => cancelAnimationFrame(frameId);
-}
 
 // Sits between the vendor showcase and the product discovery teaser on the
 // homepage. Two separate ways in: a category tile filters /products by

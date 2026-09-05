@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
-import HeroSearch from "@/components/home/HeroSearch";
+import AIHeroSearch from "@/components/home/AIHeroSearch";
 import VendorShowcase from "@/components/home/VendorShowcase";
 import CategoryDiscovery from "@/components/home/CategoryDiscovery";
 import DiscoverySection from "@/components/home/DiscoverySection";
@@ -14,22 +14,33 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       <SiteHeader />
 
-      {/* Hero */}
-      <section className="bg-brand-800 pt-14 pb-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto text-center">
-          <h1 className="font-display text-3xl sm:text-5xl font-bold text-white leading-tight mb-5">
-            Real vendors. Real products.
-            <br />
-            One place to find them.
-          </h1>
-          <p className="text-white/60 text-base sm:text-lg mb-8 max-w-xl mx-auto">
-            Stora brings together independent Nigerian sellers you can actually trust --
-            browse, order, and pay knowing exactly who you&apos;re buying from.
-          </p>
-          <div className="flex justify-center">
-            <HeroSearch />
-          </div>
-        </div>
+      {/* Hero -- min-h-[80vh] only below sm: an AI-first hero (headline,
+          search, quick options, template row) is naturally taller content
+          than the old plain-search version, and on a small screen it's
+          worth the extra room to breathe as a real "first screen" rather
+          than immediately running into the section below. Desktop has
+          enough width that the same content never gets close to needing
+          it, so it's left to size to its own content there instead of
+          forcing a tall, sparse-looking section. */}
+      <section className="relative bg-brand-800 pt-14 pb-20 sm:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden min-h-[80vh] sm:min-h-0 flex flex-col justify-center">
+        <AIHeroSearch />
+
+        {/* Wavy bottom edge, not a straight cut -- same treatment as
+            Biterave's hero (apps/store/src/app/biterave/page.js). White
+            matches this page's own bg-white (set on the outer wrapper,
+            inherited by the "Discover vendors" section right below), so
+            the curve is what actually reads as the section boundary. */}
+        <svg
+          viewBox="0 0 1440 100"
+          preserveAspectRatio="none"
+          className="absolute bottom-0 left-0 w-full h-10 sm:h-16 text-white"
+          aria-hidden="true"
+        >
+          <path
+            fill="currentColor"
+            d="M0,40 C240,90 480,0 720,40 C960,80 1200,10 1440,50 L1440,100 L0,100 Z"
+          />
+        </svg>
       </section>
 
       {/* Discover vendors */}
