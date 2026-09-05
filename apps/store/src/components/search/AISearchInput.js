@@ -13,7 +13,7 @@ const MAX_HEIGHT_PX = 120; // roughly 5-6 lines before it scrolls internally
 // swap between the two without the parent page knowing the difference:
 // onChange only fires on submit, which the page treats exactly like a
 // committed search query, same as "See all" does for the keyword typeahead.
-export default function AISearchInput({ value, onChange, placeholder }) {
+export default function AISearchInput({ value, onChange, placeholder, textClassName = "text-sm" }) {
   const [draft, setDraft] = useState(value || "");
   const textareaRef = useRef(null);
 
@@ -59,7 +59,7 @@ export default function AISearchInput({ value, onChange, placeholder }) {
         // shape people already recognize), collapsing to one line on
         // desktop where the compact search-bar look matters more and Enter
         // is always available. Grows beyond that as content wraps either way.
-        className="w-full min-w-0 bg-transparent outline-none resize-none text-sm font-medium text-brand-900 placeholder-gray-400 py-2 pr-9 leading-snug min-h-[3.25rem] sm:min-h-0"
+        className={`w-full min-w-0 bg-transparent outline-none resize-none ${textClassName} font-medium text-brand-900 placeholder-gray-400 py-2 pr-9 leading-snug min-h-[3.25rem] sm:min-h-0`}
         style={{ maxHeight: `${MAX_HEIGHT_PX}px`, overflowY: "auto" }}
       />
       {/* Bottom-anchored, not vertically centered -- keeps both controls in
