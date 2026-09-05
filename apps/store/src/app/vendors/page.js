@@ -12,6 +12,14 @@ import DiscoveryProductCard from "@/components/home/DiscoveryProductCard";
 import StatePickerPopover from "@/components/ui/StatePickerPopover";
 import MobileFilterBar from "@/components/search/MobileFilterBar";
 import { useDeliveryState } from "@/contexts/DeliveryStateContext";
+import { CATEGORIES } from "@/lib/categories";
+import { SERVICE_CATEGORIES } from "@/lib/serviceCategories";
+
+const SCOPES = [
+  { key: "all", label: "All" },
+  { key: "products", label: "Products" },
+  { key: "services", label: "Services" }
+];
 
 const SORTS = [
   { key: "featured", label: "Featured" },
@@ -31,10 +39,12 @@ function VendorsPageInner() {
   const urlState = searchParams.get("state") || "";
   const urlDeliverableOnly = searchParams.get("deliverableOnly") === "true";
   const urlAiMode = searchParams.get("mode") === "ai";
+  const urlScope = SCOPES.some((s) => s.key === searchParams.get("scope")) ? searchParams.get("scope") : "all";
 
   const [q, setQ] = useState(urlQ);
   const [sort, setSort] = useState(urlSort);
   const [categories, setCategories] = useState(urlCategories);
+  const [scope, setScope] = useState(urlScope);
   const [state, setState] = useState(urlState);
   const [deliverableOnly, setDeliverableOnly] = useState(urlDeliverableOnly);
   const [aiMode, setAiMode] = useState(urlAiMode);
@@ -63,13 +73,25 @@ function VendorsPageInner() {
     if (q) params.set("q", q);
     if (sort !== "featured") params.set("sort", sort);
     if (categories.length) params.set("category", categories.join(","));
+    if (scope !== "all") params.set("scope", scope);
     if (state) params.set("state", state);
     if (deliverableOnly) params.set("deliverableOnly", "true");
     if (aiMode) params.set("mode", "ai");
     const qs = params.toString();
     router.replace(qs ? `/vendors?${qs}` : "/vendors", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, sort, categories, state, deliverableOnly, aiMode]);
+  }, [q, sort, categories, scope, state, deliverableOnly, aiMode]);
+
+  // Switching scope swaps which category taxonomy is even visible (product
+  // vs. service categories, see categoryOptions below) -- clearing the
+  // selection avoids silently keeping a now-invisible chip "selected"
+  // (still sent to the API, matching nothing in the new taxonomy).
+  const handleScopeChange = (nextScope) => {
+    setScope(nextScope);
+    setCategories([]);
+  };
+
+  const categoryOptions = scope === "services" ? SERVICE_CATEGORIES : CATEGORIES;
 
   const fetchPage = useCallback(async (pageNum, replace) => {
     // AI mode needs a real query to search against -- see the equivalent
@@ -88,6 +110,7 @@ function VendorsPageInner() {
       if (aiMode) {
         const params = new URLSearchParams({ q, primary: "vendors", page: String(pageNum) });
         if (state) params.set("state", state);
+        if (scope !== "all") params.set("scope", scope);
         if (deliverableOnly && deliveryState) {
           params.set("buyerState", deliveryState);
           params.set("deliverableOnly", "true");
@@ -105,6 +128,7 @@ function VendorsPageInner() {
       const params = new URLSearchParams({ sort, page: String(pageNum) });
       if (q) params.set("q", q);
       if (categories.length) params.set("category", categories.join(","));
+      if (scope !== "all") params.set("scope", scope);
       if (state) params.set("state", state);
       // buyerState powers both "nearest" (soft, reorders only) and
       // deliverableOnly (hard filter) -- either needs it sent regardless
@@ -123,7 +147,7 @@ function VendorsPageInner() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [q, sort, categories, state, deliverableOnly, deliveryState, aiMode]);
+  }, [q, sort, categories, scope, state, deliverableOnly, deliveryState, aiMode]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -137,7 +161,7 @@ function VendorsPageInner() {
   const activeFilters = [
     ...categories.map((c) => ({
       key: `category-${c}`,
-      label: `Sells ${c}`,
+      label: scope === "services" ? `Offers ${c}` : `Sells ${c}`,
       onRemove: () => setCategories((prev) => prev.filter((x) => x !== c))
     })),
     state && { key: "state", label: state, onRemove: () => setState("") },
@@ -188,12 +212,35 @@ function VendorsPageInner() {
           </h1>
         </div>
 
+        {/* Products vs. services vendors are already one directory (this
+            page's own base filter never required product ownership) --
+            this toggle just narrows to one business type and swaps which
+            category taxonomy the chips below offer, instead of merging
+            ~13 product categories and 6 service categories into one
+            overwhelming list. */}
+        <div className="flex justify-center gap-2 mb-4">
+          {SCOPES.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => handleScopeChange(key)}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors border ${
+                scope === key
+                  ? "bg-brand-900 text-white border-brand-900"
+                  : "bg-white text-brand-900 border-brand-100 hover:border-brand-300"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <SearchConsole
           query={q}
           onQueryChange={setQ}
           searchPlaceholder="Search vendors by name…"
           categories={categories}
           onCategoriesChange={setCategories}
+          categoryOptions={categoryOptions}
           state={state}
           onStateChange={setState}
           resultCount={pagination?.total}
@@ -212,6 +259,7 @@ function VendorsPageInner() {
         <MobileFilterBar
           categories={categories}
           onCategoriesChange={setCategories}
+          categoryOptions={categoryOptions}
           state={state}
           onStateChange={setState}
           sort={sort}

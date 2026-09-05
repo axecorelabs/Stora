@@ -55,12 +55,20 @@ function StepIndicator({ currentStep }) {
   );
 }
 
-export default function CreateStoreModal({ isOpen, onStoreCreated, embedded = false }) {
+export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded = false }) {
   const { secureApiCall } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     storeName: '',
     storeDescription: '',
+    // Non-exclusive -- a business can be any combination of these three
+    // (a restaurant that also does catering is Food + Services; a pure
+    // consultant is Services only, with no product catalog at all).
+    // Products defaults on since that's what most vendors signing up are
+    // still here for; Food/Services start off.
+    sellsProducts: true,
+    offersFood: false,
+    offersServices: false,
     storeType: 'physical', // NEW
     storePhone: '',
     storeEmail: '',
@@ -185,12 +193,20 @@ export default function CreateStoreModal({ isOpen, onStoreCreated, embedded = fa
     }
   };
 
+  const toggleBusinessType = (field) => {
+    setFormData(prev => ({ ...prev, [field]: !prev[field] }));
+    if (errors.businessTypes) setErrors(prev => ({ ...prev, businessTypes: '' }));
+  };
+
   const validateStep = (step) => {
     const newErrors = {};
 
     if (step === 1) {
       if (!formData.storeName.trim()) {
         newErrors.storeName = 'Store name is required';
+      }
+      if (!formData.sellsProducts && !formData.offersFood && !formData.offersServices) {
+        newErrors.businessTypes = 'Select at least one -- what does your business do?';
       }
       if (!formData.storeType) {
         newErrors.storeType = 'Please select store type';
@@ -267,8 +283,8 @@ export default function CreateStoreModal({ isOpen, onStoreCreated, embedded = fa
             <Store className="w-6 h-6 text-brand-800" />
           </div>
           <div>
-            <h2 className="font-display text-xl font-semibold text-brand-900">Create Your Store</h2>
-            <p className="text-sm text-gray-500">Set up your store to start using the POS system</p>
+            <h2 className="font-display text-xl font-semibold text-brand-900">Create Your Business</h2>
+            <p className="text-sm text-gray-500">Tell us what you do and set up your store</p>
           </div>
         </div>
 
@@ -317,6 +333,47 @@ export default function CreateStoreModal({ isOpen, onStoreCreated, embedded = fa
                       still use this name, but shoppers may confuse the two -- consider something
                       more distinct.
                     </p>
+                  )}
+                </div>
+
+                {/* What does this business do -- non-exclusive, replaces the
+                    old standalone "Do you sell food?" onboarding step
+                    (see onboarding/page.js) with one question asked once,
+                    up front, alongside every other basic. */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    What does your business do? *
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Select everything that applies -- you can offer more than one.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {[
+                      { field: 'sellsProducts', label: 'Products', hint: 'Physical goods you sell' },
+                      { field: 'offersFood', label: 'Food', hint: 'Meals, groceries, catering' },
+                      { field: 'offersServices', label: 'Services', hint: 'Bookable/contactable services' }
+                    ].map(({ field, label, hint }) => (
+                      <label
+                        key={field}
+                        className={`flex items-start gap-2.5 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                          formData[field] ? 'border-brand-800 bg-brand-50' : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData[field]}
+                          onChange={() => toggleBusinessType(field)}
+                          className="mt-0.5 w-4 h-4 text-brand-800 rounded focus:ring-brand-800"
+                        />
+                        <span>
+                          <span className="block text-sm font-medium text-gray-900">{label}</span>
+                          <span className="block text-xs text-gray-500">{hint}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {errors.businessTypes && (
+                    <p className="text-red-500 text-xs mt-1">{errors.businessTypes}</p>
                   )}
                 </div>
 

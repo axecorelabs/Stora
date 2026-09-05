@@ -51,7 +51,9 @@ export default function BiteraveRestaurantHero({ store }) {
             )}
           </div>
           <div className="min-w-0">
-            {store.isVerified && (
+            {/* businessVerified (staff-granted "Verified by Stora" badge)
+                -- not isVerified, the vendor's own identity check. */}
+            {store.businessVerified && (
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-gold-400/40 mb-2">
                 <ShieldCheck className="w-3 h-3 text-gold-400" />
                 <span className="text-[10.5px] font-semibold text-gold-400 tracking-wide uppercase">Verified by Stora</span>
@@ -105,7 +107,9 @@ export default function BiteraveRestaurantHero({ store }) {
             )}
           </div>
           <div className="min-w-0">
-            {store.isVerified && (
+            {/* businessVerified (staff-granted "Verified by Stora" badge)
+                -- not isVerified, the vendor's own identity check. */}
+            {store.businessVerified && (
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gold-50 border border-gold-200 mb-2">
                 <ShieldCheck className="w-3 h-3 text-gold-600" />
                 <span className="text-[10.5px] font-semibold text-gold-700 tracking-wide uppercase">Verified by Stora</span>

@@ -23,6 +23,24 @@ export async function PATCH(req) {
       );
     }
 
+    // Same "at least one of Products/Food/Services" rule PUT /api/stores
+    // enforces for sells_products/offers_services -- only relevant when
+    // turning this OFF, since turning it on can only ever add a business type.
+    if (!restaurantMode) {
+      const { data: currentStore } = await supabaseAdmin
+        .from('stores')
+        .select('sells_products, offers_services')
+        .eq('owner_id', user.id)
+        .single();
+
+      if (!currentStore?.sells_products && !currentStore?.offers_services) {
+        return NextResponse.json(
+          { success: false, message: 'Your business must do at least one of Products, Food, or Services -- turn on another before turning this off.' },
+          { status: 400 }
+        );
+      }
+    }
+
     const { data: updatedStore, error } = await supabaseAdmin
       .from('stores')
       .update({ restaurant_mode: restaurantMode, updated_at: new Date().toISOString() })

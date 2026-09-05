@@ -35,7 +35,7 @@ export async function GET(request) {
   const { data: stores, error, count } = await applyFilters(
     supabaseAdmin
       .from('stores')
-      .select('id, store_name, store_slug, owner_id, is_active, is_verified, verification_status, total_orders, created_at, branding, website', { count: 'exact' })
+      .select('id, store_name, store_slug, owner_id, is_active, is_verified, verification_status, business_verified_at, total_orders, created_at, branding, website', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)
   );
@@ -111,8 +111,13 @@ export async function GET(request) {
         isActive: !!s.is_active,
         isPublished,
         isLive: !!s.is_active && isPublished,
+        // isVerified is the vendor's own identity check (QoreID NIN + live
+        // selfie). businessVerified is the separate, staff-granted public
+        // "Verified by Stora" badge -- toggled below via PATCH
+        // /api/stores/[storeId], not earned automatically by isVerified.
         isVerified: !!s.is_verified,
         verificationStatus: s.verification_status,
+        businessVerified: !!s.business_verified_at,
         totalSales: combinedSalesByStore.get(s.id) || 0,
         totalOrders: s.total_orders || 0,
         createdAt: s.created_at,

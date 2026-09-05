@@ -118,9 +118,10 @@ export default function VerificationForm({ onVerified }) {
         <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
           <ShieldCheck className="w-7 h-7 text-brand-800" />
         </div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">You&apos;re verified</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Your identity is confirmed</h2>
         <p className="text-sm text-gray-500">
-          Buyers see the &ldquo;Verified by Stora&rdquo; badge on your storefront.
+          Want the &ldquo;Verified by Stora&rdquo; badge on your storefront too? That&apos;s a separate
+          business review -- contact us to get started.
         </p>
       </div>
     );
@@ -136,8 +137,8 @@ export default function VerificationForm({ onVerified }) {
       </div>
       <p className="text-sm text-gray-500 mb-6">
         We use QoreID to confirm your National Identity Number (NIN) and match it against a
-        selfie -- this earns your store the &ldquo;Verified by Stora&rdquo; badge buyers see and
-        use to decide who to trust.
+        selfie -- this is required for every vendor. It&apos;s separate from the &ldquo;Verified by
+        Stora&rdquo; badge, which is a business-level review you can request from us afterward.
       </p>
 
       {status?.lastAttempt?.status === 'failed' && (

@@ -65,7 +65,6 @@ export async function loadServiceDocument(storeId) {
       durationUnit: item.duration_unit,
       yearsOfExperience: item.years_of_experience,
       homeServiceAvailable: item.home_service_available,
-      discount: item.discount,
       timeSlotDuration: item.time_slot_duration,
       maxBookingsPerDay: item.max_bookings_per_day,
       portfolioImages: item.portfolio_images || [],

@@ -118,6 +118,25 @@ export default function StoreLocationTab({ store, isEditing, editData, errors, h
           )}
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Website URL</label>
+          {isEditing ? (
+            <input
+              type="url"
+              name="onlineStoreInfo.website"
+              value={editData.onlineStoreInfo.website}
+              onChange={handleChange}
+              placeholder="https://yourstore.com"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+            />
+          ) : (
+            <div className="flex items-center py-3">
+              <Globe className="w-4 h-4 mr-2 text-gray-500" />
+              <span className="text-gray-900">{store.onlineStoreInfo?.website || 'Not provided'}</span>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Handle</label>

@@ -70,6 +70,11 @@ export async function GET(request) {
     const buyerState = searchParams.get("buyerState") || undefined;
     const deliverableOnly = searchParams.get("deliverableOnly") === "true" && !!buyerState;
     const primary = searchParams.get("primary") === "vendors" ? "vendors" : "products";
+    // /vendors' scope toggle (see search_vendors_services migration) --
+    // only meaningful for the vendor-search calls below, never the
+    // product-search ones.
+    const scopeParam = searchParams.get("scope");
+    const scope = scopeParam === "products" || scopeParam === "services" ? scopeParam : undefined;
     // Opt-in, additive params -- existing callers never pass these, so
     // today's behavior (LLM's own freeform category guess) is unchanged.
     // When present, Biterave forces the category to Food via a real,
@@ -156,6 +161,7 @@ export async function GET(request) {
               state,
               buyerState,
               deliverableOnly,
+              scope,
               limit: vendorLimit,
               offset: vendorOffset
             })
@@ -254,6 +260,7 @@ export async function GET(request) {
               state,
               buyerState,
               deliverableOnly,
+              scope,
               limit: primary === "vendors" ? PAGE_SIZE : SECONDARY_LIMIT,
               offset: primary === "vendors" ? offset : 0
             })

@@ -42,7 +42,10 @@ export default function VendorCard({ store }) {
 
         <div className="mt-3 flex items-center gap-1.5">
           <h3 className="font-semibold text-sm text-gray-900 truncate">{store.storeName}</h3>
-          {store.isVerified && (
+          {/* businessVerified (staff-granted "Verified by Stora" badge) --
+              not isVerified, the vendor's own identity check. See
+              supabaseStore.js's buildPublicStoreData for the split. */}
+          {store.businessVerified && (
             <BadgeCheck className="w-3.5 h-3.5 text-gold-600 flex-shrink-0" strokeWidth={2} />
           )}
         </div>

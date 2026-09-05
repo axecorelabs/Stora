@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
+import CreateBusinessModal from "@/components/dashboard/CreateBusinessModal";
 import WebsiteSettingsView from "@/components/dashboard/WebsiteSettingsView";
 import WebsiteInventoryView from "@/components/dashboard/WebsiteInventoryView";
 import Button from "@/components/ui/Button";
@@ -252,7 +252,7 @@ export default function WebsitePage() {
           </div>
         </div>
 
-        <CreateStoreModal
+        <CreateBusinessModal
           isOpen={isCreateStoreModalOpen}
           onStoreCreated={handleStoreCreated}
         />
@@ -922,7 +922,7 @@ export default function WebsitePage() {
       </div>
 
       {/* Create Store Modal */}
-      <CreateStoreModal
+      <CreateBusinessModal
         isOpen={isCreateStoreModalOpen}
         onStoreCreated={handleStoreCreated}
       />

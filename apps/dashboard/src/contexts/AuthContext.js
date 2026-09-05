@@ -105,7 +105,12 @@ export const AuthProvider = ({ children }) => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP ${response.status}`);
+        // Some routes (e.g. /api/services/items) respond with `error`
+        // rather than `message` -- without this fallback, their real
+        // validation/failure text was silently discarded in favor of a
+        // generic "HTTP 400" here, then a hardcoded string on top of that
+        // by whichever catch block eventually alert()s it.
+        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
       }
 
       return await response.json();

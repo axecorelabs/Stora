@@ -71,38 +71,73 @@ const NIGERIAN_STATES = {
   'Zamfara': ['Gusau', 'Kaura Namoda', 'Anka', 'Talata Mafara']
 };
 
-export default function AddServiceModal({ isOpen, onClose, storeData, existingService }) {
+const emptyFormData = () => ({
+  name: '',
+  description: '',
+  category: '',
+  subCategory: '',
+  price: '',
+  duration: 30,
+  durationUnit: 'minutes',
+  yearsOfExperience: '',
+  homeServiceAvailable: false,
+  availability: DAYS.map(day => ({
+    day,
+    isAvailable: true,
+    openingTime: '09:00',
+    closingTime: '18:00'
+  })),
+  timeSlotDuration: 30,
+  maxBookingsPerDay: '',
+  serviceLocations: {
+    coverAllNigeria: false,
+    states: []
+  },
+  portfolioImages: [], // Store preview URLs for NEWLY added files only
+  addOns: []
+});
+
+// `existingService` is one item from the vendor's own services list
+// (services/page.js), not the whole { services: [...] } document -- passed
+// only when editing. When set, the form is prefilled and handleSubmit PATCHes
+// that item's id instead of POSTing a new one.
+export default function AddServiceModal({ isOpen, onClose, onSaved, existingService }) {
   const { secureFormDataCall } = useAuth();
+  const isEditing = !!existingService?._id;
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [selectedStateForCity, setSelectedStateForCity] = useState('');
   const [portfolioFiles, setPortfolioFiles] = useState([]); // Store actual File objects
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    category: '',
-    subCategory: '',
-    price: '',
-    duration: 30,
-    durationUnit: 'minutes',
-    yearsOfExperience: '',
-    homeServiceAvailable: false,
-    discount: '',
-    availability: DAYS.map(day => ({
-      day,
-      isAvailable: true,
-      openingTime: '09:00',
-      closingTime: '18:00'
-    })),
-    timeSlotDuration: 30,
-    maxBookingsPerDay: '',
-    serviceLocations: {
-      coverAllNigeria: false,
-      states: []
-    },
-    portfolioImages: [], // Store preview URLs
-    addOns: []
+  // Portfolio URLs already on the server for this item -- kept separate
+  // from `formData.portfolioImages` (new blob previews) so an edit can
+  // distinguish "keep this one" from "here's a new file to upload", and so
+  // removing one doesn't try to URL.revokeObjectURL() a real remote URL.
+  const [existingPortfolioUrls, setExistingPortfolioUrls] = useState(
+    isEditing ? (existingService.portfolioImages || []) : []
+  );
+
+  const [formData, setFormData] = useState(() => {
+    if (!isEditing) return emptyFormData();
+    return {
+      name: existingService.name || '',
+      description: existingService.description || '',
+      category: existingService.category || '',
+      subCategory: existingService.subCategory || '',
+      price: existingService.price?.toString() ?? '',
+      duration: existingService.duration || 30,
+      durationUnit: existingService.durationUnit || 'minutes',
+      yearsOfExperience: existingService.yearsOfExperience?.toString() ?? '',
+      homeServiceAvailable: !!existingService.homeServiceAvailable,
+      availability: DAYS.map(day => {
+        const existing = (existingService.availability || []).find(a => a.day === day);
+        return existing || { day, isAvailable: true, openingTime: '09:00', closingTime: '18:00' };
+      }),
+      timeSlotDuration: existingService.timeSlotDuration || 30,
+      maxBookingsPerDay: existingService.maxBookingsPerDay?.toString() ?? '',
+      serviceLocations: existingService.serviceLocations || { coverAllNigeria: false, states: [] },
+      portfolioImages: [],
+      addOns: existingService.addOns || []
+    };
   });
 
   // Duration options based on selected unit
@@ -134,29 +169,17 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
           { value: 7200, label: '5 days' },
           { value: 8640, label: '6 days' }
         ];
-      case 'weeks':
-        return [
-          { value: 10080, label: '1 week' },
-          { value: 20160, label: '2 weeks' },
-          { value: 30240, label: '3 weeks' },
-          { value: 40320, label: '4 weeks' }
-        ];
       default:
         return [];
     }
   };
 
   const handleDurationUnitChange = (unit) => {
-    // Reset duration to first option when unit changes
-    const options = getDurationOptions();
-    const firstOption = options.length > 0 ? options[0].value : 30;
-    
     setFormData(prev => ({
       ...prev,
       durationUnit: unit,
       duration: unit === 'minutes' ? 30 :
-                unit === 'hours' ? 60 :
-                unit === 'days' ? 1440 : 10080
+                unit === 'hours' ? 60 : 1440
     }));
   };
 
@@ -189,23 +212,17 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
     handleInputChange(field, cleanValue);
   };
 
-  // Handle integer input validation (for discount)
-  const handleIntegerInput = (field, value) => {
-    // Remove any non-numeric characters
-    const numericValue = value.replace(/\D/g, '');
-    handleInputChange(field, numericValue);
-  };
-
   const handlePortfolioUpload = (e) => {
     const files = Array.from(e.target.files);
-    if (portfolioFiles.length + files.length > 5) {
+    const totalAfter = existingPortfolioUrls.length + portfolioFiles.length + files.length;
+    if (totalAfter > 5) {
       alert('Maximum 5 images per service');
       return;
     }
-    
+
     // Store actual files
     setPortfolioFiles(prev => [...prev, ...files]);
-    
+
     // Create preview URLs
     const newImages = files.map(file => URL.createObjectURL(file));
     setFormData(prev => ({
@@ -217,7 +234,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
   const removePortfolioImage = (index) => {
     // Revoke the blob URL to free memory
     URL.revokeObjectURL(formData.portfolioImages[index]);
-    
+
     setPortfolioFiles(prev => prev.filter((_, i) => i !== index));
     setFormData(prev => ({
       ...prev,
@@ -225,13 +242,26 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
     }));
   };
 
+  // Removes an already-uploaded image (edit mode only) -- distinct from
+  // removePortfolioImage above, which only ever handled newly-picked blob
+  // previews. No URL.revokeObjectURL here since this is a real remote URL,
+  // not a local blob.
+  const removeExistingPortfolioImage = (index) => {
+    setExistingPortfolioUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Property is `state` (not `stateName`) so this matches both the DB
+  // column (service_locations.state) and what items/route.js sends/reads
+  // and loadServiceDocument (services.js) reshapes back -- previously this
+  // was `stateName`, a field name the API never read, so every location a
+  // vendor picked here was silently written as NULL and lost on save.
   const addState = () => {
     if (!selectedStateForCity) return;
-    
+
     const stateExists = formData.serviceLocations.states.some(
-      s => s.stateName === selectedStateForCity
+      entry => entry.state === selectedStateForCity
     );
-    
+
     if (stateExists) {
       alert('This state is already added');
       return;
@@ -244,7 +274,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
         states: [
           ...prev.serviceLocations.states,
           {
-            stateName: selectedStateForCity,
+            state: selectedStateForCity,
             cities: [],
             coverAllCities: false
           }
@@ -254,116 +284,159 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
     setSelectedStateForCity('');
   };
 
-  const removeState = (stateName) => {
+  const removeState = (stateValue) => {
     setFormData(prev => ({
       ...prev,
       serviceLocations: {
         ...prev.serviceLocations,
-        states: prev.serviceLocations.states.filter(s => s.stateName !== stateName)
+        states: prev.serviceLocations.states.filter(entry => entry.state !== stateValue)
       }
     }));
   };
 
-  const toggleCoverAllCities = (stateName) => {
+  const toggleCoverAllCities = (stateValue) => {
     setFormData(prev => ({
       ...prev,
       serviceLocations: {
         ...prev.serviceLocations,
-        states: prev.serviceLocations.states.map(state => 
-          state.stateName === stateName
-            ? { ...state, coverAllCities: !state.coverAllCities, cities: [] }
-            : state
+        states: prev.serviceLocations.states.map(entry =>
+          entry.state === stateValue
+            ? { ...entry, coverAllCities: !entry.coverAllCities, cities: [] }
+            : entry
         )
       }
     }));
   };
 
-  const addCityToState = (stateName, city) => {
+  const addCityToState = (stateValue, city) => {
     setFormData(prev => ({
       ...prev,
       serviceLocations: {
         ...prev.serviceLocations,
-        states: prev.serviceLocations.states.map(state => 
-          state.stateName === stateName
+        states: prev.serviceLocations.states.map(entry =>
+          entry.state === stateValue
             ? {
-                ...state,
-                cities: state.cities.includes(city)
-                  ? state.cities
-                  : [...state.cities, city]
+                ...entry,
+                cities: entry.cities.includes(city)
+                  ? entry.cities
+                  : [...entry.cities, city]
               }
-            : state
+            : entry
         )
       }
     }));
   };
 
-  const removeCityFromState = (stateName, city) => {
+  const removeCityFromState = (stateValue, city) => {
     setFormData(prev => ({
       ...prev,
       serviceLocations: {
         ...prev.serviceLocations,
-        states: prev.serviceLocations.states.map(state => 
-          state.stateName === stateName
-            ? { ...state, cities: state.cities.filter(c => c !== city) }
-            : state
+        states: prev.serviceLocations.states.map(entry =>
+          entry.state === stateValue
+            ? { ...entry, cities: entry.cities.filter(c => c !== city) }
+            : entry
         )
       }
     }));
+  };
+
+  const addAddOn = () => {
+    setFormData(prev => ({ ...prev, addOns: [...prev.addOns, { name: '', price: '' }] }));
+  };
+
+  const updateAddOn = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      addOns: prev.addOns.map((a, i) => (i === index ? { ...a, [field]: value } : a))
+    }));
+  };
+
+  const removeAddOn = (index) => {
+    setFormData(prev => ({ ...prev, addOns: prev.addOns.filter((_, i) => i !== index) }));
+  };
+
+  // Returns an error string, or null if this step is complete -- shared by
+  // nextStep (so a vendor can't click through with empty required fields,
+  // previously possible since nextStep did no validation at all) and
+  // handleSubmit's own final re-check before submitting.
+  const validateStep = (step) => {
+    if (step === 1) {
+      if (!formData.name.trim()) return 'Service name is required';
+      if (!formData.description.trim()) return 'Service description is required';
+      if (!formData.category) return 'Please select a category';
+      if (!formData.subCategory) return 'Please select a sub-category';
+      if (!formData.price || Number(formData.price) <= 0) return 'Please enter a valid price';
+    }
+    if (step === 2) {
+      if (!formData.serviceLocations.coverAllNigeria && formData.serviceLocations.states.length === 0) {
+        return 'Please select at least one service location, or choose nationwide';
+      }
+    }
+    if (step === 3) {
+      if (!formData.maxBookingsPerDay || Number(formData.maxBookingsPerDay) <= 0) {
+        return 'Please enter how many bookings you can take per day';
+      }
+    }
+    return null;
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.description || !formData.category || !formData.subCategory || !formData.price) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    if (!formData.serviceLocations.coverAllNigeria && formData.serviceLocations.states.length === 0) {
-      alert('Please select service locations');
-      return;
+    for (let step = 1; step <= STEPS.length; step++) {
+      const stepError = validateStep(step);
+      if (stepError) {
+        alert(stepError);
+        setCurrentStep(step);
+        return;
+      }
     }
 
     setLoading(true);
     try {
       // Create FormData for multipart upload
       const submitFormData = new FormData();
-      
+
       // Convert form data to proper types
       const serviceItemData = {
         ...formData,
         price: parseFloat(formData.price) || 0,
-        discount: parseInt(formData.discount) || 0,
         yearsOfExperience: parseInt(formData.yearsOfExperience) || 0,
         maxBookingsPerDay: parseInt(formData.maxBookingsPerDay) || 10,
+        addOns: formData.addOns.filter(a => a.name?.trim()),
         portfolioImages: [] // Will be filled by backend after upload
       };
-      
+
       // Remove portfolioImages from the data (they'll be uploaded separately)
       delete serviceItemData.portfolioImages;
-      
+
       submitFormData.append('serviceItem', JSON.stringify(serviceItemData));
+      if (isEditing) {
+        submitFormData.append('existingPortfolioImages', JSON.stringify(existingPortfolioUrls));
+      }
       // Don't send storeId - backend will fetch it from the user's store
-      
+
       // Append portfolio image files
-      portfolioFiles.forEach((file, index) => {
+      portfolioFiles.forEach((file) => {
         submitFormData.append('portfolioImages', file);
       });
 
-      const data = await secureFormDataCall('/api/services/items', submitFormData);
+      const endpoint = isEditing ? `/api/services/items/${existingService._id}` : '/api/services/items';
+      const data = isEditing
+        ? await secureFormDataCall(endpoint, submitFormData, { method: 'PATCH' })
+        : await secureFormDataCall(endpoint, submitFormData);
 
       if (data.success) {
-        alert('Service added successfully!');
-        
         // Clean up blob URLs
         formData.portfolioImages.forEach(url => URL.revokeObjectURL(url));
-        
+
+        onSaved?.(data.data);
         onClose();
-        window.location.reload();
       } else {
-        alert(data.error || data.message || 'Failed to add service');
+        alert(data.error || data.message || `Failed to ${isEditing ? 'update' : 'add'} service`);
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to add service');
+      alert(error.message || `Failed to ${isEditing ? 'update' : 'add'} service`);
     } finally {
       setLoading(false);
     }
@@ -381,6 +454,11 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
   }, []);
 
   const nextStep = () => {
+    const stepError = validateStep(currentStep);
+    if (stepError) {
+      alert(stepError);
+      return;
+    }
     if (currentStep < STEPS.length) setCurrentStep(currentStep + 1);
   };
 
@@ -397,8 +475,10 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
         <div className="p-6 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-2xl font-semibold text-gray-900">Add New Service</h3>
-              <p className="text-sm text-gray-500 mt-1">Add a new service to your offerings</p>
+              <h3 className="text-2xl font-semibold text-gray-900">{isEditing ? 'Edit Service' : 'Add New Service'}</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {isEditing ? 'Update the details of this service' : 'Add a new service to your offerings'}
+              </p>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
               <X className="w-5 h-5 text-gray-500" />
@@ -411,7 +491,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
               <div key={step.id} className="flex items-center flex-1">
                 <div className="flex flex-col items-center flex-1">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                    currentStep >= step.id ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-600'
+                    currentStep >= step.id ? 'bg-brand-800 text-white' : 'bg-gray-200 text-gray-600'
                   }`}>
                     {step.id}
                   </div>
@@ -422,7 +502,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                 </div>
                 {index < STEPS.length - 1 && (
                   <div className={`h-0.5 flex-1 mx-2 ${
-                    currentStep > step.id ? 'bg-teal-600' : 'bg-gray-200'
+                    currentStep > step.id ? 'bg-brand-800' : 'bg-gray-200'
                   }`} />
                 )}
               </div>
@@ -443,7 +523,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
                     placeholder="e.g., Haircut & Styling"
-                    className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
+                    className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-800 text-gray-900"
                     required
                   />
                 </div>
@@ -455,7 +535,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                     value={formData.price}
                     onChange={(e) => handleNumericInput('price', e.target.value)}
                     placeholder="0"
-                    className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
+                    className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-800 text-gray-900"
                     required
                   />
                 </div>
@@ -500,22 +580,21 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   rows="3"
-                  className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-800 text-gray-900"
                   placeholder="Describe what this service includes..."
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Service Duration *</label>
                   <div className="grid grid-cols-2 gap-2">
                     <CustomDropdown
                       options={[
                         { value: 'minutes', label: 'Minutes' },
                         { value: 'hours', label: 'Hours' },
-                        { value: 'days', label: 'Days' },
-                        { value: 'weeks', label: 'Weeks' }
+                        { value: 'days', label: 'Days' }
                       ]}
                       value={formData.durationUnit}
                       onChange={handleDurationUnitChange}
@@ -530,23 +609,6 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Discount (%)</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={formData.discount}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '');
-                      const numValue = parseInt(value) || '';
-                      if (numValue === '' || numValue <= 100) {
-                        handleInputChange('discount', value);
-                      }
-                    }}
-                    placeholder="0"
-                    className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
-                  />
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Years of Experience</label>
                   <input
                     type="text"
@@ -557,32 +619,36 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                       handleInputChange('yearsOfExperience', value);
                     }}
                     placeholder="0"
-                    className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
+                    className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-800 text-gray-900"
                   />
                 </div>
               </div>
 
-              <div className="p-6 bg-gradient-to-r from-teal-50 to-blue-50 rounded-xl border-2 border-teal-200">
+              {/* Same bg-brand-50/border-brand-100 treatment as the "Where
+                  can customers book this service?" callout in Step 2 --
+                  every info callout in this form reads as one consistent
+                  style now, rather than each section picking its own color. */}
+              <div className="p-6 bg-brand-50 rounded-xl border-2 border-brand-100">
                 <label className="flex items-start space-x-4 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.homeServiceAvailable}
                     onChange={(e) => handleInputChange('homeServiceAvailable', e.target.checked)}
-                    className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 mt-1 flex-shrink-0"
+                    className="w-5 h-5 text-brand-800 rounded focus:ring-brand-800 mt-1 flex-shrink-0"
                   />
                   <div className="flex-1">
                     <div className="flex items-center mb-2">
                       <span className="text-base font-semibold text-gray-900">Do you offer home service?</span>
-                      <span className="ml-2 px-2 py-0.5 bg-teal-100 text-teal-700 text-xs font-medium rounded-full">
+                      <span className="ml-2 px-2 py-0.5 bg-brand-100 text-brand-800 text-xs font-medium rounded-full">
                         Optional
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 leading-relaxed">
-                      Check this box if you can go to the customer's location to provide this service. This gives customers more flexibility in how they book.
+                      Check this box if you can go to the customer&apos;s location to provide this service. This gives customers more flexibility in how they book.
                     </p>
                     {formData.homeServiceAvailable && (
-                      <div className="mt-3 p-3 bg-white rounded-lg border border-teal-200">
-                        <p className="text-xs text-teal-700 font-medium">
+                      <div className="mt-3 p-3 bg-white rounded-lg border border-brand-200">
+                        <p className="text-xs text-brand-800 font-medium">
                           ✓ Home service enabled for this service
                         </p>
                       </div>
@@ -590,14 +656,63 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                   </div>
                 </label>
               </div>
+
+              {/* Built fully at the schema/API/reshape layers for a while
+                  with no UI to actually create one -- a vendor could never
+                  add an add-on before this. */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Add-ons (Optional)</label>
+                  <button
+                    type="button"
+                    onClick={addAddOn}
+                    className="text-sm font-medium text-brand-800 hover:text-brand-900"
+                  >
+                    + Add an add-on
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">
+                  Extras a customer can add on top of this service, e.g. &quot;Extra hour&quot; or &quot;Rush delivery&quot;.
+                </p>
+                {formData.addOns.length > 0 && (
+                  <div className="space-y-2">
+                    {formData.addOns.map((addOn, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={addOn.name}
+                          onChange={(e) => updateAddOn(index, 'name', e.target.value)}
+                          placeholder="Add-on name"
+                          className="flex-1 px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-800 text-gray-900"
+                        />
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={addOn.price}
+                          onChange={(e) => updateAddOn(index, 'price', e.target.value.replace(/[^\d.]/g, ''))}
+                          placeholder="Price (₦)"
+                          className="w-32 px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-800 text-gray-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeAddOn(index)}
+                          className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* Step 2: Service Location */}
           {currentStep === 2 && (
             <div className="space-y-4">
-              <div className="p-4 bg-blue-50 rounded-xl mb-4">
-                <p className="text-sm text-blue-800">
+              <div className="p-4 bg-brand-50 rounded-xl mb-4 border border-brand-100">
+                <p className="text-sm text-brand-900">
                   <strong>Where can customers book this service?</strong> Select the states and cities where you provide this specific service.
                 </p>
               </div>
@@ -617,7 +732,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                         }
                       }));
                     }}
-                    className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    className="w-4 h-4 text-brand-800 rounded focus:ring-brand-800"
                   />
                   <span className="font-medium text-gray-900">Available nationwide</span>
                 </label>
@@ -645,7 +760,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                       <button
                         onClick={addState}
                         disabled={!selectedStateForCity}
-                        className="px-4 py-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="px-4 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         Add State
                       </button>
@@ -655,12 +770,12 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                   {formData.serviceLocations.states.length > 0 && (
                     <div className="space-y-3">
                       <label className="block text-sm font-medium text-gray-700">Selected States & Cities</label>
-                      {formData.serviceLocations.states.map((state) => (
-                        <div key={state.stateName} className="p-4 bg-gray-50 rounded-xl">
+                      {formData.serviceLocations.states.map((entry) => (
+                        <div key={entry.state} className="p-4 bg-gray-50 rounded-xl">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-medium text-gray-900">{state.stateName}</h4>
+                            <h4 className="font-medium text-gray-900">{entry.state}</h4>
                             <button
-                              onClick={() => removeState(state.stateName)}
+                              onClick={() => removeState(entry.state)}
                               className="text-red-500 hover:text-red-600 text-sm"
                             >
                               Remove
@@ -671,34 +786,34 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                             <label className="flex items-center space-x-2 cursor-pointer">
                               <input
                                 type="checkbox"
-                                checked={state.coverAllCities}
-                                onChange={() => toggleCoverAllCities(state.stateName)}
-                                className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                                checked={entry.coverAllCities}
+                                onChange={() => toggleCoverAllCities(entry.state)}
+                                className="w-4 h-4 text-brand-800 rounded focus:ring-brand-800"
                               />
-                              <span className="text-sm text-gray-700">All cities in {state.stateName}</span>
+                              <span className="text-sm text-gray-700">All cities in {entry.state}</span>
                             </label>
                           </div>
 
-                          {!state.coverAllCities && (
+                          {!entry.coverAllCities && (
                             <div>
                               <label className="block text-xs font-medium text-gray-700 mb-2">Select Cities</label>
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
-                                {NIGERIAN_STATES[state.stateName]?.map((city) => (
+                                {NIGERIAN_STATES[entry.state]?.map((city) => (
                                   <label
                                     key={city}
                                     className="flex items-center space-x-2 cursor-pointer text-sm"
                                   >
                                     <input
                                       type="checkbox"
-                                      checked={state.cities.includes(city)}
+                                      checked={entry.cities.includes(city)}
                                       onChange={(e) => {
                                         if (e.target.checked) {
-                                          addCityToState(state.stateName, city);
+                                          addCityToState(entry.state, city);
                                         } else {
-                                          removeCityFromState(state.stateName, city);
+                                          removeCityFromState(entry.state, city);
                                         }
                                       }}
-                                      className="w-3 h-3 text-teal-600 rounded focus:ring-teal-500"
+                                      className="w-3 h-3 text-brand-800 rounded focus:ring-brand-800"
                                     />
                                     <span className="text-gray-700">{city}</span>
                                   </label>
@@ -744,7 +859,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                       handleInputChange('maxBookingsPerDay', value);
                     }}
                     placeholder="10"
-                    className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
+                    className="w-full px-4 py-2.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-800 text-gray-900"
                     required
                   />
                 </div>
@@ -764,7 +879,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                             newAvailability[index].isAvailable = e.target.checked;
                             setFormData(prev => ({ ...prev, availability: newAvailability }));
                           }}
-                          className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                          className="w-4 h-4 text-brand-800 rounded focus:ring-brand-800"
                         />
                         <span className="font-medium text-gray-900 capitalize">{day.day}</span>
                       </label>
@@ -782,7 +897,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                               newAvailability[index].openingTime = e.target.value;
                               setFormData(prev => ({ ...prev, availability: newAvailability }));
                             }}
-                            className="w-full px-3 py-2 bg-white border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 text-sm"
+                            className="w-full px-3 py-2 bg-white border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-800 text-gray-900 text-sm"
                           />
                         </div>
                         <div>
@@ -795,7 +910,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                               newAvailability[index].closingTime = e.target.value;
                               setFormData(prev => ({ ...prev, availability: newAvailability }));
                             }}
-                            className="w-full px-3 py-2 bg-white border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900 text-sm"
+                            className="w-full px-3 py-2 bg-white border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-800 text-gray-900 text-sm"
                           />
                         </div>
                       </div>
@@ -815,8 +930,19 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                 </label>
                 <p className="text-xs text-gray-500 mb-3">Upload images showcasing this specific service</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {existingPortfolioUrls.map((img, index) => (
+                    <div key={`existing-${index}`} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => removeExistingPortfolioImage(index)}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
                   {formData.portfolioImages.map((img, index) => (
-                    <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
+                    <div key={`new-${index}`} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
                       <img src={img} alt="" className="w-full h-full object-cover" />
                       <button
                         onClick={() => removePortfolioImage(index)}
@@ -826,8 +952,8 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
                       </button>
                     </div>
                   ))}
-                  {formData.portfolioImages.length < 5 && (
-                    <label className="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-teal-500 transition-colors">
+                  {existingPortfolioUrls.length + formData.portfolioImages.length < 5 && (
+                    <label className="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-brand-800 transition-colors">
                       <input
                         type="file"
                         multiple
@@ -869,7 +995,7 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
             {currentStep < STEPS.length ? (
               <button
                 onClick={nextStep}
-                className="flex items-center space-x-2 px-6 py-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors"
+                className="flex items-center space-x-2 px-6 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors"
               >
                 <span>Next</span>
                 <ChevronRight className="w-4 h-4" />
@@ -878,9 +1004,9 @@ export default function AddServiceModal({ isOpen, onClose, storeData, existingSe
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="px-6 py-2.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50"
+                className="px-6 py-2.5 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors disabled:opacity-50"
               >
-                {loading ? 'Adding...' : 'Add Service'}
+                {loading ? (isEditing ? 'Saving...' : 'Adding...') : (isEditing ? 'Save Changes' : 'Add Service')}
               </button>
             )}
           </div>

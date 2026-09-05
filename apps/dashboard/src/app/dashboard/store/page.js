@@ -14,24 +14,22 @@ import {
   Receipt,
   Calendar,
   Palette,
-  Save,
-  X,
   AlertCircle,
   Landmark,
   Truck,
   Settings as SettingsIcon
 } from "lucide-react";
 import Button from "@/components/ui/Button";
-import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
+import CreateBusinessModal from "@/components/dashboard/CreateBusinessModal";
 import AddPhysicalStoreModal from "@/components/dashboard/AddPhysicalStoreModal";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import PayoutSettingsModal from "@/components/dashboard/PayoutSettingsModal";
+import EditStoreModal from "@/components/dashboard/EditStoreModal";
 import StoreGeneralTab from "@/components/dashboard/store/StoreGeneralTab";
 import StoreLocationTab from "@/components/dashboard/store/StoreLocationTab";
 import StoreDeliveryTab from "@/components/dashboard/store/StoreDeliveryTab";
 import StorePreferencesTab from "@/components/dashboard/store/StorePreferencesTab";
 import { useRouter } from "next/navigation";
-import { NIGERIAN_STATES } from "@stora/shared-constants";
 
 const STORE_TABS = [
   { id: 'general', label: 'General', icon: Store },
@@ -47,20 +45,17 @@ export default function StorePage() {
   const [store, setStore] = useState(null);
   const [salesStats, setSalesStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({});
   const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingFulfillmentMethod, setIsUpdatingFulfillmentMethod] = useState(false);
   const [isUpdatingRestaurantMode, setIsUpdatingRestaurantMode] = useState(false);
+  const [isUpdatingSellsProducts, setIsUpdatingSellsProducts] = useState(false);
+  const [isUpdatingOffersServices, setIsUpdatingOffersServices] = useState(false);
   const [isCreateStoreModalOpen, setIsCreateStoreModalOpen] = useState(false);
   const [isAddPhysicalStoreModalOpen, setIsAddPhysicalStoreModalOpen] = useState(false);
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
+  const [isEditStoreModalOpen, setIsEditStoreModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
-
-  // Nigerian states for dropdown
-  const nigerianStates = [{ value: '', label: 'Select State' }, ...NIGERIAN_STATES];
 
   // Fetch store information
   const fetchStore = async () => {
@@ -124,126 +119,11 @@ export default function StorePage() {
     setIsPayoutModalOpen(false);
   };
 
-  const startEditing = () => {
-    setEditData({
-      storeName: store.storeName,
-      storeDescription: store.storeDescription,
-      storePhone: store.storePhone,
-      storeEmail: store.storeEmail,
-      state: store.state || '',
-      deliveryNationwide: store.deliveryNationwide,
-      deliveryStates: store.deliveryStates || [],
-      deliveryFees: store.deliveryFees || {},
-      address: { ...store.address },
-      onlineStoreInfo: {
-        website: store.onlineStoreInfo?.website || '',
-        socialMedia: {
-          instagram: store.onlineStoreInfo?.socialMedia?.instagram || '',
-          whatsapp: store.onlineStoreInfo?.socialMedia?.whatsapp || ''
-        }
-      },
-      settings: { ...store.settings }
-    });
-    setIsEditing(true);
-    setErrors({});
-  };
-
-  const cancelEditing = () => {
-    setIsEditing(false);
-    setEditData({});
-    setErrors({});
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    if (name.includes('.')) {
-      const nameParts = name.split('.');
-      
-      if (nameParts.length === 2) {
-        const [parent, child] = nameParts;
-        setEditData(prev => ({
-          ...prev,
-          [parent]: {
-            ...prev[parent],
-            [child]: value
-          }
-        }));
-      } else if (nameParts.length === 3) {
-        const [parent, middle, child] = nameParts;
-        setEditData(prev => ({
-          ...prev,
-          [parent]: {
-            ...prev[parent],
-            [middle]: {
-              ...prev[parent][middle],
-              [child]: value
-            }
-          }
-        }));
-      }
-    } else {
-      setEditData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!editData.storeName?.trim()) {
-      newErrors.storeName = 'Store name is required';
-    }
-
-    if (store.storeType === 'physical') {
-      if (!editData.address?.city?.trim()) {
-        newErrors['address.city'] = 'City is required for physical stores';
-      }
-      if (!editData.address?.state?.trim()) {
-        newErrors['address.state'] = 'State is required for physical stores';
-      }
-    }
-
-    if (!editData.deliveryNationwide && (editData.deliveryStates || []).length === 0) {
-      newErrors.deliveryStates = 'Select at least one state, or choose Nationwide';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const setDeliveryNationwide = (nationwide) => {
-    setEditData(prev => ({ ...prev, deliveryNationwide: nationwide }));
-    if (errors.deliveryStates) setErrors(prev => ({ ...prev, deliveryStates: '' }));
-  };
-
-  const toggleDeliveryState = (states) => {
-    setEditData(prev => ({ ...prev, deliveryStates: states }));
-    if (errors.deliveryStates) setErrors(prev => ({ ...prev, deliveryStates: '' }));
-  };
-
-  const setDeliveryFee = (state, amount) => {
-    setEditData(prev => ({ ...prev, deliveryFees: { ...prev.deliveryFees, [state]: amount } }));
-  };
-
-  // Bulk-sets every state in a zone that doesn't already have an explicit
-  // fee -- never overwrites a state the vendor already customized, so this
-  // is purely a data-entry shortcut, not a way to reset a whole zone.
-  const setDeliveryFeeForZone = (statesInZone, amount) => {
-    setEditData(prev => {
-      const nextFees = { ...prev.deliveryFees };
-      for (const state of statesInZone) {
-        if (nextFees[state] === undefined) nextFees[state] = amount;
-      }
-      return { ...prev, deliveryFees: nextFees };
-    });
+  // Opens EditStoreModal, which owns all the batched-field edit state
+  // itself (editData/errors/validation/Save) -- this page only needs to
+  // hand it the current store and take back whatever it saved.
+  const handleStoreUpdated = (updatedStore) => {
+    setStore(updatedStore);
   };
 
   const handleFulfillmentMethodChange = async (fulfillmentMethod) => {
@@ -288,46 +168,46 @@ export default function StorePage() {
     }
   };
 
-  const handleSave = async () => {
-    if (!validateForm()) return;
-    
-    setIsSubmitting(true);
-    
+  // sellsProducts/offersServices reuse the generic PUT /api/stores (unlike
+  // fulfillment-method/restaurant-mode, which have their own dedicated
+  // PATCH routes) -- it already accepts partial updates to both fields
+  // (see the "at least one business type" guard added alongside it), so a
+  // third/fourth dedicated endpoint isn't needed just for this.
+  const handleSellsProductsChange = async (sellsProducts) => {
+    if (sellsProducts === store.sellsProducts || isUpdatingSellsProducts) return;
+    setIsUpdatingSellsProducts(true);
     try {
       const response = await secureApiCall('/api/stores', {
         method: 'PUT',
-        body: JSON.stringify({
-          ...editData,
-          // Keep the canonical stores.state column in sync with whichever
-          // field is the active source for this store type -- physical
-          // stores edit address.state, online-only stores edit the
-          // standalone field below, but only one value should ever reach
-          // the DB as "the" operating state.
-          // Falsy (never-set) state is omitted entirely, not sent as ''--
-          // JSON.stringify drops an `undefined` value's key, so the PUT
-          // handler's `updateData.state !== undefined` check correctly
-          // treats an unset state as "leave alone," not "reject as
-          // invalid." Physical stores already require address.state via
-          // validateForm() above, so this only ever matters for
-          // online-only stores that haven't set one yet.
-          state: (store.storeType === 'physical' ? editData.address.state : editData.state) || undefined,
-          deliveryStates: editData.deliveryNationwide ? null : editData.deliveryStates,
-          deliveryFees: editData.deliveryFees || {}
-        })
+        body: JSON.stringify({ sellsProducts })
       });
-
       if (response.success) {
         setStore(response.data);
-        setIsEditing(false);
-        setEditData({});
-        setErrors({});
+        queryClient.invalidateQueries({ queryKey: ['store'] });
       } else {
-        setErrors({ submit: response.message || 'Failed to update store' });
+        setErrors(prev => ({ ...prev, sellsProducts: response.message || 'Failed to update' }));
       }
-    } catch (error) {
-      setErrors({ submit: error.message || 'Failed to update store' });
     } finally {
-      setIsSubmitting(false);
+      setIsUpdatingSellsProducts(false);
+    }
+  };
+
+  const handleOffersServicesChange = async (offersServices) => {
+    if (offersServices === store.offersServices || isUpdatingOffersServices) return;
+    setIsUpdatingOffersServices(true);
+    try {
+      const response = await secureApiCall('/api/stores', {
+        method: 'PUT',
+        body: JSON.stringify({ offersServices })
+      });
+      if (response.success) {
+        setStore(response.data);
+        queryClient.invalidateQueries({ queryKey: ['store'] });
+      } else {
+        setErrors(prev => ({ ...prev, offersServices: response.message || 'Failed to update' }));
+      }
+    } finally {
+      setIsUpdatingOffersServices(false);
     }
   };
 
@@ -378,7 +258,7 @@ export default function StorePage() {
         </div>
 
         {/* Create Store Modal */}
-        <CreateStoreModal
+        <CreateBusinessModal
           isOpen={isCreateStoreModalOpen}
           onStoreCreated={handleStoreCreated}
         />
@@ -416,32 +296,13 @@ export default function StorePage() {
               </Button>
             )}
 
-            {!isEditing ? (
-              <Button variant="primary" onClick={startEditing} className="w-full sm:w-auto">
-                <Edit3 className="w-4 h-4" />
-                <span>Edit Store</span>
-              </Button>
-            ) : (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <Button variant="secondary" onClick={cancelEditing} className="w-full sm:w-auto">
-                  <X className="w-4 h-4" />
-                  <span>Cancel</span>
-                </Button>
-                <Button variant="primary" onClick={handleSave} disabled={isSubmitting} className="w-full sm:w-auto">
-                  <Save className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Saving...' : 'Save Changes'}</span>
-                </Button>
-              </div>
-            )}
+            <Button variant="primary" onClick={() => setIsEditStoreModalOpen(true)} className="w-full sm:w-auto">
+              <Edit3 className="w-4 h-4" />
+              <span>Edit Store</span>
+            </Button>
           </div>
         </div>
       </div>
-
-      {errors.submit && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600 text-sm">{errors.submit}</p>
-        </div>
-      )}
 
       {/* Store Stats Strip */}
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
@@ -513,22 +374,24 @@ export default function StorePage() {
             (apps/dashboard/src/components/dashboard/store/) rather than
             four sections inlined in one file. */}
         <div className="lg:col-span-2">
+          {/* Always read-only here now -- editing the batched fields
+              (name, address, delivery states/fees, etc.) happens in
+              EditStoreModal instead. The instant-save toggles below
+              (fulfillment method, business-type switches) still live here
+              and stay interactive regardless, since they were never part
+              of the Edit Store/Save contract to begin with. */}
           {activeTab === 'general' && (
-            <StoreGeneralTab store={store} isEditing={isEditing} editData={editData} errors={errors} handleChange={handleChange} />
+            <StoreGeneralTab store={store} isEditing={false} errors={errors} />
           )}
           {activeTab === 'location' && (
-            <StoreLocationTab store={store} isEditing={isEditing} editData={editData} errors={errors} handleChange={handleChange} nigerianStates={nigerianStates} />
+            <StoreLocationTab store={store} isEditing={false} errors={errors} />
           )}
           {activeTab === 'delivery' && (
             <StoreDeliveryTab
               store={store}
-              isEditing={isEditing}
-              editData={editData}
+              isEditing={false}
+              editData={{}}
               errors={errors}
-              setDeliveryNationwide={setDeliveryNationwide}
-              toggleDeliveryState={toggleDeliveryState}
-              setDeliveryFee={setDeliveryFee}
-              setDeliveryFeeForZone={setDeliveryFeeForZone}
               onFulfillmentMethodChange={handleFulfillmentMethodChange}
               isUpdatingFulfillmentMethod={isUpdatingFulfillmentMethod}
             />
@@ -536,11 +399,14 @@ export default function StorePage() {
           {activeTab === 'preferences' && (
             <StorePreferencesTab
               store={store}
-              isEditing={isEditing}
-              editData={editData}
-              handleChange={handleChange}
+              isEditing={false}
+              errors={errors}
               onRestaurantModeChange={handleRestaurantModeChange}
               isUpdatingRestaurantMode={isUpdatingRestaurantMode}
+              onSellsProductsChange={handleSellsProductsChange}
+              isUpdatingSellsProducts={isUpdatingSellsProducts}
+              onOffersServicesChange={handleOffersServicesChange}
+              isUpdatingOffersServices={isUpdatingOffersServices}
             />
           )}
         </div>
@@ -635,7 +501,7 @@ export default function StorePage() {
       </div>
 
       {/* Create Store Modal */}
-      <CreateStoreModal
+      <CreateBusinessModal
         isOpen={isCreateStoreModalOpen}
         onStoreCreated={handleStoreCreated}
       />
@@ -661,6 +527,14 @@ export default function StorePage() {
         isOpen={isPayoutModalOpen}
         onClose={() => setIsPayoutModalOpen(false)}
         onPayoutUpdated={handlePayoutUpdated}
+        store={store}
+      />
+
+      {/* Edit Store Modal */}
+      <EditStoreModal
+        isOpen={isEditStoreModalOpen}
+        onClose={() => setIsEditStoreModalOpen(false)}
+        onStoreUpdated={handleStoreUpdated}
         store={store}
       />
     </DashboardLayout>

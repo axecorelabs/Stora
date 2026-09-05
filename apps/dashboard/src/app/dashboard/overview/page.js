@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
+import CreateBusinessModal from "@/components/dashboard/CreateBusinessModal";
 import SetupChecklist from "@/components/dashboard/SetupChecklist";
 import Button from "@/components/ui/Button";
 import RevenueTrendChart from "@/components/dashboard/charts/RevenueTrendChart";
@@ -208,7 +208,7 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        <CreateStoreModal
+        <CreateBusinessModal
           isOpen={isCreateStoreModalOpen}
           onStoreCreated={handleStoreCreated}
         />
@@ -380,7 +380,7 @@ export default function DashboardOverview() {
       </div>
 
       {/* Create Store Modal */}
-      <CreateStoreModal
+      <CreateBusinessModal
         isOpen={isCreateStoreModalOpen}
         onStoreCreated={handleStoreCreated}
       />

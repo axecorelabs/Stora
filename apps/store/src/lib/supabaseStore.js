@@ -115,6 +115,11 @@ function transformStoreFields(store) {
     storeDescription: store.store_description,
     storeType: store.store_type,
     restaurantMode: !!store.restaurant_mode,
+    // Independent booleans set at business-creation time (CreateBusinessModal.js)
+    // -- a business can be any combination of the three. sellsProducts
+    // defaults true at the DB level (existing stores predate this column).
+    sellsProducts: store.sells_products !== false,
+    offersServices: !!store.offers_services,
     storePhone: store.store_phone,
     storeEmail: store.store_email,
     state: store.state,
@@ -125,7 +130,16 @@ function transformStoreFields(store) {
     branding: store.branding,
     businessHours: store.business_hours,
     website: store.website,
+    // isVerified is the vendor's own identity check (QoreID NIN + live
+    // selfie) -- confirms a real person, nothing about the business itself.
+    // businessVerified is the actual "Verified by Stora" public trust badge:
+    // staff-granted after a vendor contacts Stora directly, set via the
+    // admin-only PATCH /api/stores/[storeId] toggle, never by the vendor.
+    // Every public badge component reads businessVerified, not isVerified --
+    // VerificationForm.js's own copy used to promise the individual identity
+    // check earned this badge, which conflated the two.
     isVerified: store.is_verified,
+    businessVerified: !!store.business_verified_at,
     isActive: store.is_active,
     averageRating: store.average_rating,
     totalReviews: store.total_reviews,
@@ -133,6 +147,77 @@ function transformStoreFields(store) {
     createdAt: store.created_at,
     updatedAt: store.updated_at
   };
+}
+
+// Public storefront services -- mirrors apps/dashboard/src/lib/services.js's
+// loadServiceDocument (same batched-query shape, no N+1) but only ever
+// returns active items: the dashboard version intentionally includes
+// inactive ones too, since that's the vendor's own management view, not
+// what a shopper should see. Returns a flat array (not the dashboard's
+// {_id, storeId, services} wrapper) since this is assigned directly onto
+// store.services for ServicesSection to render.
+export async function loadPublicServiceDocument(storeId) {
+  const { data: service } = await supabaseAdmin
+    .from('services')
+    .select('id')
+    .eq('store_id', storeId)
+    .maybeSingle();
+
+  if (!service) return [];
+
+  const { data: items } = await supabaseAdmin
+    .from('service_items')
+    .select('*')
+    .eq('service_id', service.id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+
+  const itemIds = (items || []).map(i => i.id);
+  let locationsByItem = {};
+
+  if (itemIds.length > 0) {
+    const { data: locations } = await supabaseAdmin
+      .from('service_locations')
+      .select('*')
+      .in('service_item_id', itemIds);
+
+    (locations || []).forEach(l => {
+      if (!locationsByItem[l.service_item_id]) {
+        locationsByItem[l.service_item_id] = { coverAllNigeria: false, states: [] };
+      }
+      if (l.cover_all_nigeria) locationsByItem[l.service_item_id].coverAllNigeria = true;
+      if (l.state) {
+        locationsByItem[l.service_item_id].states.push({
+          state: l.state, coverAllCities: l.cover_all_cities, cities: l.cities || []
+        });
+      }
+    });
+  }
+
+  return (items || []).map(item => ({
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    category: item.category,
+    subCategory: item.sub_category,
+    price: item.price,
+    duration: item.duration,
+    durationUnit: item.duration_unit,
+    yearsOfExperience: item.years_of_experience,
+    homeServiceAvailable: item.home_service_available,
+    portfolioImages: item.portfolio_images || [],
+    serviceLocations: locationsByItem[item.id] || { coverAllNigeria: false, states: [] }
+  }));
+}
+
+// Attaches the services array onto an already-transformed store, only when
+// the business actually offers services -- most stores don't, so this
+// skips the extra round trip for the common case.
+async function attachServices(store) {
+  if (store?.offersServices) {
+    store.services = await loadPublicServiceDocument(store.id);
+  }
+  return store;
 }
 
 // ============ STORE OPERATIONS ============
@@ -152,7 +237,7 @@ export async function findStoreById(storeId) {
     throw new Error('Failed to find store');
   }
 
-  return transformStoreFields(data);
+  return attachServices(transformStoreFields(data));
 }
 
 // Public store URLs are keyed by website.websitePath (a clean, editable slug),
@@ -200,13 +285,13 @@ export async function findStoreBySlug(slug) {
   }
 
   console.log('Store found:', data?.store_name);
-  return transformStoreFields(data);
+  return attachServices(transformStoreFields(data));
 }
 
 export async function findStoreByWebsitePath(websitePath) {
   try {
     const data = await findActiveStoreByPathOrSlug(websitePath);
-    return transformStoreFields(data);
+    return attachServices(transformStoreFields(data));
   } catch (error) {
     console.error('Database connection error for store lookup:', error.message);
     // Re-throw to let the page handle it gracefully
@@ -219,8 +304,9 @@ export async function findStoreByWebsitePath(websitePath) {
 // total_orders/average_rating first (real differentiators once the
 // platform has volume), falling back to newest-first, since on a young
 // platform most stores are still tied at zero on both. Deliberately not
-// gated on is_verified: none of the real stores in production carry that
-// flag yet, so requiring it here would silently empty the whole section.
+// gated on business_verified_at (the "Verified by Stora" badge): none of
+// the real stores in production carry that flag yet, so requiring it here
+// would silently empty the whole section.
 export async function findFeaturedStores({ limit = 12 } = {}) {
   const { data, error } = await supabaseAdmin
     .from('stores')
@@ -246,7 +332,7 @@ export async function findFeaturedStores({ limit = 12 } = {}) {
 // function (see 20260817000005_vendor_product_search.sql), which does the
 // ILIKE-over-trigram-index search, sort, and count(*) OVER() pagination
 // total in a single indexed query rather than pulling candidates into JS.
-export async function searchVendorsPaginated({ search, sort = 'featured', limit = 24, offset = 0, categories, state, buyerState, deliverableOnly } = {}) {
+export async function searchVendorsPaginated({ search, sort = 'featured', limit = 24, offset = 0, categories, state, buyerState, deliverableOnly, scope } = {}) {
   const rpcParams = {
     p_search: search || null,
     p_sort: sort,
@@ -256,14 +342,18 @@ export async function searchVendorsPaginated({ search, sort = 'featured', limit 
     p_state: state || null,
     p_buyer_state: buyerState || null
   };
-  // Only sent when actually true -- app deploys and DB migrations aren't
-  // applied atomically together here (no CI step runs the SQL migrations),
-  // so there's a real window where this code ships before the DB function
-  // knows about p_deliverable_only. Omitting the key when unused means
-  // the RPC call still matches the OLD function signature during that
-  // window, so ordinary browsing keeps working; only the deliverable-only
-  // filter itself is unavailable until the migration actually runs.
+  // Only sent when actually true/set -- app deploys and DB migrations
+  // aren't applied atomically together here (no CI step runs the SQL
+  // migrations), so there's a real window where this code ships before
+  // the DB function knows about p_deliverable_only/p_scope. Omitting the
+  // key when unused means the RPC call still matches the OLD function
+  // signature during that window, so ordinary browsing keeps working;
+  // only the new filter itself is unavailable until the migration runs.
   if (deliverableOnly) rpcParams.p_deliverable_only = true;
+  // 'products' | 'services' -- the /vendors scope toggle (see
+  // 20260913000000_search_vendors_services.sql). 'all' (the default) is
+  // never sent, same as any other unset filter.
+  if (scope === 'products' || scope === 'services') rpcParams.p_scope = scope;
 
   const { data, error } = await supabaseAdmin.rpc('search_vendors', rpcParams);
 
@@ -285,7 +375,7 @@ export async function searchVendorsPaginated({ search, sort = 'featured', limit 
 // (search_vendors_ai) instead of ILIKE, otherwise the same shape/response
 // as searchVendorsPaginated above so callers (the AI search route) can
 // treat both result sets identically.
-export async function searchVendorsByEmbedding({ embedding, categories, state, buyerState, deliverableOnly, limit = 24, offset = 0 } = {}) {
+export async function searchVendorsByEmbedding({ embedding, categories, state, buyerState, deliverableOnly, scope, limit = 24, offset = 0 } = {}) {
   const rpcParams = {
     p_embedding: embedding,
     p_categories: categories?.length ? categories : null,
@@ -295,6 +385,7 @@ export async function searchVendorsByEmbedding({ embedding, categories, state, b
     p_offset: offset
   };
   if (deliverableOnly) rpcParams.p_deliverable_only = true;
+  if (scope === 'products' || scope === 'services') rpcParams.p_scope = scope;
 
   const { data, error } = await supabaseAdmin.rpc('search_vendors_ai', rpcParams);
 
@@ -1123,6 +1214,12 @@ export function buildPublicStoreData(store) {
     storeDescription: store.store_description,
     storeType: store.store_type,
     restaurantMode: !!store.restaurant_mode,
+    // Cheap booleans, safe to include in bulk search results (unlike a
+    // full `services` array, which transformStoreFields adds separately --
+    // this function's callers map over many rows at once, so a per-row
+    // services sub-query here would be a real N+1).
+    sellsProducts: store.sells_products !== false,
+    offersServices: !!store.offers_services,
     storePhone: store.store_phone,
     storeEmail: store.store_email,
     state: store.state,
@@ -1132,7 +1229,16 @@ export function buildPublicStoreData(store) {
     settings: store.settings,
     branding: store.branding,
     businessHours: store.business_hours,
+    // isVerified is the vendor's own identity check (QoreID NIN + live
+    // selfie) -- confirms a real person, nothing about the business itself.
+    // businessVerified is the actual "Verified by Stora" public trust badge:
+    // staff-granted after a vendor contacts Stora directly, set via the
+    // admin-only PATCH /api/stores/[storeId] toggle, never by the vendor.
+    // Every public badge component reads businessVerified, not isVerified --
+    // VerificationForm.js's own copy used to promise the individual identity
+    // check earned this badge, which conflated the two.
     isVerified: store.is_verified,
+    businessVerified: !!store.business_verified_at,
     averageRating: store.average_rating,
     totalReviews: store.total_reviews,
     createdAt: store.created_at

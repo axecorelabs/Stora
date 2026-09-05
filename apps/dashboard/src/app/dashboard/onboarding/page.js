@@ -2,11 +2,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Globe, UtensilsCrossed, CheckCircle2, AlertCircle } from "lucide-react";
+import { Globe, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWebsiteData } from "@/hooks/useWebsiteData";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
-import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
+import CreateBusinessModal from "@/components/dashboard/CreateBusinessModal";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import VerificationForm from "@/components/dashboard/VerificationForm";
 import Button from "@/components/ui/Button";
@@ -24,26 +24,31 @@ export default function OnboardingPage() {
   // This hook's own `['store']` query fetches on mount (during the 'name'
   // step, before any store exists yet) and caches a "no store" result for
   // its 5-minute staleTime. That key is shared with useDashboardData's own
-  // storeQuery on /dashboard/overview -- since CreateStoreModal creates the
-  // store via a plain fetch call (not a react-query mutation), nothing
+  // storeQuery on /dashboard/overview -- since CreateBusinessModal creates
+  // the store via a plain fetch call (not a react-query mutation), nothing
   // invalidates it, and landing on Overview right after onboarding would
-  // read the stale "no store" cache and show "Create Your Store" again.
+  // read the stale "no store" cache and show "Create Your Business" again.
   // handleStoreCreated below invalidates it explicitly once a store exists.
   // The website URL preview further down instead uses the store object
-  // CreateStoreModal already hands back on success, sidestepping the same
+  // CreateBusinessModal already hands back on success, sidestepping the same
   // staleness for its own display.
   const { toggleWebsite, isTogglingWebsite } = useWebsiteData();
   const verificationEnabled = useVerificationEnabled();
   const [createdStore, setCreatedStore] = useState(null);
 
-  // Steps: 'name' -> 'store' -> 'branding' -> 'restaurant' -> 'verification'
-  // -> 'website' -> 'done'. Always starts at 'name' -- there's no persisted
-  // "step 1 done" flag, so re-entering the wizard (e.g. a refresh mid-flow)
-  // just re-shows a pre-filled, one-click confirm rather than needing its
-  // own progress column. Every step from 'branding' on is skippable (that's
-  // unchanged), but they're real inline steps here, not links out to a page
-  // that leaves the vendor to figure out the rest alone -- and nothing here
-  // calls them "optional": they're skippable, not unimportant.
+  // Steps: 'name' -> 'business' -> 'branding' -> 'verification' -> 'website'
+  // -> 'done'. There used to be a separate 'restaurant' step here (a
+  // standalone "Do you sell food?" PATCH after the store already existed) --
+  // that question is now part of 'business' itself (CreateBusinessModal's
+  // Products/Food/Services checkboxes, set together at creation time), so
+  // there's one less network round trip and one less screen. Always starts
+  // at 'name' -- there's no persisted "step 1 done" flag, so re-entering the
+  // wizard (e.g. a refresh mid-flow) just re-shows a pre-filled, one-click
+  // confirm rather than needing its own progress column. Every step from
+  // 'branding' on is skippable (that's unchanged), but they're real inline
+  // steps here, not links out to a page that leaves the vendor to figure out
+  // the rest alone -- and nothing here calls them "optional": they're
+  // skippable, not unimportant.
   const [step, setStep] = useState('name');
 
   const [firstName, setFirstName] = useState("");
@@ -51,8 +56,6 @@ export default function OnboardingPage() {
   const [nameError, setNameError] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const [websiteError, setWebsiteError] = useState(null);
-  const [isUpdatingRestaurantMode, setIsUpdatingRestaurantMode] = useState(false);
-  const [restaurantModeError, setRestaurantModeError] = useState(null);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -97,7 +100,7 @@ export default function OnboardingPage() {
       });
       if (response?.success) {
         await checkAuth();
-        setStep('store');
+        setStep('business');
       } else {
         setNameError(response?.message || 'Could not save -- try again');
       }
@@ -126,43 +129,11 @@ export default function OnboardingPage() {
 
   const handleBrandingUpdated = (updatedStore) => {
     setCreatedStore((prev) => ({ ...prev, branding: updatedStore.branding }));
-    setStep('restaurant');
-  };
-
-  const handleRestaurantModeChange = async (restaurantMode) => {
-    if (isUpdatingRestaurantMode) return;
-    setIsUpdatingRestaurantMode(true);
-    setRestaurantModeError(null);
-    try {
-      const response = await secureApiCall('/api/stores/restaurant-mode', {
-        method: 'PATCH',
-        body: JSON.stringify({ restaurantMode })
-      });
-      if (!response?.success) {
-        setRestaurantModeError(response?.message || 'Could not save -- try again');
-        return;
-      }
-      setCreatedStore((prev) => ({ ...prev, restaurantMode: response.data.restaurantMode }));
-      // DashboardHeader's badge and the inventory page's "Add Menu Item"
-      // button both read restaurantMode from this same shared ['store']
-      // query (see handleStoreCreated's own comment above) -- without
-      // this, they'd keep showing the pre-toggle mode for up to that
-      // query's 5-minute staleTime right after finishing onboarding.
-      queryClient.invalidateQueries({ queryKey: ['store'] });
-      // Skip straight past the verification step while QoreID's keys aren't
-      // configured yet (see useVerificationEnabled) -- there's nothing to
-      // show that wouldn't just fail if submitted.
-      setStep(verificationEnabled === true ? 'verification' : 'website');
-    } catch (error) {
-      // Previously a bare try/finally: any thrown error (a 401 before the
-      // session cookie settles, a network blip, a 500) was swallowed
-      // silently and the wizard advanced anyway, leaving restaurant_mode
-      // at its DB default of false regardless of what the vendor picked,
-      // with no error shown and no way to retry from this step.
-      setRestaurantModeError(error.message || 'Could not save -- try again');
-    } finally {
-      setIsUpdatingRestaurantMode(false);
-    }
+    // Skip straight past the verification step while QoreID's keys aren't
+    // configured yet (see useVerificationEnabled) -- there's nothing to
+    // show that wouldn't just fail if submitted. Previously this went to a
+    // standalone 'restaurant' step first (see this file's top comment).
+    setStep(verificationEnabled === true ? 'verification' : 'website');
   };
 
   const handleTurnOnWebsite = async () => {
@@ -179,7 +150,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-10 sm:py-16">
       <img src="/stora.png" alt="Stora" className="w-12 h-12 object-contain mb-6" />
 
-      <div className={`w-full ${step === 'store' ? 'max-w-2xl' : step === 'branding' ? 'max-w-3xl' : 'max-w-lg'}`}>
+      <div className={`w-full ${step === 'business' ? 'max-w-2xl' : step === 'branding' ? 'max-w-3xl' : 'max-w-lg'}`}>
         {step === 'name' && (
           <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100">
             <h1 className="text-lg font-semibold text-gray-900 mb-1.5">Confirm your legal name</h1>
@@ -220,8 +191,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {step === 'store' && (
-          <CreateStoreModal isOpen={true} onStoreCreated={handleStoreCreated} embedded />
+        {step === 'business' && (
+          <CreateBusinessModal isOpen={true} onStoreCreated={handleStoreCreated} embedded />
         )}
 
         {step === 'branding' && (
@@ -229,53 +200,9 @@ export default function OnboardingPage() {
             isOpen={true}
             embedded
             store={createdStore}
-            onClose={() => setStep('restaurant')}
+            onClose={() => setStep(verificationEnabled === true ? 'verification' : 'website')}
             onBrandingUpdated={handleBrandingUpdated}
           />
-        )}
-
-        {step === 'restaurant' && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100 text-center">
-            <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
-              <UtensilsCrossed className="w-7 h-7 text-brand-800" />
-            </div>
-            <h1 className="text-lg font-semibold text-gray-900 mb-1.5">Do you sell food?</h1>
-            <p className="text-sm text-gray-500 mb-6">
-              Restaurant Mode switches on a menu-first item form and a menu-style layout for
-              shoppers -- extras, made-to-order items, the works. It doesn&apos;t restrict what
-              else you can sell.
-            </p>
-            {restaurantModeError && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 flex items-start gap-2 text-left">
-                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700">{restaurantModeError}</p>
-              </div>
-            )}
-            <Button
-              variant="primary"
-              onClick={() => handleRestaurantModeChange(true)}
-              disabled={isUpdatingRestaurantMode}
-              className="w-full mb-3"
-            >
-              {isUpdatingRestaurantMode ? 'Turning on…' : 'Yes, turn on Restaurant Mode'}
-            </Button>
-            {/* Previously a bare-text <button> styled identically to the
-                description paragraph above it (text-sm text-gray-500,
-                no border/background) -- read as a caption, not a second
-                choice, which is why this looked like a single-button
-                screen. A real secondary button gives "No" the same
-                visual weight as "Yes" for what is a genuine either/or
-                decision, not a "skip for later" throwaway. */}
-            <Button
-              variant="secondary"
-              onClick={() => handleRestaurantModeChange(false)}
-              disabled={isUpdatingRestaurantMode}
-              className="w-full"
-            >
-              No, I don&apos;t sell food
-            </Button>
-            <p className="text-xs text-gray-400 mt-3">You can change this anytime from Store settings.</p>
-          </div>
         )}
 
         {step === 'verification' && (

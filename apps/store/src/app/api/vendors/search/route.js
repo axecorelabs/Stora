@@ -15,6 +15,8 @@ export async function GET(request) {
     const state = searchParams.get("state") || undefined;
     const buyerState = searchParams.get("buyerState") || undefined;
     const deliverableOnly = searchParams.get("deliverableOnly") === "true" && !!buyerState;
+    const scopeParam = searchParams.get("scope");
+    const scope = scopeParam === "products" || scopeParam === "services" ? scopeParam : undefined;
     const sortParam = searchParams.get("sort");
     const sortRequested = ["featured", "newest", "name", "nearest"].includes(sortParam) ? sortParam : "featured";
     // "nearest" with no buyer state to sort against is inert at the DB
@@ -30,6 +32,7 @@ export async function GET(request) {
       state,
       buyerState,
       deliverableOnly,
+      scope,
       sort,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE

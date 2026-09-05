@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ReceiptModal from "@/components/dashboard/ReceiptModal";
-import CreateStoreModal from "@/components/dashboard/CreateStoreModal";
+import CreateBusinessModal from "@/components/dashboard/CreateBusinessModal";
 import DeliveryScheduleModal from "@/components/dashboard/DeliveryScheduleModal";
 import VariantSelectionModal from "@/components/dashboard/VariantSelectionModal";
 import POSItemModifierModal from "@/components/dashboard/POS/POSItemModifierModal";
@@ -1430,7 +1430,7 @@ export default function POSPage() {
       </div>
 
       {/* Create Store Modal */}
-      <CreateStoreModal
+      <CreateBusinessModal
         isOpen={isCreateStoreModalOpen}
         onStoreCreated={handleStoreCreated}
       />

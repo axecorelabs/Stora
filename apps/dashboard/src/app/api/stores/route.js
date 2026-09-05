@@ -39,6 +39,10 @@ function transformStore(store) {
     deliveryFees: (typeof store.delivery_fees === 'string' ? JSON.parse(store.delivery_fees) : store.delivery_fees) || {},
     fulfillmentMethod: store.fulfillment_method === 'pay_on_delivery' ? 'pay_on_delivery' : 'platform_collected',
     restaurantMode: !!store.restaurant_mode,
+    // Non-exclusive -- a business can be any combination of these three,
+    // set together at business-creation time (CreateBusinessModal.js).
+    sellsProducts: !!store.sells_products,
+    offersServices: !!store.offers_services,
     address: parsedAddress,
     // Flat display string a few screens read directly (POS's store-info
     // header, the website settings page, ReceiptModal) -- was never
@@ -229,6 +233,16 @@ export async function POST(req) {
           currency: 'NGN'
         },
         bank_details: storeData.bankDetails || {},
+        // Non-exclusive "what does your business do" set, chosen together
+        // as one step in CreateBusinessModal.js -- previously restaurant_mode
+        // was the only one of these three, and it was set via its own
+        // separate PATCH /api/stores/restaurant-mode call from a dedicated
+        // onboarding step, after the store already existed. All three are
+        // now set together at creation time instead; the PATCH route still
+        // exists for changing it later from Store settings.
+        sells_products: storeData.sellsProducts !== false,
+        offers_services: !!storeData.offersServices,
+        restaurant_mode: !!storeData.offersFood,
         is_active: true,
         // No websitePath here -- it's derived from store_slug at read time
         // (transformStore below) rather than stored as its own value, so
@@ -387,6 +401,32 @@ export async function PUT(req) {
       deliveryFeesUpdate = updateData.deliveryFees;
     }
 
+    // A store must always do at least one of Products/Food/Services -- the
+    // same rule CreateBusinessModal enforces at creation time ("Select at
+    // least one -- what does your business do?"). restaurant_mode is set
+    // via a separate endpoint (PATCH /api/stores/restaurant-mode), so
+    // checking this here means fetching its current value alongside
+    // whatever this request is actually changing.
+    if (updateData.sellsProducts !== undefined || updateData.offersServices !== undefined) {
+      const { data: currentStore } = await supabaseAdmin
+        .from('stores')
+        .select('sells_products, offers_services, restaurant_mode')
+        .eq('owner_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      const resultingSellsProducts = updateData.sellsProducts !== undefined ? !!updateData.sellsProducts : !!currentStore?.sells_products;
+      const resultingOffersServices = updateData.offersServices !== undefined ? !!updateData.offersServices : !!currentStore?.offers_services;
+      const resultingRestaurantMode = !!currentStore?.restaurant_mode;
+
+      if (!resultingSellsProducts && !resultingOffersServices && !resultingRestaurantMode) {
+        return NextResponse.json(
+          { success: false, message: 'Your business must do at least one of Products, Food, or Services -- turn on another before turning this off.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Build update object with snake_case keys
     const dbUpdate = {};
     if (updateData.storeName) dbUpdate.store_name = updateData.storeName;
@@ -406,6 +446,8 @@ export async function PUT(req) {
     // from the client.
     if (updateData.settings) dbUpdate.settings = { ...updateData.settings, currency: 'NGN' };
     if (updateData.bankDetails) dbUpdate.bank_details = updateData.bankDetails;
+    if (updateData.sellsProducts !== undefined) dbUpdate.sells_products = !!updateData.sellsProducts;
+    if (updateData.offersServices !== undefined) dbUpdate.offers_services = !!updateData.offersServices;
     
     dbUpdate.updated_at = new Date().toISOString();
 

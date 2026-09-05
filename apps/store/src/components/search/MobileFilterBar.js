@@ -15,7 +15,7 @@ import { NIGERIAN_STATES } from "@stora/shared-constants";
 // one ~44px row. `onPriceChange` omitted (vendors has no price filter)
 // hides that section entirely, same convention as SearchConsole.
 export default function MobileFilterBar({
-  categories, onCategoriesChange,
+  categories, onCategoriesChange, categoryOptions = CATEGORIES,
   state, onStateChange,
   priceKey, onPriceChange,
   sort, onSortChange, sortOptions,
@@ -140,7 +140,7 @@ export default function MobileFilterBar({
                 <button onClick={() => onCategoriesChange([])} className={pillClass(categories.length === 0)}>
                   All
                 </button>
-                {CATEGORIES.map(({ value, icon: Icon }) => (
+                {categoryOptions.map(({ value, icon: Icon }) => (
                   <button
                     key={value}
                     onClick={() => toggleCategory(value)}

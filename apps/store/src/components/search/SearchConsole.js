@@ -24,7 +24,7 @@ import { CATEGORIES } from "@/lib/categories";
  */
 export default function SearchConsole({
   query, onQueryChange, searchPlaceholder,
-  categories, onCategoriesChange,
+  categories, onCategoriesChange, categoryOptions = CATEGORIES,
   state, onStateChange,
   resultCount, loading, resultLabel = "results",
   aiMode, onAiModeChange,
@@ -106,7 +106,7 @@ export default function SearchConsole({
             >
               All categories
             </button>
-            {CATEGORIES.map(({ value, icon: Icon }) => (
+            {categoryOptions.map(({ value, icon: Icon }) => (
               <button
                 key={value}
                 onClick={() => toggleCategory(value)}

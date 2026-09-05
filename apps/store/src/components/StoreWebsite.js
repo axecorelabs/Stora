@@ -7,6 +7,7 @@ import StoreHeader from "./store/StoreHeader";
 import StoreFooter from "./store/StoreFooter";
 import ProductCard from "./store/ProductCard";
 import ProductCardMobile from "./store/ProductCardMobile";
+import ServicesSection from "./store/ServicesSection";
 import CategoryFilterModal from "./store/CategoryFilterModal";
 import PriceFilterModal from "./store/PriceFilterModal";
 import AvailabilityFilterModal from "./store/AvailabilityFilterModal";
@@ -683,15 +684,14 @@ export default function StoreWebsite({ store }) {
                 />
               )}
               <div className="min-w-0">
-                {/* Tied to the vendor's real QoreID-based verification
-                    (store.isVerified, from buildPublicStoreData) -- this
-                    used to render unconditionally, which is exactly the
-                    kind of trust signal an impersonator would want to
-                    fake. No production store has actually verified yet
-                    (see findFeaturedStores' comment on the same field),
-                    so this currently shows for nobody -- expected, not a
-                    regression, until vendors start completing it. */}
-                {store.isVerified && (
+                {/* businessVerified is the staff-granted "Verified by
+                    Stora" badge -- a vendor contacts Stora directly and
+                    staff decide, toggled via the admin-only PATCH
+                    /api/stores/[storeId]. Distinct from isVerified, the
+                    vendor's own QoreID identity check, which this badge
+                    used to be (incorrectly) tied to -- completing the NIN
+                    + selfie check alone no longer earns this badge. */}
+                {store.businessVerified && (
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-gold-400/40 mb-2.5">
                     <ShieldCheck className="w-3 h-3 text-gold-400" />
                     <span className="text-[10.5px] font-semibold text-gold-400 tracking-wide uppercase">
@@ -948,8 +948,10 @@ export default function StoreWebsite({ store }) {
         )}
 
         {/* Search Bar -- mobile only; desktop's search lives in the sticky
-            header instead of being duplicated here. */}
-        {isMobile && (
+            header instead of being duplicated here. Suppressed for a
+            services-only business: it searches the (always-empty)
+            products array, so showing it would just be a dead control. */}
+        {isMobile && (store.sellsProducts || store.restaurantMode) && (
           <div className="mb-8 relative z-40" >
             <div className="flex items-center gap-2.5">
               <div className="relative flex-1">
@@ -1042,7 +1044,11 @@ export default function StoreWebsite({ store }) {
           </div>)}
         </div> */}
 
-        {/* Products Section */}
+        {/* Products Section -- suppressed entirely for a services-only
+            business (no products, no food): its empty state ("No products
+            yet") is product-specific copy that would be misleading to a
+            shopper who came for a service, not a missing catalog. */}
+        {(store.sellsProducts || store.restaurantMode) && (
         <div>
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-display text-xl md:text-2xl font-semibold text-gray-900">
@@ -1150,6 +1156,9 @@ export default function StoreWebsite({ store }) {
             </>
           )}
         </div>
+        )}
+
+        {store.offersServices && <ServicesSection store={store} isMobile={isMobile} />}
       </main>
 
       <StoreFooter />

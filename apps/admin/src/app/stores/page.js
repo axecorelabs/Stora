@@ -17,9 +17,12 @@ const STATUS_OPTIONS = [
   { value: "suspended", label: "Suspended" }
 ];
 
+// Filters by the vendor's own identity check (is_verified), not the
+// separate "Verified by Stora" badge -- that one has no filter, just the
+// per-store toggle column below.
 const VERIFIED_OPTIONS = [
-  { value: "", label: "All verification" },
-  { value: "verified", label: "Verified" },
+  { value: "", label: "All ID verification" },
+  { value: "verified", label: "ID verified" },
   { value: "pending", label: "Pending" }
 ];
 
@@ -111,6 +114,29 @@ function StoresPageContent() {
     }
   };
 
+  // The ONLY place the public "Verified by Stora" badge is ever set -- a
+  // vendor contacts Stora directly and staff decide here; there's no
+  // self-serve request flow. Distinct from store.isVerified (the vendor's
+  // own QoreID identity check, read-only in this table).
+  const handleToggleBusinessVerified = async (store, nextValue) => {
+    setLoadingKey(`business-verified-${store.id}`);
+    try {
+      const data = await secureApiCall(`/api/stores/${store.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ businessVerified: nextValue })
+      });
+      if (data.success) {
+        setStores((prev) =>
+          prev.map((s) => (s.id === store.id ? { ...s, businessVerified: data.store.businessVerified } : s))
+        );
+      }
+    } catch (error) {
+      console.error("Error updating business-verified status:", error);
+    } finally {
+      setLoadingKey(null);
+    }
+  };
+
   const handleToggleLogin = async (store, nextValue) => {
     if (!store.owner) return;
     setLoadingKey(`login-${store.owner.id}`);
@@ -136,7 +162,7 @@ function StoresPageContent() {
         { key: "total", icon: Store, tone: "brand", label: "Vendors", value: stats.total, sub: "matching filters" },
         { key: "active", icon: CheckCircle2, tone: "brand", label: "Active accounts", value: stats.active, sub: `${stats.total - stats.active} suspended` },
         { key: "published", icon: Globe, tone: "gold", label: "Published storefronts", value: stats.published, sub: "live to customers" },
-        { key: "verified", icon: CheckCircle2, tone: "gold", label: "Verified", value: stats.verified, sub: `${stats.total - stats.verified} pending` }
+        { key: "verified", icon: CheckCircle2, tone: "gold", label: "ID verified", value: stats.verified, sub: `${stats.total - stats.verified} pending` }
       ]
     : [];
 
@@ -177,6 +203,7 @@ function StoresPageContent() {
                   <th className="px-4 py-3 font-medium text-center">Storefront</th>
                   <th className="px-4 py-3 font-medium text-center">Account</th>
                   <th className="px-4 py-3 font-medium text-center">Login</th>
+                  <th className="px-4 py-3 font-medium text-center">Verified by Stora</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -205,8 +232,12 @@ function StoresPageContent() {
                         <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${store.isLive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                           {store.isLive ? "Live" : store.isActive ? "Not published" : "Suspended"}
                         </span>
+                        {/* This is the vendor's OWN identity check (QoreID
+                            NIN + live selfie) -- distinct from the public
+                            "Verified by Stora" badge, which is a separate,
+                            staff-granted toggle in its own column below. */}
                         {store.isVerified && (
-                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gold-500/15 text-gold-700">Verified</span>
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">ID verified</span>
                         )}
                       </div>
                     </td>
@@ -243,6 +274,16 @@ function StoresPageContent() {
                           loading={loadingKey === `login-${store.owner?.id}`}
                           onChange={(next) => handleToggleLogin(store, next)}
                           label="Enable/disable owner login"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex justify-center">
+                        <ToggleSwitch
+                          checked={store.businessVerified}
+                          loading={loadingKey === `business-verified-${store.id}`}
+                          onChange={(next) => handleToggleBusinessVerified(store, next)}
+                          label="Grant/revoke the public Verified by Stora badge"
                         />
                       </div>
                     </td>

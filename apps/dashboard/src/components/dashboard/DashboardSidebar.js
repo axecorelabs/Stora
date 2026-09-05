@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard,
   Package,
@@ -23,7 +24,26 @@ import {
 export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = false, onCloseMobile }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { secureApiCall } = useAuth();
   const [activeTab, setActiveTab] = useState('');
+
+  // Same ['store'] queryKey DashboardHeader.js/inventory/page.js already
+  // use, so this shares their cache instead of firing its own request.
+  // Catalogue/Services are now conditional on what this business actually
+  // does (set at business-creation time, CreateBusinessModal.js) instead of
+  // always showing both regardless -- a pure-services business shouldn't
+  // see an empty product catalog nav item, and vice versa.
+  const { data: storeResponse } = useQuery({
+    queryKey: ['store'],
+    queryFn: () => secureApiCall('/api/stores'),
+    staleTime: 5 * 60 * 1000
+  });
+  const store = storeResponse?.data;
+  // Defaults to showing Catalogue while the store hasn't loaded yet
+  // (undefined !== false) -- avoids a flash of "no nav items" on first
+  // paint, same fail-open reasoning as sellsProducts' own DB default.
+  const showCatalogue = store ? (!!store.sellsProducts || !!store.restaurantMode) : true;
+  const showServices = !!store?.offersServices;
 
   // Pending-orders badge -- shares the ['orders-stats'] query key already
   // used by useReportsData.js, so both consumers share one cache entry, and
@@ -44,8 +64,8 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
 
   const menuItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/overview' },
-    { name: 'Catalogue', icon: Package, path: '/dashboard/inventory' },
-    // { name: 'Services', icon: Wrench, path: '/dashboard/services' }, // Add services menu item
+    ...(showCatalogue ? [{ name: 'Catalogue', icon: Package, path: '/dashboard/inventory' }] : []),
+    ...(showServices ? [{ name: 'Services', icon: Wrench, path: '/dashboard/services' }] : []),
     { name: 'Store', icon: Store, path: '/dashboard/store' },
     { name: 'POS', icon: CreditCard, path: '/dashboard/pos' },
     { name: 'Website', icon: Globe, path: '/dashboard/website' },
