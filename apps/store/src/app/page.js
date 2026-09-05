@@ -53,11 +53,20 @@ export default function Home() {
           (which only existed to close out the hero above it) -- a matching
           wave at the bottom transitions back into "Discover vendors"
           below, so the band reads as its own distinct shape rather than a
-          flat rectangle with one decorated edge. Taller padding gives both
-          waves real room to breathe instead of the content butting up
-          against them. */}
-      <section className="relative bg-brand-800 pt-10 pb-12 sm:pt-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="max-w-2xl lg:max-w-4xl mx-auto grid grid-cols-3 gap-1 sm:gap-8 lg:gap-16">
+          flat rectangle with one decorated edge.
+          The bottom wave is a normal-flow element (not absolutely
+          positioned over the padding, like the hero's own wave is) --
+          pt-10 above the badges and pb-10 below them are genuinely equal,
+          and the wave then adds its own height purely on top of that
+          instead of overlapping into the bottom padding. Absolute+overlap
+          made the visible clearance below the text shrink to whatever the
+          wave curve happened to leave at each point (as little as a few
+          px at the curve's shallowest spots), which read as the text
+          sitting noticeably closer to the bottom edge than the top --
+          confirmed by measuring both paddings directly rather than just
+          eyeballing it. */}
+      <section className="relative bg-brand-800 pt-10 sm:pt-14 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl lg:max-w-4xl mx-auto grid grid-cols-3 gap-1 sm:gap-8 lg:gap-16 pb-10 sm:pb-14">
           {TRUST_BADGES.map(({ icon: Icon, label }) => (
             <div key={label} className="flex items-center justify-center gap-1 sm:gap-2.5">
               <Icon className="w-3.5 h-3.5 sm:w-6 sm:h-6 text-gold-400 flex-shrink-0" strokeWidth={1.5} />
@@ -67,13 +76,12 @@ export default function Home() {
         </div>
 
         {/* Bottom wave -- white, matching "Discover vendors" right below
-            (inherits the page wrapper's own bg-white), same technique as
-            the hero's own wave above just flipped to the section's other
-            edge. */}
+            (inherits the page wrapper's own bg-white). block, not
+            absolute -- see the comment above for why. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
-          className="absolute bottom-0 left-0 w-full h-10 sm:h-16 text-white"
+          className="block w-full h-10 sm:h-16 text-white"
           aria-hidden="true"
         >
           <path
