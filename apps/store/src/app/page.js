@@ -34,7 +34,12 @@ export default function Home() {
             not an undulating multi-crest wave (that read as busier than
             intended) -- colored to match the dark trust badges band right
             below instead of the white section that used to follow
-            directly. */}
+            directly. Flat (zero-slope) tangents at both ends via a cubic,
+            not a quadratic curve straight into the corner -- a quadratic
+            approaches its endpoint at an angle, so it met the closing
+            vertical edge at a sharp point, like a pennant/banner flag
+            tail, instead of tapering smoothly into the section's own
+            square corner. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
@@ -43,7 +48,7 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,40 Q720,100 1440,40 L1440,100 L0,100 Z"
+            d="M0,40 C360,40 360,70 720,70 C1080,70 1080,40 1440,40 L1440,100 L0,100 Z"
           />
         </svg>
       </section>
@@ -81,13 +86,16 @@ export default function Home() {
         </div>
 
         {/* Bottom curve -- the mirror image of the hero's own curve above
-            (control point flipped to the opposite side), not a repeat of
-            the same shape -- the two curves now bow away from each other
-            instead of both sagging the same direction, so the band reads
-            as one continuous lens/capsule shape rather than a hammock
-            shifted down at its center. White to match "Discover vendors"
-            right below (inherits the page wrapper's own bg-white). block,
-            not absolute -- see the comment above the badges for why. */}
+            (peak and edges swapped), not a repeat of the same shape -- the
+            two curves now bow away from each other instead of both
+            sagging the same direction, so the band reads as one
+            continuous lens/capsule shape rather than a hammock shifted
+            down at its center. Same flat-tangent cubic as the curve
+            above, for the same reason -- tapers smoothly into the
+            corner instead of meeting it at a sharp banner-flag point.
+            White to match "Discover vendors" right below (inherits the
+            page wrapper's own bg-white). block, not absolute -- see the
+            comment above the badges for why. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
@@ -96,7 +104,7 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,60 Q720,0 1440,60 L1440,100 L0,100 Z"
+            d="M0,60 C360,60 360,30 720,30 C1080,30 1080,60 1440,60 L1440,100 L0,100 Z"
           />
         </svg>
       </section>
