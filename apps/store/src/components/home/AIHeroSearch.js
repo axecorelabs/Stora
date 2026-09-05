@@ -95,14 +95,13 @@ export default function AIHeroSearch() {
 
   return (
     <div className="max-w-3xl mx-auto text-center w-full">
-      <h1 className="font-display text-2xl sm:text-5xl font-bold text-gray-900 leading-tight mb-5">
-        Real vendors.
-        <br className="sm:hidden" />
-        {" "}Real products.
+      <h1 className="font-display text-2xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6">
+        What are you looking for today?{" "}
+        <span className="text-xl sm:text-4xl align-middle">😊</span>
         <br />
-        <span className="text-brand-600">One place to find them.</span>
+        <span className="text-brand-600">Let&apos;s help you find it.</span>
       </h1>
-      <p className="text-gray-500 text-sm sm:text-lg mb-8 max-w-xl mx-auto">
+      <p className="text-gray-500 text-sm sm:text-lg mb-10 max-w-xl mx-auto">
         Tell Stora AI what you need, in your own words — we&apos;ll match you with the
         right vendor.
       </p>
@@ -112,22 +111,23 @@ export default function AIHeroSearch() {
           brand's own gold-to-green treatment as a focal point instead of
           blending in with the flat-bordered pills around it. */}
       <div
-        className="rounded-2xl p-[1.5px] mb-5"
+        className="rounded-2xl p-[1.5px] mb-6"
         style={{
           background: "linear-gradient(115deg, #D8BC85 0%, rgba(216,188,133,0) 35%, rgba(20,92,65,0) 65%, #145C41 100%)"
         }}
       >
-        <div className="flex items-start bg-white px-6 py-3.5 rounded-2xl shadow-[0_1px_2px_rgba(11,59,46,0.04),0_20px_48px_-16px_rgba(11,59,46,0.2)]">
+        <div className="flex items-start bg-white px-6 py-5 sm:py-6 rounded-2xl shadow-[0_1px_2px_rgba(11,59,46,0.04),0_20px_48px_-16px_rgba(11,59,46,0.2)]">
           <AISearchInput
             value=""
             onChange={(query) => submitAiQuery(router, query)}
             placeholder="What are you looking for today?"
             textClassName="text-xs sm:text-sm"
+            minHeightClassName="min-h-[3.75rem] sm:min-h-[2.5rem]"
           />
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3 mb-8">
+      <div className="flex items-center justify-center gap-4 mb-10">
         <PrefetchLink
           href="/products"
           className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-brand-900 hover:bg-gray-200 transition-colors"
@@ -146,7 +146,7 @@ export default function AIHeroSearch() {
         </PrefetchLink>
       </div>
 
-      <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-3">
+      <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-4">
         Popular searches
       </p>
       <TemplateRow />
