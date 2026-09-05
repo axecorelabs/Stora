@@ -27,7 +27,7 @@ export default function Home() {
           fraction: white background (dark green now belongs to the trust
           badges band right below, not the hero itself) keeps this reading
           as a clean "first screen" that doesn't overstay its content. */}
-      <section className="relative bg-white pt-10 sm:pt-14 pb-10 sm:pb-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative bg-white pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <AIHeroSearch />
 
         {/* Wavy bottom edge, not a straight cut -- same technique as
