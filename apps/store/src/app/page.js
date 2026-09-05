@@ -30,16 +30,15 @@ export default function Home() {
       <section className="relative bg-white pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <AIHeroSearch />
 
-        {/* Curved bottom edge, not a straight cut -- a single smooth arc,
-            not an undulating multi-crest wave (that read as busier than
-            intended) -- colored to match the dark trust badges band right
-            below instead of the white section that used to follow
-            directly. Flat (zero-slope) tangents at both ends via a cubic,
-            not a quadratic curve straight into the corner -- a quadratic
-            approaches its endpoint at an angle, so it met the closing
-            vertical edge at a sharp point, like a pennant/banner flag
-            tail, instead of tapering smoothly into the section's own
-            square corner. */}
+        {/* Curved bottom edge, not a straight cut -- a single smooth
+            bulge that starts and ends exactly at the strip's own
+            baseline (y=100), not at some offset from it. Anything short
+            of that leaves a gap between the curve's endpoint and the
+            closing corner, which has to be filled with a straight
+            segment -- a visible spike or a flat-topped box depending on
+            how the curve approaches it, tried both, both looked like a
+            banner tag stuck on the corner. Flush endpoints mean there's
+            no such segment to render: the curve simply IS the corner. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
@@ -48,7 +47,7 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,40 C360,40 360,70 720,70 C1080,70 1080,40 1440,40 L1440,100 L0,100 Z"
+            d="M0,100 C360,100 360,55 720,55 C1080,55 1080,100 1440,100 Z"
           />
         </svg>
       </section>
@@ -85,17 +84,14 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Bottom curve -- the mirror image of the hero's own curve above
-            (peak and edges swapped), not a repeat of the same shape -- the
-            two curves now bow away from each other instead of both
-            sagging the same direction, so the band reads as one
-            continuous lens/capsule shape rather than a hammock shifted
-            down at its center. Same flat-tangent cubic as the curve
-            above, for the same reason -- tapers smoothly into the
-            corner instead of meeting it at a sharp banner-flag point.
-            White to match "Discover vendors" right below (inherits the
-            page wrapper's own bg-white). block, not absolute -- see the
-            comment above the badges for why. */}
+        {/* Bottom curve -- same flush-endpoint construction as the curve
+            above, just white to match "Discover vendors" right below
+            (inherits the page wrapper's own bg-white) instead of green.
+            Both waves now taper to nothing at the very corners and only
+            bulge in the middle, so the band reads as a plain rectangle
+            with a soft wave breaking each edge, not a shape with
+            anything attached at the corners. block, not absolute -- see
+            the comment above the badges for why. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
@@ -104,7 +100,7 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,60 C360,60 360,30 720,30 C1080,30 1080,60 1440,60 L1440,100 L0,100 Z"
+            d="M0,100 C360,100 360,55 720,55 C1080,55 1080,100 1440,100 Z"
           />
         </svg>
       </section>
