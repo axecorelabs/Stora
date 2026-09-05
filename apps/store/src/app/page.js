@@ -57,11 +57,11 @@ export default function Home() {
           waves real room to breathe instead of the content butting up
           against them. */}
       <section className="relative bg-brand-800 pt-10 pb-12 sm:pt-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="max-w-2xl mx-auto grid grid-cols-3 gap-1 sm:gap-6">
+        <div className="max-w-2xl lg:max-w-4xl mx-auto grid grid-cols-3 gap-1 sm:gap-8 lg:gap-16">
           {TRUST_BADGES.map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center justify-center gap-1 sm:gap-2">
-              <Icon className="w-3.5 h-3.5 sm:w-[18px] sm:h-[18px] text-gold-400 flex-shrink-0" strokeWidth={1.75} />
-              <p className="text-white/90 text-[11px] sm:text-sm font-medium leading-tight whitespace-nowrap">{label}</p>
+            <div key={label} className="flex items-center justify-center gap-1 sm:gap-2.5">
+              <Icon className="w-3.5 h-3.5 sm:w-6 sm:h-6 text-gold-400 flex-shrink-0" strokeWidth={1.5} />
+              <p className="text-white/90 text-[11px] sm:text-base lg:text-lg font-medium leading-tight whitespace-nowrap">{label}</p>
             </div>
           ))}
         </div>
