@@ -95,24 +95,35 @@ export default function AIHeroSearch() {
 
   return (
     <div className="max-w-3xl mx-auto text-center w-full">
-      <h1 className="font-display text-3xl sm:text-5xl font-bold text-gray-900 leading-tight mb-5">
+      <h1 className="font-display text-2xl sm:text-5xl font-bold text-gray-900 leading-tight mb-5">
         Real vendors.
         <br className="sm:hidden" />
         {" "}Real products.
         <br />
         <span className="text-brand-600">One place to find them.</span>
       </h1>
-      <p className="text-gray-500 text-base sm:text-lg mb-8 max-w-xl mx-auto">
+      <p className="text-gray-500 text-sm sm:text-lg mb-8 max-w-xl mx-auto">
         Tell Stora AI what you need, in your own words — we&apos;ll match you with the
         right vendor.
       </p>
 
-      <div className="flex items-start bg-white px-6 py-3.5 rounded-2xl border border-gray-200 shadow-sm mb-5">
-        <AISearchInput
-          value=""
-          onChange={(query) => submitAiQuery(router, query)}
-          placeholder="What are you looking for today?"
-        />
+      {/* Gradient border, not a plain one -- this box is the one thing on
+          the page every visitor should notice first, so it gets the
+          brand's own gold-to-green treatment as a focal point instead of
+          blending in with the flat-bordered pills around it. */}
+      <div
+        className="rounded-2xl p-[1.5px] mb-5"
+        style={{
+          background: "linear-gradient(115deg, #D8BC85 0%, rgba(216,188,133,0) 35%, rgba(20,92,65,0) 65%, #145C41 100%)"
+        }}
+      >
+        <div className="flex items-start bg-white px-6 py-3.5 rounded-2xl shadow-[0_1px_2px_rgba(11,59,46,0.04),0_20px_48px_-16px_rgba(11,59,46,0.2)]">
+          <AISearchInput
+            value=""
+            onChange={(query) => submitAiQuery(router, query)}
+            placeholder="What are you looking for today?"
+          />
+        </div>
       </div>
 
       <div className="flex items-center justify-center gap-3 mb-8">

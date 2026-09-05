@@ -13,9 +13,9 @@ import CampaignsShowcase from "@/components/home/CampaignsShowcase";
 // which read as implicitly knocking some unnamed alternative rather than
 // just stating what Stora offers.
 const TRUST_BADGES = [
-  { icon: ShieldCheck, label: "Verified vendors" },
-  { icon: Lock, label: "Secure payments" },
-  { icon: Headphones, label: "24/7 support" }
+  { icon: ShieldCheck, title: "Verified vendors", subtitle: "Every seller is checked" },
+  { icon: Lock, title: "Secure payments", subtitle: "Powered by Paystack" },
+  { icon: Headphones, title: "24/7 support", subtitle: "We're always here to help" }
 ];
 
 export default function Home() {
@@ -30,10 +30,11 @@ export default function Home() {
       <section className="relative bg-white pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <AIHeroSearch />
 
-        {/* Wavy bottom edge, not a straight cut -- same technique as
-            Biterave's own hero (apps/store/src/app/biterave/page.js), just
-            colored to match the dark trust badges band right below instead
-            of the white section that used to follow directly. */}
+        {/* Curved bottom edge, not a straight cut -- a single smooth arc,
+            not an undulating multi-crest wave (that read as busier than
+            intended) -- colored to match the dark trust badges band right
+            below instead of the white section that used to follow
+            directly. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
@@ -42,43 +43,56 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,40 C240,90 480,0 720,40 C960,80 1200,10 1440,50 L1440,100 L0,100 Z"
+            d="M0,40 Q720,100 1440,40 L1440,100 L0,100 Z"
           />
         </svg>
       </section>
 
-      {/* Trust badges -- one line each (icon + label, no subtitle), so the
-          band reads as a quick reassurance strip rather than a second
-          headline-sized block. Waved on both edges now, not just the top
-          (which only existed to close out the hero above it) -- a matching
-          wave at the bottom transitions back into "Discover vendors"
-          below, so the band reads as its own distinct shape rather than a
-          flat rectangle with one decorated edge. Taller padding gives both
-          waves real room to breathe instead of the content butting up
-          against them. */}
-      <section className="relative bg-brand-800 pt-10 pb-12 sm:pt-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="max-w-2xl mx-auto grid grid-cols-3 gap-1 sm:gap-6">
-          {TRUST_BADGES.map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center justify-center gap-1 sm:gap-2">
-              <Icon className="w-3.5 h-3.5 sm:w-[18px] sm:h-[18px] text-gold-400 flex-shrink-0" strokeWidth={1.75} />
-              <p className="text-white/90 text-[11px] sm:text-sm font-medium leading-tight whitespace-nowrap">{label}</p>
+      {/* Trust badges -- icon on top, then a bold title and a lighter
+          subtitle line beneath it, so each badge reads as a small
+          two-line statement rather than a single label. Waved on both
+          edges now, not just the top (which only existed to close out the
+          hero above it) -- a matching wave at the bottom transitions back
+          into "Discover vendors" below, so the band reads as its own
+          distinct shape rather than a flat rectangle with one decorated
+          edge.
+          The bottom wave is a normal-flow element (not absolutely
+          positioned over the padding, like the hero's own wave is) --
+          pt-10 above the badges and pb-10 below them are genuinely equal,
+          and the wave then adds its own height purely on top of that
+          instead of overlapping into the bottom padding. Absolute+overlap
+          made the visible clearance below the text shrink to whatever the
+          wave curve happened to leave at each point (as little as a few
+          px at the curve's shallowest spots), which read as the text
+          sitting noticeably closer to the bottom edge than the top --
+          confirmed by measuring both paddings directly rather than just
+          eyeballing it. */}
+      <section className="relative bg-brand-800 pt-10 sm:pt-14 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl lg:max-w-4xl mx-auto grid grid-cols-3 gap-3 sm:gap-8 lg:gap-16 pb-10 sm:pb-14">
+          {TRUST_BADGES.map(({ icon: Icon, title, subtitle }) => (
+            <div key={title} className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
+              <Icon className="w-5 h-5 sm:w-7 sm:h-7 text-gold-400 flex-shrink-0" strokeWidth={1.5} />
+              <div>
+                <p className="text-white text-[11px] sm:text-base lg:text-lg font-semibold leading-tight">{title}</p>
+                <p className="text-white/60 text-[10px] sm:text-sm leading-tight mt-0.5">{subtitle}</p>
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Bottom wave -- white, matching "Discover vendors" right below
-            (inherits the page wrapper's own bg-white), same technique as
-            the hero's own wave above just flipped to the section's other
-            edge. */}
+        {/* Bottom curve -- same single-arc shape as the hero's own curve
+            above, white to match "Discover vendors" right below (inherits
+            the page wrapper's own bg-white). block, not absolute -- see
+            the comment above the badges for why. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
-          className="absolute bottom-0 left-0 w-full h-10 sm:h-16 text-white"
+          className="block w-full h-10 sm:h-16 text-white"
           aria-hidden="true"
         >
           <path
             fill="currentColor"
-            d="M0,40 C240,90 480,0 720,40 C960,80 1200,10 1440,50 L1440,100 L0,100 Z"
+            d="M0,40 Q720,100 1440,40 L1440,100 L0,100 Z"
           />
         </svg>
       </section>
