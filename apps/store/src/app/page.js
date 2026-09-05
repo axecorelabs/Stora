@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Award, Headphones } from "lucide-react";
+import { ArrowRight, ShieldCheck, Lock, Headphones } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import AIHeroSearch from "@/components/home/AIHeroSearch";
@@ -9,10 +9,13 @@ import CategoryDiscovery from "@/components/home/CategoryDiscovery";
 import DiscoverySection from "@/components/home/DiscoverySection";
 import CampaignsShowcase from "@/components/home/CampaignsShowcase";
 
+// Plain, factual claims -- not "verified & reliable"/"only the best",
+// which read as implicitly knocking some unnamed alternative rather than
+// just stating what Stora offers.
 const TRUST_BADGES = [
-  { icon: ShieldCheck, title: "Trusted vendors", subtitle: "Verified & reliable" },
-  { icon: Award, title: "Quality assured", subtitle: "Only the best" },
-  { icon: Headphones, title: "We're here", subtitle: "24/7 support" }
+  { icon: ShieldCheck, label: "Verified vendors" },
+  { icon: Lock, label: "Secure payments" },
+  { icon: Headphones, label: "24/7 support" }
 ];
 
 export default function Home() {
@@ -24,7 +27,7 @@ export default function Home() {
           fraction: white background (dark green now belongs to the trust
           badges band right below, not the hero itself) keeps this reading
           as a clean "first screen" that doesn't overstay its content. */}
-      <section className="relative bg-white pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative bg-white pt-10 sm:pt-14 pb-10 sm:pb-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <AIHeroSearch />
 
         {/* Wavy bottom edge, not a straight cut -- same technique as
@@ -44,16 +47,15 @@ export default function Home() {
         </svg>
       </section>
 
-      {/* Trust badges -- the hero's old dark-green real estate, now a
-          focused trio of reassurances instead of stretching the whole
-          hero dark. */}
-      <section className="bg-brand-800 pt-8 pb-10 sm:pt-10 sm:pb-14 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto grid grid-cols-3 gap-4 sm:gap-8 text-center">
-          {TRUST_BADGES.map(({ icon: Icon, title, subtitle }) => (
-            <div key={title} className="flex flex-col items-center">
-              <Icon className="w-7 h-7 sm:w-8 sm:h-8 text-gold-400 mb-2" strokeWidth={1.5} />
-              <p className="text-white text-sm sm:text-base font-semibold leading-tight">{title}</p>
-              <p className="text-white/50 text-xs sm:text-sm mt-0.5">{subtitle}</p>
+      {/* Trust badges -- one line each (icon + label, no subtitle), so the
+          band reads as a quick reassurance strip rather than a second
+          headline-sized block. */}
+      <section className="bg-brand-800 py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl mx-auto grid grid-cols-3 gap-1 sm:gap-6">
+          {TRUST_BADGES.map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center justify-center gap-1 sm:gap-2">
+              <Icon className="w-3.5 h-3.5 sm:w-[18px] sm:h-[18px] text-gold-400 flex-shrink-0" strokeWidth={1.75} />
+              <p className="text-white/90 text-[11px] sm:text-sm font-medium leading-tight whitespace-nowrap">{label}</p>
             </div>
           ))}
         </div>
