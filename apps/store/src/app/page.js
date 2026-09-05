@@ -30,15 +30,13 @@ export default function Home() {
       <section className="relative bg-white pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <AIHeroSearch />
 
-        {/* Curved bottom edge, not a straight cut -- a single smooth
-            bulge that starts and ends exactly at the strip's own
-            baseline (y=100), not at some offset from it. Anything short
-            of that leaves a gap between the curve's endpoint and the
-            closing corner, which has to be filled with a straight
-            segment -- a visible spike or a flat-topped box depending on
-            how the curve approaches it, tried both, both looked like a
-            banner tag stuck on the corner. Flush endpoints mean there's
-            no such segment to render: the curve simply IS the corner. */}
+        {/* Curved bottom edge, not a straight cut -- a single smooth arc
+            dipping toward the center (matches the reference: rises at
+            the edges, recedes in the middle). The corner artifact from
+            earlier iterations wasn't caused by this curve shape -- it
+            was the bottom wave's own section padding insetting its
+            w-full from the true edges (see the comment above the
+            badges). With that fixed, this simple curve renders clean. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
@@ -47,7 +45,7 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,100 C360,100 360,55 720,55 C1080,55 1080,100 1440,100 Z"
+            d="M0,40 Q720,100 1440,40 L1440,100 L0,100 Z"
           />
         </svg>
       </section>
@@ -70,9 +68,17 @@ export default function Home() {
           px at the curve's shallowest spots), which read as the text
           sitting noticeably closer to the bottom edge than the top --
           confirmed by measuring both paddings directly rather than just
-          eyeballing it. */}
-      <section className="relative bg-brand-800 pt-10 sm:pt-14 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl lg:max-w-4xl mx-auto grid grid-cols-3 gap-3 sm:gap-8 lg:gap-16 pb-10 sm:pb-14">
+          eyeballing it.
+          Horizontal padding lives on the badges' own wrapper div, not on
+          this section -- a normal-flow ("block") svg sizes its w-full
+          against its containing block's CONTENT box, which excludes
+          padding, so px-4 etc. on the section itself would have left the
+          svg inset from the true edges on both sides. That gap showed the
+          section's own flat background color, uncovered by either the
+          curve or its fill -- a rectangular block with a diagonal cut
+          where the svg's edge met it, not a wave problem at all. */}
+      <section className="relative bg-brand-800 pt-10 sm:pt-14">
+        <div className="max-w-2xl lg:max-w-4xl mx-auto grid grid-cols-3 gap-3 sm:gap-8 lg:gap-16 px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14">
           {TRUST_BADGES.map(({ icon: Icon, title, subtitle }) => (
             <div key={title} className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
               <Icon className="w-5 h-5 sm:w-7 sm:h-7 text-gold-400 flex-shrink-0" strokeWidth={1.5} />
@@ -84,14 +90,15 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Bottom curve -- same flush-endpoint construction as the curve
-            above, just white to match "Discover vendors" right below
-            (inherits the page wrapper's own bg-white) instead of green.
-            Both waves now taper to nothing at the very corners and only
-            bulge in the middle, so the band reads as a plain rectangle
-            with a soft wave breaking each edge, not a shape with
-            anything attached at the corners. block, not absolute -- see
-            the comment above the badges for why. */}
+        {/* Bottom curve -- the mirror image of the hero's own curve above
+            (control point on the opposite side), so the two arcs bow
+            toward each other instead of both sagging the same direction
+            -- the band's top edge recedes at the center while the
+            bottom edge bulges into it, giving the whole shape a lens/
+            eye-like profile rather than a hammock shifted at its
+            middle. White to match "Discover vendors" right below
+            (inherits the page wrapper's own bg-white). block, not
+            absolute -- see the comment above the badges for why. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
@@ -100,7 +107,7 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,100 C360,100 360,55 720,55 C1080,55 1080,100 1440,100 Z"
+            d="M0,60 Q720,0 1440,60 L1440,100 L0,100 Z"
           />
         </svg>
       </section>
