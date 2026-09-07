@@ -49,7 +49,9 @@ export default function AddMenuItemPage() {
       spiceLevel: '',
       extras: [],
       deliveryTime: { value: '', unit: 'minutes' },
-      menuSection: 'Other'
+      menuSection: 'Other',
+      madeToOrder: false,
+      maxOrdersPerDay: ''
     }
   });
   const [errors, setErrors] = useState({});
@@ -118,8 +120,16 @@ export default function AddMenuItemPage() {
       if (!formData.productName?.trim()) {
         newErrors.productName = 'Please name this menu item';
       }
+      // Lives on this same step (inside FoodDetailsSection), not Step 3 --
+      // validating it there instead would block submission with no visible
+      // error anywhere, since that field isn't rendered on Step 3.
+      if (formData.foodDetails.madeToOrder) {
+        if (!formData.foodDetails.maxOrdersPerDay || parseFloat(formData.foodDetails.maxOrdersPerDay) <= 0) {
+          newErrors.maxOrdersPerDay = 'Please tell us how many orders per day this can take';
+        }
+      }
     } else if (step === 3) {
-      if (!formData.quantityInStock || parseFloat(formData.quantityInStock) < 0) {
+      if (!formData.foodDetails.madeToOrder && (!formData.quantityInStock || parseFloat(formData.quantityInStock) < 0)) {
         newErrors.quantityInStock = 'Please tell us how many you plan to sell';
       }
       if (!formData.reorderLevel || parseFloat(formData.reorderLevel) < 0) {
@@ -250,7 +260,10 @@ export default function AddMenuItemPage() {
       const payload = {
         ...formData,
         images: uploadedImages,
-        quantityInStock: parseFloat(formData.quantityInStock),
+        // Made to order never had a real quantity typed in (the field's
+        // hidden on Step 3 for it) -- 0 here means /api/inventory's POST
+        // handler skips creating a batch for it, matching is_unlimited.
+        quantityInStock: formData.foodDetails.madeToOrder ? 0 : parseFloat(formData.quantityInStock),
         reorderLevel: parseFloat(formData.reorderLevel),
         costPrice: parseFloat(formData.costPrice),
         sellingPrice: parseFloat(formData.sellingPrice)
@@ -415,6 +428,7 @@ export default function AddMenuItemPage() {
                 <FoodDetailsSection
                   foodDetails={formData.foodDetails}
                   handleCategoryDetailChange={handleCategoryDetailChange}
+                  maxOrdersPerDayError={errors.maxOrdersPerDay}
                 />
 
                 <div>
@@ -514,23 +528,35 @@ export default function AddMenuItemPage() {
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">How many do you plan to sell? *</label>
-                      <p className="text-xs text-gray-500 mb-2">Your sales target (you can update this anytime)</p>
-                      <input
-                        type="number"
-                        name="quantityInStock"
-                        value={formData.quantityInStock}
-                        onChange={handleChange}
-                        min="0"
-                        step="1"
-                        placeholder="0"
-                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
-                          errors.quantityInStock ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                      />
-                      {errors.quantityInStock && <p className="text-red-500 text-xs mt-1">{errors.quantityInStock}</p>}
-                    </div>
+                    {formData.foodDetails.madeToOrder ? (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">How many do you plan to sell?</label>
+                        <p className="text-xs text-gray-500 mb-2">
+                          Made to order -- capped at {formData.foodDetails.maxOrdersPerDay || '?'} orders/day instead (set on the previous step)
+                        </p>
+                        <div className="w-full px-4 py-3 border border-dashed border-gray-200 rounded-xl text-gray-400 text-sm">
+                          Unlimited
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">How many do you plan to sell? *</label>
+                        <p className="text-xs text-gray-500 mb-2">Your sales target (you can update this anytime)</p>
+                        <input
+                          type="number"
+                          name="quantityInStock"
+                          value={formData.quantityInStock}
+                          onChange={handleChange}
+                          min="0"
+                          step="1"
+                          placeholder="0"
+                          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
+                            errors.quantityInStock ? 'border-red-300' : 'border-gray-300'
+                          }`}
+                        />
+                        {errors.quantityInStock && <p className="text-red-500 text-xs mt-1">{errors.quantityInStock}</p>}
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">When should we warn you? *</label>

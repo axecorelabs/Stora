@@ -30,6 +30,18 @@ function getPrimaryImageUrl(normalizedImages) {
   return primary?.url || normalizedImages[0]?.url || null;
 }
 
+// A made-to-order variant (see 20260915000000_made_to_order_menu_items.sql)
+// has no real quantity_in_stock -- fn_reserve_stock gates it against
+// maxOrdersPerDay instead at checkout time. This is just what the
+// storefront treats its "available quantity" as everywhere else (product
+// cards, the detail page's quantity stepper, cart validation) so none of
+// that code has to special-case is_unlimited itself: comfortably above any
+// typical reorder-level threshold (so it never misreads as low/out of
+// stock), but not so large it reads as a literal, meaningless number if it
+// were ever shown -- the real cap is enforced server-side regardless of
+// what's selected here.
+const UNLIMITED_DISPLAY_QUANTITY = 20;
+
 // Every product has >=1 real inventory_variants row now (see
 // 20260817000001_unify_inventory_variants.sql) -- stock/price/hasVariants
 // are always derived from those, never a flat column on `inventory`.
@@ -46,7 +58,9 @@ function transformInventoryToProduct(inventory) {
     sku: v.sku,
     quantityInStock: v.quantity_in_stock,
     quantityReserved: v.reserved_quantity,
-    availableQuantity: Math.max(0, (v.quantity_in_stock || 0) - (v.reserved_quantity || 0)),
+    availableQuantity: v.is_unlimited
+      ? UNLIMITED_DISPLAY_QUANTITY
+      : Math.max(0, (v.quantity_in_stock || 0) - (v.reserved_quantity || 0)),
     reorderLevel: v.reorder_level,
     soldQuantity: v.sold_quantity,
     price: v.price,
@@ -54,18 +68,26 @@ function transformInventoryToProduct(inventory) {
     images: v.images,
     barcode: v.barcode,
     weight: v.weight,
-    isActive: v.is_active
+    isActive: v.is_active,
+    isUnlimited: v.is_unlimited || false,
+    maxOrdersPerDay: v.max_orders_per_day ?? null
   }));
 
   const totalStock = transformedVariants.reduce((sum, v) => sum + (v.quantityInStock || 0), 0);
   const totalReserved = transformedVariants.reduce((sum, v) => sum + (v.quantityReserved || 0), 0);
   const totalSold = transformedVariants.reduce((sum, v) => sum + (v.soldQuantity || 0), 0);
-  const totalAvailable = Math.max(0, totalStock - totalReserved);
   // "From ₦X" for a multi-variant product; the single variant's own price
   // for a simple product (its one "Default" variant).
   const prices = transformedVariants.map(v => v.price).filter(p => p != null);
   const representativePrice = prices.length > 0 ? Math.min(...prices) : 0;
   const representativeCost = transformedVariants[0]?.costPrice ?? 0;
+  // Food items (the only ones made-to-order applies to today) always have
+  // exactly one variant -- mirror its unlimited display quantity/flag up to
+  // the product level too, same as representativeCost/Price already do for
+  // a single-variant product, so card/listing code reading the top-level
+  // fields directly (not variants[0]) doesn't see a false "out of stock."
+  const isUnlimited = transformedVariants.length === 1 && transformedVariants[0].isUnlimited;
+  const totalAvailable = isUnlimited ? UNLIMITED_DISPLAY_QUANTITY : Math.max(0, totalStock - totalReserved);
 
   const normalizedImages = normalizeImages(inventory.images);
 
@@ -84,6 +106,8 @@ function transformInventoryToProduct(inventory) {
     quantityReserved: totalReserved,
     availableQuantity: totalAvailable,
     soldQuantity: totalSold,
+    isUnlimited,
+    maxOrdersPerDay: isUnlimited ? transformedVariants[0].maxOrdersPerDay : null,
     averageRating: inventory.average_rating != null ? Number(inventory.average_rating) : 0,
     totalReviews: inventory.total_reviews || 0,
     reorderLevel: inventory.minimum_stock,

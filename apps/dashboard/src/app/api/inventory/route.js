@@ -352,6 +352,21 @@ export async function POST(req) {
       categoryDetails = { books: inventoryData.booksDetails };
     }
 
+    // "Made to order" -- unlimited stock, gated by a real per-day cap
+    // instead of a fake quantityInStock number (see
+    // 20260915000000_made_to_order_menu_items.sql). Only meaningful for
+    // Food; validated server-side too, not just in FoodDetailsSection.js,
+    // since inventory_variants' own CHECK constraint would otherwise reject
+    // the insert below with an opaque DB error instead of a clear 400.
+    const isMadeToOrder = inventoryData.category === 'Food' && !!inventoryData.foodDetails?.madeToOrder;
+    const maxOrdersPerDay = isMadeToOrder ? parseInt(inventoryData.foodDetails?.maxOrdersPerDay, 10) : null;
+    if (isMadeToOrder && (!Number.isFinite(maxOrdersPerDay) || maxOrdersPerDay <= 0)) {
+      return NextResponse.json(
+        { success: false, message: 'Set how many orders per day this made-to-order item can take' },
+        { status: 400 }
+      );
+    }
+
     // The public storefront (apps/store) looks products up by store_id, so
     // items created without one are invisible there even with web visibility on
     const { data: userStore } = await supabaseAdmin
@@ -417,15 +432,20 @@ export async function POST(req) {
       // Starts at 0, same as the product used to -- fn_create_batch below
       // is what actually sets it, atomically alongside a real batch, per
       // variant, so no variant ever has stock without a batch backing it.
+      // Stays 0 for a made-to-order item -- there's no batch to create for
+      // it below either (see the qty <= 0 skip), it's unlimited/day-capped
+      // instead.
       quantity_in_stock: 0,
       reorder_level: v.reorderLevel || 5,
       // Today's UI only sets one price for the whole product -- every
       // variant gets that same price/cost until per-variant pricing UI
-      // exists.
+      // exists. Same for made-to-order -- no per-variant toggle either yet.
       price: sellingPrice,
       cost_price: costPrice,
       images: v.images || [],
-      is_active: true
+      is_active: true,
+      is_unlimited: isMadeToOrder,
+      max_orders_per_day: maxOrdersPerDay
     }));
 
     const { data: insertedVariants, error: variantsError } = await supabaseAdmin
@@ -457,7 +477,11 @@ export async function POST(req) {
       const source = providedVariants.find(v =>
         (v.color || 'Default') === variant.color && (v.size || 'One Size') === variant.size
       );
-      const qty = source?.quantityInStock || 0;
+      // A made-to-order variant never gets a batch regardless of what
+      // quantityInStock a raw API call sent -- is_unlimited already tells
+      // fn_reserve_stock to ignore stock/batches entirely, so a batch here
+      // would just be stock that can never actually be depleted.
+      const qty = isMadeToOrder ? 0 : (source?.quantityInStock || 0);
       if (qty <= 0) continue;
 
       const batchCode = `${productCode}-${dateCode}-B${String(batchSeq).padStart(3, '0')}`;

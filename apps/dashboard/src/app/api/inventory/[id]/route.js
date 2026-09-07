@@ -217,6 +217,25 @@ export async function PUT(request, { params }) {
     } else if (updateData.category === 'Books' && updateData.booksDetails) {
       dbUpdate.category_details = { books: updateData.booksDetails };
     }
+
+    // Same "made to order" validation as the create route (see
+    // 20260915000000_made_to_order_menu_items.sql) -- read from whichever
+    // shape the food details arrived in, matching the categoryDetails
+    // handling just above.
+    const editedFoodDetails = dbUpdate.category_details?.food ?? (updateData.category === 'Food' ? updateData.foodDetails : null);
+    const isMadeToOrder = !!editedFoodDetails?.madeToOrder;
+    const maxOrdersPerDay = isMadeToOrder ? parseInt(editedFoodDetails?.maxOrdersPerDay, 10) : null;
+    if (isMadeToOrder && (!Number.isFinite(maxOrdersPerDay) || maxOrdersPerDay <= 0)) {
+      return NextResponse.json(
+        { success: false, message: 'Set how many orders per day this made-to-order item can take' },
+        { status: 400 }
+      );
+    }
+    // undefined (not touched) unless this update actually carries food
+    // details -- an edit to an unrelated field (name, images, tags) must
+    // not silently flip an existing item's unlimited flag back off.
+    const touchesMadeToOrder = editedFoodDetails !== null && editedFoodDetails !== undefined;
+
     if (updateData.sku) {
       dbUpdate.sku = updateData.sku;
     }
@@ -307,7 +326,12 @@ export async function PUT(request, { params }) {
               reorder_level: v.reorderLevel || 5,
               images: v.images || [],
               is_active: true,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
+              // Only when this edit actually carries food details -- an
+              // edit to an unrelated field must not silently flip an
+              // existing item's made-to-order flag back off (see
+              // touchesMadeToOrder above).
+              ...(touchesMadeToOrder ? { is_unlimited: isMadeToOrder, max_orders_per_day: maxOrdersPerDay } : {})
             })
             .eq('id', variantId)
             .eq('inventory_id', id);
@@ -325,7 +349,9 @@ export async function PUT(request, { params }) {
               price: updateData.sellingPrice ?? updateData.basePrice ?? existingVariants[0]?.price ?? 0,
               cost_price: updateData.costPrice ?? updateData.cost ?? existingVariants[0]?.cost_price ?? 0,
               images: v.images || [],
-              is_active: true
+              is_active: true,
+              is_unlimited: isMadeToOrder,
+              max_orders_per_day: maxOrdersPerDay
             });
           if (insErr) console.error('Variant creation error:', insErr);
         }

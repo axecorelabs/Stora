@@ -465,9 +465,16 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
       newErrors.category = 'Category is required';
     }
 
-    if (detectedColorVariants.length < 2) {
+    const isMadeToOrder = formData.category === 'Food' && !!formData.foodDetails?.madeToOrder;
+    if (detectedColorVariants.length < 2 && !isMadeToOrder) {
       if (!formData.quantityInStock || formData.quantityInStock < 0) {
         newErrors.quantityInStock = 'Valid quantity is required';
+      }
+    }
+    if (isMadeToOrder) {
+      const maxOrdersPerDay = parseFloat(formData.foodDetails?.maxOrdersPerDay);
+      if (!Number.isFinite(maxOrdersPerDay) || maxOrdersPerDay <= 0) {
+        newErrors.maxOrdersPerDay = 'Please tell us how many orders per day this can take';
       }
     }
 
@@ -488,6 +495,12 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
     }
 
     setErrors(newErrors);
+    // maxOrdersPerDay lives on the Category Details tab, not whichever tab
+    // is active when Save is clicked -- jump there so the error is actually
+    // visible instead of silently blocking submission.
+    if (newErrors.maxOrdersPerDay) {
+      setActiveTab('category');
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -880,7 +893,9 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black bg-gray-100 cursor-not-allowed"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    {detectedColorVariants.length >= 2
+                    {formData.category === 'Food' && formData.foodDetails?.madeToOrder
+                      ? 'Made to order -- unlimited, capped by max orders/day on the Category Details tab instead.'
+                      : detectedColorVariants.length >= 2
                       ? 'Auto-calculated from variants.'
                       : 'Use "Adjust Stock" or "Add Batch" to change this.'}
                   </p>
@@ -1046,6 +1061,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                 handleArrayFieldChange={handleArrayFieldChange}
                 removeArrayItem={removeArrayItem}
                 detectedColorVariants={detectedColorVariants}
+                errors={errors}
               />
             </div>
           )}
