@@ -176,7 +176,14 @@ export default function ServicesSection({ store, isMobile }) {
   const secondaryColor = store.branding?.secondaryColor || "#F3F4F6";
 
   return (
-    <div className="mb-12">
+    // mt-12 -- the products section above ends with its own "See all
+    // products" button wrapped in mt-12 (space above the button, from the
+    // grid), but nothing gave space below it before this section's own
+    // heading started -- the two sat flush against each other. Only used
+    // in this one spot (right after products in StoreWebsite.js), so this
+    // is safe to own outright rather than needing a wrapper margin at the
+    // call site.
+    <div className="mt-12 mb-12">
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-display text-xl md:text-2xl font-semibold text-gray-900">Services</h3>
         <span className="text-sm text-gray-500 tabular-nums">
