@@ -6,7 +6,8 @@ import { normalizeExtraDefinitions } from "@stora/shared-constants";
 
 export default function FoodDetailsSection({
   foodDetails,
-  handleCategoryDetailChange
+  handleCategoryDetailChange,
+  maxOrdersPerDayError
 }) {
   const [newExtraName, setNewExtraName] = useState('');
   const [newExtraPrice, setNewExtraPrice] = useState('');
@@ -125,16 +126,51 @@ export default function FoodDetailsSection({
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Max Orders Per Day</label>
-          <input
-            type="number"
-            value={foodDetails.maxOrdersPerDay}
-            onChange={(e) => handleCategoryDetailChange('food', 'maxOrdersPerDay', e.target.value)}
-            placeholder="e.g., 50"
-            min="1"
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-          />
+        {/* Made to order -- unlimited stock, gated by a real per-day order
+            cap instead of a quantityInStock number that never made sense
+            for a dish that's cooked fresh per order (see
+            20260915000000_made_to_order_menu_items.sql). Off by default,
+            same as before -- a vendor who doesn't touch this keeps today's
+            fixed-quantity behavior exactly as it was. */}
+        <div className="md:col-span-2">
+          <div className="flex items-center justify-between gap-4 p-4 border border-gray-200 rounded-xl">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Made to order</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Cooked fresh per order, not from a fixed stock count -- capped by how many you can make in a day instead of how many you have on hand.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center shrink-0 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!foodDetails.madeToOrder}
+                onChange={(e) => handleCategoryDetailChange('food', 'madeToOrder', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-800"></div>
+            </label>
+          </div>
+
+          {foodDetails.madeToOrder && (
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Max Orders Per Day *</label>
+              <input
+                type="number"
+                value={foodDetails.maxOrdersPerDay}
+                onChange={(e) => handleCategoryDetailChange('food', 'maxOrdersPerDay', e.target.value)}
+                placeholder="e.g., 50"
+                min="1"
+                className={`w-full max-w-xs px-4 py-3 border rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
+                  maxOrdersPerDayError ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {maxOrdersPerDayError ? (
+                <p className="text-red-500 text-xs mt-1">{maxOrdersPerDayError}</p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">Once this many are ordered today, it shows as sold out until tomorrow.</p>
+              )}
+            </div>
+          )}
         </div>
 
         <div>

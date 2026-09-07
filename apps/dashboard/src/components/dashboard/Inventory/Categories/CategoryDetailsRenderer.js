@@ -18,7 +18,8 @@ export default function CategoryDetailsRenderer({
   handleCategoryDetailChange,
   handleArrayFieldChange,
   removeArrayItem,
-  detectedColorVariants // New prop passed from parent
+  detectedColorVariants, // New prop passed from parent
+  errors
 }) {
   const hasDetectedVariants = detectedColorVariants && detectedColorVariants.length >= 2;
 
@@ -62,6 +63,7 @@ export default function CategoryDetailsRenderer({
         <FoodDetailsSection
           foodDetails={formData.foodDetails}
           handleCategoryDetailChange={handleCategoryDetailChange}
+          maxOrdersPerDayError={errors?.maxOrdersPerDay}
         />
       )}
     
