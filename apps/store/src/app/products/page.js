@@ -315,8 +315,11 @@ function ProductsPageInner() {
           </div>
         </div>
 
-        {/* Results */}
-        <div id="search-results">
+        {/* Results -- min-h-screen so a thin result set (a handful of AI
+            matches, a narrow filter) doesn't collapse the page down to
+            just the header/search bar with the footer sitting right
+            underneath it. */}
+        <div id="search-results" className="min-h-screen">
         {aiMode && !q ? (
           <div className="text-center py-20">
             <Sparkles className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
