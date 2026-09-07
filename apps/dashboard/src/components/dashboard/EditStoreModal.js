@@ -35,6 +35,7 @@ function buildEditData(store) {
     deliveryStates: store.deliveryStates || [],
     deliveryFees: store.deliveryFees || {},
     address: { ...store.address },
+    businessHours: { ...store.businessHours },
     onlineStoreInfo: {
       website: store.onlineStoreInfo?.website || '',
       socialMedia: {
