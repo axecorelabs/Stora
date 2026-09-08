@@ -33,6 +33,10 @@ export default function DashboardLayout({ children, title, subtitle }) {
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialCollapsedState);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  // TEMPORARY -- see telegramWebhookRegistrationAttempted's comment above.
+  // Surfaced on-screen (not just console) since there's no way to check
+  // Vercel logs from outside the deployment while diagnosing this.
+  const [telegramWebhookDebug, setTelegramWebhookDebug] = useState(null);
 
   // Safety net alongside the sidebar's own close-on-navigate -- covers any
   // navigation that doesn't go through DashboardSidebar's nav buttons (e.g.
@@ -51,7 +55,9 @@ export default function DashboardLayout({ children, title, subtitle }) {
   useEffect(() => {
     if (telegramWebhookRegistrationAttempted || !isAuthenticated) return;
     telegramWebhookRegistrationAttempted = true;
-    secureApiCall('/api/telegram/register-webhook', { method: 'POST' }).catch(() => {});
+    secureApiCall('/api/telegram/register-webhook', { method: 'POST' })
+      .then((response) => setTelegramWebhookDebug(response || { success: false, message: 'Empty response' }))
+      .catch((err) => setTelegramWebhookDebug({ success: false, message: err?.message || 'Request failed' }));
   }, [isAuthenticated, secureApiCall]);
 
   // Catches every path INTO the dashboard for an account that still has
@@ -146,6 +152,29 @@ export default function DashboardLayout({ children, title, subtitle }) {
       {/* Mounted here (not per-page) so a pending partnership proposal
           surfaces regardless of which page the vendor lands on first. */}
       <PartnershipProposalModal />
+
+      {/* TEMPORARY -- on-screen readout of the Telegram webhook
+          self-registration attempt above, so it's checkable without
+          devtools. Remove alongside the rest of the TEMPORARY code once
+          the webhook is confirmed registered. */}
+      {telegramWebhookDebug && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 max-w-xs rounded-lg border px-3 py-2 text-xs shadow-lg ${
+            telegramWebhookDebug.success
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
+          <p className="font-semibold">Telegram webhook registration (debug)</p>
+          <p className="mt-0.5 break-words">
+            {telegramWebhookDebug.success
+              ? telegramWebhookDebug.alreadyRegistered
+                ? 'Already registered correctly.'
+                : 'Registered just now.'
+              : telegramWebhookDebug.message || 'Failed, no message returned.'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
