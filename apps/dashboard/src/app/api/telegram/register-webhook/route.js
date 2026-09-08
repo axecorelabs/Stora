@@ -4,10 +4,9 @@ import { verifySession } from '@/lib/auth';
 // TEMPORARY -- self-registers this deployment's Telegram webhook on first
 // dashboard load, standing in for the one-time `setWebhook` curl command
 // documented in .env.example (no shell/CLI access to this deployment to
-// run it directly). Safe to call repeatedly: checks getWebhookInfo first
-// and skips the actual setWebhook call if it's already correct. Delete
-// this route and its call site in DashboardLayout.js once the webhook is
-// confirmed registered (Settings > Connect Telegram completes correctly).
+// run it directly). Delete this route and its call site in
+// DashboardLayout.js once the webhook is confirmed registered (Settings >
+// Connect Telegram completes correctly).
 export async function POST(req) {
   const user = await verifySession(req);
   if (!user) {
@@ -27,12 +26,19 @@ export async function POST(req) {
   const webhookUrl = `${appUrl.replace(/\/$/, '')}/api/telegram/webhook`;
 
   try {
+    // Read the PRIOR state first, purely for diagnostics -- Telegram
+    // tracks delivery failures here (last_error_message/date,
+    // pending_update_count), which is the closest thing to a production
+    // log we have access to from this deployment.
     const infoRes = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`);
     const info = await infoRes.json();
-    if (info.ok && info.result?.url === webhookUrl) {
-      return NextResponse.json({ success: true, alreadyRegistered: true });
-    }
+    const prior = info.ok ? info.result : null;
 
+    // Always (re-)call setWebhook, even if the URL already matches --
+    // Telegram never echoes secret_token back via getWebhookInfo, so a
+    // URL-only match can't rule out a stale/mismatched secret left over
+    // from an earlier manual registration. Idempotent on Telegram's side
+    // either way, so there's no cost to always re-asserting it.
     const setRes = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -47,7 +53,14 @@ export async function POST(req) {
       );
     }
 
-    return NextResponse.json({ success: true, alreadyRegistered: false });
+    return NextResponse.json({
+      success: true,
+      webhookUrl,
+      priorUrlMatched: prior?.url === webhookUrl,
+      priorLastErrorMessage: prior?.last_error_message || null,
+      priorLastErrorDate: prior?.last_error_date || null,
+      priorPendingUpdateCount: prior?.pending_update_count ?? null
+    });
   } catch (error) {
     console.error('Telegram webhook self-registration failed:', error.message);
     return NextResponse.json({ success: false, message: 'Request to Telegram failed' }, { status: 502 });

@@ -11,11 +11,10 @@ const SIDEBAR_COLLAPSED_KEY = "stora-sidebar-collapsed";
 
 // TEMPORARY -- module-scoped (not state) so it survives this layout
 // remounting on every dashboard navigation but resets on a real page
-// reload; that's fine, /api/telegram/register-webhook is a cheap no-op
-// once Telegram's webhook is already correctly set. Remove this flag,
-// the effect below that uses it, and the route it calls once the
-// Telegram webhook is confirmed registered -- see that route's own
-// comment for the full reasoning.
+// reload; that's fine, calling setWebhook again is cheap and idempotent
+// on Telegram's side. Remove this flag, the effect below that uses it,
+// and the route it calls once the Telegram webhook is confirmed
+// registered -- see that route's own comment for the full reasoning.
 let telegramWebhookRegistrationAttempted = false;
 
 // Read the saved preference synchronously so the very first render already
@@ -168,11 +167,25 @@ export default function DashboardLayout({ children, title, subtitle }) {
           <p className="font-semibold">Telegram webhook registration (debug)</p>
           <p className="mt-0.5 break-words">
             {telegramWebhookDebug.success
-              ? telegramWebhookDebug.alreadyRegistered
-                ? 'Already registered correctly.'
-                : 'Registered just now.'
+              ? 'Re-registered with current secret.'
               : telegramWebhookDebug.message || 'Failed, no message returned.'}
           </p>
+          {telegramWebhookDebug.success && (
+            <>
+              <p className="mt-1 break-words">
+                URL was already correct before this call: {String(telegramWebhookDebug.priorUrlMatched)}
+              </p>
+              <p className="mt-1 break-words">
+                Telegram&apos;s last delivery error:{' '}
+                {telegramWebhookDebug.priorLastErrorMessage
+                  ? `${telegramWebhookDebug.priorLastErrorMessage} (${telegramWebhookDebug.priorLastErrorDate ? new Date(telegramWebhookDebug.priorLastErrorDate * 1000).toLocaleString() : 'unknown time'})`
+                  : 'none'}
+              </p>
+              <p className="mt-1 break-words">
+                Pending undelivered updates: {telegramWebhookDebug.priorPendingUpdateCount ?? 'unknown'}
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>
