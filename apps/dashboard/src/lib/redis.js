@@ -10,6 +10,9 @@ export const NS = 'dashboard';
 export const sessionKey = (sessionId) => `${NS}:session:${sessionId}`;
 export const failedKey = (email) => `${NS}:failed:${email}`;
 export const lockoutKey = (email) => `${NS}:lockout:${email}`;
+// Telegram account-linking code -> storeId, single-use, short TTL (see
+// POST /api/telegram/link and the webhook handler that redeems it).
+export const telegramLinkKey = (code) => `${NS}:telegram-link:${code}`;
 
 // Bounds worst-case latency so a hung (not just erroring) Redis call can
 // never stall a request -- pairs with try/catch fail-open everywhere.
@@ -40,6 +43,15 @@ export const verificationLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(5, '24 h'),
   prefix: 'dashboard:rl:verification'
+});
+
+// Guards POST /api/telegram/link -- a vendor re-clicking "Connect" a few
+// times while waiting is normal, generating a fresh code on every request
+// forever isn't.
+export const telegramLinkLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '1 h'),
+  prefix: 'dashboard:rl:telegram-link'
 });
 
 export async function invalidateStorefrontCache(slug) {

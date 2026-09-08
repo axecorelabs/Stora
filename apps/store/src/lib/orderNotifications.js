@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { supabaseAdmin } from "./supabase";
 import { sendNewOrderNotification } from "./email";
+import { sendTelegramOrderNotification } from "./telegram";
 import { findOrderById } from "./supabaseOrders";
 
 // The two callers below hand this two different item shapes: raw
@@ -40,15 +41,23 @@ export async function sendStoreOrderNotifications(
 ) {
   if (!storeIds || storeIds.length === 0) return;
 
+  // Populated inside the try block below, read from the after() callback
+  // further down -- both are in the same function scope, so this doesn't
+  // need to be re-queried a second time just for the Telegram branch.
+  const chatIdByStoreId = new Map();
+
   // In-app notification insert is isolated in its own try/catch so a
   // failure here never blocks the email loop below (or order creation,
   // per the outer catch at each call site).
   try {
     const { data: storeOwners } = await supabaseAdmin
       .from('stores')
-      .select('id, owner_id')
+      .select('id, owner_id, telegram_chat_id')
       .in('id', storeIds);
     const ownerByStoreId = new Map((storeOwners || []).map(s => [s.id, s.owner_id]));
+    for (const s of storeOwners || []) {
+      if (s.telegram_chat_id) chatIdByStoreId.set(s.id, s.telegram_chat_id);
+    }
 
     const notificationRows = [];
     for (const storeId of storeIds) {
@@ -77,37 +86,63 @@ export async function sendStoreOrderNotifications(
     console.error('Error creating order notifications (non-fatal):', notifyError);
   }
 
-  // Deferred -- on a multi-vendor cart this is N sequential SMTP
-  // round-trips (one per store), and sendNewOrderNotification already
-  // swallows its own errors, so waiting on it here bought no delivery
-  // guarantee, only latency at exactly the busiest moment.
+  // Deferred -- on a multi-vendor cart this is N sequential SMTP/Telegram
+  // round-trips (one per store), and both sends already swallow their own
+  // errors, so waiting on either here bought no delivery guarantee, only
+  // latency at exactly the busiest moment.
   after(async () => {
     for (const storeId of storeIds) {
       const storeData = storeGroupedItems[storeId];
       if (!storeData) continue;
+
       const storeEmail = storeData.store?.store_email;
-      if (!storeEmail) continue;
+      if (storeEmail) {
+        const emailData = {
+          _id: orderId,
+          orderNumber,
+          customerSnapshot: {
+            firstName: shippingAddress?.firstName,
+            lastName: shippingAddress?.lastName,
+            phone: shippingAddress?.phone
+          },
+          shippingAddress,
+          customerNotes,
+          storeItems: storeData.items.map(normalizeEmailItem),
+          storeTotal: storeData.total,
+          storeItemCount: storeData.items.reduce((sum, item) => sum + item.quantity, 0)
+        };
 
-      const emailData = {
-        _id: orderId,
-        orderNumber,
-        customerSnapshot: {
-          firstName: shippingAddress?.firstName,
-          lastName: shippingAddress?.lastName,
-          phone: shippingAddress?.phone
-        },
-        shippingAddress,
-        customerNotes,
-        storeItems: storeData.items.map(normalizeEmailItem),
-        storeTotal: storeData.total,
-        storeItemCount: storeData.items.reduce((sum, item) => sum + item.quantity, 0)
-      };
+        try {
+          await sendNewOrderNotification(storeEmail, storeData.store.store_name, emailData);
+          console.log(`Order notification email sent to ${storeData.store.store_name} (${storeEmail})`);
+        } catch (emailError) {
+          console.error(`Error sending order notification to ${storeData.store.store_name}:`, emailError);
+        }
+      }
 
-      try {
-        await sendNewOrderNotification(storeEmail, storeData.store.store_name, emailData);
-        console.log(`Order notification email sent to ${storeData.store.store_name} (${storeEmail})`);
-      } catch (emailError) {
-        console.error(`Error sending order notification to ${storeData.store.store_name}:`, emailError);
+      const chatId = chatIdByStoreId.get(storeId);
+      if (chatId) {
+        const itemCount = storeData.items.reduce((sum, item) => sum + item.quantity, 0);
+        const customerName = [shippingAddress?.firstName, shippingAddress?.lastName].filter(Boolean).join(' ') || null;
+
+        try {
+          await sendTelegramOrderNotification(chatId, { orderNumber, itemCount, total: storeData.total, customerName });
+        } catch (telegramError) {
+          // 403 means the vendor blocked the bot (or deleted the chat) --
+          // this chat id will never succeed again, so clear it rather than
+          // retrying on every future order indefinitely. Any other error
+          // (rate limit, transient network) is left alone -- it may well
+          // work next time.
+          if (telegramError.telegramErrorCode === 403) {
+            await supabaseAdmin
+              .from('stores')
+              .update({ telegram_chat_id: null, telegram_username: null })
+              .eq('id', storeId);
+            console.warn(`Telegram bot blocked by ${storeData.store.store_name} -- disconnected.`);
+          } else {
+            console.error(`Error sending Telegram notification to ${storeData.store.store_name}:`, telegramError);
+          }
+        }
       }
     }
   });

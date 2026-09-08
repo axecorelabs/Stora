@@ -6,9 +6,11 @@ import { Globe, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWebsiteData } from "@/hooks/useWebsiteData";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
+import { useTelegramEnabled } from "@/hooks/useTelegramEnabled";
 import CreateBusinessModal from "@/components/dashboard/CreateBusinessModal";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import VerificationForm from "@/components/dashboard/VerificationForm";
+import TelegramForm from "@/components/dashboard/TelegramForm";
 import Button from "@/components/ui/Button";
 
 const GOOGLE_FALLBACK_NAMES = new Set(['Google', 'User']);
@@ -34,10 +36,11 @@ export default function OnboardingPage() {
   // staleness for its own display.
   const { toggleWebsite, isTogglingWebsite } = useWebsiteData();
   const verificationEnabled = useVerificationEnabled();
+  const telegramEnabled = useTelegramEnabled();
   const [createdStore, setCreatedStore] = useState(null);
 
   // Steps: 'name' -> 'business' -> 'branding' -> 'verification' -> 'website'
-  // -> 'done'. There used to be a separate 'restaurant' step here (a
+  // -> 'telegram' -> 'done'. There used to be a separate 'restaurant' step here (a
   // standalone "Do you sell food?" PATCH after the store already existed) --
   // that question is now part of 'business' itself (CreateBusinessModal's
   // Products/Food/Services checkboxes, set together at creation time), so
@@ -136,11 +139,16 @@ export default function OnboardingPage() {
     setStep(verificationEnabled === true ? 'verification' : 'website');
   };
 
+  // Same conditional-skip shape verification/branding already use --
+  // there's no Telegram step to show at all while the bot isn't
+  // configured (see useTelegramEnabled).
+  const goToTelegramOrDone = () => setStep(telegramEnabled === true ? 'telegram' : 'done');
+
   const handleTurnOnWebsite = async () => {
     setWebsiteError(null);
     try {
       await toggleWebsite('active');
-      setStep('done');
+      goToTelegramOrDone();
     } catch (error) {
       setWebsiteError(error.message || 'Could not turn on your website -- try again');
     }
@@ -245,10 +253,22 @@ export default function OnboardingPage() {
               {isTogglingWebsite ? 'Turning on…' : 'Turn on my website'}
             </Button>
             <button
-              onClick={() => setStep('done')}
+              onClick={goToTelegramOrDone}
               className="w-full text-center text-sm text-gray-500 hover:text-gray-700"
             >
               Skip for now -- you can do this anytime from Website
+            </button>
+          </div>
+        )}
+
+        {step === 'telegram' && (
+          <div>
+            <TelegramForm onConnected={() => setStep('done')} />
+            <button
+              onClick={() => setStep('done')}
+              className="w-full text-center text-sm text-gray-500 hover:text-gray-700 mt-4"
+            >
+              Skip for now -- you can do this anytime from Settings
             </button>
           </div>
         )}

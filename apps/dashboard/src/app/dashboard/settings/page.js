@@ -3,14 +3,17 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VerificationForm from "@/components/dashboard/VerificationForm";
+import TelegramForm from "@/components/dashboard/TelegramForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
+import { useTelegramEnabled } from "@/hooks/useTelegramEnabled";
 import {
   Lock,
   User,
   Mail,
   Shield,
   ShieldCheck,
+  Send,
   Eye,
   EyeOff,
   Check,
@@ -22,20 +25,27 @@ function SettingsPageInner() {
   const { user, secureApiCall } = useAuth();
   const searchParams = useSearchParams();
   const verificationEnabled = useVerificationEnabled();
-  // Deep-linkable via ?tab=verification -- SetupChecklist and the
-  // onboarding wizard's "skip for now" copy both point here. Only they
-  // (and the tab button below) ever produce this link, and both already
-  // hide themselves when verification's disabled -- this only matters for
-  // a stale bookmark/typed URL, corrected once the flag resolves.
+  const telegramEnabled = useTelegramEnabled();
+  // Deep-linkable via ?tab=verification|telegram -- SetupChecklist and the
+  // onboarding wizard's "skip for now" copy both point at verification.
+  // Only they (and the tab buttons below) ever produce these links, and
+  // both already hide themselves when their feature's disabled -- this
+  // only matters for a stale bookmark/typed URL, corrected once the flag
+  // resolves.
   const [activeTab, setActiveTab] = useState(
-    searchParams.get('tab') === 'verification' ? 'verification' : 'account'
+    ['verification', 'telegram'].includes(searchParams.get('tab'))
+      ? searchParams.get('tab')
+      : 'account'
   );
 
   useEffect(() => {
     if (activeTab === 'verification' && verificationEnabled === false) {
       setActiveTab('account');
     }
-  }, [activeTab, verificationEnabled]);
+    if (activeTab === 'telegram' && telegramEnabled === false) {
+      setActiveTab('account');
+    }
+  }, [activeTab, verificationEnabled, telegramEnabled]);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -221,6 +231,19 @@ function SettingsPageInner() {
             >
               <ShieldCheck className="w-4 h-4 inline mr-2" />
               Verification
+            </button>
+          )}
+          {telegramEnabled === true && (
+            <button
+              onClick={() => setActiveTab('telegram')}
+              className={`px-4 lg:px-6 py-3 lg:py-4 text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === 'telegram'
+                  ? 'text-brand-800 border-b-2 border-brand-800'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Send className="w-4 h-4 inline mr-2" />
+              Telegram
             </button>
           )}
         </div>
@@ -513,6 +536,13 @@ function SettingsPageInner() {
       {activeTab === 'verification' && verificationEnabled === true && (
         <div className="max-w-2xl">
           <VerificationForm />
+        </div>
+      )}
+
+      {/* Telegram Tab */}
+      {activeTab === 'telegram' && telegramEnabled === true && (
+        <div className="max-w-2xl">
+          <TelegramForm />
         </div>
       )}
     </DashboardLayout>

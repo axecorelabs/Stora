@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, X, ShieldCheck, Globe, Truck, ArrowRight, ListChecks, Palette } from "lucide-react";
+import { MapPin, X, ShieldCheck, Globe, Truck, ArrowRight, ListChecks, Palette, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NIGERIAN_STATES, isValidNigerianState } from "@stora/shared-constants";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
+import { useTelegramEnabled } from "@/hooks/useTelegramEnabled";
 
 // Replaces the old IncompleteStoreNudge (which only ever covered the
 // operating-state case, as a banner on every dashboard page). This is
@@ -17,6 +18,7 @@ export default function SetupChecklist() {
   const { secureApiCall } = useAuth();
   const router = useRouter();
   const verificationEnabled = useVerificationEnabled();
+  const telegramEnabled = useTelegramEnabled();
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -49,6 +51,9 @@ export default function SetupChecklist() {
   // configured (see useVerificationEnabled) -- otherwise this would show
   // a "Get verified" row that's guaranteed to fail if clicked.
   const needsVerification = verificationEnabled === true && !store.isVerified;
+  // Same "only counts once it's actually possible" reasoning as
+  // needsVerification -- see useTelegramEnabled.
+  const needsTelegram = telegramEnabled === true && !store.telegramConnected;
   const needsWebsite = !store.website?.isEnabled;
   // primaryColor/secondaryColor always resolve to a real value (the ledger
   // green defaults StoreBrandingModal falls back to), so a store using
@@ -61,7 +66,7 @@ export default function SetupChecklist() {
   // yet -- every order ships for free until a vendor sets at least one.
   const needsDeliveryFees = Object.keys(store.deliveryFees || {}).length === 0;
 
-  if (!needsState && !needsVerification && !needsWebsite && !needsBranding && !needsDeliveryFees) return null;
+  if (!needsState && !needsVerification && !needsTelegram && !needsWebsite && !needsBranding && !needsDeliveryFees) return null;
 
   const handleSaveState = async () => {
     if (!selectedState) return;
@@ -80,12 +85,19 @@ export default function SetupChecklist() {
     setIsSavingState(false);
   };
 
-  // Verification only counts toward the total while it's actually
-  // available -- otherwise "1 of 3 done" would look permanently stuck on
-  // a task nobody can complete yet.
-  const applicableItems = verificationEnabled === true
-    ? [needsState, needsVerification, needsWebsite, needsBranding, needsDeliveryFees]
-    : [needsState, needsWebsite, needsBranding, needsDeliveryFees];
+  // Verification/Telegram only count toward the total while each is
+  // actually available -- otherwise "1 of 3 done" would look permanently
+  // stuck on a task nobody can complete yet. `null` (not yet resolved, or
+  // genuinely not configured) drops the item entirely rather than
+  // counting it as done or outstanding.
+  const applicableItems = [
+    needsState,
+    verificationEnabled === true ? needsVerification : null,
+    telegramEnabled === true ? needsTelegram : null,
+    needsWebsite,
+    needsBranding,
+    needsDeliveryFees
+  ].filter((item) => item !== null);
   const doneCount = applicableItems.filter((needed) => !needed).length;
   const totalCount = applicableItems.length;
 
@@ -163,6 +175,21 @@ export default function SetupChecklist() {
             </span>
             <span className="flex items-center gap-1 font-semibold text-brand-800 text-sm flex-shrink-0">
               Get verified <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </button>
+        )}
+
+        {needsTelegram && (
+          <button
+            onClick={() => router.push('/dashboard/settings?tab=telegram')}
+            className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
+          >
+            <span className="flex items-center gap-2.5 text-sm text-gray-700">
+              <Send className="w-4 h-4 text-gold-700 flex-shrink-0" />
+              Connect Telegram to get new order alerts instantly
+            </span>
+            <span className="flex items-center gap-1 font-semibold text-brand-800 text-sm flex-shrink-0">
+              Connect <ArrowRight className="w-3.5 h-3.5" />
             </span>
           </button>
         )}

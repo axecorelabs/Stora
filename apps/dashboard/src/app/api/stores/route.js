@@ -61,6 +61,11 @@ function transformStore(store) {
     isActive: store.is_active,
     isVerified: store.is_verified,
     verificationStatus: store.verification_status,
+    // Separate from isVerified -- see stores/[storeId] admin route and
+    // business_verified_at's own comments for that split. This one just
+    // means "has this vendor linked a Telegram chat" (see
+    // /api/telegram/status), used by SetupChecklist to nudge toward it.
+    telegramConnected: !!store.telegram_chat_id,
     totalSales: parseFloat(store.total_sales) || 0,
     totalOrders: store.total_orders || 0,
     averageRating: parseFloat(store.average_rating) || 0,
