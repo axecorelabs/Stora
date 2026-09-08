@@ -95,6 +95,13 @@ export async function sendStoreOrderNotifications(
       const storeData = storeGroupedItems[storeId];
       if (!storeData) continue;
 
+      // Shared by both channels below -- normalizes the two item shapes
+      // this function gets handed (see normalizeEmailItem's own comment)
+      // into one product_name/quantity/subtotal shape, computed once
+      // regardless of whether email, Telegram, both, or neither end up
+      // sending for this store.
+      const normalizedItems = storeData.items.map(normalizeEmailItem);
+
       const storeEmail = storeData.store?.store_email;
       if (storeEmail) {
         const emailData = {
@@ -107,9 +114,9 @@ export async function sendStoreOrderNotifications(
           },
           shippingAddress,
           customerNotes,
-          storeItems: storeData.items.map(normalizeEmailItem),
+          storeItems: normalizedItems,
           storeTotal: storeData.total,
-          storeItemCount: storeData.items.reduce((sum, item) => sum + item.quantity, 0)
+          storeItemCount: normalizedItems.reduce((sum, item) => sum + item.quantity, 0)
         };
 
         try {
@@ -122,11 +129,17 @@ export async function sendStoreOrderNotifications(
 
       const chatId = chatIdByStoreId.get(storeId);
       if (chatId) {
-        const itemCount = storeData.items.reduce((sum, item) => sum + item.quantity, 0);
         const customerName = [shippingAddress?.firstName, shippingAddress?.lastName].filter(Boolean).join(' ') || null;
 
         try {
-          await sendTelegramOrderNotification(chatId, { orderNumber, itemCount, total: storeData.total, customerName });
+          await sendTelegramOrderNotification(chatId, {
+            orderNumber,
+            items: normalizedItems,
+            total: storeData.total,
+            customerName,
+            city: shippingAddress?.city,
+            state: shippingAddress?.state
+          });
         } catch (telegramError) {
           // 403 means the vendor blocked the bot (or deleted the chat) --
           // this chat id will never succeed again, so clear it rather than
