@@ -42,13 +42,35 @@ function escapeHtml(value) {
 // needed. Returns the caller's own decision of what to do on failure
 // (specifically: self-heal on a 403, meaning the vendor blocked the bot --
 // see the call site).
-export async function sendTelegramOrderNotification(chatId, { orderNumber, itemCount, total, customerName }) {
-  const text =
-    `🛎 <b>New order received</b>\n\n` +
-    `Order <b>${escapeHtml(orderNumber)}</b>\n` +
-    `${itemCount} item${itemCount === 1 ? '' : 's'} · ₦${Number(total).toLocaleString('en-NG')}\n` +
-    (customerName ? `From ${escapeHtml(customerName)}\n` : '') +
-    `\nOpen your dashboard to view and manage this order.`;
+//
+// Built as an array of blocks joined by a blank line, rather than one
+// hand-spaced template string -- keeps every section (header, items,
+// total, customer) visually separated and consistent regardless of which
+// optional pieces (customer name, location) are actually present, instead
+// of ad hoc \n vs \n\n calls drifting out of sync as fields get added.
+export async function sendTelegramOrderNotification(chatId, { orderNumber, items, total, customerName, city, state }) {
+  const header = `🛎 <b>New order received</b>\nOrder <b>${escapeHtml(orderNumber)}</b>`;
+
+  const itemLines = (items || [])
+    .map(item => `${item.quantity}× ${escapeHtml(item.product_name)} — ₦${Number(item.subtotal).toLocaleString('en-NG')}`)
+    .join('\n');
+  const itemsBlock = itemLines ? `🧾 <b>Items</b>\n${itemLines}` : null;
+
+  const totalBlock = `💰 <b>Total: ₦${Number(total).toLocaleString('en-NG')}</b>`;
+
+  // City is free text the customer typed, state is picked from a fixed
+  // list (see isValidNigerianState) -- escaped together regardless, same
+  // as customerName below, since neither is safe to trust as-is in HTML
+  // parse_mode.
+  const location = [city, state].filter(Boolean).join(', ');
+  const customerBlock = [
+    customerName ? `👤 ${escapeHtml(customerName)}` : null,
+    location ? `📍 ${escapeHtml(location)}` : null
+  ].filter(Boolean).join('\n') || null;
+
+  const footer = 'Open your dashboard to view and manage this order.';
+
+  const text = [header, itemsBlock, totalBlock, customerBlock, footer].filter(Boolean).join('\n\n');
 
   await sendTelegramMessage(chatId, text);
 }
