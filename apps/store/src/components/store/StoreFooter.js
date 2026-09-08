@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import useStoreStore from '@/stores/storeStore';
 import { storeHref } from '@/lib/storeUrl';
+import { DAYS_OF_WEEK, formatDayHours, hasConfiguredBusinessHours } from '@stora/shared-constants';
 
 export default function StoreFooter() {
   const router = useRouter();
@@ -112,6 +113,20 @@ export default function StoreFooter() {
 
   // Early return AFTER all hooks
   if (!currentStore) return null;
+
+  const hasRealBusinessHours = hasConfiguredBusinessHours(currentStore.businessHours);
+  const weeklyHours = DAYS_OF_WEEK.map(({ key, short }) => ({
+    key,
+    short,
+    hours: formatDayHours(currentStore.businessHours?.[key])
+  }));
+  // Defaults to shown (matches the dashboard toggle's own default) -- only
+  // an explicit `false` hides it. A physical store with no real hours
+  // configured yet has nothing honest to show, so it gets nothing at all
+  // rather than a fabricated fallback; an online store still shows the
+  // (still true) "Available 24/7" line either way.
+  const showStoreHours = currentStore.website?.settings?.storeHours !== false
+    && (hasRealBusinessHours || currentStore.storeType !== 'physical');
 
   const quickLinks = [
     { label: 'Browse Products', path: storeHref(storeSlug), icon: Package },
@@ -359,23 +374,41 @@ export default function StoreFooter() {
                 </div>
               )}
 
-              {/* Store Hours */}
-              <div className="flex items-start gap-3">
-                <div 
-                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: `${primaryColor}10` }}
-                >
-                  <Clock className="w-4 h-4" style={{ color: primaryColor }} />
+              {/* Store Hours -- real, vendor-set hours (StoreGeneralTab.js's
+                  Business Hours editor) when there are any, gated on the
+                  "Store Hours" website-settings toggle. Used to always show
+                  a hardcoded "Mon - Sat: 9:00 AM - 6:00 PM" here regardless
+                  of what a vendor's actual hours were, or even whether
+                  they'd set any -- every physical store's footer claimed
+                  the exact same hours. A physical store with nothing
+                  configured yet gets no fabricated fallback; an online-only
+                  store keeps the "Available 24/7" line, which is still
+                  genuinely true with no hours set. */}
+              {showStoreHours && (
+                <div className="flex items-start gap-3">
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${primaryColor}10` }}
+                  >
+                    <Clock className="w-4 h-4" style={{ color: primaryColor }} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-900 mb-1">Store Hours</p>
+                    {hasRealBusinessHours ? (
+                      <div className="space-y-0.5">
+                        {weeklyHours.map(({ key, short, hours }) => (
+                          <div key={key} className="flex items-center justify-between gap-4 text-sm">
+                            <span className="text-gray-500">{short}</span>
+                            <span className={hours ? 'text-gray-600' : 'text-gray-400'}>{hours || 'Not set'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">Available 24/7 Online</p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-xs font-semibold text-gray-900 mb-1">Store Hours</p>
-                  <p className="text-sm text-gray-600">
-                    {currentStore.storeType === 'physical' 
-                      ? 'Mon - Sat: 9:00 AM - 6:00 PM' 
-                      : 'Available 24/7 Online'}
-                  </p>
-                </div>
-              </div>
+              )}
 
               {/* Delivery Areas Badge */}
               {currentStore.storeType === 'online' && currentStore.onlineStoreInfo?.deliveryAreas?.length > 0 && (
