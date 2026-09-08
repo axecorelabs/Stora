@@ -9,14 +9,6 @@ import PartnershipProposalModal from "./PartnershipProposalModal";
 
 const SIDEBAR_COLLAPSED_KEY = "stora-sidebar-collapsed";
 
-// TEMPORARY -- module-scoped (not state) so it survives this layout
-// remounting on every dashboard navigation but resets on a real page
-// reload; that's fine, calling setWebhook again is cheap and idempotent
-// on Telegram's side. Remove this flag, the effect below that uses it,
-// and the route it calls once the Telegram webhook is confirmed
-// registered -- see that route's own comment for the full reasoning.
-let telegramWebhookRegistrationAttempted = false;
-
 // Read the saved preference synchronously so the very first render already
 // has the right state -- each dashboard page remounts this layout on
 // navigation, and restoring the preference in a post-mount effect meant the
@@ -27,15 +19,11 @@ function getInitialCollapsedState() {
 }
 
 export default function DashboardLayout({ children, title, subtitle }) {
-  const { user, isAuthenticated, loading, secureApiCall } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialCollapsedState);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  // TEMPORARY -- see telegramWebhookRegistrationAttempted's comment above.
-  // Surfaced on-screen (not just console) since there's no way to check
-  // Vercel logs from outside the deployment while diagnosing this.
-  const [telegramWebhookDebug, setTelegramWebhookDebug] = useState(null);
 
   // Safety net alongside the sidebar's own close-on-navigate -- covers any
   // navigation that doesn't go through DashboardSidebar's nav buttons (e.g.
@@ -49,15 +37,6 @@ export default function DashboardLayout({ children, title, subtitle }) {
       router.push('/');
     }
   }, [isAuthenticated, loading, router]);
-
-  // TEMPORARY -- see telegramWebhookRegistrationAttempted's comment above.
-  useEffect(() => {
-    if (telegramWebhookRegistrationAttempted || !isAuthenticated) return;
-    telegramWebhookRegistrationAttempted = true;
-    secureApiCall('/api/telegram/register-webhook', { method: 'POST' })
-      .then((response) => setTelegramWebhookDebug(response || { success: false, message: 'Empty response' }))
-      .catch((err) => setTelegramWebhookDebug({ success: false, message: err?.message || 'Request failed' }));
-  }, [isAuthenticated, secureApiCall]);
 
   // Catches every path INTO the dashboard for an account that still has
   // legalReviewPendingAt set (databaseHooks.user.create.after in
@@ -151,43 +130,6 @@ export default function DashboardLayout({ children, title, subtitle }) {
       {/* Mounted here (not per-page) so a pending partnership proposal
           surfaces regardless of which page the vendor lands on first. */}
       <PartnershipProposalModal />
-
-      {/* TEMPORARY -- on-screen readout of the Telegram webhook
-          self-registration attempt above, so it's checkable without
-          devtools. Remove alongside the rest of the TEMPORARY code once
-          the webhook is confirmed registered. */}
-      {telegramWebhookDebug && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 max-w-xs rounded-lg border px-3 py-2 text-xs shadow-lg ${
-            telegramWebhookDebug.success
-              ? 'bg-green-50 border-green-200 text-green-800'
-              : 'bg-red-50 border-red-200 text-red-800'
-          }`}
-        >
-          <p className="font-semibold">Telegram webhook registration (debug)</p>
-          <p className="mt-0.5 break-words">
-            {telegramWebhookDebug.success
-              ? 'Re-registered with current secret.'
-              : telegramWebhookDebug.message || 'Failed, no message returned.'}
-          </p>
-          {telegramWebhookDebug.success && (
-            <>
-              <p className="mt-1 break-words">
-                URL was already correct before this call: {String(telegramWebhookDebug.priorUrlMatched)}
-              </p>
-              <p className="mt-1 break-words">
-                Telegram&apos;s last delivery error:{' '}
-                {telegramWebhookDebug.priorLastErrorMessage
-                  ? `${telegramWebhookDebug.priorLastErrorMessage} (${telegramWebhookDebug.priorLastErrorDate ? new Date(telegramWebhookDebug.priorLastErrorDate * 1000).toLocaleString() : 'unknown time'})`
-                  : 'none'}
-              </p>
-              <p className="mt-1 break-words">
-                Pending undelivered updates: {telegramWebhookDebug.priorPendingUpdateCount ?? 'unknown'}
-              </p>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }
