@@ -9,6 +9,15 @@ import PartnershipProposalModal from "./PartnershipProposalModal";
 
 const SIDEBAR_COLLAPSED_KEY = "stora-sidebar-collapsed";
 
+// TEMPORARY -- module-scoped (not state) so it survives this layout
+// remounting on every dashboard navigation but resets on a real page
+// reload; that's fine, /api/telegram/register-webhook is a cheap no-op
+// once Telegram's webhook is already correctly set. Remove this flag,
+// the effect below that uses it, and the route it calls once the
+// Telegram webhook is confirmed registered -- see that route's own
+// comment for the full reasoning.
+let telegramWebhookRegistrationAttempted = false;
+
 // Read the saved preference synchronously so the very first render already
 // has the right state -- each dashboard page remounts this layout on
 // navigation, and restoring the preference in a post-mount effect meant the
@@ -19,7 +28,7 @@ function getInitialCollapsedState() {
 }
 
 export default function DashboardLayout({ children, title, subtitle }) {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading, secureApiCall } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialCollapsedState);
@@ -37,6 +46,13 @@ export default function DashboardLayout({ children, title, subtitle }) {
       router.push('/');
     }
   }, [isAuthenticated, loading, router]);
+
+  // TEMPORARY -- see telegramWebhookRegistrationAttempted's comment above.
+  useEffect(() => {
+    if (telegramWebhookRegistrationAttempted || !isAuthenticated) return;
+    telegramWebhookRegistrationAttempted = true;
+    secureApiCall('/api/telegram/register-webhook', { method: 'POST' }).catch(() => {});
+  }, [isAuthenticated, secureApiCall]);
 
   // Catches every path INTO the dashboard for an account that still has
   // legalReviewPendingAt set (databaseHooks.user.create.after in
