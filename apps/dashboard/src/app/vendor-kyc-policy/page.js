@@ -64,7 +64,7 @@ export default function VendorKycPolicyPage() {
       <p>
         You may ask us what verification data we hold about you, or request it be deleted (noting that the last-4-digit reference
         and match result may need to be retained for a period for fraud-prevention/audit purposes). Contact{" "}
-        <a href="mailto:support@app.stora.com.ng">support@app.stora.com.ng</a>.
+        <a href="mailto:support@stora.com.ng">support@stora.com.ng</a>.
       </p>
     </LegalDocument>
   );

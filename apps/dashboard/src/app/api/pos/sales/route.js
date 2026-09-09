@@ -4,6 +4,10 @@ import { verifySession } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { processItemsWithBatchTracking } from '@/lib/batchInventory';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { mapToOrderPaymentMethod } from '@/lib/paymentMethod';
+import { sendSaleReceiptEmail } from '@/lib/email';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Generate unique transaction ID
 function generateTransactionId() {
@@ -156,10 +160,14 @@ export async function POST(req) {
 
       // If processing an order, create order_payment record
       if (isOrderProcessing && saleData.linkedOrderId) {
+        // order_payments.method uses a different, narrower vocabulary than
+        // the UI's payment choice -- see paymentMethod.js. Previously this
+        // wrote the raw UI string here, silently failing the column's CHECK
+        // constraint on every POS-completed order.
         const orderPayment = {
           id: uuidv4(),
           order_id: saleData.linkedOrderId,
-          method: saleData.paymentMethod || 'cash',
+          method: mapToOrderPaymentMethod(saleData.paymentMethod) || 'cash_to_vendor',
           provider: 'manual',
           transaction_id: transactionId,
           reference: `SALE-${sale.id}`,
@@ -194,6 +202,57 @@ export async function POST(req) {
         is_order_processing: isOrderProcessing,
         batches_used: totalBatchesUsed
       }));
+
+      // Walk-in sales only -- order-processing mode (isOrderProcessing) already
+      // gets its own delivery-flavored receipt email once the linked order is
+      // marked delivered (see the order status route's own sendOrderProcessedEmail
+      // call), so sending a second one here would be a duplicate. Customer email
+      // is optional on the POS form; only attempt this when one was actually given.
+      const customerEmail = saleData.customer?.email?.trim();
+      if (!isOrderProcessing && customerEmail && EMAIL_REGEX.test(customerEmail)) {
+        after(async () => {
+          try {
+            const { data: storeRow } = await supabaseAdmin
+              .from('stores')
+              .select('store_name')
+              .eq('owner_id', user.id)
+              .maybeSingle();
+
+            const result = await sendSaleReceiptEmail(
+              customerEmail,
+              {
+                orderNumber: sale.transaction_id,
+                customer: {
+                  name: sale.customer_name || 'Walk-in Customer',
+                  phone: sale.customer_phone || '',
+                  email: customerEmail
+                }
+              },
+              {
+                transactionId: sale.transaction_id,
+                items: saleData.items,
+                subtotal: sale.subtotal,
+                discount: sale.discount,
+                tax: sale.tax,
+                total: sale.total,
+                saleDate: sale.sale_date,
+                paymentMethod: sale.payment_method
+              },
+              storeRow?.store_name || 'Stora Store'
+            );
+
+            if (!result.success) {
+              console.error(`Failed to send POS sale receipt to ${customerEmail}:`, result.error);
+            } else if (!result.pdfAttached) {
+              console.error(`POS sale receipt sent to ${customerEmail} WITHOUT a receipt PDF attached (PDF generation failed)`);
+            } else {
+              console.log(`POS sale receipt sent to ${customerEmail}, receipt attached`);
+            }
+          } catch (emailError) {
+            console.error(`Error sending POS sale receipt to ${customerEmail}:`, emailError);
+          }
+        });
+      }
 
       return NextResponse.json({
         success: true,

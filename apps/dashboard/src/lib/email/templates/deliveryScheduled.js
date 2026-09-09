@@ -74,7 +74,7 @@ export const getDeliveryScheduledTemplate = (email, deliveryData, saleData, stor
       receive the order.${deliveryData.paymentStatus === 'cash_on_delivery' ? ' Payment will be collected on delivery.' : ''}
       For any changes, contact us right away.
     </p>
-    ${paragraph(`<strong>${storeName}</strong>${deliveryData.customerPhone ? `<br>Phone: ${deliveryData.customerPhone}` : ''}<br>Email: <a href="mailto:support@app.stora.com.ng" style="color:${colors.brand700};">support@app.stora.com.ng</a>`)}
+    ${paragraph(`<strong>${storeName}</strong>${deliveryData.customerPhone ? `<br>Phone: ${deliveryData.customerPhone}` : ''}<br>Email: <a href="mailto:support@stora.com.ng" style="color:${colors.brand700};">support@stora.com.ng</a>`)}
   `;
 
   const html = emailShell({

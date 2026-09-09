@@ -20,10 +20,12 @@ import {
   ShoppingBag,
   MessageCircle,
   ChevronDown,
-  Undo2
+  Undo2,
+  PackageCheck
 } from "lucide-react";
 import OrderStatusUpdateModal from "./OrderStatusUpdateModal";
 import RefundModal from "./RefundModal";
+import CompleteOrderModal from "./CompleteOrderModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import useOrderProcessingStore from "@/store/orderProcessingStore";
@@ -61,6 +63,7 @@ export default function OrderDetailsContent({
   const [copied, setCopied] = useState(false);
   const [isStatusUpdateModalOpen, setIsStatusUpdateModalOpen] = useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [isCompleteOrderModalOpen, setIsCompleteOrderModalOpen] = useState(false);
   const [order, setOrder] = useState(initialOrder);
   const [isConfirmingOrder, setIsConfirmingOrder] = useState(false);
   const [showContactDropdown, setShowContactDropdown] = useState(getInitialContactDropdownState);
@@ -241,6 +244,18 @@ export default function OrderDetailsContent({
     } finally {
       setIsConfirmingOrder(false);
     }
+  };
+
+  // Fast, one-page alternative to Start/Continue Processing -> POS (which
+  // stays exactly as it is below) -- available at any pre-delivery status,
+  // not gated behind first working through the granular flow.
+  const canCompleteOrder = () => {
+    const completableStatuses = ['pending', 'confirmed', 'processing', 'shipped'];
+    return completableStatuses.includes(order.status);
+  };
+
+  const handleOrderCompleted = async () => {
+    await refreshOrderData();
   };
 
   // Check if status can be updated
@@ -437,6 +452,16 @@ export default function OrderDetailsContent({
             >
               <Package className="w-4 h-4" />
               <span>Continue Processing</span>
+            </button>
+          )}
+
+          {canCompleteOrder() && (
+            <button
+              onClick={() => setIsCompleteOrderModalOpen(true)}
+              className="flex items-center justify-center space-x-2 px-5 py-2.5 bg-gold-500 text-brand-900 rounded-xl hover:bg-gold-400 transition-colors font-medium shadow-sm"
+            >
+              <PackageCheck className="w-4 h-4" />
+              <span>Complete Order</span>
             </button>
           )}
 
@@ -934,6 +959,14 @@ export default function OrderDetailsContent({
         onClose={() => setIsRefundModalOpen(false)}
         order={order}
         onRefundComplete={handleRefundComplete}
+      />
+
+      {/* Complete Order Modal */}
+      <CompleteOrderModal
+        isOpen={isCompleteOrderModalOpen}
+        onClose={() => setIsCompleteOrderModalOpen(false)}
+        order={order}
+        onCompleted={handleOrderCompleted}
       />
     </>
   );

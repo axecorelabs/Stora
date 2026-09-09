@@ -105,7 +105,7 @@ export default function VendorAgreementPage() {
       <p>We may update this Agreement from time to time; continued use of your Vendor account after an update constitutes acceptance.</p>
 
       <h2>12. Contact</h2>
-      <p><a href="mailto:support@app.stora.com.ng">support@app.stora.com.ng</a></p>
+      <p><a href="mailto:support@stora.com.ng">support@stora.com.ng</a></p>
     </LegalDocument>
   );
 }

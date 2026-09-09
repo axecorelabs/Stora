@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { getOrderProcessedTemplate } from './email/templates/orderProcessed.js';
+import { getSaleReceiptTemplate } from './email/templates/saleReceipt.js';
 import { getDeliveryScheduledTemplate } from './email/templates/deliveryScheduled.js';
 import { getVerificationEmailTemplate } from './email/templates/verification.js';
 import { getWelcomeEmailTemplate } from './email/templates/welcome.js';
@@ -64,7 +65,7 @@ const sendWithResend = async (to, subject, html, text) => {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const response = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Stora <noreply@app.stora.com.ng>',
+      from: process.env.EMAIL_FROM || 'Stora <noreply@stora.com.ng>',
       to,
       subject,
       html,
@@ -95,7 +96,7 @@ const sendEmail = async (to, subject, html, text = '', retries = 2) => {
           await transporter.verify();
           
           const mailOptions = {
-            from: process.env.EMAIL_FROM || 'Stora <noreply@app.stora.com.ng>',
+            from: process.env.EMAIL_FROM || 'Stora <noreply@stora.com.ng>',
             to,
             subject,
             html,
@@ -186,12 +187,30 @@ export const sendDeliveryScheduledEmail = async (email, deliveryData, saleData, 
 // Send order processed email with receipt
 export const sendOrderProcessedEmail = async (email, orderData, saleData, storeName = 'Stora Store', storeLogoUrl = null, brandingColors = null) => {
   const { html, text, subject } = getOrderProcessedTemplate(email, orderData, saleData, storeName);
-  
+
   // Generate receipt PDF with logo and branding
   const receiptAttachment = await generateReceiptPDF(orderData, saleData, storeName, storeLogoUrl, brandingColors);
-  
-  // Send email with attachment
-  return await sendEmailWithAttachment(email, subject, html, text, receiptAttachment);
+
+  // Send email with attachment. generateReceiptPDF returns null on any
+  // internal failure (bad logo URL, a malformed field, a jsPDF error) --
+  // sendEmailWithAttachment happily sends without one rather than failing
+  // the whole send, so `pdfAttached` is the only signal a caller has that
+  // the customer got an email with no receipt on it. Always check it.
+  const result = await sendEmailWithAttachment(email, subject, html, text, receiptAttachment);
+  return { ...result, pdfAttached: Boolean(receiptAttachment) };
+};
+
+// Send a receipt for an in-person (walk-in POS) sale -- deliberately a
+// different template from sendOrderProcessedEmail's (that one's copy is
+// about a shipped order still awaiting delivery, wrong for a sale that's
+// already fully handed over at the till).
+export const sendSaleReceiptEmail = async (email, orderData, saleData, storeName = 'Stora Store', storeLogoUrl = null, brandingColors = null) => {
+  const { html, text, subject } = getSaleReceiptTemplate(email, orderData, saleData, storeName);
+
+  const receiptAttachment = await generateReceiptPDF(orderData, saleData, storeName, storeLogoUrl, brandingColors);
+
+  const result = await sendEmailWithAttachment(email, subject, html, text, receiptAttachment);
+  return { ...result, pdfAttached: Boolean(receiptAttachment) };
 };
 
 // Send refund confirmation to the customer
@@ -219,7 +238,7 @@ const sendEmailWithAttachment = async (to, subject, html, text, attachment) => {
       const resend = new Resend(process.env.RESEND_API_KEY);
 
       const emailData = {
-        from: process.env.EMAIL_FROM || 'Stora <noreply@app.stora.com.ng>',
+        from: process.env.EMAIL_FROM || 'Stora <noreply@stora.com.ng>',
         to,
         subject,
         html,
@@ -242,7 +261,7 @@ const sendEmailWithAttachment = async (to, subject, html, text, attachment) => {
       await transporter.verify();
       
       const mailOptions = {
-        from: process.env.EMAIL_FROM || 'Stora <noreply@app.stora.com.ng>',
+        from: process.env.EMAIL_FROM || 'Stora <noreply@stora.com.ng>',
         to,
         subject,
         html,

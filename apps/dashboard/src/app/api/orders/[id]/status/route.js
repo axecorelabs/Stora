@@ -6,6 +6,14 @@ import { sendOrderProcessedEmail } from '@/lib/email';
 import { processItemsWithBatchTracking, releaseItemsReservation } from '@/lib/batchInventory';
 import { captureServerEvent } from '@/lib/posthog-server';
 
+// order_payments.method's own CHECK constraint (see
+// supabase/migrations/20260717000000_initial_schema.sql) -- validated
+// server-side too since paymentMethod arrives here as raw client input
+// (already mapped from a UI value to this vocabulary by the caller, e.g.
+// CompleteOrderModal via lib/paymentMethod.js, but the caller isn't trusted
+// to have done that correctly).
+const VALID_ORDER_PAYMENT_METHODS = ['card', 'bank_transfer', 'cash_to_vendor', 'wallet', 'paystack', 'flutterwave'];
+
 // PUT - Update order status
 export async function PUT(req, { params }) {
   try {
@@ -18,13 +26,20 @@ export async function PUT(req, { params }) {
     }
 
     const { id } = await params;
-    const { status, note, updatedBy, trackingInfo } = await req.json();
+    const { status, note, updatedBy, trackingInfo, paymentMethod } = await req.json();
 
     // Validate status
     const validStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded', 'processed'];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, message: 'Invalid status' },
+        { status: 400 }
+      );
+    }
+
+    if (paymentMethod !== undefined && !VALID_ORDER_PAYMENT_METHODS.includes(paymentMethod)) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid payment method' },
         { status: 400 }
       );
     }
@@ -134,11 +149,38 @@ export async function PUT(req, { params }) {
     if (isBeingMarkedAsDelivered) {
       console.log('Order marked as delivered, fulfilling reservations and recording sale...');
       try {
-        const { data: payment } = await supabaseAdmin
+        let { data: payment } = await supabaseAdmin
           .from('order_payments')
           .select('method')
           .eq('order_id', id)
           .maybeSingle();
+
+        // No payment on file yet (a contact-only/COD-style order) and the
+        // caller told us how it was actually paid (the one-page "Complete
+        // Order" flow -- see CompleteOrderModal.js) -- record it now rather
+        // than leaving order_payments permanently empty for this order.
+        // order_id is UNIQUE, so this only ever runs when `payment` above
+        // came back null.
+        if (!payment && paymentMethod) {
+          const { data: insertedPayment, error: paymentInsertError } = await supabaseAdmin
+            .from('order_payments')
+            .insert({
+              order_id: id,
+              method: paymentMethod,
+              provider: 'manual',
+              status: 'completed',
+              amount: storeItems.reduce((sum, i) => sum + parseFloat(i.subtotal), 0),
+              paid_at: new Date().toISOString()
+            })
+            .select('method')
+            .single();
+
+          if (paymentInsertError) {
+            console.error('Error recording order payment:', paymentInsertError);
+          } else {
+            payment = insertedPayment;
+          }
+        }
 
         const saleId = crypto.randomUUID();
         const transactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -245,7 +287,7 @@ export async function PUT(req, { params }) {
           }
         }
 
-        saleResults = { success: true, sales: [createdSale] };
+        saleResults = { success: true, sales: [createdSale], items: insertedSaleItems };
         console.log(`Successfully created sale for order ${order.order_number}`);
       } catch (saleError) {
         console.error('Error fulfilling order delivery:', saleError);
@@ -299,7 +341,7 @@ export async function PUT(req, { params }) {
       after(async () => {
         console.log('Attempting to send order processed email to customer...', orderCustomer.email);
         try {
-          await sendOrderProcessedEmail(
+          const result = await sendOrderProcessedEmail(
             orderCustomer.email,
             {
               orderNumber: order.order_number,
@@ -311,7 +353,16 @@ export async function PUT(req, { params }) {
             },
             {
               transactionId: sale.transaction_id,
-              items: saleResults.sales,
+              // Actual line items (see saleResults.items above), not the
+              // `sales` summary rows this used to pass here -- those have
+              // no productName/quantity, so the receipt's items table was
+              // rendering blank/undefined rows.
+              items: (saleResults.items || []).map(item => ({
+                productName: item.product_name,
+                quantity: item.quantity,
+                unitPrice: item.unit_price,
+                total: item.total
+              })),
               total: saleResults.sales.reduce((sum, s) => sum + s.total, 0),
               subtotal: saleResults.sales.reduce((sum, s) => sum + s.subtotal, 0),
               discount: 0,
@@ -321,7 +372,13 @@ export async function PUT(req, { params }) {
             },
             storeName
           );
-          console.log('Order processed email sent successfully');
+          if (!result.success) {
+            console.error('Failed to send order processed email:', result.error);
+          } else if (!result.pdfAttached) {
+            console.error(`Order processed email sent to ${orderCustomer.email} WITHOUT a receipt PDF attached (PDF generation failed)`);
+          } else {
+            console.log('Order processed email sent successfully, receipt attached');
+          }
         } catch (emailError) {
           console.error('Failed to send order processed email:', emailError);
         }
@@ -342,6 +399,34 @@ export async function PUT(req, { params }) {
         transactionIds: saleResults.sales.map(sale => sale.transaction_id)
       };
       response.message += ` and ${saleResults.sales.length} sale(s) created automatically`;
+
+      // Shaped for ReceiptModal.js (a flat sale-shaped object, not the raw
+      // `sales`/`sale_items` rows above) -- lets CompleteOrderModal.js show
+      // a receipt right after completion without a second round trip.
+      const createdSale = saleResults.sales[0];
+      response.sale = {
+        _id: createdSale.id,
+        transactionId: createdSale.transaction_id,
+        saleDate: createdSale.sale_date,
+        customer: {
+          name: `${orderCustomer?.first_name || ''} ${orderCustomer?.last_name || ''}`.trim(),
+          phone: orderCustomer?.phone || '',
+          email: orderCustomer?.email || ''
+        },
+        items: (saleResults.items || []).map(item => ({
+          productName: item.product_name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          total: item.total
+        })),
+        subtotal: createdSale.subtotal,
+        discount: createdSale.discount,
+        tax: createdSale.tax,
+        total: createdSale.total,
+        paymentMethod: createdSale.payment_method,
+        amountReceived: createdSale.total,
+        balance: 0
+      };
     }
 
     after(() => captureServerEvent(user.id, 'order_status_updated', {

@@ -24,7 +24,14 @@ const itemsTable = (items) => `
     </tbody>
   </table>`;
 
-export const getOrderProcessedTemplate = (email, orderData, saleData, storeName = 'Stora Store') => {
+// Separate from orderProcessed.js's template on purpose -- that one's copy
+// ("ready for delivery", "you'll get a delivery notification") is about a
+// shipped online order, which is wrong for an in-person walk-in sale that's
+// already fully handed over at the till. Sent from apps/dashboard/src/app/
+// api/pos/sales/route.js only for a genuine walk-in sale (never for POS's
+// order-processing mode, which already gets its own delivery-flavored email
+// via the order status route once marked delivered).
+export const getSaleReceiptTemplate = (email, orderData, saleData, storeName = 'Stora Store') => {
   const totalRows = [
     row('Subtotal', formatCurrency(saleData.subtotal)),
     saleData.discount > 0 ? row('Discount', `-${formatCurrency(saleData.discount)}`) : '',
@@ -33,18 +40,17 @@ export const getOrderProcessedTemplate = (email, orderData, saleData, storeName 
 
   const body = `
     ${paragraph(`Hi ${orderData.customer.name},`)}
-    ${paragraph('Your order has been processed and is ready for delivery. Your receipt is attached to this email.')}
+    ${paragraph('Thanks for your purchase! Your receipt is attached to this email.')}
     ${card(`
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
         <tbody>
-          ${row('Order', `#${orderData.orderNumber}`)}
-          ${row('Processed', formatDate(saleData.saleDate))}
-          ${row('Transaction ID', saleData.transactionId)}
+          ${row('Receipt', `#${saleData.transactionId}`)}
+          ${row('Date', formatDate(saleData.saleDate))}
           ${row('Payment method', saleData.paymentMethod.charAt(0).toUpperCase() + saleData.paymentMethod.slice(1))}
         </tbody>
       </table>
     `)}
-    ${label('Order items')}
+    ${label('Items purchased')}
     ${itemsTable(saleData.items)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
       <tbody>
@@ -52,40 +58,31 @@ export const getOrderProcessedTemplate = (email, orderData, saleData, storeName 
         ${row('Total', formatCurrency(saleData.total), { emphasize: true })}
       </tbody>
     </table>
-    ${label('Next steps')}
-    <p style="font-size:14px;color:${colors.brand900};line-height:1.9;margin:0 0 20px;">
-      Your order is being prepared for delivery. You&#39;ll get a delivery notification soon --
-      please make sure someone&#39;s available to receive it.
-    </p>
     ${paragraph(`<strong>${storeName}</strong>${orderData.customer.phone ? `<br>Phone: ${orderData.customer.phone}` : ''}<br>Email: <a href="mailto:support@stora.com.ng" style="color:${colors.brand700};">support@stora.com.ng</a>`)}
   `;
 
   const html = emailShell({
-    heading: 'Order processed',
+    heading: 'Your receipt',
     bodyHtml: body,
     footerHtml: defaultFooter(email),
   });
 
   const text = `
-Order processed -- #${orderData.orderNumber}
+Your receipt -- #${saleData.transactionId}
 
 Hi ${orderData.customer.name},
 
-Your order has been processed and is ready for delivery.
+Thanks for your purchase!
 
-Order Information:
-- Order Number: ${orderData.orderNumber}
-- Processed Date: ${formatDate(saleData.saleDate)}
-- Transaction ID: ${saleData.transactionId}
-- Payment Method: ${saleData.paymentMethod}
+Receipt: #${saleData.transactionId}
+Date: ${formatDate(saleData.saleDate)}
+Payment Method: ${saleData.paymentMethod}
 
-Order Items:
+Items:
 ${saleData.items.map((item) => `${item.productName} - Qty: ${item.quantity} x ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.total)}`).join('\n')}
 
 Subtotal: ${formatCurrency(saleData.subtotal)}
 ${saleData.discount > 0 ? `Discount: -${formatCurrency(saleData.discount)}\n` : ''}${saleData.tax > 0 ? `Tax: ${formatCurrency(saleData.tax)}\n` : ''}Total: ${formatCurrency(saleData.total)}
-
-Your order is being prepared for delivery. You'll get a delivery notification soon.
 
 ${storeName}
 ${orderData.customer.phone ? `Phone: ${orderData.customer.phone}\n` : ''}Email: support@stora.com.ng
@@ -93,5 +90,5 @@ ${orderData.customer.phone ? `Phone: ${orderData.customer.phone}\n` : ''}Email: 
 Thank you for your purchase!
   `.trim();
 
-  return { html, text, subject: `Order Processed - #${orderData.orderNumber}` };
+  return { html, text, subject: `Your receipt - #${saleData.transactionId}` };
 };

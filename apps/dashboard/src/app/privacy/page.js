@@ -75,13 +75,13 @@ export default function PrivacyPolicyPage() {
       <h2>4. Data retention and deletion</h2>
       <p>
         We keep your account data for as long as your account is active. To request deletion, email{" "}
-        <a href="mailto:support@app.stora.com.ng">support@app.stora.com.ng</a>. We will process deletion requests within{" "}
+        <a href="mailto:support@stora.com.ng">support@stora.com.ng</a>. We will process deletion requests within{" "}
         <strong>30 days</strong>, subject to any records we&apos;re legally required to retain.
       </p>
 
       <h2>5. Your rights</h2>
       <p>Under the NDPA, you have the right to access, correct, or request deletion of your data, object to certain processing, and withdraw consent where processing is based on consent (e.g., identity verification).</p>
-      <p>To exercise any of these rights, contact <a href="mailto:support@app.stora.com.ng">support@app.stora.com.ng</a>.</p>
+      <p>To exercise any of these rights, contact <a href="mailto:support@stora.com.ng">support@stora.com.ng</a>.</p>
 
       <h2>6. Security</h2>
       <p>We use industry-standard measures to protect your data, including hashed passwords, encrypted connections, and access controls on sensitive verification data.</p>
@@ -90,7 +90,7 @@ export default function PrivacyPolicyPage() {
       <p>We may update this Privacy Policy from time to time. Material changes will be highlighted where practical.</p>
 
       <h2>8. Contact</h2>
-      <p>Questions about this policy or your data: <a href="mailto:support@app.stora.com.ng">support@app.stora.com.ng</a></p>
+      <p>Questions about this policy or your data: <a href="mailto:support@stora.com.ng">support@stora.com.ng</a></p>
     </LegalDocument>
   );
 }

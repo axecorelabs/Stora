@@ -46,7 +46,7 @@ export const getWelcomeEmailTemplate = (firstName, email) => {
         5. Explore analytics and reports
       </p>
     `)}
-    ${paragraph('Need help? Email <a href="mailto:support@app.stora.com.ng" style="color:' + colors.brand700 + ';">support@app.stora.com.ng</a> or use live chat from your dashboard.')}
+    ${paragraph('Need help? Email <a href="mailto:support@stora.com.ng" style="color:' + colors.brand700 + ';">support@stora.com.ng</a> or use live chat from your dashboard.')}
   `;
 
   const html = emailShell({
@@ -74,7 +74,7 @@ Getting started:
 
 Go to your dashboard: ${appUrl}/dashboard
 
-Need help? Email support@app.stora.com.ng or use live chat from your dashboard.
+Need help? Email support@stora.com.ng or use live chat from your dashboard.
 
 The Stora Team
   `.trim();

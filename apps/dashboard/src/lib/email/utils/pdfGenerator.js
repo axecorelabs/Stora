@@ -228,7 +228,11 @@ export const generateReceiptPDF = async (orderData, saleData, storeName = 'Stora
     // Store Header with brand color
     addCenteredText(storeName, 11, true, primaryColor);
     yPosition += 1;
-    addCenteredText(`Order #${orderData.orderNumber}`, 8);
+    // "Receipt #", not "Order #" -- this PDF is generated for a walk-in POS
+    // sale (no order at all) as well as an order-delivered email, and
+    // ReceiptModal.js's own on-screen receipt already uses "Receipt #" for
+    // both cases.
+    addCenteredText(`Receipt #${orderData.orderNumber}`, 8);
     addCenteredText(formatDate(saleData.saleDate), 6);
     
     addSeparatorLine('dashed', primaryColor);

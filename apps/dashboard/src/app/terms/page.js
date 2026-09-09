@@ -131,7 +131,7 @@ export default function TermsOfServicePage() {
       <p>We may update these Terms from time to time. Continued use of the platform after an update constitutes acceptance of the revised Terms.</p>
 
       <h2>15. Contact</h2>
-      <p>Questions about these Terms: <a href="mailto:support@app.stora.com.ng">support@app.stora.com.ng</a></p>
+      <p>Questions about these Terms: <a href="mailto:support@stora.com.ng">support@stora.com.ng</a></p>
     </LegalDocument>
   );
 }

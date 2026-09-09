@@ -58,7 +58,7 @@ export function emailShell({ heading, bodyHtml, footerHtml }) {
 export function defaultFooter(email) {
   return `
     <p style="font-size:13px;color:${colors.brand400};margin:0 0 8px;">
-      Need help? <a href="mailto:support@app.stora.com.ng" style="color:${colors.brand700};text-decoration:none;font-weight:600;">support@app.stora.com.ng</a>
+      Need help? <a href="mailto:support@stora.com.ng" style="color:${colors.brand700};text-decoration:none;font-weight:600;">support@stora.com.ng</a>
     </p>
     <p style="font-size:11px;color:${colors.brand400};margin:0;">
       © ${new Date().getFullYear()} Stora. All rights reserved.${email ? ` This email was sent to ${email}.` : ''}

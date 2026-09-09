@@ -80,7 +80,7 @@ export default function POSPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [cart, setCart] = useState([]);
-  const [customer, setCustomer] = useState({ name: '', phone: '' });
+  const [customer, setCustomer] = useState({ name: '', phone: '', email: '' });
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [amountReceived, setAmountReceived] = useState('');
   const [discount, setDiscount] = useState(0);
@@ -534,7 +534,7 @@ export default function POSPage() {
         
         // Clear cart and reset form
         clearCart();
-        setCustomer({ name: '', phone: '' });
+        setCustomer({ name: '', phone: '', email: '' });
         setPaymentMethod('cash');
         setAmountReceived('');
         setDiscount(0);
@@ -1250,6 +1250,20 @@ export default function POSPage() {
                   isProcessingOrder ? 'bg-blue-50 border-blue-200' : 'border-gray-300'
                 }`}
               />
+              {!isProcessingOrder && (
+                <div>
+                  <input
+                    type="email"
+                    placeholder="Email (optional)"
+                    value={customer.email}
+                    onChange={(e) => setCustomer({ ...customer, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave empty to skip -- add it to email the receipt to the customer.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

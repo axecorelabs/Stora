@@ -296,7 +296,7 @@ function SettingsPageInner() {
 
                 <div className="pt-4 border-t border-gray-200">
                   <p className="text-sm text-gray-500 mb-4">
-                    To update your account information, please contact support at <a href="mailto:support@app.stora.com.ng" className="text-brand-800 hover:text-brand-900">support@app.stora.com.ng</a>
+                    To update your account information, please contact support at <a href="mailto:support@stora.com.ng" className="text-brand-800 hover:text-brand-900">support@stora.com.ng</a>
                   </p>
                 </div>
               </div>
