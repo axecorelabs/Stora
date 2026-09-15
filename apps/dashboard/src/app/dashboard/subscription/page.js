@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Button from "@/components/ui/Button";
 import { CheckCircle2, AlertCircle, Clock, ArrowUpRight, Loader2 } from "lucide-react";
@@ -50,13 +50,18 @@ function StatusBanner({ status, awaitingConfirmation = false }) {
 }
 
 export default function SubscriptionPage() {
-  const { secureApiCall, user } = useAuth();
+  const { secureApiCall } = useAuth();
   const queryClient = useQueryClient();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isUpgrade = searchParams.get('upgrade') === '1';
-  const justPaid = searchParams.get('status') === 'success';
+  const [isUpgrade, setIsUpgrade] = useState(false);
+  const [justPaid, setJustPaid] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setIsUpgrade(params.get('upgrade') === '1');
+    setJustPaid(params.get('status') === 'success');
+  }, []);
 
   const { data: subData, isLoading } = useQuery({
     queryKey: ['subscription'],
