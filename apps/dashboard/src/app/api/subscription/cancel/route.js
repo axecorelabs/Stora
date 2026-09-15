@@ -4,6 +4,43 @@ import { verifySession } from '@/lib/auth';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
+function normalizeWebsiteConfig(rawWebsite) {
+  if (!rawWebsite) return {};
+  if (typeof rawWebsite === 'string') {
+    try {
+      return JSON.parse(rawWebsite);
+    } catch {
+      return {};
+    }
+  }
+  return rawWebsite;
+}
+
+async function setListingWebsiteEnabled(storeId, enabled) {
+  const { data: store } = await supabaseAdmin
+    .from('stores')
+    .select('website')
+    .eq('id', storeId)
+    .eq('platform_mode', 'listing')
+    .maybeSingle();
+
+  if (!store) return;
+
+  const nextWebsite = {
+    ...normalizeWebsiteConfig(store.website),
+    isEnabled: !!enabled
+  };
+
+  await supabaseAdmin
+    .from('stores')
+    .update({
+      website: nextWebsite,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', storeId)
+    .eq('platform_mode', 'listing');
+}
+
 async function paystackRequest(path, { method = 'GET', body } = {}) {
   const res = await fetch(`${PAYSTACK_BASE_URL}${path}`, {
     method,
@@ -56,6 +93,8 @@ export async function POST(req) {
       .from('stores')
       .update({ subscription_status: 'cancelled' })
       .eq('id', store.id);
+
+    await setListingWebsiteEnabled(store.id, false);
 
     return NextResponse.json({ success: true });
   } catch (error) {

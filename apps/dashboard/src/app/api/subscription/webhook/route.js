@@ -2,6 +2,43 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+function normalizeWebsiteConfig(rawWebsite) {
+  if (!rawWebsite) return {};
+  if (typeof rawWebsite === 'string') {
+    try {
+      return JSON.parse(rawWebsite);
+    } catch {
+      return {};
+    }
+  }
+  return rawWebsite;
+}
+
+async function setListingWebsiteEnabled(storeId, enabled) {
+  const { data: store } = await supabaseAdmin
+    .from('stores')
+    .select('website')
+    .eq('id', storeId)
+    .eq('platform_mode', 'listing')
+    .maybeSingle();
+
+  if (!store) return;
+
+  const nextWebsite = {
+    ...normalizeWebsiteConfig(store.website),
+    isEnabled: !!enabled
+  };
+
+  await supabaseAdmin
+    .from('stores')
+    .update({
+      website: nextWebsite,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', storeId)
+    .eq('platform_mode', 'listing');
+}
+
 // Paystack sends this header; we verify it with HMAC-SHA512 of the raw body
 // using our secret key -- same pattern as store app's order webhook.
 function verifySignature(rawBody, signatureHeader) {
@@ -47,6 +84,8 @@ export async function POST(req) {
         })
         .eq('id', storeId)
         .eq('platform_mode', 'listing');
+
+      await setListingWebsiteEnabled(storeId, true);
     }
   }
 
@@ -72,6 +111,8 @@ export async function POST(req) {
               : null
           })
           .eq('id', store.id);
+
+        await setListingWebsiteEnabled(store.id, true);
       }
     }
   }
@@ -81,11 +122,16 @@ export async function POST(req) {
     const subscriptionCode = data?.subscription_code;
     if (subscriptionCode) {
       const newStatus = eventType === 'subscription.not_renew' ? 'cancelled' : 'past_due';
-      await supabaseAdmin
+      const { data: affectedStores } = await supabaseAdmin
         .from('stores')
         .update({ subscription_status: newStatus })
         .eq('subscription_paystack_code', subscriptionCode)
-        .eq('platform_mode', 'listing');
+        .eq('platform_mode', 'listing')
+        .select('id');
+
+      for (const store of affectedStores || []) {
+        await setListingWebsiteEnabled(store.id, false);
+      }
     }
   }
 

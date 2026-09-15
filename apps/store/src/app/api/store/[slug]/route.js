@@ -13,10 +13,12 @@ const STORE_CACHE_TTL_SECONDS = 120;
 export async function GET(request, { params }) {
   try {
     const { slug } = await params;
-    const key = cacheKey.storeBySlug(slug);
+    const key = `${cacheKey.storeBySlug(slug)}:visibility-v2`;
 
     const hit = await cacheGet(key);
-    if (hit) {
+    // Listing-mode visibility depends on near-real-time subscription state,
+    // so never trust cached listing snapshots.
+    if (hit && hit.platformMode !== 'listing') {
       return NextResponse.json(hit);
     }
 
@@ -58,7 +60,9 @@ export async function GET(request, { params }) {
       products: products
     };
 
-    await cacheSet(key, payload, STORE_CACHE_TTL_SECONDS);
+    if (store.platformMode !== 'listing') {
+      await cacheSet(key, payload, STORE_CACHE_TTL_SECONDS);
+    }
 
     return NextResponse.json(payload);
 

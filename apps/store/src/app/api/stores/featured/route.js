@@ -12,7 +12,7 @@ export async function GET(request) {
     const limitParam = parseInt(searchParams.get("limit"), 10);
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 24) : 12;
 
-    const stores = await cached(cacheKey.featuredStores(limit), 300, async () => {
+    const stores = await cached(`${cacheKey.featuredStores(limit)}:visibility-v2`, 300, async () => {
       const found = await findFeaturedStores({ limit });
       return found.map(buildPublicStoreData);
     });

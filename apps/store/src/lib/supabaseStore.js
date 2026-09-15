@@ -176,6 +176,34 @@ function transformStoreFields(store) {
   };
 }
 
+function isWebsiteEnabled(website) {
+  if (!website) return false;
+  if (typeof website === 'string') {
+    try {
+      const parsed = JSON.parse(website);
+      return !!parsed?.isEnabled;
+    } catch {
+      return false;
+    }
+  }
+  return !!website?.isEnabled;
+}
+
+// Server-side public-visibility gate shared by storefront reads.
+// Full stores: active + website enabled.
+// Listing stores: active + website enabled + paid subscription.
+function isPubliclyVisibleStore(store) {
+  if (!store || store.is_active !== true) return false;
+  if (!isWebsiteEnabled(store.website)) return false;
+
+  const platformMode = store.platform_mode || 'store';
+  if (platformMode === 'listing') {
+    return store.subscription_status === 'active';
+  }
+
+  return true;
+}
+
 // Public storefront services -- mirrors apps/dashboard/src/lib/services.js's
 // loadServiceDocument (same batched-query shape, no N+1) but only ever
 // returns active items: the dashboard version intentionally includes
@@ -284,7 +312,7 @@ async function findActiveStoreByPathOrSlug(slug) {
     throw new Error('Failed to find store');
   }
 
-  if (bySlug) return bySlug;
+  if (bySlug) return isPubliclyVisibleStore(bySlug) ? bySlug : null;
 
   const { data: byPath, error: pathError } = await supabaseAdmin
     .from('stores')
@@ -298,7 +326,8 @@ async function findActiveStoreByPathOrSlug(slug) {
     throw new Error('Failed to find store');
   }
 
-  return byPath || null;
+  if (!byPath) return null;
+  return isPubliclyVisibleStore(byPath) ? byPath : null;
 }
 
 export async function findStoreBySlug(slug) {
@@ -350,7 +379,9 @@ export async function findFeaturedStores({ limit = 12 } = {}) {
     throw new Error('Failed to find featured stores');
   }
 
-  return (data || []).map(transformStoreFields);
+  return (data || [])
+    .filter(isPubliclyVisibleStore)
+    .map(transformStoreFields);
 }
 
 // Paginated, indexed vendor search for the dedicated /vendors page --
@@ -390,10 +421,11 @@ export async function searchVendorsPaginated({ search, sort = 'featured', limit 
   }
 
   const rows = data || [];
+  const visibleRows = rows.filter(row => isPubliclyVisibleStore(row.vendor));
   return {
     // Public, unauthenticated endpoint -- buildPublicStoreData (not
     // transformStoreFields) so owner_id/is_active never leak into the response.
-    vendors: rows.map(row => buildPublicStoreData(row.vendor)),
+    vendors: visibleRows.map(row => buildPublicStoreData(row.vendor)),
     totalCount: rows[0]?.total_count ?? 0
   };
 }
@@ -422,8 +454,9 @@ export async function searchVendorsByEmbedding({ embedding, categories, state, b
   }
 
   const rows = data || [];
+  const visibleRows = rows.filter(row => isPubliclyVisibleStore(row.vendor));
   return {
-    vendors: rows.map(row => buildPublicStoreData(row.vendor)),
+    vendors: visibleRows.map(row => buildPublicStoreData(row.vendor)),
     totalCount: rows[0]?.total_count ?? 0
   };
 }
@@ -576,8 +609,9 @@ export async function searchBiteraveVendors({ mealOnly, search, sort = 'featured
   }
 
   const rows = data || [];
+  const visibleRows = rows.filter(row => isPubliclyVisibleStore(row.vendor));
   return {
-    vendors: rows.map(row => buildPublicStoreData(row.vendor)),
+    vendors: visibleRows.map(row => buildPublicStoreData(row.vendor)),
     totalCount: rows[0]?.total_count ?? 0
   };
 }
@@ -601,8 +635,9 @@ export async function searchBiteraveVendorsByEmbedding({ mealOnly, embedding, st
   }
 
   const rows = data || [];
+  const visibleRows = rows.filter(row => isPubliclyVisibleStore(row.vendor));
   return {
-    vendors: rows.map(row => buildPublicStoreData(row.vendor)),
+    vendors: visibleRows.map(row => buildPublicStoreData(row.vendor)),
     totalCount: rows[0]?.total_count ?? 0
   };
 }
