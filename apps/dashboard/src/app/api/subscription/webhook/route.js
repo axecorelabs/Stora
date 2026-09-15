@@ -1,43 +1,16 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-
-function normalizeWebsiteConfig(rawWebsite) {
-  if (!rawWebsite) return {};
-  if (typeof rawWebsite === 'string') {
-    try {
-      return JSON.parse(rawWebsite);
-    } catch {
-      return {};
-    }
-  }
-  return rawWebsite;
-}
-
-async function setListingWebsiteEnabled(storeId, enabled) {
-  const { data: store } = await supabaseAdmin
-    .from('stores')
-    .select('website')
-    .eq('id', storeId)
-    .eq('platform_mode', 'listing')
-    .maybeSingle();
-
-  if (!store) return;
-
-  const nextWebsite = {
-    ...normalizeWebsiteConfig(store.website),
-    isEnabled: !!enabled
-  };
-
-  await supabaseAdmin
-    .from('stores')
-    .update({
-      website: nextWebsite,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', storeId)
-    .eq('platform_mode', 'listing');
-}
+import {
+  applyListingActiveState,
+  applyListingInactiveState,
+  completeWebhookEvent,
+  failWebhookEvent,
+  findStoreByTransactionReference,
+  registerWebhookEvent,
+  resolveListingStoreByCustomerEmail,
+  upsertSubscriptionTransaction
+} from '@/lib/listingSubscription';
 
 // Paystack sends this header; we verify it with HMAC-SHA512 of the raw body
 // using our secret key -- same pattern as store app's order webhook.
@@ -70,69 +43,137 @@ export async function POST(req) {
 
   const { event: eventType, data } = event;
 
-  // subscription.create: fired when a new subscription is created after the
-  // first successful charge. This is our primary activation trigger.
-  if (eventType === 'subscription.create') {
-    const storeId = data?.metadata?.store_id;
-    if (storeId) {
-      await supabaseAdmin
-        .from('stores')
-        .update({
-          subscription_status: 'active',
-          subscription_paystack_code: data.subscription_code,
-          subscription_next_payment_date: data.next_payment_date
-        })
-        .eq('id', storeId)
-        .eq('platform_mode', 'listing');
+  const payloadHash = crypto.createHash('sha256').update(rawBody).digest('hex');
+  const providerEventKey = `${eventType}:${data?.id || data?.reference || data?.subscription_code || payloadHash}`;
 
-      await setListingWebsiteEnabled(storeId, true);
-    }
+  const webhookEvent = await registerWebhookEvent({
+    providerEventKey,
+    eventType,
+    payloadHash,
+    payload: event
+  });
+
+  if (webhookEvent.duplicate) {
+    return NextResponse.json({ success: true, duplicate: true });
   }
 
-  // charge.success: fires on every successful recurring charge. Update
-  // next_payment_date so the dashboard keeps it accurate.
-  if (eventType === 'charge.success' && data?.plan?.plan_code === process.env.PAYSTACK_LISTING_PLAN_CODE) {
-    const subscriptionCode = data?.subscription_code;
-    if (subscriptionCode) {
-      // Look up by subscription code -- the store_id isn't always in charge.success metadata.
+  try {
+    let storeContext = null;
+
+    if (data?.reference) {
+      storeContext = await findStoreByTransactionReference(data.reference);
+    }
+
+    if (!storeContext && data?.metadata?.store_id) {
       const { data: store } = await supabaseAdmin
         .from('stores')
-        .select('id')
-        .eq('subscription_paystack_code', subscriptionCode)
-        .maybeSingle();
-
-      if (store) {
-        await supabaseAdmin
-          .from('stores')
-          .update({
-            subscription_status: 'active',
-            subscription_next_payment_date: data.paid_at
-              ? new Date(new Date(data.paid_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
-              : null
-          })
-          .eq('id', store.id);
-
-        await setListingWebsiteEnabled(store.id, true);
-      }
-    }
-  }
-
-  // subscription.disable / subscription.not_renew: payment failed or vendor cancelled.
-  if (eventType === 'subscription.disable' || eventType === 'subscription.not_renew') {
-    const subscriptionCode = data?.subscription_code;
-    if (subscriptionCode) {
-      const newStatus = eventType === 'subscription.not_renew' ? 'cancelled' : 'past_due';
-      const { data: affectedStores } = await supabaseAdmin
-        .from('stores')
-        .update({ subscription_status: newStatus })
-        .eq('subscription_paystack_code', subscriptionCode)
+        .select('id, owner_id')
+        .eq('id', data.metadata.store_id)
         .eq('platform_mode', 'listing')
-        .select('id');
+        .maybeSingle();
+      if (store) storeContext = { storeId: store.id, ownerId: store.owner_id };
+    }
 
-      for (const store of affectedStores || []) {
-        await setListingWebsiteEnabled(store.id, false);
+    if (!storeContext && data?.subscription_code) {
+      const { data: store } = await supabaseAdmin
+        .from('stores')
+        .select('id, owner_id')
+        .eq('subscription_paystack_code', data.subscription_code)
+        .eq('platform_mode', 'listing')
+        .maybeSingle();
+      if (store) storeContext = { storeId: store.id, ownerId: store.owner_id };
+    }
+
+    if (!storeContext) {
+      const store = await resolveListingStoreByCustomerEmail(data?.customer?.email);
+      if (store) storeContext = { storeId: store.id, ownerId: store.owner_id };
+    }
+
+    // subscription.create: fired when a new subscription is created after the
+    // first successful charge.
+    if (eventType === 'subscription.create' && storeContext) {
+      await applyListingActiveState({
+        storeId: storeContext.storeId,
+        ownerId: storeContext.ownerId,
+        subscriptionCode: data.subscription_code || null,
+        nextPaymentDate: data.next_payment_date || null,
+        customerCode: data?.customer?.customer_code || null,
+        planCode: data?.plan?.plan_code || data?.plan_object?.plan_code || null,
+        paidAt: null,
+        raw: data
+      });
+    }
+
+    // charge.success: captures successful one-off and recurring subscription charges.
+    if (eventType === 'charge.success') {
+      const listingPlanCode = process.env.PAYSTACK_LISTING_PLAN_CODE;
+      const planCode = data?.plan?.plan_code || data?.plan_object?.plan_code || null;
+      const isListingPlan = listingPlanCode ? planCode === listingPlanCode : data?.metadata?.purpose === 'listing_subscription';
+
+      if (storeContext) {
+        await upsertSubscriptionTransaction({
+          storeId: storeContext.storeId,
+          ownerId: storeContext.ownerId,
+          reference: data?.reference,
+          status: data?.status === 'success' ? 'success' : 'pending',
+          amountKobo: data?.amount ?? null,
+          currency: data?.currency ?? null,
+          providerTransactionId: data?.id ? String(data.id) : null,
+          providerSubscriptionCode: data?.subscription_code || null,
+          providerCustomerCode: data?.customer?.customer_code || null,
+          providerPlanCode: planCode,
+          paidAt: data?.paid_at || null,
+          verificationPayload: data
+        });
+      }
+
+      if (isListingPlan && storeContext) {
+        const nextPaymentDate = data?.paid_at
+          ? new Date(new Date(data.paid_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+          : null;
+
+        await applyListingActiveState({
+          storeId: storeContext.storeId,
+          ownerId: storeContext.ownerId,
+          subscriptionCode: data?.subscription_code || null,
+          nextPaymentDate,
+          customerCode: data?.customer?.customer_code || null,
+          planCode,
+          paidAt: data?.paid_at || null,
+          raw: data
+        });
       }
     }
+
+    // subscription.disable / subscription.not_renew: payment failed or vendor cancelled.
+    if ((eventType === 'subscription.disable' || eventType === 'subscription.not_renew') && storeContext) {
+      const newStatus = eventType === 'subscription.not_renew' ? 'cancelled' : 'past_due';
+      await applyListingInactiveState({
+        storeId: storeContext.storeId,
+        ownerId: storeContext.ownerId,
+        status: newStatus,
+        subscriptionCode: data?.subscription_code || null,
+        cancelledAt: newStatus === 'cancelled' ? new Date().toISOString() : null,
+        raw: data
+      });
+
+      if (data?.reference) {
+        await upsertSubscriptionTransaction({
+          storeId: storeContext.storeId,
+          ownerId: storeContext.ownerId,
+          reference: data.reference,
+          status: newStatus === 'cancelled' ? 'abandoned' : 'failed',
+          providerSubscriptionCode: data?.subscription_code || null,
+          verificationPayload: data
+        });
+      }
+    }
+
+    await completeWebhookEvent(webhookEvent.id);
+  } catch (error) {
+    await failWebhookEvent(webhookEvent.id, error?.message || 'Webhook processing error');
+    console.error('Subscription webhook processing error:', error);
+    return NextResponse.json({ success: false }, { status: 500 });
   }
 
   // Always 200 -- Paystack retries on non-2xx.

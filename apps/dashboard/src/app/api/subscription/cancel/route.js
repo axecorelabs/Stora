@@ -1,45 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
+import { applyListingInactiveState, resolveListingStoreByOwner } from '@/lib/listingSubscription';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
-
-function normalizeWebsiteConfig(rawWebsite) {
-  if (!rawWebsite) return {};
-  if (typeof rawWebsite === 'string') {
-    try {
-      return JSON.parse(rawWebsite);
-    } catch {
-      return {};
-    }
-  }
-  return rawWebsite;
-}
-
-async function setListingWebsiteEnabled(storeId, enabled) {
-  const { data: store } = await supabaseAdmin
-    .from('stores')
-    .select('website')
-    .eq('id', storeId)
-    .eq('platform_mode', 'listing')
-    .maybeSingle();
-
-  if (!store) return;
-
-  const nextWebsite = {
-    ...normalizeWebsiteConfig(store.website),
-    isEnabled: !!enabled
-  };
-
-  await supabaseAdmin
-    .from('stores')
-    .update({
-      website: nextWebsite,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', storeId)
-    .eq('platform_mode', 'listing');
-}
 
 async function paystackRequest(path, { method = 'GET', body } = {}) {
   const res = await fetch(`${PAYSTACK_BASE_URL}${path}`, {
@@ -65,11 +28,7 @@ export async function POST(req) {
     const user = await verifySession(req);
     if (!user) return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
 
-    const { data: store } = await supabaseAdmin
-      .from('stores')
-      .select('id, subscription_paystack_code, subscription_status')
-      .eq('owner_id', user.id)
-      .single();
+    const store = await resolveListingStoreByOwner(user.id);
 
     if (!store) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
     if (store.subscription_status !== 'active') {
@@ -89,12 +48,17 @@ export async function POST(req) {
       });
     }
 
-    await supabaseAdmin
-      .from('stores')
-      .update({ subscription_status: 'cancelled' })
-      .eq('id', store.id);
-
-    await setListingWebsiteEnabled(store.id, false);
+    await applyListingInactiveState({
+      storeId: store.id,
+      ownerId: user.id,
+      status: 'cancelled',
+      subscriptionCode: store.subscription_paystack_code || null,
+      cancelledAt: new Date().toISOString(),
+      raw: {
+        source: 'dashboard_cancel',
+        subscription_code: store.subscription_paystack_code || null
+      }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

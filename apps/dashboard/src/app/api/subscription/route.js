@@ -1,7 +1,7 @@
-import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
+import { resolveListingStoreByOwner, upsertSubscriptionTransaction, getLatestPendingTransactionReference } from '@/lib/listingSubscription';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 // Plan code for the ₦500/month listing subscription -- create this once in
@@ -28,22 +28,16 @@ async function paystackRequest(path, { method = 'GET', body } = {}) {
 
 // POST /api/subscription/initialize
 // Starts a Paystack transaction that, on completion, creates a subscription.
-// Returns { authorizationUrl } for the frontend to redirect to.
+// Returns { authorizationUrl, reference } for frontend redirect and fallback
+// confirmation when callback params are not available anymore.
 export async function POST(req) {
   try {
     const user = await verifySession(req);
     if (!user) return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
 
-    const { data: store } = await supabaseAdmin
-      .from('stores')
-      .select('id, platform_mode, subscription_status')
-      .eq('owner_id', user.id)
-      .single();
+    const store = await resolveListingStoreByOwner(user.id);
 
     if (!store) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
-    if (store.platform_mode !== 'listing') {
-      return NextResponse.json({ success: false, message: 'Subscriptions are only for listing stores' }, { status: 400 });
-    }
     if (store.subscription_status === 'active') {
       return NextResponse.json({ success: false, message: 'Already subscribed' }, { status: 409 });
     }
@@ -73,7 +67,22 @@ export async function POST(req) {
       }
     });
 
-    return NextResponse.json({ success: true, authorizationUrl: result.authorization_url });
+    await upsertSubscriptionTransaction({
+      storeId: store.id,
+      ownerId: user.id,
+      reference: result.reference,
+      status: 'initialized',
+      amountKobo: 50000,
+      currency: 'NGN',
+      authorizationUrl: result.authorization_url,
+      providerPlanCode: LISTING_PLAN_CODE
+    });
+
+    return NextResponse.json({
+      success: true,
+      authorizationUrl: result.authorization_url,
+      reference: result.reference || null
+    });
   } catch (error) {
     console.error('Subscription initialize error:', error);
     return NextResponse.json({ success: false, message: error.message || 'Failed to start subscription' }, { status: 500 });
@@ -94,13 +103,18 @@ export async function GET(req) {
 
     if (!store) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
 
+    const pendingReference = store.platform_mode === 'listing'
+      ? await getLatestPendingTransactionReference(store.id)
+      : null;
+
     return NextResponse.json({
       success: true,
       data: {
         platformMode: store.platform_mode,
         subscriptionStatus: store.subscription_status,
         subscriptionPaystackCode: store.subscription_paystack_code,
-        subscriptionNextPaymentDate: store.subscription_next_payment_date
+        subscriptionNextPaymentDate: store.subscription_next_payment_date,
+        pendingReference
       }
     });
   } catch (error) {

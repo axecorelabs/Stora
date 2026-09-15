@@ -55,21 +55,35 @@ export default function SubscriptionPage() {
   const router = useRouter();
   const [isUpgrade, setIsUpgrade] = useState(false);
   const [justPaid, setJustPaid] = useState(false);
+  const [paymentReference, setPaymentReference] = useState(null);
+  const [hasTriggeredConfirm, setHasTriggeredConfirm] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setIsUpgrade(params.get('upgrade') === '1');
-    setJustPaid(params.get('status') === 'success');
+    const paymentSucceeded = params.get('status') === 'success';
+    const reference = params.get('reference') || params.get('trxref');
+    setJustPaid(paymentSucceeded);
+    setPaymentReference(reference);
   }, []);
 
   const { data: subData, isLoading } = useQuery({
     queryKey: ['subscription'],
     queryFn: () => secureApiCall('/api/subscription'),
-    staleTime: 60 * 1000
+    staleTime: justPaid ? 0 : 60 * 1000,
+    refetchInterval: justPaid ? 3000 : false,
+    refetchIntervalInBackground: false
   });
 
   const sub = subData?.data;
+  const pendingReference = sub?.pendingReference || null;
+
+  useEffect(() => {
+    if (sub?.subscriptionStatus === 'active') {
+      setJustPaid(false);
+    }
+  }, [sub?.subscriptionStatus]);
 
   const subscribeMutation = useMutation({
     mutationFn: () => secureApiCall('/api/subscription', { method: 'POST' }),
@@ -79,6 +93,27 @@ export default function SubscriptionPage() {
       }
     }
   });
+
+  const confirmMutation = useMutation({
+    mutationFn: (reference) => secureApiCall('/api/subscription/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ reference })
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['store'] });
+    }
+  });
+
+  useEffect(() => {
+    if (!justPaid || hasTriggeredConfirm) return;
+
+    const referenceForConfirm = paymentReference || pendingReference || null;
+    if (!referenceForConfirm) return;
+
+    setHasTriggeredConfirm(true);
+    confirmMutation.mutate(referenceForConfirm);
+  }, [justPaid, paymentReference, pendingReference, hasTriggeredConfirm]);
 
   const cancelMutation = useMutation({
     mutationFn: () => secureApiCall('/api/subscription/cancel', { method: 'POST' }),
