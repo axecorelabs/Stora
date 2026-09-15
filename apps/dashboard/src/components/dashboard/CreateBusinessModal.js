@@ -55,7 +55,7 @@ function StepIndicator({ currentStep }) {
   );
 }
 
-export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded = false }) {
+export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded = false, platformMode = 'store' }) {
   const { secureApiCall } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -254,7 +254,8 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
         method: 'POST',
         body: JSON.stringify({
           ...formData,
-          state: formData.storeType === 'physical' ? formData.address.state : formData.state
+          state: formData.storeType === 'physical' ? formData.address.state : formData.state,
+          platformMode
         })
       });
 
@@ -510,6 +511,7 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                         onChange={(value) => handleChange({ target: { name: 'address.state', value } })}
                         placeholder="Select state"
                         error={!!errors['address.state']}
+                        menuPlacement="top"
                       />
                       {errors['address.state'] && (
                         <p className="text-red-500 text-xs mt-1">{errors['address.state']}</p>
@@ -569,6 +571,7 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                       onChange={(value) => handleChange({ target: { name: 'state', value } })}
                       placeholder="Select state"
                       error={!!errors.state}
+                      menuPlacement="top"
                     />
                     {errors.state && (
                       <p className="text-red-500 text-xs mt-1">{errors.state}</p>

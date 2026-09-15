@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 
 // Helper to transform batch data
 function transformBatch(batch) {
@@ -32,13 +32,11 @@ function transformBatch(batch) {
 // GET - Get all batches for a specific inventory item
 export async function GET(req, { params }) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id: productId } = await params;
     const { searchParams } = new URL(req.url);
@@ -175,13 +173,11 @@ export async function GET(req, { params }) {
 // POST - Add a new batch for an inventory item
 export async function POST(req, { params }) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id: productId } = await params;
     const batchData = await req.json();
@@ -306,13 +302,11 @@ export async function POST(req, { params }) {
 // PATCH - Update batch fields (prices, supplier, location, etc.)
 export async function PATCH(req, { params }) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id: productId } = await params;
     const body = await req.json();

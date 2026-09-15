@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 
 export async function GET(request) {
   try {
-    // Verify authentication
-    const user = await verifySession(request);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(request);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     // First get the user's store
     const { data: store } = await supabaseAdmin

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { resolveAccountNumber, createSubaccount } from '@/lib/paystack';
 
 const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
@@ -54,10 +54,11 @@ function transformStore(store) {
 
 export async function PATCH(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { bankCode, bankName, accountNumber } = await req.json();
     if (!bankCode || !bankName || !accountNumber) {

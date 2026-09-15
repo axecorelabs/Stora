@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { sendOrderProcessedEmail } from '@/lib/email';
 
 export async function POST(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
 
     const { email, orderData, saleData, storeName } = await req.json();

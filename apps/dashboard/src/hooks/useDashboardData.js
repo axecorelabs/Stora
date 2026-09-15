@@ -237,6 +237,7 @@ export function useDashboardData() {
   return {
     // Store data
     hasStore,
+    store: storeQuery.data?.data || null,
     storeLoading: storeQuery.isLoading,
     storeError: storeQuery.error,
     isStoreCheckComplete,

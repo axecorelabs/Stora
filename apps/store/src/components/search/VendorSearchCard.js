@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { BadgeCheck, MapPin, MessageCircle, ArrowRight } from "lucide-react";
+import { BadgeCheck, MapPin, MessageCircle, ArrowRight, LayoutList } from "lucide-react";
 import PrefetchLink from "@/components/ui/PrefetchLink";
 
 // Distinct from home/VendorCard.js -- that one is sized for a dense,
@@ -17,6 +17,7 @@ export default function VendorSearchCard({ store }) {
   const location = [store.address?.city, store.state || store.address?.state].filter(Boolean).join(", ");
   const hasWhatsapp = !!store.onlineStoreInfo?.socialMedia?.whatsapp;
   const showLogoImage = store.branding?.logo && !logoErrored;
+  const isListing = store.platformMode === 'listing';
 
   return (
     <PrefetchLink
@@ -65,6 +66,11 @@ export default function VendorSearchCard({ store }) {
           {store.businessVerified && (
             <BadgeCheck className="w-4 h-4 text-gold-600 flex-shrink-0" strokeWidth={2} />
           )}
+          {isListing && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
+              <LayoutList className="w-2.5 h-2.5" /> Business
+            </span>
+          )}
         </div>
 
         {location && (
@@ -79,7 +85,7 @@ export default function VendorSearchCard({ store }) {
         </p>
 
         <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
-          {hasWhatsapp ? (
+          {hasWhatsapp && !isListing ? (
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 min-w-0">
               <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="truncate">Reachable on WhatsApp</span>
@@ -91,7 +97,7 @@ export default function VendorSearchCard({ store }) {
             className="inline-flex items-center gap-1 text-sm font-semibold flex-shrink-0"
             style={{ color: primaryColor }}
           >
-            Visit store
+            {isListing ? 'Contact' : 'Visit store'}
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
           </span>
         </div>

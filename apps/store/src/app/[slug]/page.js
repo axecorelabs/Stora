@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import StoreWebsite from "@/components/StoreWebsite";
+import ListingShowcase from "@/components/ListingShowcase";
 import { findStoreByWebsitePath } from '@/lib/supabaseStore';
 
 // ISR: this Server Component's data fetch (a plain Supabase query, not
@@ -75,7 +76,17 @@ export default async function StorePage({ params }) {
   // Fetch store using Supabase
   const store = await findStoreByWebsitePath(slug);
 
-  if (!store || !store.website?.isEnabled) {
+  if (!store) notFound();
+
+  // Listing-mode stores: active subscription required to be publicly visible.
+  if (store.platformMode === 'listing') {
+    if (store.subscriptionStatus !== 'active') {
+      notFound();
+    }
+    return <ListingShowcase store={store} />;
+  }
+
+  if (!store.website?.isEnabled) {
     notFound();
   }
 

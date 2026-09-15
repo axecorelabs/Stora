@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import StoreQrCode from "@/components/dashboard/StoreQrCode";
+import ListingShowcasePage from "@/components/dashboard/ListingShowcasePage";
 
 // Website status -> literal badge classes (Tailwind can't resolve
 // dynamically-built class names like `bg-${color}-100` at build time)
@@ -258,6 +259,12 @@ export default function WebsitePage() {
         />
       </DashboardLayout>
     );
+  }
+
+  // Listing-mode businesses get a stripped showcase management page --
+  // same URL, same branding API, but no inventory/SEO/domain sections.
+  if (store?.platformMode === 'listing') {
+    return <ListingShowcasePage store={store} onBrandingUpdated={refetchStore} />;
   }
 
   // Render inventory view

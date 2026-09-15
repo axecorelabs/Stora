@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 
 const LIST_LIMIT = 50;
 
@@ -34,13 +34,11 @@ function toOutOfStockItem(item) {
 
 export async function GET(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     // Single round-trip aggregate (totals, category breakdown, low/out-of-
     // stock lists) instead of fetching the whole inventory table and

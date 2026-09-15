@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { releaseItemsReservation } from '@/lib/batchInventory';
 import { sendRefundCustomerEmail, sendRefundVendorEmail } from '@/lib/email';
 import { captureServerEvent } from '@/lib/posthog-server';
@@ -28,10 +28,11 @@ const FULFILLED_ITEM_STATUSES = ['shipped', 'delivered'];
 // not called from this vendor-facing action anymore.
 export async function POST(req, { params }) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id } = await params;
     const { amount, note, restockItemIds } = await req.json().catch(() => ({}));

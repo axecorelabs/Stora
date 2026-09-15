@@ -18,6 +18,7 @@ export async function GET(request) {
   const q = searchParams.get('q')?.trim();
   const status = searchParams.get('status'); // 'active' | 'suspended'
   const verified = searchParams.get('verified'); // 'verified' | 'pending'
+  const platformMode = searchParams.get('platform_mode'); // 'store' | 'listing'
   const offset = parseInt(searchParams.get('offset')) || 0;
 
   // Applied identically to the paginated list and each stats count query
@@ -29,13 +30,15 @@ export async function GET(request) {
     if (status === 'suspended') q_ = q_.eq('is_active', false);
     if (verified === 'verified') q_ = q_.eq('is_verified', true);
     if (verified === 'pending') q_ = q_.eq('is_verified', false);
+    if (platformMode === 'store') q_ = q_.eq('platform_mode', 'store');
+    if (platformMode === 'listing') q_ = q_.eq('platform_mode', 'listing');
     return q_;
   }
 
   const { data: stores, error, count } = await applyFilters(
     supabaseAdmin
       .from('stores')
-      .select('id, store_name, store_slug, owner_id, is_active, is_verified, verification_status, business_verified_at, total_orders, created_at, branding, website', { count: 'exact' })
+      .select('id, store_name, store_slug, owner_id, is_active, is_verified, verification_status, business_verified_at, total_orders, created_at, branding, website, platform_mode, subscription_status', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)
   );
@@ -115,9 +118,7 @@ export async function GET(request) {
         // selfie). businessVerified is the separate, staff-granted public
         // "Verified by Stora" badge -- toggled below via PATCH
         // /api/stores/[storeId], not earned automatically by isVerified.
-        isVerified: !!s.is_verified,
-        verificationStatus: s.verification_status,
-        businessVerified: !!s.business_verified_at,
+        isVerified: !!s.is_verified,\n        verificationStatus: s.verification_status,\n        businessVerified: !!s.business_verified_at,\n        platformMode: s.platform_mode || 'store',\n        subscriptionStatus: s.subscription_status || 'none',
         totalSales: combinedSalesByStore.get(s.id) || 0,
         totalOrders: s.total_orders || 0,
         createdAt: s.created_at,

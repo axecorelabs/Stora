@@ -1,7 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { sendOrderProcessedEmail } from '@/lib/email';
 import { processItemsWithBatchTracking, releaseItemsReservation } from '@/lib/batchInventory';
 import { captureServerEvent } from '@/lib/posthog-server';
@@ -17,13 +17,11 @@ const VALID_ORDER_PAYMENT_METHODS = ['card', 'bank_transfer', 'cash_to_vendor', 
 // PUT - Update order status
 export async function PUT(req, { params }) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id } = await params;
     const { status, note, updatedBy, trackingInfo, paymentMethod } = await req.json();

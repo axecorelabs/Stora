@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 
 // PATCH - Vendor's choice of who collects the delivery fee: 'platform_collected'
 // (charged through Paystack alongside the merchandise, default) or
@@ -13,10 +13,11 @@ import { verifySession } from '@/lib/auth';
 // orders.
 export async function PATCH(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { fulfillmentMethod } = await req.json().catch(() => ({}));
     if (!['platform_collected', 'pay_on_delivery'].includes(fulfillmentMethod)) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 
 const DEFAULT_DAYS = 14;
 const MAX_DAYS = 90;
@@ -14,13 +14,11 @@ function dayKey(date) {
 // the Reports page can request a longer window than the dashboard overview.
 export async function GET(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { searchParams } = new URL(req.url);
     const requestedDays = parseInt(searchParams.get('days'));

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { estimateSettlementDate } from '@/lib/settlementSchedule';
 
 // Same values apps/store's checkout math reads (PLATFORM_COMMISSION_RATE,
@@ -31,10 +31,11 @@ const EMPTY_DATA = (page, limit) => ({
 // accountability trail that action explicitly exists to produce).
 export async function GET(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page')) || 1;

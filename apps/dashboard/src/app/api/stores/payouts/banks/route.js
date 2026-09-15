@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { redis, withTimeout } from '@/lib/redis';
 import { listBanks } from '@/lib/paystack';
 
@@ -8,9 +8,9 @@ const BANKS_CACHE_TTL_SECONDS = 24 * 60 * 60; // bank list changes rarely
 
 export async function GET(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
 
     try {

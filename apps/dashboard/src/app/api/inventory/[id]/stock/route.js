@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 
 // Helper to transform batch data
 function transformBatch(batch) {
@@ -24,13 +24,11 @@ function transformBatch(batch) {
 
 export async function PUT(req, { params }) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id: inventoryId } = await params;
     const { type, quantity, reason, batchId, createNewBatch, variantId } = await req.json();

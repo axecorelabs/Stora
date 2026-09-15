@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 
 // POST - Cleanup job to permanently delete items soft-deleted for more than 30 days
 export async function POST(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     // Calculate date 30 days ago
     const thirtyDaysAgo = new Date();
@@ -147,13 +145,11 @@ export async function POST(req) {
 // GET - Preview items that will be deleted in cleanup
 export async function GET(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     // Calculate date 30 days ago
     const thirtyDaysAgo = new Date();

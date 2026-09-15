@@ -24,6 +24,9 @@ const TABS = [
   { id: 'preferences', label: 'Preferences', icon: SettingsIcon, errorKeys: [] }
 ];
 
+// Listing-mode businesses only need general info and location.
+const LISTING_TABS = TABS.filter(t => t.id === 'general' || t.id === 'location');
+
 function buildEditData(store) {
   return {
     storeName: store.storeName,
@@ -64,6 +67,7 @@ export default function EditStoreModal({ isOpen, onClose, store, onStoreUpdated 
 
 function EditStoreForm({ store, onClose, onStoreUpdated }) {
   const { secureApiCall } = useAuth();
+  const activeTabs = store.platformMode === 'listing' ? LISTING_TABS : TABS;
   const [activeTab, setActiveTab] = useState('general');
   const [editData, setEditData] = useState(() => buildEditData(store));
   const [errors, setErrors] = useState({});
@@ -149,7 +153,7 @@ function EditStoreForm({ store, onClose, onStoreUpdated }) {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      const firstErrorTab = TABS.find((tab) => tab.errorKeys.some((key) => newErrors[key]));
+      const firstErrorTab = activeTabs.find((tab) => tab.errorKeys.some((key) => newErrors[key]));
       if (firstErrorTab) setActiveTab(firstErrorTab.id);
       return false;
     }
@@ -187,7 +191,7 @@ function EditStoreForm({ store, onClose, onStoreUpdated }) {
     }
   };
 
-  const tabHasError = (tabId) => TABS.find((t) => t.id === tabId).errorKeys.some((key) => errors[key]);
+  const tabHasError = (tabId) => activeTabs.find((t) => t.id === tabId)?.errorKeys.some((key) => errors[key]) ?? false;
 
   return (
     <div className="fixed inset-0 bg-brand-900/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
@@ -216,7 +220,7 @@ function EditStoreForm({ store, onClose, onStoreUpdated }) {
           </div>
 
           <div className="flex gap-1 mt-5 border-b border-gray-200 overflow-x-auto">
-            {TABS.map((tab) => {
+            {activeTabs.map((tab) => {
               const TabIcon = tab.icon;
               const hasError = tabHasError(tab.id);
               return (

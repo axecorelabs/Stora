@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CreateBusinessModal from "@/components/dashboard/CreateBusinessModal";
+import ListingOverview from "@/components/dashboard/ListingOverview";
 import SetupChecklist from "@/components/dashboard/SetupChecklist";
 import Button from "@/components/ui/Button";
 import RevenueTrendChart from "@/components/dashboard/charts/RevenueTrendChart";
@@ -29,6 +30,7 @@ export default function DashboardOverview() {
   // Use TanStack Query for data fetching
   const {
     hasStore,
+    store,
     isLoading,
     inventoryStats,
     categoryStats,
@@ -114,6 +116,12 @@ export default function DashboardOverview() {
   const handleNavigateToPendingOrders = () => {
     router.push('/dashboard/orders?status=pending,confirmed');
   };
+
+  // Listing-mode stores get their own stripped-down overview --
+  // no orders/inventory/sales data is relevant for them.
+  if (!isLoading && store?.platformMode === 'listing') {
+    return <ListingOverview store={store} />;
+  }
 
   if (isLoading) {
     return (

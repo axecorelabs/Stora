@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { toDeliveryResponse } from '../route';
 
 const VALID_STATUSES = ['scheduled', 'in_progress', 'delivered', 'cancelled', 'failed'];
@@ -9,13 +9,11 @@ const VALID_STATUSES = ['scheduled', 'in_progress', 'delivered', 'cancelled', 'f
 // PUT - Update a delivery's status
 export async function PUT(req, { params }) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { deliveryId } = await params;
     const { status, notes } = await req.json();

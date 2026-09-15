@@ -165,6 +165,9 @@ function transformStoreFields(store) {
     isVerified: store.is_verified,
     businessVerified: !!store.business_verified_at,
     isActive: store.is_active,
+    // 'store' (full commerce) or 'listing' (showcase-only, paid monthly subscription).
+    platformMode: store.platform_mode || 'store',
+    subscriptionStatus: store.subscription_status || 'none',
     averageRating: store.average_rating,
     totalReviews: store.total_reviews,
     ownerId: store.owner_id,
@@ -1263,8 +1266,27 @@ export function buildPublicStoreData(store) {
     // check earned this badge, which conflated the two.
     isVerified: store.is_verified,
     businessVerified: !!store.business_verified_at,
+    platformMode: store.platform_mode || 'store',
+    subscriptionStatus: store.subscription_status || 'none',
     averageRating: store.average_rating,
     totalReviews: store.total_reviews,
     createdAt: store.created_at
   };
+}
+
+// Gallery images for a listing-mode store's showcase page.
+// Only exposed here (not through a public API route) -- the store app
+// renders the showcase as a Server Component and fetches directly.
+export async function findGalleryByStoreId(storeId) {
+  const { data, error } = await supabaseAdmin
+    .from('gallery_items')
+    .select('id, image_url, caption, sort_order')
+    .eq('store_id', storeId)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching gallery:', error);
+    return [];
+  }
+  return data || [];
 }

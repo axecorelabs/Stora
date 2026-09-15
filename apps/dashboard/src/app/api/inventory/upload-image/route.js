@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { uploadToR2, generateFileKey, validateImageFile } from '@/lib/r2';
 
 export async function POST(req) {
   try {
-    // Verify authentication
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     // Parse form data
     const formData = await req.formData();

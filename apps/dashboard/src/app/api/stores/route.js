@@ -78,6 +78,12 @@ function transformStore(store) {
     // for in-app navigation between stores.
     websiteUrl: websitePath ? `https://${websitePath}.${storeBaseUrl.replace(/^https?:\/\//, '')}` : null,
     websiteFullPath: websitePath ? `${websitePath}.${storeBaseUrl.replace(/^https?:\/\//, '')}` : null,
+    // 'store' (full commerce) or 'listing' (showcase-only, paid monthly).
+    // Distinct from store_type which is 'physical'/'online'.
+    platformMode: store.platform_mode || 'store',
+    subscriptionStatus: store.subscription_status || 'none',
+    subscriptionPaystackCode: store.subscription_paystack_code || null,
+    subscriptionNextPaymentDate: store.subscription_next_payment_date || null,
     createdAt: store.created_at,
     updatedAt: store.updated_at
   };
@@ -248,6 +254,9 @@ export async function POST(req) {
         sells_products: storeData.sellsProducts !== false,
         offers_services: !!storeData.offersServices,
         restaurant_mode: !!storeData.offersFood,
+        // 'store' (default) or 'listing' -- set during onboarding intent step.
+        platform_mode: storeData.platformMode === 'listing' ? 'listing' : 'store',
+        subscription_status: 'none',
         is_active: true,
         // No websitePath here -- it's derived from store_slug at read time
         // (transformStore below) rather than stored as its own value, so

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Globe, CheckCircle2, AlertCircle } from "lucide-react";
+import { Globe, CheckCircle2, AlertCircle, Store, LayoutList } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWebsiteData } from "@/hooks/useWebsiteData";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
@@ -39,20 +39,17 @@ export default function OnboardingPage() {
   const telegramEnabled = useTelegramEnabled();
   const [createdStore, setCreatedStore] = useState(null);
 
-  // Steps: 'name' -> 'business' -> 'branding' -> 'verification' -> 'website'
-  // -> 'telegram' -> 'done'. There used to be a separate 'restaurant' step here (a
-  // standalone "Do you sell food?" PATCH after the store already existed) --
-  // that question is now part of 'business' itself (CreateBusinessModal's
-  // Products/Food/Services checkboxes, set together at creation time), so
-  // there's one less network round trip and one less screen. Always starts
-  // at 'name' -- there's no persisted "step 1 done" flag, so re-entering the
-  // wizard (e.g. a refresh mid-flow) just re-shows a pre-filled, one-click
-  // confirm rather than needing its own progress column. Every step from
-  // 'branding' on is skippable (that's unchanged), but they're real inline
-  // steps here, not links out to a page that leaves the vendor to figure out
-  // the rest alone -- and nothing here calls them "optional": they're
-  // skippable, not unimportant.
+  // Steps:
+  //   store track:   name -> intent -> business -> branding -> verification -> website -> telegram -> done
+  //   listing track: name -> intent -> business -> branding -> subscribe -> done
+  //
+  // 'intent' is the new "What do you want to do?" screen. It sets platformIntent
+  // ('store' | 'listing') which is passed to CreateBusinessModal so POST /api/stores
+  // sets platform_mode correctly. Listing accounts skip website/telegram and land
+  // on 'subscribe' instead -- the listing only goes live once Paystack confirms payment.
   const [step, setStep] = useState('name');
+  // 'store' | 'listing' -- chosen at the 'intent' step, carried through to store creation.
+  const [platformIntent, setPlatformIntent] = useState('store');
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -103,7 +100,7 @@ export default function OnboardingPage() {
       });
       if (response?.success) {
         await checkAuth();
-        setStep('business');
+        setStep('intent');
       } else {
         setNameError(response?.message || 'Could not save -- try again');
       }
@@ -132,6 +129,11 @@ export default function OnboardingPage() {
 
   const handleBrandingUpdated = (updatedStore) => {
     setCreatedStore((prev) => ({ ...prev, branding: updatedStore.branding }));
+    if (platformIntent === 'listing') {
+      // Listing track: skip website/telegram, go straight to subscription payment.
+      setStep('subscribe');
+      return;
+    }
     // Skip straight past the verification step while QoreID's keys aren't
     // configured yet (see useVerificationEnabled) -- there's nothing to
     // show that wouldn't just fail if submitted. Previously this went to a
@@ -199,8 +201,47 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {step === 'intent' && (
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100">
+            <h1 className="text-lg font-semibold text-gray-900 mb-1.5">What do you want to do?</h1>
+            <p className="text-sm text-gray-500 mb-6">
+              You can always upgrade later -- this just gets your setup pointed in the right direction.
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => { setPlatformIntent('store'); setStep('business'); }}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-brand-800 hover:bg-brand-50 transition-colors group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-brand-100 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-200 transition-colors">
+                    <Store className="w-5 h-5 text-brand-800" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Sell on Stora</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Set up a store, list products or services, and accept orders online.</p>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => { setPlatformIntent('listing'); setStep('business'); }}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-brand-800 hover:bg-brand-50 transition-colors group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-brand-100 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-200 transition-colors">
+                    <LayoutList className="w-5 h-5 text-brand-800" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">List my business</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Get a public showcase page with your gallery and contact details. ₦500/month.</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {step === 'business' && (
-          <CreateBusinessModal isOpen={true} onStoreCreated={handleStoreCreated} embedded />
+          <CreateBusinessModal isOpen={true} onStoreCreated={handleStoreCreated} embedded platformMode={platformIntent} />
         )}
 
         {step === 'branding' && (
@@ -208,7 +249,13 @@ export default function OnboardingPage() {
             isOpen={true}
             embedded
             store={createdStore}
-            onClose={() => setStep(verificationEnabled === true ? 'verification' : 'website')}
+            onClose={() => {
+              if (platformIntent === 'listing') {
+                setStep('subscribe');
+              } else {
+                setStep(verificationEnabled === true ? 'verification' : 'website');
+              }
+            }}
             onBrandingUpdated={handleBrandingUpdated}
           />
         )}
@@ -269,6 +316,33 @@ export default function OnboardingPage() {
               className="w-full text-center text-sm text-gray-500 hover:text-gray-700 mt-4"
             >
               Skip for now -- you can do this anytime from Settings
+            </button>
+          </div>
+        )}
+
+        {step === 'subscribe' && (
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100 text-center">
+            <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
+              <LayoutList className="w-7 h-7 text-brand-800" />
+            </div>
+            <h1 className="text-lg font-semibold text-gray-900 mb-1.5">Activate your listing</h1>
+            <p className="text-sm text-gray-500 mb-2">
+              Your showcase page is ready. Subscribe to make it live.
+            </p>
+            <p className="text-2xl font-bold text-gray-900 mb-1">₦500<span className="text-sm font-normal text-gray-500">/month</span></p>
+            <p className="text-xs text-gray-500 mb-6">Cancel anytime from your dashboard.</p>
+            <Button
+              variant="primary"
+              onClick={() => router.push('/dashboard/subscription')}
+              className="w-full mb-3"
+            >
+              Subscribe and go live
+            </Button>
+            <button
+              onClick={() => router.push('/dashboard/overview')}
+              className="w-full text-center text-sm text-gray-500 hover:text-gray-700"
+            >
+              Do this later from dashboard
             </button>
           </div>
         )}

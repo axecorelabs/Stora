@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 import { embedProductById } from '@/lib/openrouter';
@@ -113,13 +113,11 @@ async function fetchVariants(inventoryId, { activeOnly = true } = {}) {
 // GET - Fetch specific inventory item
 export async function GET(req, { params }) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id } = await params;
 
@@ -163,13 +161,11 @@ export async function GET(req, { params }) {
 // PUT - Update specific inventory item
 export async function PUT(request, { params }) {
   try {
-    const user = await verifySession(request);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(request);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id } = await params;
     const updateData = await request.json();
@@ -392,13 +388,11 @@ export async function PUT(request, { params }) {
 // DELETE - Delete specific inventory item
 export async function DELETE(req, { params }) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { id } = await params;
 

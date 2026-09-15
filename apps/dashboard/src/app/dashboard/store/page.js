@@ -38,6 +38,10 @@ const STORE_TABS = [
   { id: 'preferences', label: 'Preferences', icon: SettingsIcon }
 ];
 
+// Listing-mode businesses only need general info and location --
+// delivery and preferences are commerce-specific.
+const LISTING_TABS = STORE_TABS.filter(t => t.id === 'general' || t.id === 'location');
+
 export default function StorePage() {
   const { secureApiCall } = useAuth();
   const queryClient = useQueryClient();
@@ -64,6 +68,11 @@ export default function StorePage() {
       const response = await secureApiCall('/api/stores');
       if (response.success && response.hasStore) {
         setStore(response.data);
+        if (response.data?.platformMode !== 'listing') {
+          await fetchSalesStats();
+        } else {
+          setSalesStats(null);
+        }
       } else {
         // No store found, open create modal
         setIsCreateStoreModalOpen(true);
@@ -92,7 +101,6 @@ export default function StorePage() {
 
   useEffect(() => {
     fetchStore();
-    fetchSalesStats();
   }, []);
 
   // Handle store creation
@@ -266,6 +274,8 @@ export default function StorePage() {
     );
   }
 
+  const isListingMode = store.platformMode === 'listing';
+
   return (
     <DashboardLayout title="Store Management" subtitle="Manage your store information and settings">
       {/* Store Header */}
@@ -305,6 +315,7 @@ export default function StorePage() {
       </div>
 
       {/* Store Stats Strip */}
+      {!isListingMode && (
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
         <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
           <div className="p-5">
@@ -345,11 +356,12 @@ export default function StorePage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Section tabs */}
       <div className="mb-8 bg-white rounded-2xl border border-gray-100">
         <div className="flex border-b border-gray-200 overflow-x-auto">
-          {STORE_TABS.map((tab) => {
+          {(store?.platformMode === 'listing' ? LISTING_TABS : STORE_TABS).map((tab) => {
             const TabIcon = tab.icon;
             return (
               <button
@@ -458,20 +470,24 @@ export default function StorePage() {
               Quick Actions
             </h3>
             <div className="space-y-3">
-              <button
-                onClick={() => router.push('/dashboard/sales')}
-                className="w-full flex items-center justify-center px-4 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors"
-              >
-                <Receipt className="w-4 h-4 mr-2" />
-                View Sales
-              </button>
-              <button 
-                onClick={() => router.push('/dashboard/inventory')}
-                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
-              >
-                <Package className="w-4 h-4 mr-2" />
-                Manage Inventory
-              </button>
+              {!isListingMode && (
+                <button
+                  onClick={() => router.push('/dashboard/sales')}
+                  className="w-full flex items-center justify-center px-4 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 transition-colors"
+                >
+                  <Receipt className="w-4 h-4 mr-2" />
+                  View Sales
+                </button>
+              )}
+              {!isListingMode && (
+                <button
+                  onClick={() => router.push('/dashboard/inventory')}
+                  className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Manage Inventory
+                </button>
+              )}
               {store.storeType === 'online' && (
                 <button
                   onClick={() => setIsAddPhysicalStoreModalOpen(true)}
@@ -488,13 +504,15 @@ export default function StorePage() {
                 <Palette className="w-4 h-4 mr-2" />
                 Customize Branding
               </button>
-              <button
-                onClick={() => setIsPayoutModalOpen(true)}
-                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
-              >
-                <Landmark className="w-4 h-4 mr-2" />
-                {store.bankDetails?.paystack_subaccount_code ? 'Payout Settings' : 'Set Up Payouts'}
-              </button>
+              {!isListingMode && (
+                <button
+                  onClick={() => setIsPayoutModalOpen(true)}
+                  className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <Landmark className="w-4 h-4 mr-2" />
+                  {store.bankDetails?.paystack_subaccount_code ? 'Payout Settings' : 'Set Up Payouts'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, Search, Store, CheckCircle2, Globe } from "lucide-react";
+import { Loader2, Search, Store, CheckCircle2, Globe, LayoutList } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import AdminLayout from "@/components/AdminLayout";
 import StatStrip from "@/components/StatStrip";
@@ -26,6 +26,12 @@ const VERIFIED_OPTIONS = [
   { value: "pending", label: "Pending" }
 ];
 
+const PLATFORM_MODE_OPTIONS = [
+  { value: "", label: "All types" },
+  { value: "store", label: "Full stores" },
+  { value: "listing", label: "Listings only" }
+];
+
 function StoresPageContent() {
   const { secureApiCall } = useAuth();
   const [stores, setStores] = useState([]);
@@ -35,6 +41,7 @@ function StoresPageContent() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [verifiedFilter, setVerifiedFilter] = useState("");
+  const [platformModeFilter, setPlatformModeFilter] = useState("");
   const [page, setPage] = useState(1);
   const [loadingKey, setLoadingKey] = useState(null);
 
@@ -42,9 +49,9 @@ function StoresPageContent() {
   // "adjusting state when a prop changes" pattern (setState during render,
   // guarded by a prev-value comparison) rather than an effect -- avoids a
   // second render pass just to reset a page number.
-  const [prevFilters, setPrevFilters] = useState({ query, statusFilter, verifiedFilter });
-  if (query !== prevFilters.query || statusFilter !== prevFilters.statusFilter || verifiedFilter !== prevFilters.verifiedFilter) {
-    setPrevFilters({ query, statusFilter, verifiedFilter });
+  const [prevFilters, setPrevFilters] = useState({ query, statusFilter, verifiedFilter, platformModeFilter });
+  if (query !== prevFilters.query || statusFilter !== prevFilters.statusFilter || verifiedFilter !== prevFilters.verifiedFilter || platformModeFilter !== prevFilters.platformModeFilter) {
+    setPrevFilters({ query, statusFilter, verifiedFilter, platformModeFilter });
     setPage(1);
   }
 
@@ -55,6 +62,7 @@ function StoresPageContent() {
       if (params.q) search.set("q", params.q);
       if (params.status) search.set("status", params.status);
       if (params.verified) search.set("verified", params.verified);
+      if (params.platformMode) search.set("platform_mode", params.platformMode);
       search.set("offset", String((params.page - 1) * PAGE_SIZE));
       const data = await secureApiCall(`/api/stores?${search.toString()}`);
       if (data.success) {
@@ -70,7 +78,7 @@ function StoresPageContent() {
   }, [secureApiCall]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => load({ q: query, status: statusFilter, verified: verifiedFilter, page }), 300);
+    const timeout = setTimeout(() => load({ q: query, status: statusFilter, verified: verifiedFilter, platformMode: platformModeFilter, page }), 300);
     return () => clearTimeout(timeout);
   }, [query, statusFilter, verifiedFilter, page, load]);
 
@@ -183,6 +191,7 @@ function StoresPageContent() {
         </div>
         <CustomDropdown options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} className="w-full sm:w-44" />
         <CustomDropdown options={VERIFIED_OPTIONS} value={verifiedFilter} onChange={setVerifiedFilter} className="w-full sm:w-44" />
+        <CustomDropdown options={PLATFORM_MODE_OPTIONS} value={platformModeFilter} onChange={setPlatformModeFilter} className="w-full sm:w-44" />
       </div>
 
       {loading ? (

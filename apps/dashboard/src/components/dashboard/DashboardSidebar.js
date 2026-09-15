@@ -18,7 +18,10 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  Images,
+  BadgeCheck,
+  Layers
 } from "lucide-react";
 
 export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = false, onCloseMobile }) {
@@ -33,12 +36,18 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   // does (set at business-creation time, CreateBusinessModal.js) instead of
   // always showing both regardless -- a pure-services business shouldn't
   // see an empty product catalog nav item, and vice versa.
-  const { data: storeResponse } = useQuery({
+  const { data: storeResponse, isLoading: isStoreLoading } = useQuery({
     queryKey: ['store'],
     queryFn: () => secureApiCall('/api/stores'),
     staleTime: 5 * 60 * 1000
   });
   const store = storeResponse?.data;
+  // Don't derive isListingMode until we have a real answer -- undefined
+  // would be falsy and show the full store nav first, causing a flicker
+  // on cold load. Keep menuItems null while loading and render skeleton
+  // dots instead.
+  const storeLoaded = !isStoreLoading && storeResponse !== undefined;
+  const isListingMode = store?.platformMode === 'listing';
   // Defaults to showing Catalogue while the store hasn't loaded yet
   // (undefined !== false) -- avoids a flash of "no nav items" on first
   // paint, same fail-open reasoning as sellsProducts' own DB default.
@@ -62,7 +71,16 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   });
   const pendingOrdersCount = orderStats?.pendingOrders || 0;
 
-  const menuItems = [
+  const menuItems = isListingMode
+    ? [
+        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/overview' },
+        { name: 'Showcase', icon: Layers, path: '/dashboard/website' },
+        { name: 'Gallery', icon: Images, path: '/dashboard/gallery' },
+        { name: 'Business Info', icon: Store, path: '/dashboard/store' },
+        { name: 'Subscription', icon: BadgeCheck, path: '/dashboard/subscription' },
+        { name: 'Settings', icon: Settings, path: '/dashboard/settings' },
+      ]
+    : [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/overview' },
     ...(showCatalogue ? [{ name: 'Catalogue', icon: Package, path: '/dashboard/inventory' }] : []),
     ...(showServices ? [{ name: 'Services', icon: Wrench, path: '/dashboard/services' }] : []),
@@ -154,7 +172,14 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
           preference" rule as the logo above. */}
       <nav className={`flex-1 overflow-y-auto ${isCollapsed ? 'px-4 lg:px-3' : 'px-4'}`}>
         <div className="space-y-2">
-          {menuItems.map((item) => {
+          {!storeLoaded ? (
+            // Skeleton placeholders while store mode is being determined --
+            // prevents the full store nav flashing before switching to the
+            // listing nav on cold load.
+            [...Array(4)].map((_, i) => (
+              <div key={i} className={`h-11 rounded-xl bg-gray-100 animate-pulse ${isCollapsed ? 'lg:w-11' : ''}`} />
+            ))
+          ) : menuItems.map((item) => {
             const IconComponent = item.icon;
             const isActive = activeTab === item.name;
             const showBadge = item.name === 'Orders' && pendingOrdersCount > 0;

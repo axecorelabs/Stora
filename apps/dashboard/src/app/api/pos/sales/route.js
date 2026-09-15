@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { verifySession } from '@/lib/auth';
+import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { v4 as uuidv4 } from 'uuid';
 import { processItemsWithBatchTracking } from '@/lib/batchInventory';
 import { captureServerEvent } from '@/lib/posthog-server';
@@ -25,13 +25,11 @@ function generateTransactionId() {
 // POST - Process a new sale with batch tracking
 export async function POST(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const saleData = await req.json();
     
@@ -292,13 +290,11 @@ export async function POST(req) {
 // GET - Fetch sales for user
 export async function GET(req) {
   try {
-    const user = await verifySession(req);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Not authenticated' },
-        { status: 401 }
-      );
+    const access = await requireCommerceApiAccess(req);
+    if (!access.ok) {
+      return access.response;
     }
+    const { user } = access;
 
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page')) || 1;

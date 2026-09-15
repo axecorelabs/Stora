@@ -140,7 +140,11 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
         setBannerFile(null);
         setErrors({});
         setUploadProgress({});
-        onClose();
+        // onClose is intentionally NOT called here when embedded in the
+        // onboarding wizard -- onBrandingUpdated already handles navigation
+        // to the next step (which differs between store and listing tracks).
+        // In non-embedded usage onBrandingUpdated can call onClose itself.
+        if (!embedded) onClose();
       } else {
         setErrors({ submit: response.message || 'Failed to update branding' });
       }

@@ -1,5 +1,5 @@
 "use client";
-import { Store, BadgeCheck } from "lucide-react";
+import { Store, BadgeCheck, LayoutList } from "lucide-react";
 import PrefetchLink from "@/components/ui/PrefetchLink";
 
 // Each vendor's own brand color shows through as a swatch inside Stora's
@@ -47,6 +47,11 @@ export default function VendorCard({ store }) {
               supabaseStore.js's buildPublicStoreData for the split. */}
           {store.businessVerified && (
             <BadgeCheck className="w-3.5 h-3.5 text-gold-600 flex-shrink-0" strokeWidth={2} />
+          )}
+          {store.platformMode === 'listing' && (
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
+              <LayoutList className="w-2 h-2" />
+            </span>
           )}
         </div>
         {store.storeDescription ? (
