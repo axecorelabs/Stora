@@ -239,20 +239,24 @@ async function filterVendorsByRelevance(vendors, rawQuery, intent) {
 
     let score = 0;
     let serviceSemanticHits = 0;
+    let ownSemanticHits = 0;
     for (const term of candidateTerms) {
       const variants = termVariants(term);
       let matchedInAny = false;
       let matchedInService = false;
+      let matchedInOwn = false;
       for (const variant of variants) {
         if (!variant) continue;
         if (text.includes(variant)) matchedInAny = true;
         if (serviceText.includes(variant)) matchedInService = true;
+        if (ownText.includes(variant)) matchedInOwn = true;
       }
       if (matchedInAny) score += 1;
       if (matchedInService) {
         score += 1;
         if (meaningfulTerms.includes(term)) serviceSemanticHits += 1;
       }
+      if (matchedInOwn && meaningfulTerms.includes(term)) ownSemanticHits += 1;
       if (serviceSignals.states.has(term)) score += 2;
       if (serviceSignals.cities.has(term)) score += 2;
     }
@@ -269,13 +273,13 @@ async function filterVendorsByRelevance(vendors, rawQuery, intent) {
       if (serviceSignals.coverAllNigeria) score += 1;
     }
 
-    return { vendor, score, serviceSemanticHits };
+    return { vendor, score, serviceSemanticHits, ownSemanticHits };
   });
 
   const minScore = candidateTerms.length >= 3 ? 2 : 1;
   const filtered = scored
     .filter((row) => row.score >= minScore)
-    .filter((row) => !serviceIntent || row.serviceSemanticHits > 0)
+    .filter((row) => !serviceIntent || row.serviceSemanticHits > 0 || row.ownSemanticHits > 0)
     .sort((a, b) => b.score - a.score)
     .map((row) => row.vendor);
 
@@ -439,7 +443,7 @@ export async function GET(request) {
         // many vendors have no embedding yet), degrade to keyword vendor
         // search with the same scope/location filters, then rerank.
         if (vendors.length === 0) {
-          const fallbackQuery = (intent.cleanedQuery || query).trim() || query;
+          const fallbackQuery = serviceIntent ? null : ((intent.cleanedQuery || query).trim() || query);
           const fallbackVendorResult = isBiterave
             ? await searchBiteraveVendors({
                 mealOnly,
