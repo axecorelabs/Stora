@@ -117,6 +117,12 @@ function toNonNegativeNumber(value) {
   return parsed;
 }
 
+function assertNoWriteError(error, context) {
+  if (!error) return;
+  console.error(`${context}:`, error);
+  throw new Error(context);
+}
+
 // GET - Fetch specific inventory item
 export async function GET(req, { params }) {
   try {
@@ -295,7 +301,7 @@ export async function PUT(request, { params }) {
         .from('inventory_variants')
         .update(priceUpdate)
         .eq('inventory_id', id);
-      if (priceError) console.error('Variant price update error:', priceError);
+      assertNoWriteError(priceError, 'Variant price update failed');
     }
 
     // Reconcile variant rows (size/color/reorder_level/sku/images) against
@@ -341,7 +347,7 @@ export async function PUT(request, { params }) {
             })
             .eq('id', variantId)
             .eq('inventory_id', id);
-          if (updErr) console.error('Variant update error:', updErr);
+          assertNoWriteError(updErr, 'Variant update failed');
         } else {
           const variantReorderLevel = toNonNegativeNumber(v.reorderLevel);
           const { error: insErr } = await supabaseAdmin
@@ -360,7 +366,7 @@ export async function PUT(request, { params }) {
               is_unlimited: isMadeToOrder,
               max_orders_per_day: maxOrdersPerDay
             });
-          if (insErr) console.error('Variant creation error:', insErr);
+          assertNoWriteError(insErr, 'Variant creation failed');
         }
       }
 
@@ -370,7 +376,7 @@ export async function PUT(request, { params }) {
           .from('inventory_variants')
           .update({ is_active: false, updated_at: new Date().toISOString() })
           .in('id', toDeactivate.map(v => v.id));
-        if (deactErr) console.error('Variant deactivation error:', deactErr);
+        assertNoWriteError(deactErr, 'Variant deactivation failed');
       }
     } else if (touchesMadeToOrder || productReorderLevel !== null) {
       // Non-variant edit flows may intentionally omit a variants payload.
@@ -385,9 +391,7 @@ export async function PUT(request, { params }) {
         .update(passiveVariantUpdate)
         .eq('inventory_id', id)
         .eq('is_active', true);
-      if (passiveVariantError) {
-        console.error('Passive variant update error:', passiveVariantError);
-      }
+      assertNoWriteError(passiveVariantError, 'Passive variant update failed');
     }
 
     // Only re-embed when the text an AI-search match is actually judged
