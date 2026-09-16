@@ -350,7 +350,7 @@ function ProductsPageInner() {
           <>
             {aiMode && aiVendors.length > 0 && (
               <div className="mb-8">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Vendors worth checking out</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Businesses worth checking out</p>
                 <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
                   {aiVendors.map((vendor) => (
                     <div key={vendor.id} className="w-48 flex-shrink-0">

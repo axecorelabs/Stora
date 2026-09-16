@@ -11,7 +11,7 @@ export default function SearchModeTabs({ query }) {
 
   const tabs = [
     { href: `/products${qs}`, label: "Products", match: "/products" },
-    { href: `/vendors${qs}`, label: "Vendors", match: "/vendors" },
+    { href: `/vendors${qs}`, label: "Businesses", match: "/vendors" },
   ];
 
   return (

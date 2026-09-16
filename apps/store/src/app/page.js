@@ -13,7 +13,7 @@ import CampaignsShowcase from "@/components/home/CampaignsShowcase";
 // which read as implicitly knocking some unnamed alternative rather than
 // just stating what Stora offers.
 const TRUST_BADGES = [
-  { icon: ShieldCheck, title: "Verified vendors", subtitle: "Every seller is checked" },
+  { icon: ShieldCheck, title: "Verified businesses", subtitle: "Every seller is checked" },
   { icon: Lock, title: "Secure payments", subtitle: "Powered by Paystack" },
   { icon: Headphones, title: "24/7 support", subtitle: "We're always here to help" }
 ];
@@ -112,19 +112,19 @@ export default function Home() {
         </svg>
       </section>
 
-      {/* Discover vendors */}
+      {/* Discover businesses */}
       <section className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-end justify-between mb-6 gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Discover</p>
-              <h2 className="font-display text-2xl font-bold text-brand-900">Vendors on Stora</h2>
+              <h2 className="font-display text-2xl font-bold text-brand-900">Businesses on Stora</h2>
             </div>
             <Link
               href="/vendors"
               className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-800 transition-colors shrink-0"
             >
-              See all vendors
+              See all businesses
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -134,7 +134,7 @@ export default function Home() {
               href="/vendors"
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-brand-100 text-sm font-semibold text-brand-800 hover:border-brand-300 hover:bg-brand-50/50 transition-colors"
             >
-              See all vendors
+              See all businesses
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -170,7 +170,7 @@ export default function Home() {
       {/* Sell on Stora */}
       <section className="border-t-2 border-gold-500 bg-brand-800 py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gold-400 mb-1.5">For vendors</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-gold-400 mb-1.5">For businesses</p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-4">
             Bring your own brand. We bring the infrastructure.
           </h2>

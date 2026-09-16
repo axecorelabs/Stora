@@ -208,7 +208,7 @@ function VendorsPageInner() {
 
         <div className="mb-6">
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-1">
-            {q ? `Vendors matching "${q}"` : "All vendors"}
+            {q ? `Businesses matching "${q}"` : "All businesses"}
           </h1>
         </div>
 
@@ -237,7 +237,7 @@ function VendorsPageInner() {
         <SearchConsole
           query={q}
           onQueryChange={setQ}
-          searchPlaceholder="Search vendors by name…"
+          searchPlaceholder="Search businesses by name..."
           categories={categories}
           onCategoriesChange={setCategories}
           categoryOptions={categoryOptions}
@@ -245,7 +245,7 @@ function VendorsPageInner() {
           onStateChange={setState}
           resultCount={pagination?.total}
           loading={loading}
-          resultLabel="vendors"
+          resultLabel="businesses"
           aiMode={aiMode}
           onAiModeChange={setAiMode}
         />
@@ -283,7 +283,7 @@ function VendorsPageInner() {
                   ? "bg-brand-700 text-white border-brand-700"
                   : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
               }`}
-              title={deliveryState ? `Only vendors that deliver to ${deliveryState}` : "Set your delivery state to filter by it"}
+              title={deliveryState ? `Only businesses that deliver to ${deliveryState}` : "Set your delivery state to filter by it"}
             >
               <Truck className="w-3.5 h-3.5" />
               Deliverable to me
@@ -343,7 +343,7 @@ function VendorsPageInner() {
         {aiMode && !q ? (
           <div className="text-center py-20">
             <Sparkles className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
-            <p className="text-gray-500 text-sm">Describe what you&apos;re looking for above to get AI-matched vendors.</p>
+            <p className="text-gray-500 text-sm">Describe what you&apos;re looking for above to get AI-matched businesses.</p>
           </div>
         ) : loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -356,10 +356,10 @@ function VendorsPageInner() {
             <Store className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
             <p className="text-gray-500 text-sm mb-4">
               {q
-                ? `No vendors match "${q}".`
+                ? `No businesses match "${q}".`
                 : categories.length > 0
-                  ? `No vendors currently sell ${categories.join(", ")}.`
-                  : "New vendors are joining Stora every week -- check back soon."}
+                  ? `No businesses currently sell ${categories.join(", ")}.`
+                  : "New businesses are joining Stora every week -- check back soon."}
             </p>
             {activeFilters.length > 0 && (
               <button

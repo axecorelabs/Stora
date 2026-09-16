@@ -39,7 +39,7 @@ export default function VendorShowcase() {
     return (
       <div className="text-center py-12">
         <Store className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
-        <p className="text-gray-500 text-sm">New vendors are joining Stora every week -- check back soon.</p>
+        <p className="text-gray-500 text-sm">New businesses are joining Stora every week -- check back soon.</p>
       </div>
     );
   }
