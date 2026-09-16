@@ -43,7 +43,9 @@ function buildEditData(store) {
       website: store.onlineStoreInfo?.website || '',
       socialMedia: {
         instagram: store.onlineStoreInfo?.socialMedia?.instagram || '',
-        whatsapp: store.onlineStoreInfo?.socialMedia?.whatsapp || ''
+        whatsapp: store.onlineStoreInfo?.socialMedia?.whatsapp || '',
+        facebook: store.onlineStoreInfo?.socialMedia?.facebook || '',
+        twitter: store.onlineStoreInfo?.socialMedia?.twitter || ''
       }
     },
     settings: { ...store.settings }

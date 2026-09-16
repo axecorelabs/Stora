@@ -89,7 +89,8 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
       socialMedia: {
         instagram: '',
         facebook: '',
-        whatsapp: ''
+        whatsapp: '',
+        twitter: ''
       },
       deliveryAreas: []
     },
@@ -546,6 +547,89 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                       />
                     </div>
                   </div>
+
+                  <div className="pt-3 border-t border-gray-100">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Online and social links (optional)</h4>
+                    <p className="text-xs text-gray-500 mb-3">
+                      These links appear on your public showcase so customers can reach you quickly.
+                    </p>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Website URL
+                        </label>
+                        <input
+                          type="url"
+                          name="onlineStoreInfo.website"
+                          value={formData.onlineStoreInfo.website}
+                          onChange={handleChange}
+                          placeholder="https://yourbusiness.com"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Instagram Handle
+                          </label>
+                          <input
+                            type="text"
+                            name="onlineStoreInfo.socialMedia.instagram"
+                            value={formData.onlineStoreInfo.socialMedia.instagram}
+                            onChange={handleChange}
+                            placeholder="@yourbusiness"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            WhatsApp Number
+                          </label>
+                          <input
+                            type="tel"
+                            name="onlineStoreInfo.socialMedia.whatsapp"
+                            value={formData.onlineStoreInfo.socialMedia.whatsapp}
+                            onChange={handleChange}
+                            placeholder="08012345678"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Facebook Page
+                          </label>
+                          <input
+                            type="text"
+                            name="onlineStoreInfo.socialMedia.facebook"
+                            value={formData.onlineStoreInfo.socialMedia.facebook}
+                            onChange={handleChange}
+                            placeholder="yourbusiness"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            X (Twitter) Handle
+                          </label>
+                          <input
+                            type="text"
+                            name="onlineStoreInfo.socialMedia.twitter"
+                            value={formData.onlineStoreInfo.socialMedia.twitter}
+                            onChange={handleChange}
+                            placeholder="@yourbusiness"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 // Online store information form
@@ -627,6 +711,38 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Facebook Page
+                      </label>
+                      <input
+                        type="text"
+                        name="onlineStoreInfo.socialMedia.facebook"
+                        value={formData.onlineStoreInfo.socialMedia.facebook}
+                        onChange={handleChange}
+                        placeholder="yourstore"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        X (Twitter) Handle
+                      </label>
+                      <input
+                        type="text"
+                        name="onlineStoreInfo.socialMedia.twitter"
+                        value={formData.onlineStoreInfo.socialMedia.twitter}
+                        onChange={handleChange}
+                        placeholder="@yourstore"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                      />
+                    </div>
+
+                    <div />
                   </div>
                 </div>
               )}

@@ -78,6 +78,106 @@ export default function StoreLocationTab({ store, isEditing, editData, errors, h
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
+
+        <div className="pt-2 border-t border-gray-100">
+          <h4 className="text-sm font-semibold text-gray-900 mb-2">Online and social links</h4>
+          <p className="text-xs text-gray-500 mb-4">
+            These links appear on your public showcase.
+          </p>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Website URL</label>
+              {isEditing ? (
+                <input
+                  type="url"
+                  name="onlineStoreInfo.website"
+                  value={editData.onlineStoreInfo.website}
+                  onChange={handleChange}
+                  placeholder="https://yourstore.com"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                />
+              ) : (
+                <div className="flex items-center py-3">
+                  <Globe className="w-4 h-4 mr-2 text-gray-500" />
+                  <span className="text-gray-900">{store.onlineStoreInfo?.website || 'Not provided'}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Handle</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="onlineStoreInfo.socialMedia.instagram"
+                    value={editData.onlineStoreInfo.socialMedia.instagram}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                  />
+                ) : (
+                  <div className="flex items-center py-3">
+                    <Instagram className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="text-gray-900">{store.onlineStoreInfo?.socialMedia?.instagram || 'Not provided'}</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp Number</label>
+                {isEditing ? (
+                  <input
+                    type="tel"
+                    name="onlineStoreInfo.socialMedia.whatsapp"
+                    value={editData.onlineStoreInfo.socialMedia.whatsapp}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                  />
+                ) : (
+                  <div className="flex items-center py-3">
+                    <MessageCircle className="w-4 h-4 mr-2 text-gray-500" />
+                    <span className="text-gray-900">{store.onlineStoreInfo?.socialMedia?.whatsapp || 'Not provided'}</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Facebook Page</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="onlineStoreInfo.socialMedia.facebook"
+                    value={editData.onlineStoreInfo.socialMedia.facebook || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                  />
+                ) : (
+                  <div className="flex items-center py-3">
+                    <span className="text-gray-900">{store.onlineStoreInfo?.socialMedia?.facebook || 'Not provided'}</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">X (Twitter) Handle</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="onlineStoreInfo.socialMedia.twitter"
+                    value={editData.onlineStoreInfo.socialMedia.twitter || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                  />
+                ) : (
+                  <div className="flex items-center py-3">
+                    <span className="text-gray-900">{store.onlineStoreInfo?.socialMedia?.twitter || 'Not provided'}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
               {isEditing ? (
                 <input
                   type="text"
@@ -157,6 +257,23 @@ export default function StoreLocationTab({ store, isEditing, editData, errors, h
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Facebook Page</label>
+            {isEditing ? (
+              <input
+                type="text"
+                name="onlineStoreInfo.socialMedia.facebook"
+                value={editData.onlineStoreInfo.socialMedia.facebook || ''}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+              />
+            ) : (
+              <div className="flex items-center py-3">
+                <span className="text-gray-900">{store.onlineStoreInfo?.socialMedia?.facebook || 'Not provided'}</span>
+              </div>
+            )}
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp Number</label>
             {isEditing ? (
               <input
@@ -170,6 +287,23 @@ export default function StoreLocationTab({ store, isEditing, editData, errors, h
               <div className="flex items-center py-3">
                 <MessageCircle className="w-4 h-4 mr-2 text-gray-500" />
                 <span className="text-gray-900">{store.onlineStoreInfo?.socialMedia?.whatsapp || 'Not provided'}</span>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">X (Twitter) Handle</label>
+            {isEditing ? (
+              <input
+                type="text"
+                name="onlineStoreInfo.socialMedia.twitter"
+                value={editData.onlineStoreInfo.socialMedia.twitter || ''}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+              />
+            ) : (
+              <div className="flex items-center py-3">
+                <span className="text-gray-900">{store.onlineStoreInfo?.socialMedia?.twitter || 'Not provided'}</span>
               </div>
             )}
           </div>
