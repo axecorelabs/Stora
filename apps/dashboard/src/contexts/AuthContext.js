@@ -33,12 +33,18 @@ export const AuthProvider = ({ children }) => {
   // Secure API call function for JSON requests
   const secureApiCall = async (url, options = {}) => {
     try {
+      const requestHeaders = options.headers || {};
+      const hasContentTypeHeader = Object.keys(requestHeaders).some(
+        (headerName) => headerName.toLowerCase() === 'content-type'
+      );
+      const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
       const response = await fetch(url, {
         ...options,
         signal: options.signal, // Pass through abort signal
         headers: {
-          ...options.headers,
-          'Content-Type': 'application/json',
+          ...requestHeaders,
+          ...(!hasContentTypeHeader && !isFormDataBody ? { 'Content-Type': 'application/json' } : {}),
         },
       });
       
