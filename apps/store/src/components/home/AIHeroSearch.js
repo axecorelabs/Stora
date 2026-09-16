@@ -85,21 +85,17 @@ function TemplateRow() {
 // work) rather than a product search that could never have surfaced a
 // service provider anyway.
 //
-// Light hero (white background, dark text) rather than the dark-hero
-// treatment this used to have -- the dark green now belongs to the trust
-// badges band page.js renders right below this, with the wave transition
-// between them, so the hero itself reads as a clean, uncluttered "first
-// screen" instead of one long dark block.
+// Hero text is tuned for a dark-green backdrop on the homepage.
 export default function AIHeroSearch() {
   const router = useRouter();
 
   return (
     <div className="max-w-3xl mx-auto text-center w-full">
-      <h1 className="font-display text-2xl sm:text-5xl font-bold text-gray-900 leading-tight mb-8 sm:mb-10">
+      <h1 className="font-display text-2xl sm:text-5xl font-bold text-white leading-tight mb-8 sm:mb-10">
         What are you looking for today?{" "}
         <span className="text-xl sm:text-4xl align-middle">😊</span>
         <br />
-        <span className="text-brand-600">Let&apos;s help you find it.</span>
+        <span className="text-gold-400">Let&apos;s help you find it.</span>
       </h1>
 
       {/* Gradient border, not a plain one -- this box is the one thing on
@@ -126,7 +122,7 @@ export default function AIHeroSearch() {
       <div className="flex items-center justify-center gap-4 mb-10">
         <PrefetchLink
           href="/products"
-          className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-brand-900 hover:bg-gray-200 transition-colors"
+          className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-xs sm:text-sm font-medium bg-white/95 text-brand-900 hover:bg-white transition-colors"
         >
           <Compass className="w-3.5 h-3.5 text-brand-700" />
           Just browsing
@@ -134,7 +130,7 @@ export default function AIHeroSearch() {
         </PrefetchLink>
         <PrefetchLink
           href="/vendors?scope=services"
-          className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-brand-900 hover:bg-gray-200 transition-colors"
+          className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-xs sm:text-sm font-medium bg-white/95 text-brand-900 hover:bg-white transition-colors"
         >
           <Wrench className="w-3.5 h-3.5 text-brand-700" />
           Need a service?

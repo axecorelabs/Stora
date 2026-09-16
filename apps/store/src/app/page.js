@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Lock, Headphones } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import AIHeroSearch from "@/components/home/AIHeroSearch";
@@ -9,100 +9,20 @@ import CategoryDiscovery from "@/components/home/CategoryDiscovery";
 import DiscoverySection from "@/components/home/DiscoverySection";
 import CampaignsShowcase from "@/components/home/CampaignsShowcase";
 
-// Plain, factual claims -- not "verified & reliable"/"only the best",
-// which read as implicitly knocking some unnamed alternative rather than
-// just stating what Stora offers.
-const TRUST_BADGES = [
-  { icon: ShieldCheck, title: "Verified businesses", subtitle: "Every seller is checked" },
-  { icon: Lock, title: "Secure payments", subtitle: "Powered by Paystack" },
-  { icon: Headphones, title: "24/7 support", subtitle: "We're always here to help" }
-];
-
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       <SiteHeader />
 
-      {/* Hero -- light, content-sized rather than forced to a tall viewport
-          fraction: white background (dark green now belongs to the trust
-          badges band right below, not the hero itself) keeps this reading
-          as a clean "first screen" that doesn't overstay its content. */}
-      <section className="relative bg-white pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      {/* Hero -- green backdrop with a waved handoff into the sections below. */}
+      <section className="relative bg-brand-800 pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <AIHeroSearch />
 
-        {/* Curved bottom edge, not a straight cut -- a single smooth arc
-            dipping toward the center (matches the reference: rises at
-            the edges, recedes in the middle). The corner artifact from
-            earlier iterations wasn't caused by this curve shape -- it
-            was the bottom wave's own section padding insetting its
-            w-full from the true edges (see the comment above the
-            badges). With that fixed, this simple curve renders clean. */}
+        {/* Bottom wave into the white section below, same visual style as Biterave. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
-          className="absolute bottom-0 left-0 w-full h-10 sm:h-16 text-brand-800"
-          aria-hidden="true"
-        >
-          <path
-            fill="currentColor"
-            d="M0,40 Q720,100 1440,40 L1440,100 L0,100 Z"
-          />
-        </svg>
-      </section>
-
-      {/* Trust badges -- icon on top, then a bold title and a lighter
-          subtitle line beneath it, so each badge reads as a small
-          two-line statement rather than a single label. Waved on both
-          edges now, not just the top (which only existed to close out the
-          hero above it) -- a matching wave at the bottom transitions back
-          into "Discover vendors" below, so the band reads as its own
-          distinct shape rather than a flat rectangle with one decorated
-          edge.
-          The bottom wave is a normal-flow element (not absolutely
-          positioned over the padding, like the hero's own wave is) --
-          pt-10 above the badges and pb-10 below them are genuinely equal,
-          and the wave then adds its own height purely on top of that
-          instead of overlapping into the bottom padding. Absolute+overlap
-          made the visible clearance below the text shrink to whatever the
-          wave curve happened to leave at each point (as little as a few
-          px at the curve's shallowest spots), which read as the text
-          sitting noticeably closer to the bottom edge than the top --
-          confirmed by measuring both paddings directly rather than just
-          eyeballing it.
-          Horizontal padding lives on the badges' own wrapper div, not on
-          this section -- a normal-flow ("block") svg sizes its w-full
-          against its containing block's CONTENT box, which excludes
-          padding, so px-4 etc. on the section itself would have left the
-          svg inset from the true edges on both sides. That gap showed the
-          section's own flat background color, uncovered by either the
-          curve or its fill -- a rectangular block with a diagonal cut
-          where the svg's edge met it, not a wave problem at all. */}
-      <section className="relative bg-brand-800 pt-10 sm:pt-14">
-        <div className="max-w-2xl lg:max-w-4xl mx-auto grid grid-cols-3 gap-3 sm:gap-8 lg:gap-16 px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14">
-          {TRUST_BADGES.map(({ icon: Icon, title, subtitle }) => (
-            <div key={title} className="flex flex-col items-center text-center gap-1.5 sm:gap-2">
-              <Icon className="w-5 h-5 sm:w-7 sm:h-7 text-gold-400 flex-shrink-0" strokeWidth={1.5} />
-              <div>
-                <p className="text-white text-[11px] sm:text-base lg:text-lg font-semibold leading-tight">{title}</p>
-                <p className="text-white/60 text-[10px] sm:text-sm leading-tight mt-0.5">{subtitle}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Bottom curve -- the mirror image of the hero's own curve above
-            (control point on the opposite side), so the two arcs bow
-            toward each other instead of both sagging the same direction
-            -- the band's top edge recedes at the center while the
-            bottom edge bulges into it, giving the whole shape a lens/
-            eye-like profile rather than a hammock shifted at its
-            middle. White to match "Discover vendors" right below
-            (inherits the page wrapper's own bg-white). block, not
-            absolute -- see the comment above the badges for why. */}
-        <svg
-          viewBox="0 0 1440 100"
-          preserveAspectRatio="none"
-          className="block w-full h-10 sm:h-16 text-white"
+          className="absolute bottom-0 left-0 w-full h-10 sm:h-16 text-white"
           aria-hidden="true"
         >
           <path
