@@ -301,6 +301,29 @@ function MapPreviewCard({ addressText }) {
   );
 }
 
+function ShowcaseMapSection({ fullAddress, stateLabel }) {
+  return (
+    <section className="pt-8 sm:pt-10">
+      <h2 className="text-sm font-semibold text-gray-900 sm:text-base">Location</h2>
+
+      {fullAddress ? (
+        <>
+          <div className="mt-3 flex items-center gap-3 text-gray-500">
+            <MapPin className="h-4 w-4 shrink-0 stroke-brand-900 stroke-[2.6] sm:h-5 sm:w-5" />
+            <p className="min-w-0 text-[13px] font-medium leading-snug sm:text-lg">{fullAddress}</p>
+          </div>
+          <MapPreviewCard addressText={fullAddress} />
+        </>
+      ) : (
+        <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          <p className="font-medium text-gray-700">{stateLabel || 'Location'}</p>
+          <p className="mt-0.5 text-xs text-gray-500">Location shared on request.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function PriceListSection({ store }) {
   const list = normalizePriceList(store);
   if (list.length === 0) return null;
@@ -465,33 +488,11 @@ export default async function ListingShowcase({ store }) {
             <ContactButtons store={store} />
           </div>
 
-          {fullAddress && (
-            <>
-              <div className="mt-5 flex items-center gap-3 text-gray-500 sm:mt-7">
-                <MapPin className="h-4 w-4 shrink-0 stroke-brand-900 stroke-[2.6] sm:h-5 sm:w-5" />
-                <p className="min-w-0 text-[13px] font-medium leading-snug sm:text-lg">{fullAddress}</p>
-              </div>
-              <MapPreviewCard addressText={fullAddress} />
-            </>
-          )}
-
-          {!fullAddress && stateLabel && (
-            <div className="mt-5 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 sm:mt-7">
-              <p className="font-medium text-gray-700">{stateLabel}</p>
-              <p className="mt-0.5 text-xs text-gray-500">Location shared on request.</p>
-            </div>
-          )}
         </section>
 
         <div className="mt-7 border-t border-gray-100 sm:mt-10" />
 
         <PriceListSection store={store} />
-
-        <BusinessProfileReviews
-          storeId={store.id}
-          initialAverageRating={store.averageRating}
-          initialTotalReviews={store.totalReviews}
-        />
 
         {gallery.length > 0 ? (
           <ListingGallery items={gallery} />
@@ -503,6 +504,15 @@ export default async function ListingShowcase({ store }) {
             </div>
           </section>
         )}
+
+        <ShowcaseMapSection fullAddress={fullAddress} stateLabel={stateLabel} />
+
+        <BusinessProfileReviews
+          storeId={store.id}
+          initialAverageRating={store.averageRating}
+          initialTotalReviews={store.totalReviews}
+          mobileFullBleed
+        />
 
         <ListingFooter store={store} addressText={fullAddress} />
       </div>

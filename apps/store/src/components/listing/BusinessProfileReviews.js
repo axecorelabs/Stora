@@ -21,7 +21,8 @@ function formatReviewDate(value) {
 export default function BusinessProfileReviews({
   storeId,
   initialAverageRating = 0,
-  initialTotalReviews = 0
+  initialTotalReviews = 0,
+  mobileFullBleed = false
 }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
@@ -177,18 +178,22 @@ export default function BusinessProfileReviews({
     loadReviews(pagination.page + 1, false);
   };
 
+  const sectionClassName = mobileFullBleed
+    ? 'mt-8 -mx-6 border-0 bg-white px-6 py-4 sm:mx-0 sm:rounded-2xl sm:border sm:border-gray-100 sm:bg-white sm:p-6'
+    : 'mt-8 rounded-2xl border border-gray-100 bg-white p-4 sm:p-6';
+
   return (
-    <section className="mt-8 rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
+    <section className={sectionClassName}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-xl font-semibold text-gray-900">Business ratings</h2>
-        <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-900">
-          <Star className="h-4 w-4 fill-gold-500 text-gold-500" />
+        <h2 className="font-display text-lg font-semibold text-gray-900 sm:text-xl">Business ratings</h2>
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-900 sm:gap-2 sm:px-3 sm:py-1.5 sm:text-sm">
+          <Star className="h-3.5 w-3.5 fill-gold-500 text-gold-500 sm:h-4 sm:w-4" />
           {ratingLabel}
         </div>
       </div>
 
       {summary.totalReviews > 0 && (
-        <div className="mt-2 inline-flex items-center gap-2 text-sm text-gray-600">
+        <div className="mt-2 inline-flex items-center gap-2 text-xs text-gray-600 sm:text-sm">
           <StarRating rating={summary.averageRating} size={15} />
           <span>{summary.averageRating.toFixed(1)} average rating</span>
         </div>
@@ -197,13 +202,13 @@ export default function BusinessProfileReviews({
       {!authLoading && (
         <div className="mt-4">
           {!isAuthenticated ? (
-            <p className="text-sm text-gray-500">Sign in to leave a rating for this business.</p>
+            <p className="text-xs text-gray-500 sm:text-sm">Sign in to leave a rating for this business.</p>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => setShowForm((v) => !v)}
-                className="rounded-xl border border-brand-200 px-3 py-2 text-sm font-semibold text-brand-800 transition hover:bg-brand-50"
+                className="rounded-xl border border-brand-200 px-3 py-2 text-xs font-semibold text-brand-800 transition hover:bg-brand-50 sm:text-sm"
               >
                 {eligibility?.alreadyReviewed ? 'Edit your rating' : 'Rate this business'}
               </button>
@@ -212,7 +217,7 @@ export default function BusinessProfileReviews({
                   type="button"
                   onClick={handleDelete}
                   disabled={submitting}
-                  className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+                  className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 sm:text-sm"
                 >
                   Remove rating
                 </button>
@@ -224,7 +229,7 @@ export default function BusinessProfileReviews({
 
       {showForm && isAuthenticated && (
         <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-          <p className="mb-2 text-sm font-medium text-gray-800">Your rating</p>
+          <p className="mb-2 text-xs font-medium text-gray-800 sm:text-sm">Your rating</p>
           <StarRatingInput value={formRating} onChange={setFormRating} size={24} />
 
           <textarea
@@ -233,17 +238,17 @@ export default function BusinessProfileReviews({
             maxLength={2000}
             rows={4}
             placeholder="Optional comment about your experience"
-            className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800 outline-none ring-brand-800/20 transition focus:ring"
+            className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-800 outline-none ring-brand-800/20 transition focus:ring sm:text-sm"
           />
 
-          {submitError && <p className="mt-2 text-sm text-red-600">{submitError}</p>}
+          {submitError && <p className="mt-2 text-xs text-red-600 sm:text-sm">{submitError}</p>}
 
           <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-900 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-800 px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-900 disabled:opacity-60 sm:text-sm"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Save rating
@@ -251,7 +256,7 @@ export default function BusinessProfileReviews({
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-white"
+              className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 transition hover:bg-white sm:text-sm"
             >
               Cancel
             </button>
@@ -267,19 +272,19 @@ export default function BusinessProfileReviews({
             ))}
           </div>
         ) : reviews.length === 0 ? (
-          <p className="text-sm text-gray-500">No ratings yet. Be the first to rate this business.</p>
+          <p className="text-xs text-gray-500 sm:text-sm">No ratings yet. Be the first to rate this business.</p>
         ) : (
           <>
             {reviews.map((review) => (
               <article key={review.id} className="rounded-xl border border-gray-100 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-gray-900">{review.reviewerName}</p>
+                  <p className="text-xs font-semibold text-gray-900 sm:text-sm">{review.reviewerName}</p>
                   <p className="text-xs text-gray-500">{formatReviewDate(review.createdAt)}</p>
                 </div>
                 <div className="mt-1">
                   <StarRating rating={review.rating} size={14} />
                 </div>
-                {review.comment && <p className="mt-2 text-sm text-gray-700">{review.comment}</p>}
+                {review.comment && <p className="mt-2 text-xs text-gray-700 sm:text-sm">{review.comment}</p>}
               </article>
             ))}
 
@@ -288,7 +293,7 @@ export default function BusinessProfileReviews({
                 type="button"
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="inline-flex items-center gap-2 rounded-xl border border-brand-100 px-4 py-2 text-sm font-semibold text-brand-800 transition hover:bg-brand-50 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl border border-brand-100 px-4 py-2 text-xs font-semibold text-brand-800 transition hover:bg-brand-50 disabled:opacity-60 sm:text-sm"
               >
                 {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
                 {loadingMore ? 'Loading...' : 'Load more ratings'}
