@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import ListingGallery from '@/components/ListingGallery';
+import BusinessProfileReviews from '@/components/listing/BusinessProfileReviews';
 import { findGalleryByStoreId } from '@/lib/supabaseStore';
 import { ChevronLeft, ExternalLink, Mail, MapPin, MoreHorizontal, Phone } from 'lucide-react';
 
@@ -196,6 +197,12 @@ export default async function ListingShowcase({ store }) {
         </section>
 
         <div className="mt-7 border-t border-gray-100 sm:mt-10" />
+
+        <BusinessProfileReviews
+          storeId={store.id}
+          initialAverageRating={store.averageRating}
+          initialTotalReviews={store.totalReviews}
+        />
 
         <ListingGallery items={gallery} />
         <ListingFooter storeName={store.storeName} />
