@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import ListingGallery from '@/components/ListingGallery';
 import BusinessProfileReviews from '@/components/listing/BusinessProfileReviews';
+import ViewBeacon from '@/components/analytics/ViewBeacon';
 import { findGalleryByStoreId } from '@/lib/supabaseStore';
 import { DAYS_OF_WEEK, formatDayHours } from '@stora/shared-constants';
 import { ChevronLeft, ExternalLink, Mail, MapPin, MessageCircle, MoreHorizontal, Phone, ShieldCheck, Tag } from 'lucide-react';
@@ -394,6 +395,8 @@ export default async function ListingShowcase({ store }) {
 
   return (
     <main className="min-h-screen bg-white text-black">
+      <ViewBeacon type="store" storeId={store.id} />
+
       {/* Wrapper keeps the overlay controls in normal flow, outside overflow-hidden */}
       <div className="relative">
         <section className="relative h-[135px] overflow-hidden bg-gray-200 sm:h-[320px] lg:h-[420px]">
