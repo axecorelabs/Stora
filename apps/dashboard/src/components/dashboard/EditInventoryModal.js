@@ -564,6 +564,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
       const imageUrl = allImagesData.find(img => img.isPrimary)?.url || allImagesData[0]?.url;
 
       // Transform variants
+      const normalizedReorderLevel = parseFloat(formData.reorderLevel);
       const transformedVariants = variants.flatMap(colorVariant =>
         colorVariant.sizes.map(sizeObj => ({
           // Present for every pre-existing variant (see
@@ -574,7 +575,12 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
           size: sizeObj.size,
           color: colorVariant.color,
           quantityInStock: parseInt(sizeObj.quantityInStock) || 0,
-          reorderLevel: sizeObj.reorderLevel || 5,
+          // Non-color items don't expose per-size reorder controls in this
+          // modal; keep variant reorder levels aligned to the product-level
+          // value the vendor just edited.
+          reorderLevel: detectedColorVariants.length >= 2
+            ? (parseFloat(sizeObj.reorderLevel) || 5)
+            : (Number.isFinite(normalizedReorderLevel) ? normalizedReorderLevel : 5),
           soldQuantity: 0,
           images: imagePreviews
             .filter(img => img.colorTag === colorVariant.color)
@@ -597,7 +603,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
         image: imageUrl,
         images: allImagesData,
         hasVariants: detectedColorVariants.length >= 2,
-        variants: transformedVariants
+        variants: transformedVariants.length > 0 ? transformedVariants : undefined
       };
 
       const response = await onSubmit(item._id, processedData);

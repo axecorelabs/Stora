@@ -16,9 +16,12 @@ export default function ProductDetailsModal({
 
   if (!isOpen || !product) return null;
 
-  const maxQuantity = product.quantityInStock || 0;
-  const isOutOfStock = maxQuantity === 0;
-  const isLowStock = maxQuantity > 0 && maxQuantity <= product.reorderLevel;
+  const isMadeToOrder = !!product.isUnlimited;
+  const maxQuantity = isMadeToOrder
+    ? (product.maxOrdersPerDay || product.availableQuantity || 20)
+    : (product.availableQuantity ?? product.quantityInStock ?? 0);
+  const isOutOfStock = !isMadeToOrder && maxQuantity === 0;
+  const isLowStock = !isMadeToOrder && maxQuantity > 0 && maxQuantity <= (product.reorderLevel || 5);
 
   const formatPrice = (price) => `₦${price?.toLocaleString()}`;
 

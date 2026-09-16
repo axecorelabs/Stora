@@ -258,12 +258,20 @@ export default function StoreWebsite({ store }) {
     // Filter by availability
     if (selectedAvailability !== "all") {
       filtered = filtered.filter((p) => {
+        const isMadeToOrder = !!p.isUnlimited;
+        const availableQuantity = p.availableQuantity ?? p.quantityInStock ?? 0;
+        const reorderLevel = p.reorderLevel ?? 5;
+
+        if (isMadeToOrder) {
+          return selectedAvailability === "in-stock";
+        }
+
         if (selectedAvailability === "in-stock") {
-          return p.quantityInStock > p.reorderLevel;
+          return availableQuantity > reorderLevel;
         } else if (selectedAvailability === "low-stock") {
-          return p.quantityInStock > 0 && p.quantityInStock <= p.reorderLevel;
+          return availableQuantity > 0 && availableQuantity <= reorderLevel;
         } else if (selectedAvailability === "out-of-stock") {
-          return p.quantityInStock === 0;
+          return availableQuantity <= 0;
         }
         return true;
       });

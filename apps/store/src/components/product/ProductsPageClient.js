@@ -551,19 +551,29 @@ export default function ProductsPageClient({ store, products: initialProducts, s
                         <span className="text-2xl font-bold" style={{ color: primaryColor }}>
                           {formatPrice(product.sellingPrice)}
                         </span>
+                        {(() => {
+                          const isMadeToOrder = !!product.isUnlimited;
+                          const availableQuantity = product.availableQuantity ?? product.quantityInStock ?? 0;
+                          const reorderLevel = product.reorderLevel ?? 5;
+                          const inStockState = isMadeToOrder || availableQuantity > reorderLevel;
+                          const lowStockState = !isMadeToOrder && availableQuantity > 0 && availableQuantity <= reorderLevel;
+
+                          return (
                         <span className={`text-sm font-medium ${
-                          product.quantityInStock > product.reorderLevel
+                          inStockState
                             ? 'text-green-600'
-                            : product.quantityInStock > 0
+                            : lowStockState
                             ? 'text-yellow-600'
                             : 'text-red-600'
                         }`}>
-                          {product.quantityInStock > product.reorderLevel
+                          {inStockState
                             ? 'In Stock'
-                            : product.quantityInStock > 0
+                            : lowStockState
                             ? 'Low Stock'
                             : 'Out of Stock'}
                         </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

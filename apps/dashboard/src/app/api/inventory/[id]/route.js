@@ -110,6 +110,13 @@ async function fetchVariants(inventoryId, { activeOnly = true } = {}) {
   return data || [];
 }
 
+function toNonNegativeNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
 // GET - Fetch specific inventory item
 export async function GET(req, { params }) {
   try {
@@ -239,7 +246,7 @@ export async function PUT(request, { params }) {
       dbUpdate.barcode = updateData.barcode;
     }
     if (updateData.minimumStock !== undefined || updateData.reorderLevel !== undefined) {
-      dbUpdate.minimum_stock = updateData.minimumStock || updateData.reorderLevel;
+      dbUpdate.minimum_stock = updateData.minimumStock ?? updateData.reorderLevel;
     }
     if (updateData.images) {
       dbUpdate.images = updateData.images;
@@ -305,7 +312,9 @@ export async function PUT(request, { params }) {
     // existing variants missing from the payload are soft-removed
     // (is_active: false) rather than deleted, preserving their batch
     // history and FK integrity.
-    if (updateData.variants) {
+    const productReorderLevel = toNonNegativeNumber(updateData.minimumStock ?? updateData.reorderLevel);
+
+    if (Array.isArray(updateData.variants) && updateData.variants.length > 0) {
       const existingVariants = await fetchVariants(id, { activeOnly: false });
       const incoming = updateData.variants;
       const incomingIds = new Set(incoming.map(v => v.id || v._id).filter(Boolean));
@@ -313,13 +322,14 @@ export async function PUT(request, { params }) {
       for (const v of incoming) {
         const variantId = v.id || v._id;
         if (variantId && existingVariants.some(ev => ev.id === variantId)) {
+          const variantReorderLevel = toNonNegativeNumber(v.reorderLevel);
           const { error: updErr } = await supabaseAdmin
             .from('inventory_variants')
             .update({
               size: v.size || 'One Size',
               color: v.color || 'Default',
               sku: v.sku || null,
-              reorder_level: v.reorderLevel || 5,
+              reorder_level: variantReorderLevel ?? productReorderLevel ?? 5,
               images: v.images || [],
               is_active: true,
               updated_at: new Date().toISOString(),
@@ -333,6 +343,7 @@ export async function PUT(request, { params }) {
             .eq('inventory_id', id);
           if (updErr) console.error('Variant update error:', updErr);
         } else {
+          const variantReorderLevel = toNonNegativeNumber(v.reorderLevel);
           const { error: insErr } = await supabaseAdmin
             .from('inventory_variants')
             .insert({
@@ -341,7 +352,7 @@ export async function PUT(request, { params }) {
               color: v.color || 'Default',
               sku: v.sku || null,
               quantity_in_stock: 0,
-              reorder_level: v.reorderLevel || 5,
+              reorder_level: variantReorderLevel ?? productReorderLevel ?? 5,
               price: updateData.sellingPrice ?? updateData.basePrice ?? existingVariants[0]?.price ?? 0,
               cost_price: updateData.costPrice ?? updateData.cost ?? existingVariants[0]?.cost_price ?? 0,
               images: v.images || [],
@@ -360,6 +371,22 @@ export async function PUT(request, { params }) {
           .update({ is_active: false, updated_at: new Date().toISOString() })
           .in('id', toDeactivate.map(v => v.id));
         if (deactErr) console.error('Variant deactivation error:', deactErr);
+      }
+    } else if (touchesMadeToOrder || productReorderLevel !== null) {
+      // Non-variant edit flows may intentionally omit a variants payload.
+      // Keep existing variant rows aligned for shared fields in that case.
+      const passiveVariantUpdate = {
+        updated_at: new Date().toISOString(),
+        ...(touchesMadeToOrder ? { is_unlimited: isMadeToOrder, max_orders_per_day: maxOrdersPerDay } : {}),
+        ...(productReorderLevel !== null ? { reorder_level: productReorderLevel } : {})
+      };
+      const { error: passiveVariantError } = await supabaseAdmin
+        .from('inventory_variants')
+        .update(passiveVariantUpdate)
+        .eq('inventory_id', id)
+        .eq('is_active', true);
+      if (passiveVariantError) {
+        console.error('Passive variant update error:', passiveVariantError);
       }
     }
 

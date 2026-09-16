@@ -93,8 +93,11 @@ export default function ProductCardMobile({ product, primaryColor, secondaryColo
   };
 
   const isUpdating = addToWishlist.isPending || removeFromWishlist.isPending;
-  const isLowStock = product.availableQuantity > 0 && product.availableQuantity <= (product.reorderLevel || 5);
-  const isOutOfStock = product.availableQuantity <= 0;
+  const isMadeToOrder = !!product.isUnlimited;
+  const availableQuantity = product.availableQuantity ?? 0;
+  const reorderLevel = product.reorderLevel ?? 5;
+  const isLowStock = !isMadeToOrder && availableQuantity > 0 && availableQuantity <= reorderLevel;
+  const isOutOfStock = !isMadeToOrder && availableQuantity <= 0;
 
   return (
     <>

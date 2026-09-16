@@ -157,6 +157,12 @@ export default function ProductCard({ product, primaryColor, secondaryColor, onN
     }
   };
 
+  const isMadeToOrder = !!product.isUnlimited;
+  const availableQuantity = product.availableQuantity ?? 0;
+  const reorderLevel = product.reorderLevel ?? 5;
+  const isOutOfStock = !isMadeToOrder && availableQuantity <= 0;
+  const isLowStock = !isMadeToOrder && availableQuantity > 0 && availableQuantity <= reorderLevel;
+
   return (
     <>
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer"
@@ -194,12 +200,12 @@ export default function ProductCard({ product, primaryColor, secondaryColor, onN
           )}
 
           {/* Stock Badge */}
-          {product.availableQuantity <= 0 && (
+          {isOutOfStock && (
             <div className="absolute top-2.5 left-2.5 bg-red-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
               Out of stock
             </div>
           )}
-          {product.availableQuantity > 0 && product.availableQuantity <= product.reorderLevel && (
+          {isLowStock && (
             <div className="absolute top-2.5 left-2.5 bg-gold-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
               Low stock
             </div>
@@ -250,9 +256,9 @@ export default function ProductCard({ product, primaryColor, secondaryColor, onN
             onClick={handleAddToCart}
             className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             style={{ backgroundColor: justAdded ? '#16a34a' : primaryColor }}
-            disabled={product.availableQuantity <= 0 || isAddingToCart}
+            disabled={isOutOfStock || isAddingToCart}
           >
-            {product.availableQuantity <= 0 ? (
+            {isOutOfStock ? (
               'Out of stock'
             ) : isAddingToCart ? (
               <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />

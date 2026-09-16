@@ -59,7 +59,10 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   const { isAuthenticated } = useAuth();
 
   // Simple quantity for non-variant products
-  const maxQuantity = initialProduct.availableQuantity || 0;
+  const isMadeToOrder = !!initialProduct.isUnlimited;
+  const maxQuantity = isMadeToOrder
+    ? (initialProduct.maxOrdersPerDay || initialProduct.availableQuantity || 20)
+    : (initialProduct.availableQuantity || 0);
   // Real definitions (price/maxQuantity), not the plain names the chips
   // used to render -- also normalizes any legacy string-only extras still
   // on older products (price 0, maxQuantity 1). A handful of extras at
@@ -128,8 +131,8 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
 
   const currentImage = productImages[currentImageIndex] || { url: initialProduct.image };
 
-  const isOutOfStock = maxQuantity === 0;
-  const isLowStock = maxQuantity > 0 && maxQuantity <= (initialProduct.reorderLevel || 5);
+  const isOutOfStock = !isMadeToOrder && maxQuantity === 0;
+  const isLowStock = !isMadeToOrder && maxQuantity > 0 && maxQuantity <= (initialProduct.reorderLevel || 5);
   const shouldShowStock = isLowStock || isOutOfStock;
 
   // Update favicon when component mounts - SIMPLIFIED APPROACH
