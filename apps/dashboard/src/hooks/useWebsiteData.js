@@ -87,7 +87,10 @@ export function useWebsiteData() {
       // Update the store cache
       queryClient.setQueryData(['store'], (oldData) => ({
         ...oldData,
-        data: response.data
+        data: {
+          ...(oldData?.data || {}),
+          ...(response?.data || {})
+        }
       }));
     },
     onError: (error) => {
@@ -113,7 +116,10 @@ export function useWebsiteData() {
       // Update the store cache
       queryClient.setQueryData(['store'], (oldData) => ({
         ...oldData,
-        data: response.data
+        data: {
+          ...(oldData?.data || {}),
+          ...(response?.data || {})
+        }
       }));
     },
     onError: (error) => {

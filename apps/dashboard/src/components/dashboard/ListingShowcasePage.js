@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
@@ -36,7 +36,6 @@ import {
 
 export default function ListingShowcasePage({ store, onBrandingUpdated }) {
   const { secureApiCall } = useAuth();
-  const queryClient = useQueryClient();
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { toggleWebsite, isTogglingWebsite } = useWebsiteData();
@@ -71,7 +70,6 @@ export default function ListingShowcasePage({ store, onBrandingUpdated }) {
     if (!isLive) return;
     try {
       await toggleWebsite(isVisible ? 'inactive' : 'active');
-      queryClient.invalidateQueries({ queryKey: ['store'] });
     } catch (error) {
       console.error('Failed to toggle visibility:', error);
     }
