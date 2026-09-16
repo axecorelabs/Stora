@@ -38,8 +38,7 @@ const STORE_TABS = [
   { id: 'preferences', label: 'Preferences', icon: SettingsIcon }
 ];
 
-// Listing-mode businesses only need general info and location --
-// delivery and preferences are commerce-specific.
+// Listing-mode businesses use profile-focused tabs.
 const LISTING_TABS = STORE_TABS.filter(t => t.id === 'general' || t.id === 'location');
 
 export default function StorePage() {

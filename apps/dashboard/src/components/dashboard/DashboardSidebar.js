@@ -76,6 +76,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
         { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/overview' },
         { name: 'Showcase', icon: Layers, path: '/dashboard/website' },
         { name: 'Gallery', icon: Images, path: '/dashboard/gallery' },
+        { name: 'Services', icon: Wrench, path: '/dashboard/services' },
         { name: 'Business Info', icon: Store, path: '/dashboard/store' },
         { name: 'Subscription', icon: BadgeCheck, path: '/dashboard/subscription' },
         { name: 'Settings', icon: Settings, path: '/dashboard/settings' },

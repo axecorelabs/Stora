@@ -1,7 +1,8 @@
 "use client";
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, ShoppingBag, Package, Wallet, MoreHorizontal } from "lucide-react";
+import { Images, Layers, LayoutDashboard, MoreHorizontal, Package, ShoppingBag, Wallet, Wrench } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 // The 4 destinations a vendor actually reaches for on a phone, plus a
 // catch-all -- everything else (Store, POS, Website, Sales, Deliveries,
@@ -10,16 +11,32 @@ import { LayoutDashboard, ShoppingBag, Package, Wallet, MoreHorizontal } from "l
 // below lg (see DashboardHeader.js) rather than running two different
 // nav entry points side by side -- a native app picks one pattern, not
 // both.
-const TABS = [
+const COMMERCE_TABS = [
   { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard/overview" },
   { name: "Orders", icon: ShoppingBag, path: "/dashboard/orders" },
   { name: "Catalogue", icon: Package, path: "/dashboard/inventory" },
   { name: "Payments", icon: Wallet, path: "/dashboard/payments" },
 ];
 
+const LISTING_TABS = [
+  { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard/overview" },
+  { name: "Gallery", icon: Images, path: "/dashboard/gallery" },
+  { name: "Services", icon: Wrench, path: "/dashboard/services" },
+  { name: "Showcase", icon: Layers, path: "/dashboard/website" },
+];
+
 export default function MobileBottomNav({ onOpenMore }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { secureApiCall } = useAuth();
+
+  const { data: storeResponse } = useQuery({
+    queryKey: ["store"],
+    queryFn: () => secureApiCall('/api/stores').catch(() => null),
+    staleTime: 5 * 60 * 1000,
+  });
+  const isListingMode = storeResponse?.data?.platformMode === "listing";
+  const tabs = isListingMode ? LISTING_TABS : COMMERCE_TABS;
 
   // Same queryKey as DashboardSidebar.js's own badge -- TanStack Query
   // dedupes/caches by key, so this doesn't add a second network call, and
@@ -46,7 +63,7 @@ export default function MobileBottomNav({ onOpenMore }) {
       aria-label="Primary"
     >
       <div className="flex items-stretch">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = isActive(tab.path);
           const showBadge = tab.name === "Orders" && pendingOrdersCount > 0;

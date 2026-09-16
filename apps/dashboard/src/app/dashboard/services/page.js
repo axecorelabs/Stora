@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import AddServiceModal from "@/components/dashboard/AddServiceModal";
+import StoreServicesTab from "@/components/dashboard/store/StoreServicesTab";
 import Button from "@/components/ui/Button";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import {
@@ -18,6 +19,62 @@ import {
   Tag,
   X
 } from "lucide-react";
+
+function normalizeListingPriceList(raw) {
+  if (!raw) return [];
+  const source = Array.isArray(raw) ? raw : Array.isArray(raw.items) ? raw.items : [];
+
+  return source
+    .map((item) => {
+      if (!item) return null;
+
+      if (typeof item === "string") {
+        const title = item.trim();
+        return title ? { title, price: "", from: false, note: "" } : null;
+      }
+
+      const title = (item.title || item.name || item.label || "").trim();
+      if (!title) return null;
+
+      const rawPrice = item.price ?? item.amount ?? item.value ?? item.minPrice;
+      const price = rawPrice === null || rawPrice === undefined || rawPrice === ""
+        ? ""
+        : String(rawPrice).replace(/[^\d.-]/g, "");
+
+      return {
+        title,
+        price,
+        from: Boolean(item.from || item.isFrom || item.minPrice),
+        note: (item.note || "").trim()
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function sanitizeListingPriceList(list) {
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .map((item) => {
+      const title = (item?.title || "").trim();
+      if (!title) return null;
+
+      const rawPrice = item?.price;
+      const numericPrice = rawPrice === null || rawPrice === undefined || rawPrice === ""
+        ? null
+        : Number(String(rawPrice).replace(/[^\d.-]/g, ""));
+
+      return {
+        title,
+        price: Number.isFinite(numericPrice) ? numericPrice : null,
+        from: Boolean(item?.from),
+        note: (item?.note || "").trim() || null
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 20);
+}
 
 const WEEK_DAYS = [
   { day: 'monday', label: 'M' },
@@ -71,7 +128,9 @@ export default function ServicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [service, setService] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingServices, setLoadingServices] = useState(true);
+  const [storeProfile, setStoreProfile] = useState(null);
+  const [loadingStore, setLoadingStore] = useState(true);
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
   // The specific item being edited, or null when the modal is adding a new
   // one -- previously this passed the whole { services: [...] } document as
@@ -80,6 +139,10 @@ export default function ServicesPage() {
   const [editingItem, setEditingItem] = useState(null);
   const [deletingItemId, setDeletingItemId] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [isEditingPriceList, setIsEditingPriceList] = useState(false);
+  const [priceListDraft, setPriceListDraft] = useState([]);
+  const [priceListError, setPriceListError] = useState('');
+  const [isSavingPriceList, setIsSavingPriceList] = useState(false);
 
   const getCurrentDate = () => {
     const today = new Date();
@@ -108,14 +171,78 @@ export default function ServicesPage() {
     } catch (error) {
       console.error('Error fetching services:', error);
     } finally {
-      setLoading(false);
+      setLoadingServices(false);
+    }
+  };
+
+  const fetchStoreProfile = async () => {
+    try {
+      const response = await secureApiCall('/api/stores');
+      if (response.success && response.hasStore) {
+        setStoreProfile(response.data);
+        setPriceListDraft(normalizeListingPriceList(response.data?.onlineStoreInfo?.priceList));
+      }
+    } catch (error) {
+      console.error('Error fetching store profile:', error);
+    } finally {
+      setLoadingStore(false);
     }
   };
 
   useEffect(() => {
     fetchServices();
+    fetchStoreProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSetPriceList = (next) => {
+    setPriceListDraft(next);
+    if (priceListError) setPriceListError('');
+  };
+
+  const saveListingPriceList = async () => {
+    const hasInvalidPartial = priceListDraft.some((item) => {
+      const title = (item?.title || '').trim();
+      const price = `${item?.price ?? ''}`.trim();
+      const note = (item?.note || '').trim();
+      return !title && (price || note);
+    });
+
+    if (hasInvalidPartial) {
+      setPriceListError('Each service row with a price or note must include a service name.');
+      return;
+    }
+
+    const sanitized = sanitizeListingPriceList(priceListDraft);
+    const nextUpdatedAt = sanitized.length > 0 ? new Date().toISOString() : null;
+
+    setIsSavingPriceList(true);
+    try {
+      const response = await secureApiCall('/api/stores', {
+        method: 'PUT',
+        body: JSON.stringify({
+          onlineStoreInfo: {
+            ...(storeProfile?.onlineStoreInfo || {}),
+            priceList: sanitized,
+            priceListUpdatedAt: nextUpdatedAt
+          }
+        })
+      });
+
+      if (response.success) {
+        setStoreProfile(response.data);
+        setPriceListDraft(normalizeListingPriceList(response.data?.onlineStoreInfo?.priceList));
+        setIsEditingPriceList(false);
+        setPriceListError('');
+      } else {
+        setPriceListError(response.message || 'Failed to save price list.');
+      }
+    } catch (error) {
+      setPriceListError(error.message || 'Failed to save price list.');
+    } finally {
+      setIsSavingPriceList(false);
+    }
+  };
 
   const handleDelete = async (itemId) => {
     if (!window.confirm('Delete this service? This cannot be undone.')) return;
@@ -183,7 +310,7 @@ export default function ServicesPage() {
     setCategoryFilter('');
   };
 
-  if (loading) {
+  if (loadingServices || loadingStore) {
     return (
       <DashboardLayout title="Services Management" subtitle={getCurrentDate()}>
         <div className="flex items-center justify-center min-h-[400px]">
@@ -191,6 +318,60 @@ export default function ServicesPage() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-800 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading services...</p>
           </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const isListingMode = storeProfile?.platformMode === 'listing';
+
+  if (isListingMode) {
+    return (
+      <DashboardLayout title="Services and Price List" subtitle="Manage what appears on your showcase">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-gray-900">Public Services</h2>
+              <p className="text-sm text-gray-500 mt-0.5">This content appears directly on your public listing showcase.</p>
+            </div>
+
+            {!isEditingPriceList ? (
+              <Button variant="primary" onClick={() => setIsEditingPriceList(true)}>
+                <Edit className="w-4 h-4" />
+                <span>Edit services</span>
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setPriceListDraft(normalizeListingPriceList(storeProfile?.onlineStoreInfo?.priceList));
+                    setPriceListError('');
+                    setIsEditingPriceList(false);
+                  }}
+                  disabled={isSavingPriceList}
+                >
+                  Cancel
+                </Button>
+                <Button variant="primary" onClick={saveListingPriceList} disabled={isSavingPriceList}>
+                  {isSavingPriceList ? 'Saving...' : 'Save changes'}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <StoreServicesTab
+            store={storeProfile}
+            isEditing={isEditingPriceList}
+            editData={{
+              onlineStoreInfo: {
+                priceList: priceListDraft,
+                priceListUpdatedAt: storeProfile?.onlineStoreInfo?.priceListUpdatedAt || null
+              }
+            }}
+            setPriceList={handleSetPriceList}
+            errors={priceListError ? { 'onlineStoreInfo.priceList': priceListError } : {}}
+          />
         </div>
       </DashboardLayout>
     );

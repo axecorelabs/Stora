@@ -24,7 +24,7 @@ const TABS = [
   { id: 'preferences', label: 'Preferences', icon: SettingsIcon, errorKeys: [] }
 ];
 
-// Listing-mode businesses only need general info and location.
+// Listing-mode businesses only need general info and location here.
 const LISTING_TABS = TABS.filter(t => t.id === 'general' || t.id === 'location');
 
 function buildEditData(store) {

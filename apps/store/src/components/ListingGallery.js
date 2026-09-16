@@ -59,23 +59,27 @@ export default function ListingGallery({ items }) {
 
       <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:gap-4">
         {items.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setActiveIndex(index)}
-            className="group relative aspect-[1.62] overflow-hidden rounded-[4px] bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 sm:rounded-md"
-            aria-label={`Open gallery image ${index + 1}`}
-          >
-            <Image
-              src={item.image_url}
-              alt={item.caption || `Gallery image ${index + 1}`}
-              fill
-              sizes="(min-width: 1024px) 33vw, 50vw"
-              className="object-cover transition duration-300 group-hover:scale-[1.03]"
-              loading="lazy"
-              unoptimized
-            />
-          </button>
+          <div key={item.id} className="space-y-1">
+            <button
+              type="button"
+              onClick={() => setActiveIndex(index)}
+              className="group relative aspect-[1.62] w-full overflow-hidden rounded-[4px] bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 sm:rounded-md"
+              aria-label={`Open gallery image ${index + 1}`}
+            >
+              <Image
+                src={item.image_url}
+                alt={item.caption || `Gallery image ${index + 1}`}
+                fill
+                sizes="(min-width: 1024px) 33vw, 50vw"
+                className="object-cover transition duration-300 group-hover:scale-[1.03]"
+                loading="lazy"
+                unoptimized
+              />
+            </button>
+            {item.caption && (
+              <p className="line-clamp-1 text-[11px] text-gray-500 sm:text-xs">{item.caption}</p>
+            )}
+          </div>
         ))}
       </div>
 
