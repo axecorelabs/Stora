@@ -9,7 +9,7 @@ function ShowcaseLogo({ branding, storeName }) {
         src={branding.logo}
         alt={storeName}
         fill
-        sizes="(min-width: 640px) 8rem, 6rem"
+        sizes="(min-width: 640px) 8rem, 65px"
         className="object-cover"
         unoptimized
       />
@@ -17,7 +17,7 @@ function ShowcaseLogo({ branding, storeName }) {
   }
 
   return (
-    <div className="grid h-full w-full place-items-center bg-white text-3xl font-black text-brand-900 sm:text-4xl">
+    <div className="grid h-full w-full place-items-center bg-white text-2xl font-black text-brand-900 sm:text-4xl">
       {storeName?.charAt(0)?.toUpperCase() || 'S'}
     </div>
   );
@@ -35,18 +35,18 @@ function ContactButtons({ store }) {
       {phone && (
         <a
           href={`tel:${phone}`}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand-800 px-5 text-base font-bold text-white shadow-sm transition-colors hover:bg-brand-900 sm:min-w-36"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-brand-800 px-5 text-[13px] font-bold text-white shadow-sm transition-colors hover:bg-brand-900 sm:h-12 sm:min-w-36 sm:text-base"
         >
-          <Phone className="h-5 w-5 fill-white stroke-white" />
+          <Phone className="h-4 w-4 fill-white stroke-white sm:h-5 sm:w-5" />
           Call
         </a>
       )}
       {email && (
         <a
           href={`mailto:${email}`}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#eef2ef] px-5 text-base font-bold text-brand-800 transition-colors hover:bg-brand-50 sm:min-w-36"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#eef2ef] px-5 text-[13px] font-bold text-brand-800 transition-colors hover:bg-brand-50 sm:h-12 sm:min-w-36 sm:text-base"
         >
-          <Mail className="h-5 w-5 stroke-[2.4]" />
+          <Mail className="h-4 w-4 stroke-[2.4] sm:h-5 sm:w-5" />
           Email
         </a>
       )}
@@ -66,11 +66,11 @@ function TopMenu({ store, addressText }) {
     <details className="group relative">
       <summary
         aria-label="Open listing menu"
-        className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full bg-white/90 text-black shadow-sm backdrop-blur transition hover:bg-white [&::-webkit-details-marker]:hidden"
+        className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full bg-white/90 text-black shadow-sm backdrop-blur transition hover:bg-white sm:h-12 sm:w-12 [&::-webkit-details-marker]:hidden"
       >
-        <MoreHorizontal className="h-6 w-6 stroke-[3]" />
+        <MoreHorizontal className="h-4 w-4 stroke-[3] sm:h-6 sm:w-6" />
       </summary>
-      <div className="absolute right-0 top-14 z-20 w-48 overflow-hidden rounded-2xl bg-white py-2 text-sm font-semibold text-gray-800 shadow-xl ring-1 ring-black/5">
+      <div className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-2xl bg-white py-2 text-sm font-semibold text-gray-800 shadow-xl ring-1 ring-black/5 sm:top-14">
         {phone && (
           <a href={`tel:${phone}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
             <Phone className="h-4 w-4 text-brand-800" />
@@ -140,21 +140,21 @@ function GalleryGrid({ items }) {
   if (!items?.length) return null;
 
   return (
-    <section id="gallery" className="pt-8 sm:pt-10">
+    <section id="gallery" className="pt-6 sm:pt-10">
       <div className="mb-5 flex items-center justify-between gap-4 sm:mb-6">
-        <h2 className="text-2xl font-bold leading-none tracking-normal text-black sm:text-3xl">Gallery</h2>
+        <h2 className="text-[18px] font-bold leading-none tracking-normal text-black sm:text-3xl">Gallery</h2>
         <div className="flex items-center gap-3 text-gray-500">
-          <span className="text-sm leading-none sm:text-base">{items.length} photos</span>
-          <Grid2X2 className="h-6 w-6 stroke-brand-900 stroke-[2.7]" />
+          <span className="text-[11px] leading-none sm:text-base">{items.length} photos</span>
+          <Grid2X2 className="h-4 w-4 stroke-brand-900 stroke-[2.7] sm:h-6 sm:w-6" />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:gap-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:gap-4">
         {items.map((item, index) => (
           <a
             key={item.id}
             href={`#gallery-${item.id}`}
-            className="group relative aspect-[1.62] overflow-hidden rounded-xl bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:ring-offset-2"
+            className="group relative aspect-[1.62] overflow-hidden rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 sm:rounded-xl"
             aria-label={`Open gallery image ${index + 1}`}
           >
             <Image
@@ -189,7 +189,7 @@ export default async function ListingShowcase({ store }) {
 
   return (
     <main className="min-h-screen bg-white text-black">
-      <section className="relative h-[38vh] min-h-56 max-h-[420px] overflow-hidden bg-gray-200 sm:h-[44vh]">
+      <section className="relative h-[135px] overflow-hidden bg-gray-200 sm:h-[320px] lg:h-[420px]">
         {heroImage && (
           <Image
             src={heroImage}
@@ -201,53 +201,53 @@ export default async function ListingShowcase({ store }) {
             unoptimized
           />
         )}
-        <div className="absolute inset-x-0 top-5 mx-auto flex w-full max-w-6xl items-center justify-between px-5 sm:top-8 sm:px-8">
+        <div className="absolute inset-x-0 top-4 mx-auto flex w-full max-w-6xl items-center justify-between px-5 sm:top-8 sm:px-8">
           <a
             href="https://stora.com.ng/"
             aria-label="Back to Stora home"
-            className="grid h-11 w-11 place-items-center rounded-full bg-white/90 text-black shadow-sm backdrop-blur transition hover:bg-white sm:h-12 sm:w-12"
+            className="grid h-8 w-8 place-items-center rounded-full bg-white/90 text-black shadow-sm backdrop-blur transition hover:bg-white sm:h-12 sm:w-12"
           >
-            <ChevronLeft className="h-6 w-6 stroke-[3]" />
+            <ChevronLeft className="h-4 w-4 stroke-[3] sm:h-6 sm:w-6" />
           </a>
           <TopMenu store={store} addressText={fullAddress} />
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-6xl px-5 pb-14 sm:px-8 lg:px-10">
+      <div className="mx-auto w-full max-w-6xl px-6 pb-14 sm:px-8 lg:px-10">
         <section className="relative">
-          <div className="-mt-11 flex items-end gap-4 sm:-mt-14 sm:gap-6">
-            <div className="relative grid h-24 w-24 shrink-0 overflow-hidden rounded-3xl bg-white shadow-[0_12px_30px_rgba(15,42,32,0.16)] sm:h-32 sm:w-32">
+          <div className="-mt-4 flex items-start gap-4 sm:-mt-14 sm:items-end sm:gap-6">
+            <div className="relative grid h-[65px] w-[65px] shrink-0 overflow-hidden rounded-xl bg-white shadow-[0_9px_25px_rgba(15,42,32,0.14)] sm:h-32 sm:w-32 sm:rounded-3xl sm:shadow-[0_12px_30px_rgba(15,42,32,0.16)]">
               <ShowcaseLogo branding={branding} storeName={store.storeName} />
             </div>
-            <div className="min-w-0 pb-2 sm:pb-4">
-              <h1 className="truncate text-3xl font-black leading-tight tracking-normal text-black sm:text-5xl">
+            <div className="min-w-0 pt-6 sm:pb-4 sm:pt-0">
+              <h1 className="truncate text-[19px] font-black leading-[1.05] tracking-normal text-black sm:text-5xl sm:leading-tight">
                 {store.storeName}
               </h1>
               {stateLabel && (
-                <p className="mt-1 text-base font-medium leading-none text-gray-500 sm:text-xl">{stateLabel}</p>
+                <p className="mt-1 text-[12px] font-medium leading-none text-gray-500 sm:text-xl">{stateLabel}</p>
               )}
             </div>
           </div>
 
           {store.storeDescription && (
-            <p className="mt-6 max-w-3xl text-lg font-medium leading-relaxed text-gray-500 sm:text-xl">
+            <p className="mt-4 max-w-3xl text-[13px] font-medium leading-[1.35] text-gray-500 sm:mt-6 sm:text-xl sm:leading-relaxed">
               {store.storeDescription}
             </p>
           )}
 
-          <div className="mt-6">
+          <div className="mt-5 sm:mt-6">
             <ContactButtons store={store} />
           </div>
 
           {fullAddress && (
-            <div className="mt-7 flex items-center gap-3 text-gray-500">
-              <MapPin className="h-5 w-5 shrink-0 stroke-brand-900 stroke-[2.6]" />
-              <p className="min-w-0 text-base font-medium leading-snug sm:text-lg">{fullAddress}</p>
+            <div className="mt-5 flex items-center gap-3 text-gray-500 sm:mt-7">
+              <MapPin className="h-4 w-4 shrink-0 stroke-brand-900 stroke-[2.6] sm:h-5 sm:w-5" />
+              <p className="min-w-0 text-[13px] font-medium leading-snug sm:text-lg">{fullAddress}</p>
             </div>
           )}
         </section>
 
-        <div className="mt-8 border-t border-gray-100 sm:mt-10" />
+        <div className="mt-7 border-t border-gray-100 sm:mt-10" />
 
         <GalleryGrid items={gallery} />
       </div>
