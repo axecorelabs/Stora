@@ -12,6 +12,7 @@ import {
 } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
 import { cached, cacheKey } from "@/lib/redis";
+import { NIGERIAN_STATES } from "@stora/shared-constants";
 
 const PAGE_SIZE = 24;
 // The *other* result type (vendors on /products, products on /vendors) is
@@ -36,6 +37,34 @@ const BUSINESS_INTENT_TERMS = new Set([
 const STOP_WORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "from", "i", "i'm", "im", "in", "into", "is", "it",
   "looking", "look", "me", "my", "need", "of", "on", "or", "please", "shop", "some", "that", "the", "to", "want", "with", "you"
+]);
+const STATE_VALUES = NIGERIAN_STATES.map((s) => s.value);
+const STATE_VALUES_LOWER = new Map(STATE_VALUES.map((state) => [state.toLowerCase(), state]));
+const CITY_TO_STATE = new Map([
+  ["osogbo", "Osun"],
+  ["ilesa", "Osun"],
+  ["ife", "Osun"],
+  ["ilorin", "Kwara"],
+  ["ibadan", "Oyo"],
+  ["abeokuta", "Ogun"],
+  ["ikeja", "Lagos"],
+  ["lekki", "Lagos"],
+  ["surulere", "Lagos"],
+  ["victoria island", "Lagos"],
+  ["ajah", "Lagos"],
+  ["abuja", "FCT"],
+  ["port harcourt", "Rivers"],
+  ["benin", "Edo"],
+  ["enugu", "Enugu"],
+  ["onitsha", "Anambra"],
+  ["awka", "Anambra"],
+  ["kano", "Kano"],
+  ["kaduna", "Kaduna"],
+  ["jos", "Plateau"],
+  ["asaba", "Delta"],
+  ["warri", "Delta"],
+  ["uyo", "Akwa Ibom"],
+  ["calabar", "Cross River"]
 ]);
 
 function normalizeToken(raw) {
@@ -63,13 +92,29 @@ function inferVendorIntentFromText(query) {
   return terms.some((term) => BUSINESS_INTENT_TERMS.has(term));
 }
 
+function inferStateFromQuery(text) {
+  const haystack = (text || "").toLowerCase();
+  if (!haystack) return null;
+
+  for (const [lowerState, originalState] of STATE_VALUES_LOWER.entries()) {
+    if (haystack.includes(lowerState)) return originalState;
+  }
+  if (haystack.includes("federal capital territory")) return "FCT";
+
+  for (const [city, state] of CITY_TO_STATE.entries()) {
+    if (haystack.includes(city)) return state;
+  }
+
+  return null;
+}
+
 function shouldRouteToVendors(intent, rawQuery) {
   if (intent?.target === "vendors") return true;
   if (intent?.scope === "services") return true;
   return inferVendorIntentFromText(rawQuery);
 }
 
-async function loadServiceKeywordsByStoreId(storeIds) {
+async function loadServiceSignalsByStoreId(storeIds) {
   if (!supabaseAdmin || storeIds.length === 0) return new Map();
 
   const { data: serviceRows, error: serviceError } = await supabaseAdmin
@@ -85,25 +130,61 @@ async function loadServiceKeywordsByStoreId(storeIds) {
 
   const { data: itemRows, error: itemError } = await supabaseAdmin
     .from("service_items")
-    .select("service_id, title, description, category")
+    .select("id, service_id, name, description, category, sub_category")
     .in("service_id", serviceIds)
     .eq("is_active", true);
 
   if (itemError || !itemRows?.length) return new Map();
 
+  const itemIds = itemRows.map((row) => row.id).filter(Boolean);
+  const { data: locationRows } = itemIds.length === 0
+    ? { data: [] }
+    : await supabaseAdmin
+        .from("service_locations")
+        .select("service_item_id, state, cities, cover_all_nigeria")
+        .in("service_item_id", itemIds);
+
   const storeByServiceId = new Map(serviceRows.map((row) => [row.id, row.store_id]));
-  const keywordsByStoreId = new Map();
+  const signalsByStoreId = new Map();
+  const storeByItemId = new Map();
+
+  const ensureSignals = (storeId) => {
+    if (!signalsByStoreId.has(storeId)) {
+      signalsByStoreId.set(storeId, {
+        text: "",
+        states: new Set(),
+        cities: new Set(),
+        coverAllNigeria: false
+      });
+    }
+    return signalsByStoreId.get(storeId);
+  };
 
   for (const item of itemRows) {
     const storeId = storeByServiceId.get(item.service_id);
     if (!storeId) continue;
-    const phrase = `${item.title || ""} ${item.description || ""} ${item.category || ""}`.trim();
+    storeByItemId.set(item.id, storeId);
+    const phrase = `${item.name || ""} ${item.description || ""} ${item.category || ""} ${item.sub_category || ""}`.trim();
     if (!phrase) continue;
-    const existing = keywordsByStoreId.get(storeId) || "";
-    keywordsByStoreId.set(storeId, `${existing} ${phrase}`.trim());
+    const signals = ensureSignals(storeId);
+    signals.text = `${signals.text} ${phrase}`.trim();
   }
 
-  return keywordsByStoreId;
+  for (const row of locationRows || []) {
+    const storeId = storeByItemId.get(row.service_item_id);
+    if (!storeId) continue;
+    const signals = ensureSignals(storeId);
+    if (row.cover_all_nigeria) signals.coverAllNigeria = true;
+    if (row.state) signals.states.add(String(row.state).toLowerCase());
+    if (Array.isArray(row.cities)) {
+      for (const city of row.cities) {
+        const normalized = String(city || "").trim().toLowerCase();
+        if (normalized) signals.cities.add(normalized);
+      }
+    }
+  }
+
+  return signalsByStoreId;
 }
 
 async function filterVendorsByRelevance(vendors, rawQuery, intent) {
@@ -113,21 +194,38 @@ async function filterVendorsByRelevance(vendors, rawQuery, intent) {
   if (candidateTerms.length === 0) return vendors;
 
   const vendorsById = new Map(vendors.map((vendor) => [vendor.id, vendor]));
-  const serviceTextByStoreId = await loadServiceKeywordsByStoreId([...vendorsById.keys()]);
+  const serviceSignalsByStoreId = await loadServiceSignalsByStoreId([...vendorsById.keys()]);
+  const inferredState = inferStateFromQuery(`${rawQuery || ""} ${intent?.cleanedQuery || ""}`);
 
   const scored = vendors.map((vendor) => {
     const ownText = `${vendor.storeName || ""} ${vendor.storeDescription || ""} ${vendor.state || ""}`.toLowerCase();
-    const serviceText = (serviceTextByStoreId.get(vendor.id) || "").toLowerCase();
+    const serviceSignals = serviceSignalsByStoreId.get(vendor.id) || {
+      text: "",
+      states: new Set(),
+      cities: new Set(),
+      coverAllNigeria: false
+    };
+    const serviceText = (serviceSignals.text || "").toLowerCase();
     const text = `${ownText} ${serviceText}`.trim();
 
     let score = 0;
     for (const term of candidateTerms) {
       if (text.includes(term)) score += 1;
       if (serviceText.includes(term)) score += 1;
+      if (serviceSignals.states.has(term)) score += 2;
+      if (serviceSignals.cities.has(term)) score += 2;
     }
 
     if ((intent?.cleanedQuery || "").trim() && text.includes(intent.cleanedQuery.toLowerCase())) {
       score += 2;
+    }
+
+    if (inferredState) {
+      const vendorState = String(vendor.state || "").toLowerCase();
+      const inferredStateLower = inferredState.toLowerCase();
+      if (vendorState === inferredStateLower) score += 3;
+      if (serviceSignals.states.has(inferredStateLower)) score += 3;
+      if (serviceSignals.coverAllNigeria) score += 1;
     }
 
     return { vendor, score };
@@ -211,6 +309,7 @@ export async function GET(request) {
     }
 
     const query = rawQuery.slice(0, MAX_QUERY_LENGTH);
+    const inferredStateFromQuery = inferStateFromQuery(query) || undefined;
 
     const understanding = await cached(
       cacheKey.aiSearch(query),
@@ -227,6 +326,8 @@ export async function GET(request) {
       if (shouldRouteToVendors(intent, query)) {
         resolvedPrimary = "vendors";
       }
+      const inferredStateFromIntent = inferStateFromQuery(intent.cleanedQuery || "") || undefined;
+      const effectiveState = state || inferredStateFromIntent || inferredStateFromQuery;
       const categories = intent.category ? [intent.category] : undefined;
       const vendorScope = intent.scope === "services" || intent.scope === "products"
         ? intent.scope
@@ -244,7 +345,7 @@ export async function GET(request) {
               storeId,
               minPrice: intent.priceMin ?? undefined,
               maxPrice: intent.priceMax ?? undefined,
-              state,
+              state: effectiveState,
               buyerState,
               deliverableOnly,
               limit: productLimit,
@@ -253,7 +354,7 @@ export async function GET(request) {
             searchBiteraveVendorsByEmbedding({
               mealOnly,
               embedding,
-              state,
+              state: effectiveState,
               buyerState,
               deliverableOnly,
               limit: vendorLimit,
@@ -266,7 +367,7 @@ export async function GET(request) {
               categories,
               minPrice: intent.priceMin ?? undefined,
               maxPrice: intent.priceMax ?? undefined,
-              state,
+              state: effectiveState,
               buyerState,
               deliverableOnly,
               limit: productLimit,
@@ -275,7 +376,7 @@ export async function GET(request) {
             searchVendorsByEmbedding({
               embedding,
               categories,
-              state,
+              state: effectiveState,
               buyerState,
               deliverableOnly,
               scope: vendorScope,
@@ -298,13 +399,14 @@ export async function GET(request) {
       // already use, rather than surfacing an error for something the
       // customer has no way to fix.
       mode = "keyword-fallback";
+      const fallbackState = state || inferredStateFromQuery;
       const [productResult, vendorResult] = isBiterave
         ? await Promise.all([
             searchBiteraveProducts({
               mealOnly,
               search: query,
               storeId,
-              state,
+              state: fallbackState,
               buyerState,
               deliverableOnly,
               limit: requestedPrimary === "products" ? PAGE_SIZE : SECONDARY_LIMIT,
@@ -313,7 +415,7 @@ export async function GET(request) {
             searchBiteraveVendors({
               mealOnly,
               search: query,
-              state,
+              state: fallbackState,
               buyerState,
               deliverableOnly,
               limit: requestedPrimary === "vendors" ? PAGE_SIZE : SECONDARY_LIMIT,
@@ -323,7 +425,7 @@ export async function GET(request) {
         : await Promise.all([
             searchProductsPaginated({
               search: query,
-              state,
+              state: fallbackState,
               buyerState,
               deliverableOnly,
               limit: requestedPrimary === "products" ? PAGE_SIZE : SECONDARY_LIMIT,
@@ -331,7 +433,7 @@ export async function GET(request) {
             }),
             searchVendorsPaginated({
               search: query,
-              state,
+              state: fallbackState,
               buyerState,
               deliverableOnly,
               scope,
