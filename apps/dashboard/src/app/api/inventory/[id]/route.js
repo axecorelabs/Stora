@@ -117,12 +117,6 @@ function toNonNegativeNumber(value) {
   return parsed;
 }
 
-function assertNoWriteError(error, context) {
-  if (!error) return;
-  console.error(`${context}:`, error);
-  throw new Error(context);
-}
-
 // GET - Fetch specific inventory item
 export async function GET(req, { params }) {
   try {
@@ -198,6 +192,18 @@ export async function PUT(request, { params }) {
     if (updateData.description !== undefined) {
       dbUpdate.description = updateData.description;
     }
+    if (updateData.brand !== undefined) {
+      dbUpdate.brand = updateData.brand;
+    }
+    if (updateData.unitOfMeasure !== undefined) {
+      dbUpdate.unit_of_measure = updateData.unitOfMeasure;
+    }
+    if (updateData.supplier !== undefined) {
+      dbUpdate.supplier = updateData.supplier;
+    }
+    if (updateData.location !== undefined) {
+      dbUpdate.location = updateData.location;
+    }
     if (updateData.category) {
       dbUpdate.category = updateData.category;
     }
@@ -264,134 +270,58 @@ export async function PUT(request, { params }) {
       dbUpdate.is_active = updateData.isActive;
     }
 
-    const { data: item, error } = await supabaseAdmin
-      .from('inventory')
-      .update(dbUpdate)
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .select()
-      .single();
+    // Atomic write path: inventory row + related variants in one DB
+    // transaction via RPC, so this endpoint cannot persist partial success.
+    const applyPriceUpdate =
+      updateData.sellingPrice !== undefined ||
+      updateData.basePrice !== undefined ||
+      updateData.costPrice !== undefined ||
+      updateData.cost !== undefined;
+    const nextPrice = applyPriceUpdate ? (updateData.sellingPrice ?? updateData.basePrice ?? null) : null;
+    const nextCostPrice = applyPriceUpdate ? (updateData.costPrice ?? updateData.cost ?? null) : null;
+    const productReorderLevel = toNonNegativeNumber(updateData.minimumStock ?? updateData.reorderLevel);
+    const variantsPayload = Array.isArray(updateData.variants) && updateData.variants.length > 0
+      ? updateData.variants
+      : null;
+    const applyPassiveUpdate = !variantsPayload && (touchesMadeToOrder || productReorderLevel !== null);
 
-    if (error) {
-      console.error('Inventory update error:', error);
-      if (error.code === 'PGRST116') {
-        return NextResponse.json(
-          { success: false, message: 'Item not found' },
-          { status: 404 }
-        );
-      }
+    const { error: writeError } = await supabaseAdmin.rpc('fn_update_inventory_item_atomic', {
+      p_inventory_id: id,
+      p_user_id: user.id,
+      p_inventory_patch: dbUpdate,
+      p_apply_price_update: applyPriceUpdate,
+      p_price: nextPrice,
+      p_cost_price: nextCostPrice,
+      p_variants: variantsPayload,
+      p_apply_passive_update: applyPassiveUpdate,
+      p_passive_reorder_level: productReorderLevel,
+      p_touches_made_to_order: touchesMadeToOrder,
+      p_is_made_to_order: isMadeToOrder,
+      p_max_orders_per_day: maxOrdersPerDay
+    });
+
+    if (writeError) {
+      console.error('Inventory atomic update error:', writeError);
+      const notFound = (writeError.message || '').toLowerCase().includes('not found');
       return NextResponse.json(
-        { success: false, message: 'Failed to update inventory item' },
-        { status: 500 }
+        { success: false, message: notFound ? 'Item not found' : 'Failed to update inventory item' },
+        { status: notFound ? 404 : 500 }
       );
     }
 
-    // No per-variant pricing UI exists yet -- a price/cost edit here
-    // applies to every variant of this product uniformly, matching the
-    // single-price form the vendor actually filled in.
-    if (updateData.sellingPrice !== undefined || updateData.basePrice !== undefined || updateData.costPrice !== undefined || updateData.cost !== undefined) {
-      const priceUpdate = { updated_at: new Date().toISOString() };
-      if (updateData.sellingPrice !== undefined || updateData.basePrice !== undefined) {
-        priceUpdate.price = updateData.sellingPrice ?? updateData.basePrice;
-      }
-      if (updateData.costPrice !== undefined || updateData.cost !== undefined) {
-        priceUpdate.cost_price = updateData.costPrice ?? updateData.cost;
-      }
-      const { error: priceError } = await supabaseAdmin
-        .from('inventory_variants')
-        .update(priceUpdate)
-        .eq('inventory_id', id);
-      assertNoWriteError(priceError, 'Variant price update failed');
-    }
+    const { data: item, error: refetchError } = await supabaseAdmin
+      .from('inventory')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
 
-    // Reconcile variant rows (size/color/reorder_level/sku/images) against
-    // the submitted list -- NOT a delete-and-reinsert. inventory_batches
-    // references variants with ON DELETE SET NULL, and an active batch is
-    // required to have a variant_id (see the CHECK constraint added in
-    // 20260817000001_unify_inventory_variants.sql), so hard-deleting a
-    // variant that still has active batches would break that invariant.
-    // Matched by id when the client sent one (existing variant, editable
-    // fields only -- quantity/price are not touched here, those come from
-    // Add Batch/Adjust Stock and the price block above respectively);
-    // unmatched incoming rows are new variants (start at 0 stock, same as
-    // a brand-new product does, until stock is actually added to them);
-    // existing variants missing from the payload are soft-removed
-    // (is_active: false) rather than deleted, preserving their batch
-    // history and FK integrity.
-    const productReorderLevel = toNonNegativeNumber(updateData.minimumStock ?? updateData.reorderLevel);
-
-    if (Array.isArray(updateData.variants) && updateData.variants.length > 0) {
-      const existingVariants = await fetchVariants(id, { activeOnly: false });
-      const incoming = updateData.variants;
-      const incomingIds = new Set(incoming.map(v => v.id || v._id).filter(Boolean));
-
-      for (const v of incoming) {
-        const variantId = v.id || v._id;
-        if (variantId && existingVariants.some(ev => ev.id === variantId)) {
-          const variantReorderLevel = toNonNegativeNumber(v.reorderLevel);
-          const { error: updErr } = await supabaseAdmin
-            .from('inventory_variants')
-            .update({
-              size: v.size || 'One Size',
-              color: v.color || 'Default',
-              sku: v.sku || null,
-              reorder_level: variantReorderLevel ?? productReorderLevel ?? 5,
-              images: v.images || [],
-              is_active: true,
-              updated_at: new Date().toISOString(),
-              // Only when this edit actually carries food details -- an
-              // edit to an unrelated field must not silently flip an
-              // existing item's made-to-order flag back off (see
-              // touchesMadeToOrder above).
-              ...(touchesMadeToOrder ? { is_unlimited: isMadeToOrder, max_orders_per_day: maxOrdersPerDay } : {})
-            })
-            .eq('id', variantId)
-            .eq('inventory_id', id);
-          assertNoWriteError(updErr, 'Variant update failed');
-        } else {
-          const variantReorderLevel = toNonNegativeNumber(v.reorderLevel);
-          const { error: insErr } = await supabaseAdmin
-            .from('inventory_variants')
-            .insert({
-              inventory_id: id,
-              size: v.size || 'One Size',
-              color: v.color || 'Default',
-              sku: v.sku || null,
-              quantity_in_stock: 0,
-              reorder_level: variantReorderLevel ?? productReorderLevel ?? 5,
-              price: updateData.sellingPrice ?? updateData.basePrice ?? existingVariants[0]?.price ?? 0,
-              cost_price: updateData.costPrice ?? updateData.cost ?? existingVariants[0]?.cost_price ?? 0,
-              images: v.images || [],
-              is_active: true,
-              is_unlimited: isMadeToOrder,
-              max_orders_per_day: maxOrdersPerDay
-            });
-          assertNoWriteError(insErr, 'Variant creation failed');
-        }
-      }
-
-      const toDeactivate = existingVariants.filter(ev => ev.is_active && !incomingIds.has(ev.id));
-      if (toDeactivate.length > 0) {
-        const { error: deactErr } = await supabaseAdmin
-          .from('inventory_variants')
-          .update({ is_active: false, updated_at: new Date().toISOString() })
-          .in('id', toDeactivate.map(v => v.id));
-        assertNoWriteError(deactErr, 'Variant deactivation failed');
-      }
-    } else if (touchesMadeToOrder || productReorderLevel !== null) {
-      // Non-variant edit flows may intentionally omit a variants payload.
-      // Keep existing variant rows aligned for shared fields in that case.
-      const passiveVariantUpdate = {
-        updated_at: new Date().toISOString(),
-        ...(touchesMadeToOrder ? { is_unlimited: isMadeToOrder, max_orders_per_day: maxOrdersPerDay } : {}),
-        ...(productReorderLevel !== null ? { reorder_level: productReorderLevel } : {})
-      };
-      const { error: passiveVariantError } = await supabaseAdmin
-        .from('inventory_variants')
-        .update(passiveVariantUpdate)
-        .eq('inventory_id', id)
-        .eq('is_active', true);
-      assertNoWriteError(passiveVariantError, 'Passive variant update failed');
+    if (refetchError || !item) {
+      console.error('Inventory refetch after update error:', refetchError);
+      return NextResponse.json(
+        { success: false, message: 'Item not found' },
+        { status: 404 }
+      );
     }
 
     // Only re-embed when the text an AI-search match is actually judged
