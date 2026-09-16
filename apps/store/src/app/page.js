@@ -149,7 +149,7 @@ export default function Home() {
               <p className="text-sm text-white/60 mb-4">Get a discoverable profile with your services, gallery, and contact options.</p>
               <a
                 href={LISTING_SIGNUP_URL}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gold-400/40 text-gold-300 text-sm font-semibold hover:bg-gold-500/10 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-brand-900 text-sm font-semibold hover:bg-gold-50 transition-colors"
               >
                 Create business listing
                 <ArrowRight className="w-4 h-4" />
@@ -160,7 +160,7 @@ export default function Home() {
           <div className="mt-6">
             <Link
               href="/sell"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-gold-300 hover:text-gold-200 transition-colors"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-white hover:text-gold-200 transition-colors"
             >
               Compare both options
               <ArrowRight className="w-4 h-4" />

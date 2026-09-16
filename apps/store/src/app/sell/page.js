@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import {
   ArrowRight,
@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   ChevronDown,
   CheckCircle2,
-  Info,
 } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
@@ -23,105 +22,6 @@ import SiteFooter from "@/components/home/SiteFooter";
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
 const STORE_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=store`;
 const LISTING_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=listing`;
-
-// Fixed calendar deadline (WAT) -- anchoring the countdown to a real
-// timestamp rather than "N days from first render" means a reload never
-// restarts the clock, it just re-reads how much real time is left.
-const PROMO_END = new Date("2026-09-30T23:59:59+01:00").getTime();
-
-function useCountdown(target) {
-  const [msLeft, setMsLeft] = useState(() => Math.max(0, target - Date.now()));
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setMsLeft(Math.max(0, target - Date.now()));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [target]);
-
-  const totalSeconds = Math.floor(msLeft / 1000);
-  return {
-    expired: msLeft <= 0,
-    days: Math.floor(totalSeconds / 86400),
-    hours: Math.floor((totalSeconds % 86400) / 3600),
-    minutes: Math.floor((totalSeconds % 3600) / 60),
-    seconds: totalSeconds % 60,
-  };
-}
-
-function CountdownUnit({ value, label, dark }) {
-  return (
-    <div className="flex flex-col items-center min-w-[2.5rem]">
-      <span
-        className={`font-display text-2xl sm:text-3xl font-bold tabular-nums ${dark ? "text-white" : "text-brand-900"}`}
-      >
-        {String(value).padStart(2, "0")}
-      </span>
-      <span className={`text-[10px] uppercase tracking-widest ${dark ? "text-white/50" : "text-gray-400"}`}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
-// Renders nothing once the promo has lapsed -- callers decide what (if
-// anything) to show in its place rather than this silently going stale.
-function PromoCountdown({ dark = false }) {
-  const { days, hours, minutes, seconds, expired } = useCountdown(PROMO_END);
-  if (expired) return null;
-
-  const separator = `font-display text-xl font-bold pb-4 ${dark ? "text-white/30" : "text-gray-300"}`;
-
-  return (
-    <div className="flex items-center justify-center gap-2 sm:gap-3">
-      <CountdownUnit value={days} label="Days" dark={dark} />
-      <span className={separator}>:</span>
-      <CountdownUnit value={hours} label="Hrs" dark={dark} />
-      <span className={separator}>:</span>
-      <CountdownUnit value={minutes} label="Min" dark={dark} />
-      <span className={separator}>:</span>
-      <CountdownUnit value={seconds} label="Sec" dark={dark} />
-    </div>
-  );
-}
-
-const PROMO_TERMS =
-  "This offer doesn't mean the platform is free forever -- it means your first month is 100% off if you start using Stora before the timer runs out. From your second month, the regular subscription applies.";
-
-// Click-to-toggle rather than hover, so it's reachable on touch devices --
-// same reasoning as this page's FAQ accordion. Closes on blur (clicking
-// anywhere else moves focus off the button) rather than a document-level
-// click-outside listener, which would be overkill for one small popover.
-function InfoTooltip({ dark = false }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <span className="relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        onBlur={() => setOpen(false)}
-        aria-label="What this offer means"
-        aria-expanded={open}
-        className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
-          dark ? "text-white/50 hover:text-white/80" : "text-gray-400 hover:text-gray-600"
-        }`}
-      >
-        <Info className="w-3.5 h-3.5" />
-      </button>
-      {open && (
-        <span
-          role="tooltip"
-          className={`absolute z-20 top-full mt-2 right-0 w-52 sm:w-60 text-left text-xs leading-relaxed rounded-lg p-3 shadow-lg normal-case font-normal tracking-normal ${
-            dark ? "bg-white text-brand-900" : "bg-brand-900 text-white"
-          }`}
-        >
-          {PROMO_TERMS}
-        </span>
-      )}
-    </span>
-  );
-}
 
 const STEPS = [
   {
@@ -196,7 +96,7 @@ const FAQS = [
   },
   {
     q: "What does it cost to sell on Stora?",
-    a: "Your store is completely free until 30 September as a launch promo -- 100% off the usual ₦3,500/month -- plus 2% commission on completed sales. After the promo ends, the subscription is ₦3,500/month, with no listing or setup fees on top.",
+    a: "Sell on Stora is ₦3,500/month plus 2% commission on completed sales. Business Listing is a separate option at ₦500/month for discoverability-only businesses.",
   },
   {
     q: "How and when do I get paid?",
@@ -252,8 +152,8 @@ export default function SellOnStoraPage() {
             </h1>
             <p className="text-white/60 text-base sm:text-lg mb-8 max-w-xl mx-auto lg:mx-0">
               Set up a branded storefront on Stora, take payments through Paystack, and manage
-              orders and inventory from one dashboard -- <span className="text-white font-semibold">free until 30 September</span>{" "}
-              as a launch promo, plus 2% commission per sale.
+              orders and inventory from one dashboard for <span className="text-white font-semibold">₦3,500/month</span>,
+              plus 2% commission per completed sale.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
               <a
@@ -265,7 +165,7 @@ export default function SellOnStoraPage() {
               </a>
               <a
                 href={LISTING_SIGNUP_URL}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gold-300/40 text-gold-200 text-sm font-semibold hover:bg-gold-500/10 transition-colors"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white text-brand-900 text-sm font-semibold hover:bg-gold-50 transition-colors"
               >
                 List my business
                 <ArrowRight className="w-4 h-4" />
@@ -283,18 +183,13 @@ export default function SellOnStoraPage() {
             <div className="relative w-full max-w-xs">
               <div className="absolute -inset-6 rounded-[2rem] bg-gold-500/10 blur-2xl" aria-hidden="true" />
               <div className="relative bg-white rounded-3xl border border-white/10 shadow-2xl p-8 text-center">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gold-500/15 text-gold-700 text-[11px] font-semibold uppercase tracking-wide mb-3">
-                  100% off -- limited time
-                  <InfoTooltip />
-                </span>
-                <p className="flex items-center justify-center gap-2 mb-1">
-                  <span className="text-sm text-gray-400 line-through tabular-nums">₦3,500</span>
-                  <span className="font-display text-5xl font-bold text-brand-900">Free</span>
-                </p>
-                <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 mb-4">this month</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 mb-2">Sell on Stora</p>
+                <p className="font-display text-5xl font-bold text-brand-900 mb-1">₦3,500</p>
+                <p className="text-sm text-gray-500 mb-4">per month + 2% commission per completed sale</p>
 
-                <div className="border-t border-gray-100 pt-4">
-                  <PromoCountdown />
+                <div className="border-t border-gray-100 pt-4 text-left space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Business Listing</p>
+                  <p className="text-sm text-gray-600">₦500/month for a discoverable profile with services, gallery, and contact options.</p>
                 </div>
               </div>
             </div>
@@ -308,21 +203,21 @@ export default function SellOnStoraPage() {
           <div className="text-center mb-8">
             <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Choose your setup</p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 text-balance">
-              Sell products or list your business profile
+              Start with full selling power
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-5">
-            <div className="rounded-2xl border border-gray-100 p-6 bg-brand-50/40">
+          <div className="grid md:grid-cols-3 gap-5">
+            <div className="rounded-2xl border border-gray-100 p-6 bg-brand-50/40 md:col-span-2">
               <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center mb-4">
                 <Store className="w-5 h-5 text-brand-700" />
               </div>
               <h3 className="font-display text-lg font-semibold text-brand-900 mb-2">Sell on Stora</h3>
-              <p className="text-sm text-gray-600 mb-4">For businesses that want to sell products or services and take online orders.</p>
+              <p className="text-sm text-gray-600 mb-4">For businesses that want to sell products or services, accept orders online, and run operations from one dashboard.</p>
               <ul className="text-sm text-gray-600 space-y-1.5 mb-5">
                 <li>Storefront with checkout and order management</li>
                 <li>Inventory, POS, and delivery-state controls</li>
-                <li>Launch promo: free until 30 September, then ₦3,500/month + 2% commission</li>
+                <li>Pricing: ₦3,500/month + 2% commission on completed sales</li>
               </ul>
               <a
                 href={STORE_SIGNUP_URL}
@@ -338,11 +233,11 @@ export default function SellOnStoraPage() {
                 <LayoutList className="w-5 h-5 text-gold-700" />
               </div>
               <h3 className="font-display text-lg font-semibold text-brand-900 mb-2">List My Business</h3>
-              <p className="text-sm text-gray-600 mb-4">For businesses that want discoverability, credibility, and direct customer inquiries.</p>
+              <p className="text-sm text-gray-600 mb-4">For businesses focused on discoverability and direct customer inquiries.</p>
               <ul className="text-sm text-gray-600 space-y-1.5 mb-5">
                 <li>Public business profile with gallery and contact actions</li>
                 <li>Appear in business directory and AI-assisted vendor search</li>
-                <li>Simple subscription: ₦500/month, cancel anytime</li>
+                <li>Pricing: ₦500/month, cancel anytime</li>
               </ul>
               <a
                 href={LISTING_SIGNUP_URL}
@@ -410,30 +305,24 @@ export default function SellOnStoraPage() {
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Pricing</p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-3 text-balance">
-            Simple, transparent pricing
+            Sell on Stora pricing
           </h2>
           <p className="text-sm sm:text-base text-gray-500 mb-8 max-w-xl mx-auto">
-            A monthly subscription keeps your store live, plus a small commission only on what you
-            actually sell.
+            Run your full store for a flat monthly fee, then pay commission only when you make a sale.
           </p>
 
           <div className="bg-brand-800 rounded-3xl p-8 sm:p-10 mb-8 text-center">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gold-500/15 text-gold-400 text-[11px] font-semibold uppercase tracking-wide mb-4">
-              100% off -- limited time
-              <InfoTooltip dark />
-            </span>
             <p className="flex items-center justify-center gap-3 mb-1">
-              <span className="text-lg text-white/40 line-through tabular-nums">₦3,500</span>
-              <span className="font-display text-5xl sm:text-6xl font-bold text-white">Free</span>
+              <span className="font-display text-5xl sm:text-6xl font-bold text-white">₦3,500</span>
               <span className="text-white/60 text-sm self-end mb-1.5">/month</span>
             </p>
-            <p className="text-white/60 text-sm mb-6">plus 2% commission per completed sale</p>
+            <p className="text-white/60 text-sm mb-2">plus 2% commission per completed sale</p>
+            <p className="text-white/40 text-xs">Cancel anytime. No setup fee.</p>
+          </div>
 
-            <div className="border-t border-white/10 pt-6">
-              <p className="text-white/40 text-xs uppercase tracking-widest mb-3">Offer ends in</p>
-              <PromoCountdown dark />
-              <p className="text-white/40 text-xs mt-4">Then ₦3,500/month -- cancel anytime</p>
-            </div>
+          <div className="rounded-2xl border border-gold-200 bg-gold-50 p-5 text-left mb-8">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold-700 mb-1">Business Listing option</p>
+            <p className="text-sm text-gold-900">Need visibility without full e-commerce tools? List My Business is ₦500/month for a public profile, service listing, and contact actions.</p>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-4 text-left">
