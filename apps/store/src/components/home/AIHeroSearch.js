@@ -10,8 +10,16 @@ import PrefetchLink from "@/components/ui/PrefetchLink";
 // mode=ai + q URL shape CategoryDiscovery.js's own AI template pills
 // already use, which /products reads on load to auto-run the AI search
 // with zero extra wiring on that end.
+function inferAiDestination(query) {
+  const normalized = (query || "").toLowerCase();
+  const businessIntentPattern = /\b(need|looking\s+for|hire|book|find\s+me|vendor|business|service|photograph|photographer|tailor|plumber|electrician|makeup|stylist|repair|cleaning|barber|decorator)\b/;
+  return businessIntentPattern.test(normalized) ? "vendors" : "products";
+}
+
 function submitAiQuery(router, query) {
-  router.push(`/products?mode=ai&q=${encodeURIComponent(query)}`);
+  const destination = inferAiDestination(query);
+  const basePath = destination === "vendors" ? "/vendors" : "/products";
+  router.push(`${basePath}?mode=ai&q=${encodeURIComponent(query)}`);
 }
 
 // Replaces the plain HeroSearch keyword box on the homepage hero -- the

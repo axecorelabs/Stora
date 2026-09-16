@@ -104,6 +104,13 @@ function ProductsPageInner() {
         const res = await fetch(`/api/search/ai?${params}`);
         const data = await res.json();
         if (data.success) {
+          if (data.resolvedPrimary === "vendors" && pageNum === 1) {
+            const vendorParams = new URLSearchParams({ q, mode: "ai" });
+            if (state) vendorParams.set("state", state);
+            if (deliverableOnly && deliveryState) vendorParams.set("deliverableOnly", "true");
+            router.replace(`/vendors?${vendorParams.toString()}`);
+            return;
+          }
           setProducts((prev) => (replace ? data.products : [...prev, ...data.products]));
           setAiVendors(data.vendors || []);
           setPagination(data.pagination);
