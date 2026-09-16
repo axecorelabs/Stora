@@ -58,6 +58,7 @@ export default function SubscriptionPage() {
   const [paymentReference, setPaymentReference] = useState(null);
   const [hasTriggeredConfirm, setHasTriggeredConfirm] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmDowngrade, setConfirmDowngrade] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -132,6 +133,15 @@ export default function SubscriptionPage() {
     }
   });
 
+  const downgradeMutation = useMutation({
+    mutationFn: () => secureApiCall('/api/subscription/downgrade', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['store'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      setConfirmDowngrade(false);
+    }
+  });
+
   if (isLoading) {
     return (
       <DashboardLayout title="Subscription">
@@ -147,7 +157,7 @@ export default function SubscriptionPage() {
   const awaitingConfirmation = Boolean(justPaid && isListing && !isActive);
 
   return (
-    <DashboardLayout title="Subscription" subtitle="Manage your listing subscription">
+    <DashboardLayout title="Subscription" subtitle={isListing ? 'Manage your listing subscription' : 'Manage your current mode'}>
       <div className="space-y-6">
 
         {isListing && <StatusBanner status={sub?.subscriptionStatus} awaitingConfirmation={awaitingConfirmation} />}
@@ -268,6 +278,51 @@ export default function SubscriptionPage() {
               >
                 Learn about upgrading <ArrowUpRight className="w-3.5 h-3.5" />
               </Button>
+            )}
+          </div>
+        )}
+
+        {!isListing && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">Switch to business listing</h3>
+              <p className="text-xs text-gray-500">
+                Move from full store mode to listing mode. Your profile and branding stay intact, and your listing goes live after you subscribe.
+              </p>
+            </div>
+
+            {!confirmDowngrade ? (
+              <Button
+                variant="secondary"
+                onClick={() => setConfirmDowngrade(true)}
+                className="text-sm"
+              >
+                Switch to business listing
+              </Button>
+            ) : (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <p className="text-sm text-amber-800">
+                  This will switch your account to listing mode now. You can subscribe on this page immediately after to make the listing public.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="primary"
+                    onClick={() => downgradeMutation.mutate()}
+                    disabled={downgradeMutation.isPending}
+                    className="flex-1 text-sm flex items-center justify-center gap-1"
+                  >
+                    {downgradeMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    {downgradeMutation.isPending ? 'Switching…' : 'Confirm switch'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setConfirmDowngrade(false)}
+                    className="flex-1 text-sm"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         )}

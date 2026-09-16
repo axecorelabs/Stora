@@ -92,6 +92,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
     { name: 'Sales', icon: Receipt, path: '/dashboard/sales' },
     { name: 'Payments', icon: Wallet, path: '/dashboard/payments' },
     { name: 'Deliveries', icon: Truck, path: '/dashboard/deliveries' },
+    { name: 'Subscription', icon: BadgeCheck, path: '/dashboard/subscription' },
     // { name: 'Reports & Analysis', icon: BarChart3, path: '/dashboard/reports' }, // Temporarily removed
     { name: 'Settings', icon: Settings, path: '/dashboard/settings' },
   ];
