@@ -1,6 +1,7 @@
 import Image from 'next/image';
+import ListingGallery from '@/components/ListingGallery';
 import { findGalleryByStoreId } from '@/lib/supabaseStore';
-import { ChevronLeft, ExternalLink, Grid2X2, Mail, MapPin, MoreHorizontal, Phone, X } from 'lucide-react';
+import { ChevronLeft, ExternalLink, Mail, MapPin, MoreHorizontal, Phone } from 'lucide-react';
 
 function ShowcaseLogo({ branding, storeName }) {
   if (branding.logo) {
@@ -103,77 +104,17 @@ function TopMenu({ store, addressText }) {
   );
 }
 
-function GalleryLightbox({ item, index, total }) {
+function ListingFooter({ storeName }) {
   return (
-    <div
-      id={`gallery-${item.id}`}
-      className="pointer-events-none fixed inset-0 z-50 grid place-items-center bg-black/0 opacity-0 transition duration-200 target:pointer-events-auto target:bg-black/90 target:opacity-100"
-    >
-      <a href="#gallery" aria-label="Close image preview" className="absolute inset-0" />
-      <div className="relative z-10 w-full max-w-6xl px-4">
-        <a
-          href="#gallery"
-          aria-label="Close image preview"
-          className="absolute right-6 top-4 z-20 grid h-11 w-11 place-items-center rounded-full bg-white/95 text-black shadow-lg"
-        >
-          <X className="h-6 w-6" />
+    <footer className="mt-12 border-t border-gray-100 py-7 sm:mt-16">
+      <div className="flex flex-col gap-2 text-[11px] font-medium text-gray-400 sm:flex-row sm:items-center sm:justify-between sm:text-sm">
+        <p>{storeName} on Stora</p>
+        <a href="https://stora.com.ng/" className="inline-flex w-fit items-center gap-1 text-gray-500 transition hover:text-brand-800">
+          Visit stora.com.ng
+          <ExternalLink className="h-3 w-3" />
         </a>
-        <div className="relative h-[82vh] w-full">
-          <Image
-            src={item.image_url}
-            alt={item.caption || `Gallery image ${index + 1}`}
-            fill
-            sizes="100vw"
-            className="object-contain"
-            unoptimized
-          />
-        </div>
-        <div className="mx-auto mt-4 max-w-3xl text-center text-sm font-medium text-white/80">
-          {item.caption || `${index + 1} of ${total}`}
-        </div>
       </div>
-    </div>
-  );
-}
-
-function GalleryGrid({ items }) {
-  if (!items?.length) return null;
-
-  return (
-    <section id="gallery" className="pt-6 sm:pt-10">
-      <div className="mb-5 flex items-center justify-between gap-4 sm:mb-6">
-        <h2 className="text-[18px] font-bold leading-none tracking-normal text-black sm:text-3xl">Gallery</h2>
-        <div className="flex items-center gap-3 text-gray-500">
-          <span className="text-[11px] leading-none sm:text-base">{items.length} photos</span>
-          <Grid2X2 className="h-4 w-4 stroke-brand-900 stroke-[2.7] sm:h-6 sm:w-6" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:gap-4">
-        {items.map((item, index) => (
-          <a
-            key={item.id}
-            href={`#gallery-${item.id}`}
-            className="group relative aspect-[1.62] overflow-hidden rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-800 focus:ring-offset-2 sm:rounded-xl"
-            aria-label={`Open gallery image ${index + 1}`}
-          >
-            <Image
-              src={item.image_url}
-              alt={item.caption || `Gallery image ${index + 1}`}
-              fill
-              sizes="(min-width: 1024px) 33vw, 50vw"
-              className="object-cover transition duration-300 group-hover:scale-[1.03]"
-              loading="lazy"
-              unoptimized
-            />
-          </a>
-        ))}
-      </div>
-
-      {items.map((item, index) => (
-        <GalleryLightbox key={`lightbox-${item.id}`} item={item} index={index} total={items.length} />
-      ))}
-    </section>
+    </footer>
   );
 }
 
@@ -249,7 +190,8 @@ export default async function ListingShowcase({ store }) {
 
         <div className="mt-7 border-t border-gray-100 sm:mt-10" />
 
-        <GalleryGrid items={gallery} />
+        <ListingGallery items={gallery} />
+        <ListingFooter storeName={store.storeName} />
       </div>
     </main>
   );
