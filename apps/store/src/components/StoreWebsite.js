@@ -40,6 +40,8 @@ import {
   Search,
   SearchX,
   X,
+  MapPin,
+  ExternalLink,
   ShieldCheck,
   AlertTriangle
 } from "lucide-react";
@@ -602,6 +604,27 @@ export default function StoreWebsite({ store }) {
   }, [filteredProducts]);
 
   const hasMoreProducts = filteredProducts.length > 8;
+  const showLocationMap = store?.website?.settings?.locationMap !== false;
+
+  const storeAddressText = useMemo(() => {
+    const address = store?.address;
+    if (!address || typeof address !== 'object') return null;
+
+    const parts = [address.street, address.city, address.state || store.state, address.postalCode]
+      .filter(Boolean)
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+
+    return parts.length ? parts.join(', ') : null;
+  }, [store?.address, store?.state]);
+
+  const storeMapUrl = showLocationMap && storeAddressText
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddressText)}`
+    : null;
+
+  const storeMapEmbedUrl = showLocationMap && storeAddressText
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(storeAddressText)}&t=&z=14&ie=UTF8&iwloc=&output=embed`
+    : null;
 
   // Auto-play carousel effect
   useEffect(() => {
@@ -1159,6 +1182,36 @@ export default function StoreWebsite({ store }) {
         )}
 
         {store.offersServices && <ServicesSection store={store} isMobile={isMobile} />}
+
+        {storeMapEmbedUrl && (
+          <section className="mt-12 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-brand-700" />
+                <h3 className="font-display text-lg font-semibold text-gray-900">Location</h3>
+              </div>
+              <a
+                href={storeMapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-semibold text-brand-800 hover:bg-brand-50"
+              >
+                Open in Maps
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+            <p className="mb-3 text-sm text-gray-600">{storeAddressText}</p>
+            <div className="h-64 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 sm:h-72">
+              <iframe
+                title="Store location map"
+                src={storeMapEmbedUrl}
+                className="h-full w-full"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+          </section>
+        )}
       </main>
 
       <StoreFooter />

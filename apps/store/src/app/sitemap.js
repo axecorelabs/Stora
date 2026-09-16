@@ -67,9 +67,10 @@ async function getStoreUrls() {
     return { urls: [], storePathById: new Map() };
   }
 
+  const visibleStores = data.filter(isPubliclyVisibleStore);
   const storePathById = new Map();
-  const urls = data
-    .filter(isPubliclyVisibleStore)
+
+  const storeUrls = visibleStores
     .map((store) => {
       const path = resolveWebsitePath(store);
       if (!path) return null;
@@ -83,7 +84,21 @@ async function getStoreUrls() {
     })
     .filter(Boolean);
 
-  return { urls, storePathById };
+  const profileUrls = visibleStores
+    .filter((store) => (store.platform_mode || 'store') === 'store')
+    .map((store) => {
+      const path = resolveWebsitePath(store);
+      if (!path) return null;
+      return {
+        url: `${SITE_URL}/${path}/profile`,
+        lastModified: store.updated_at ? new Date(store.updated_at) : new Date(),
+        changeFrequency: 'weekly',
+        priority: 0.6,
+      };
+    })
+    .filter(Boolean);
+
+  return { urls: [...storeUrls, ...profileUrls], storePathById };
 }
 
 async function getProductUrls(storePathById) {

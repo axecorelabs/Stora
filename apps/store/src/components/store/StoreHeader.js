@@ -93,6 +93,12 @@ export default function StoreHeader({ store, onSignInClick }) {
     router.push(storeHref(storeSlug, `/products?search=${encodeURIComponent(headerSearch.trim())}`));
   };
 
+  const handleProfileClick = () => {
+    setIsNavigating(true);
+    router.push(storeHref(storeSlug, '/profile'));
+    setShowMobileMenu(false);
+  };
+
 
   return (
     <>
@@ -188,6 +194,13 @@ export default function StoreHeader({ store, onSignInClick }) {
 
             {/* Right: Actions (Hidden on Mobile) */}
             <div className="hidden md:flex items-center gap-2">
+              <button
+                onClick={handleProfileClick}
+                className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-xl transition-colors"
+              >
+                <span className="text-sm font-medium hidden lg:inline">Gallery & Location</span>
+                <span className="text-sm font-medium lg:hidden">Profile</span>
+              </button>
               <button 
                 onClick={handleWishlistClick}
                 className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-xl transition-colors"
@@ -444,6 +457,14 @@ export default function StoreHeader({ store, onSignInClick }) {
                 >
                   <Package className="w-5 h-5 text-gray-500" />
                   <span className="font-medium">Browse Products</span>
+                </button>
+
+                <button
+                  onClick={handleProfileClick}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors text-left"
+                >
+                  <User className="w-5 h-5 text-gray-500" />
+                  <span className="font-medium">Gallery & Location</span>
                 </button>
                 
                 {/* Add more navigation items as needed */}

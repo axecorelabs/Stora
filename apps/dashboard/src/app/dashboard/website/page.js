@@ -29,6 +29,7 @@ import {
   MapPin,
   Clock,
   Package,
+  Images,
   Info
 } from "lucide-react";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
@@ -109,6 +110,10 @@ export default function WebsitePage() {
     refetchStore();
     setIsBrandingModalOpen(false);
   };
+
+  const profileUrl = store?.websiteUrl
+    ? `${store.websiteUrl.replace(/\/$/, '')}/profile`
+    : null;
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-NG', {
@@ -321,6 +326,21 @@ export default function WebsitePage() {
               <Palette className="w-4 h-4" />
               <span>Customize Design</span>
             </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.location.assign('/dashboard/gallery')}>
+              <Images className="w-4 h-4" />
+              <span>Manage Gallery</span>
+            </Button>
+            {profileUrl && (
+              <a
+                href={profileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>View Profile Page</span>
+              </a>
+            )}
             <Button variant="secondary" size="sm" onClick={() => setCurrentView('inventory')}>
               <Package className="w-4 h-4" />
               <span>Manage Inventory Visibility</span>

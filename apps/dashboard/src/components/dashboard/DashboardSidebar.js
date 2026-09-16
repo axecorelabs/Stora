@@ -88,6 +88,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
     { name: 'Store', icon: Store, path: '/dashboard/store' },
     { name: 'POS', icon: CreditCard, path: '/dashboard/pos' },
     { name: 'Website', icon: Globe, path: '/dashboard/website' },
+    { name: 'Gallery', icon: Images, path: '/dashboard/gallery' },
     { name: 'Orders', icon: ShoppingBag, path: '/dashboard/orders' },
     { name: 'Sales', icon: Receipt, path: '/dashboard/sales' },
     { name: 'Payments', icon: Wallet, path: '/dashboard/payments' },

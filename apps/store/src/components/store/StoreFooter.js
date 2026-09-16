@@ -130,6 +130,7 @@ export default function StoreFooter() {
 
   const quickLinks = [
     { label: 'Browse Products', path: storeHref(storeSlug), icon: Package },
+    { label: 'Gallery & Location', path: storeHref(storeSlug, '/profile'), icon: MapPin },
     { label: 'My Cart', path: storeHref(storeSlug, '/cart'), icon: ShoppingBag },
     { label: 'Wishlist', path: storeHref(storeSlug, '/wishlist'), icon: Heart },
     { label: 'My Orders', path: storeHref(storeSlug, '/orders'), icon: Package },
