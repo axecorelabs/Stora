@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LayoutList, Store } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import AIHeroSearch from "@/components/home/AIHeroSearch";
@@ -8,6 +8,10 @@ import VendorShowcase from "@/components/home/VendorShowcase";
 import CategoryDiscovery from "@/components/home/CategoryDiscovery";
 import DiscoverySection from "@/components/home/DiscoverySection";
 import CampaignsShowcase from "@/components/home/CampaignsShowcase";
+
+const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
+const SELL_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=store`;
+const LISTING_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=listing`;
 
 export default function Home() {
   return (
@@ -92,19 +96,53 @@ export default function Home() {
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-gold-400 mb-1.5">For businesses</p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-4">
-            Bring your own brand. We bring the infrastructure.
+            Choose your growth path on Stora
           </h2>
           <p className="text-white/60 text-sm sm:text-base mb-8 max-w-xl mx-auto">
-            Keep your own storefront, your own colors, your own customers -- Stora handles
-            payments, order tracking, and getting found.
+            Launch a full online store, or publish a business listing so customers can discover and contact you.
           </p>
-          <Link
-            href="/sell"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
-          >
-            Start selling
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+
+          <div className="grid sm:grid-cols-2 gap-4 text-left">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="w-9 h-9 rounded-lg bg-gold-500/20 flex items-center justify-center mb-3">
+                <Store className="w-5 h-5 text-gold-300" />
+              </div>
+              <h3 className="font-display text-lg font-semibold text-white mb-1">Sell on Stora</h3>
+              <p className="text-sm text-white/60 mb-4">Create a full storefront, list products or services, and accept orders online.</p>
+              <a
+                href={SELL_SIGNUP_URL}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
+              >
+                Start selling
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="w-9 h-9 rounded-lg bg-gold-500/20 flex items-center justify-center mb-3">
+                <LayoutList className="w-5 h-5 text-gold-300" />
+              </div>
+              <h3 className="font-display text-lg font-semibold text-white mb-1">List My Business</h3>
+              <p className="text-sm text-white/60 mb-4">Get a discoverable profile with your services, gallery, and contact options.</p>
+              <a
+                href={LISTING_SIGNUP_URL}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gold-400/40 text-gold-300 text-sm font-semibold hover:bg-gold-500/10 transition-colors"
+              >
+                Create business listing
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <Link
+              href="/sell"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-gold-300 hover:text-gold-200 transition-colors"
+            >
+              Compare both options
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </section>
 

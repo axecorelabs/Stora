@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import SignIn from "../components/SignIn";
 import SignUp from "../components/SignUp";
 
+const ONBOARDING_INTENT_KEY = 'stora-onboarding-intent';
+
 function HomeInner() {
   const searchParams = useSearchParams();
   // Lets the storefront's /sell marketing page ("Start selling free") link
@@ -13,6 +15,14 @@ function HomeInner() {
   const [authMode, setAuthMode] = useState(searchParams.get("mode") === "signup" ? "signup" : "signin");
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    const intent = searchParams.get('intent');
+    if (!intent || typeof window === 'undefined') return;
+    if (intent === 'store' || intent === 'listing') {
+      localStorage.setItem(ONBOARDING_INTENT_KEY, intent);
+    }
+  }, [searchParams]);
 
   const toggleAuthMode = () => {
     setAuthMode(authMode === "signin" ? "signup" : "signin");

@@ -8,6 +8,7 @@ import MobileBottomNav from "./MobileBottomNav";
 import PartnershipProposalModal from "./PartnershipProposalModal";
 
 const SIDEBAR_COLLAPSED_KEY = "stora-sidebar-collapsed";
+const ONBOARDING_INTENT_KEY = 'stora-onboarding-intent';
 
 // Read the saved preference synchronously so the very first render already
 // has the right state -- each dashboard page remounts this layout on
@@ -58,7 +59,14 @@ export default function DashboardLayout({ children, title, subtitle }) {
   // isn't wrapped in DashboardLayout, so there's no redirect loop here.
   useEffect(() => {
     if (!loading && isAuthenticated && user && !user.legalReviewPendingAt && !user.onboardingCompletedAt) {
-      router.push('/dashboard/onboarding');
+      const preferredIntent = typeof window !== 'undefined'
+        ? localStorage.getItem(ONBOARDING_INTENT_KEY)
+        : null;
+      if (preferredIntent === 'store' || preferredIntent === 'listing') {
+        router.push(`/dashboard/onboarding?intent=${preferredIntent}`);
+      } else {
+        router.push('/dashboard/onboarding');
+      }
     }
   }, [isAuthenticated, loading, user, router]);
 

@@ -4,6 +4,7 @@ import Image from "next/image";
 import {
   ArrowRight,
   Store,
+  LayoutList,
   Package,
   Wallet,
   Truck,
@@ -20,7 +21,8 @@ import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
-const SIGNUP_URL = `${DASHBOARD_URL}?mode=signup`;
+const STORE_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=store`;
+const LISTING_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=listing`;
 
 // Fixed calendar deadline (WAT) -- anchoring the countdown to a real
 // timestamp rather than "N days from first render" means a reload never
@@ -255,10 +257,17 @@ export default function SellOnStoraPage() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
               <a
-                href={SIGNUP_URL}
+                href={STORE_SIGNUP_URL}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
               >
                 Start selling
+                <ArrowRight className="w-4 h-4" />
+              </a>
+              <a
+                href={LISTING_SIGNUP_URL}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-gold-300/40 text-gold-200 text-sm font-semibold hover:bg-gold-500/10 transition-colors"
+              >
+                List my business
                 <ArrowRight className="w-4 h-4" />
               </a>
               <a
@@ -288,6 +297,60 @@ export default function SellOnStoraPage() {
                   <PromoCountdown />
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Path chooser */}
+      <section className="py-14 sm:py-16 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-8">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Choose your setup</p>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 text-balance">
+              Sell products or list your business profile
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-5">
+            <div className="rounded-2xl border border-gray-100 p-6 bg-brand-50/40">
+              <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center mb-4">
+                <Store className="w-5 h-5 text-brand-700" />
+              </div>
+              <h3 className="font-display text-lg font-semibold text-brand-900 mb-2">Sell on Stora</h3>
+              <p className="text-sm text-gray-600 mb-4">For businesses that want to sell products or services and take online orders.</p>
+              <ul className="text-sm text-gray-600 space-y-1.5 mb-5">
+                <li>Storefront with checkout and order management</li>
+                <li>Inventory, POS, and delivery-state controls</li>
+                <li>Launch promo: free until 30 September, then ₦3,500/month + 2% commission</li>
+              </ul>
+              <a
+                href={STORE_SIGNUP_URL}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-800 text-white text-sm font-semibold hover:bg-brand-700 transition-colors"
+              >
+                Start selling
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
+
+            <div className="rounded-2xl border border-gray-100 p-6 bg-white">
+              <div className="w-10 h-10 rounded-xl bg-gold-500/15 flex items-center justify-center mb-4">
+                <LayoutList className="w-5 h-5 text-gold-700" />
+              </div>
+              <h3 className="font-display text-lg font-semibold text-brand-900 mb-2">List My Business</h3>
+              <p className="text-sm text-gray-600 mb-4">For businesses that want discoverability, credibility, and direct customer inquiries.</p>
+              <ul className="text-sm text-gray-600 space-y-1.5 mb-5">
+                <li>Public business profile with gallery and contact actions</li>
+                <li>Appear in business directory and AI-assisted vendor search</li>
+                <li>Simple subscription: ₦500/month, cancel anytime</li>
+              </ul>
+              <a
+                href={LISTING_SIGNUP_URL}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-gold-400/50 text-gold-700 text-sm font-semibold hover:bg-gold-500/10 transition-colors"
+              >
+                Create business listing
+                <ArrowRight className="w-4 h-4" />
+              </a>
             </div>
           </div>
         </div>
@@ -416,7 +479,7 @@ export default function SellOnStoraPage() {
             It takes a few minutes to set up -- no business registration required, and no setup cost.
           </p>
           <a
-            href={SIGNUP_URL}
+            href={STORE_SIGNUP_URL}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
           >
             Start selling

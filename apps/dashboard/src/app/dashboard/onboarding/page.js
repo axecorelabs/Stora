@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Globe, CheckCircle2, AlertCircle, Store, LayoutList } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +14,7 @@ import TelegramForm from "@/components/dashboard/TelegramForm";
 import Button from "@/components/ui/Button";
 
 const GOOGLE_FALLBACK_NAMES = new Set(['Google', 'User']);
+const ONBOARDING_INTENT_KEY = 'stora-onboarding-intent';
 
 // Own minimal shell, not wrapped in DashboardLayout -- both because this
 // is a distinct first-run experience (no sidebar/nav clutter) and to
@@ -22,6 +23,7 @@ const GOOGLE_FALLBACK_NAMES = new Set(['Google', 'User']);
 export default function OnboardingPage() {
   const { user, loading, isAuthenticated, secureApiCall, checkAuth } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   // This hook's own `['store']` query fetches on mount (during the 'name'
   // step, before any store exists yet) and caches a "no store" result for
@@ -58,6 +60,34 @@ export default function OnboardingPage() {
   const [websiteError, setWebsiteError] = useState(null);
   const [subscriptionError, setSubscriptionError] = useState('');
   const [isStartingSubscription, setIsStartingSubscription] = useState(false);
+  const [preferredIntent, setPreferredIntent] = useState(null);
+
+  useEffect(() => {
+    const fromQuery = searchParams.get('intent');
+    if (fromQuery === 'store' || fromQuery === 'listing') {
+      setPreferredIntent(fromQuery);
+      setPlatformIntent(fromQuery);
+      return;
+    }
+
+    if (typeof window === 'undefined') return;
+    const fromStorage = localStorage.getItem(ONBOARDING_INTENT_KEY);
+    if (fromStorage === 'store' || fromStorage === 'listing') {
+      // One-time use: avoid stale forced routing on future onboarding visits.
+      localStorage.removeItem(ONBOARDING_INTENT_KEY);
+      setPreferredIntent(fromStorage);
+      setPlatformIntent(fromStorage);
+    }
+  }, [searchParams]);
+
+  const handleChangeSetupType = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ONBOARDING_INTENT_KEY);
+    }
+    setPreferredIntent(null);
+    setStep('intent');
+    router.replace('/dashboard/onboarding');
+  };
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -102,7 +132,7 @@ export default function OnboardingPage() {
       });
       if (response?.success) {
         await checkAuth();
-        setStep('intent');
+        setStep(preferredIntent ? 'business' : 'intent');
       } else {
         setNameError(response?.message || 'Could not save -- try again');
       }
@@ -114,6 +144,9 @@ export default function OnboardingPage() {
 
   const handleStoreCreated = async (store) => {
     setCreatedStore(store);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ONBOARDING_INTENT_KEY);
+    }
     // Refresh the AuthContext user object -- POST /api/stores just set
     // onboarding_completed_at server-side, but the client's cached user
     // object doesn't know that yet, and DashboardLayout's redirect effect
@@ -261,7 +294,17 @@ export default function OnboardingPage() {
         )}
 
         {step === 'business' && (
-          <CreateBusinessModal isOpen={true} onStoreCreated={handleStoreCreated} embedded platformMode={platformIntent} />
+          <div>
+            {preferredIntent && (
+              <button
+                onClick={handleChangeSetupType}
+                className="mb-4 text-sm font-medium text-brand-800 hover:text-brand-700"
+              >
+                Change setup type
+              </button>
+            )}
+            <CreateBusinessModal isOpen={true} onStoreCreated={handleStoreCreated} embedded platformMode={platformIntent} />
+          </div>
         )}
 
         {step === 'branding' && (
