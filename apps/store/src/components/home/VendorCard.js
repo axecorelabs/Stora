@@ -9,6 +9,10 @@ import PrefetchLink from "@/components/ui/PrefetchLink";
 export default function VendorCard({ store }) {
   const primaryColor = store.branding?.primaryColor || "#145C41";
   const initial = (store.storeName || "?").trim().charAt(0).toUpperCase();
+  const isListing = store.platformMode === 'listing';
+  const profileTag = isListing
+    ? { label: 'Business', Icon: LayoutList }
+    : { label: 'Store', Icon: Store };
 
   return (
     <PrefetchLink
@@ -48,11 +52,10 @@ export default function VendorCard({ store }) {
           {store.businessVerified && (
             <BadgeCheck className="w-3.5 h-3.5 text-gold-600 flex-shrink-0" strokeWidth={2} />
           )}
-          {store.platformMode === 'listing' && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
-              <LayoutList className="w-2 h-2" />
-            </span>
-          )}
+          <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
+            <profileTag.Icon className="w-2 h-2" />
+            {profileTag.label}
+          </span>
         </div>
         {store.storeDescription ? (
           <p className="text-xs text-gray-500 mt-1 line-clamp-2">{store.storeDescription}</p>

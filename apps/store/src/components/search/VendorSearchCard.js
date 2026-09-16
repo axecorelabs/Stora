@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { BadgeCheck, MapPin, MessageCircle, ArrowRight, LayoutList } from "lucide-react";
+import { BadgeCheck, MapPin, MessageCircle, ArrowRight, LayoutList, Store as StoreIcon } from "lucide-react";
 import PrefetchLink from "@/components/ui/PrefetchLink";
 
 // Distinct from home/VendorCard.js -- that one is sized for a dense,
@@ -18,6 +18,9 @@ export default function VendorSearchCard({ store }) {
   const hasWhatsapp = !!store.onlineStoreInfo?.socialMedia?.whatsapp;
   const showLogoImage = store.branding?.logo && !logoErrored;
   const isListing = store.platformMode === 'listing';
+  const profileTag = isListing
+    ? { label: "Business", Icon: LayoutList }
+    : { label: "Store", Icon: StoreIcon };
 
   return (
     <PrefetchLink
@@ -66,11 +69,9 @@ export default function VendorSearchCard({ store }) {
           {store.businessVerified && (
             <BadgeCheck className="w-4 h-4 text-gold-600 flex-shrink-0" strokeWidth={2} />
           )}
-          {isListing && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
-              <LayoutList className="w-2.5 h-2.5" /> Business
-            </span>
-          )}
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
+            <profileTag.Icon className="w-2.5 h-2.5" /> {profileTag.label}
+          </span>
         </div>
 
         {location && (
