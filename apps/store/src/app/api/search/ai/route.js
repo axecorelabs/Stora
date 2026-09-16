@@ -434,6 +434,36 @@ export async function GET(request) {
         const filteredVendors = await filterVendorsByRelevance(vendors, rawQuery, intent);
         vendors = filteredVendors;
         vendorTotal = filteredVendors.length;
+
+        // If embedding retrieval yields zero vendor candidates (common when
+        // many vendors have no embedding yet), degrade to keyword vendor
+        // search with the same scope/location filters, then rerank.
+        if (vendors.length === 0) {
+          const fallbackQuery = (intent.cleanedQuery || query).trim() || query;
+          const fallbackVendorResult = isBiterave
+            ? await searchBiteraveVendors({
+                mealOnly,
+                search: fallbackQuery,
+                state: effectiveState,
+                buyerState,
+                deliverableOnly,
+                limit: vendorLimit,
+                offset: vendorOffset
+              })
+            : await searchVendorsPaginated({
+                search: fallbackQuery,
+                state: effectiveState,
+                buyerState,
+                deliverableOnly,
+                scope: vendorScope,
+                limit: vendorLimit,
+                offset: vendorOffset
+              });
+
+          vendors = await filterVendorsByRelevance(fallbackVendorResult.vendors || [], rawQuery, intent);
+          vendorTotal = vendors.length;
+        }
+
         if (vendorScope === "services") {
           products = [];
           productTotal = 0;
