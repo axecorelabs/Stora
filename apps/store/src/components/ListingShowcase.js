@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import ListingGallery from '@/components/ListingGallery';
 import BusinessProfileReviews from '@/components/listing/BusinessProfileReviews';
+import ListingDescription from '@/components/listing/ListingDescription';
 import ViewBeacon from '@/components/analytics/ViewBeacon';
 import { findGalleryByStoreId } from '@/lib/supabaseStore';
 import { DAYS_OF_WEEK, formatDayHours } from '@stora/shared-constants';
@@ -468,9 +469,11 @@ export default async function ListingShowcase({ store }) {
           </div>
 
           {store.storeDescription && (
-            <p className="mt-4 max-w-3xl text-[13px] font-medium leading-[1.35] text-gray-500 sm:mt-6 sm:text-xl sm:leading-relaxed">
-              {store.storeDescription}
-            </p>
+            <ListingDescription
+              text={store.storeDescription}
+              className="text-[13px] font-medium leading-[1.35] text-gray-500 sm:text-xl sm:leading-relaxed"
+              maxChars={260}
+            />
           )}
 
           {trustChips.length > 0 && (
