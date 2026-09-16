@@ -71,7 +71,7 @@ function TopMenu({ store, addressText }) {
       >
         <MoreHorizontal className="h-4 w-4 stroke-[3] sm:h-6 sm:w-6" />
       </summary>
-      <div className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-2xl bg-white py-2 text-sm font-semibold text-gray-800 shadow-xl ring-1 ring-black/5 sm:top-14">
+      <div className="absolute right-0 top-11 z-50 w-48 overflow-hidden rounded-2xl bg-white py-2 text-sm font-semibold text-gray-800 shadow-xl ring-1 ring-black/5 sm:top-14">
         {phone && (
           <a href={`tel:${phone}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
             <Phone className="h-4 w-4 text-brand-800" />
@@ -130,29 +130,36 @@ export default async function ListingShowcase({ store }) {
 
   return (
     <main className="min-h-screen bg-white text-black">
-      <section className="relative h-[135px] overflow-hidden bg-gray-200 sm:h-[320px] lg:h-[420px]">
-        {heroImage && (
-          <Image
-            src={heroImage}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-            unoptimized
-          />
-        )}
-        <div className="absolute inset-x-0 top-4 mx-auto flex w-full max-w-6xl items-center justify-between px-5 sm:top-8 sm:px-8">
+      {/* Wrapper keeps the overlay controls in normal flow, outside overflow-hidden */}
+      <div className="relative">
+        <section className="relative h-[135px] overflow-hidden bg-gray-200 sm:h-[320px] lg:h-[420px]">
+          {heroImage && (
+            <Image
+              src={heroImage}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+              unoptimized
+            />
+          )}
+        </section>
+
+        {/* Controls sit outside overflow-hidden so the dropdown is never clipped */}
+        <div className="pointer-events-none absolute inset-x-0 top-4 mx-auto flex w-full max-w-6xl items-center justify-between px-5 sm:top-8 sm:px-8">
           <a
             href="https://stora.com.ng/"
             aria-label="Back to Stora home"
-            className="grid h-8 w-8 place-items-center rounded-full bg-white/90 text-black shadow-sm backdrop-blur transition hover:bg-white sm:h-12 sm:w-12"
+            className="pointer-events-auto grid h-8 w-8 place-items-center rounded-full bg-white/90 text-black shadow-sm backdrop-blur transition hover:bg-white sm:h-12 sm:w-12"
           >
             <ChevronLeft className="h-4 w-4 stroke-[3] sm:h-6 sm:w-6" />
           </a>
-          <TopMenu store={store} addressText={fullAddress} />
+          <div className="pointer-events-auto">
+            <TopMenu store={store} addressText={fullAddress} />
+          </div>
         </div>
-      </section>
+      </div>
 
       <div className="mx-auto w-full max-w-6xl px-6 pb-14 sm:px-8 lg:px-10">
         <section className="relative">
