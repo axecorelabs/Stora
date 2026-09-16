@@ -9,6 +9,27 @@ import CategoryDiscovery from "@/components/home/CategoryDiscovery";
 import DiscoverySection from "@/components/home/DiscoverySection";
 import CampaignsShowcase from "@/components/home/CampaignsShowcase";
 
+const ORGANIZATION_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Stora",
+  url: "https://stora.com.ng",
+  logo: "https://stora.com.ng/stora2.png",
+  sameAs: [],
+};
+
+const WEBSITE_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Stora",
+  url: "https://stora.com.ng",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: "https://stora.com.ng/vendors?q={search_term_string}",
+    "query-input": "required name=search_term_string",
+  },
+};
+
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
 const SELL_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=store`;
 const LISTING_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=listing`;
@@ -16,6 +37,8 @@ const LISTING_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=listing`;
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_SCHEMA) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_SCHEMA) }} />
       <SiteHeader />
 
       {/* Hero -- green backdrop with a waved handoff into the sections below. */}

@@ -23,6 +23,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }) {
   try {
     const { slug, id } = await params;
+    const canonicalUrl = `https://stora.com.ng/${slug}/product/${id}`;
     
     // Fetch store from Supabase
     const store = await findStoreBySlug(slug);
@@ -51,6 +52,9 @@ export async function generateMetadata({ params }) {
       title,
       description,
       keywords: [product.productName, product.category, product.brand, store.storeName, 'buy online'].filter(Boolean).join(', '),
+      alternates: {
+        canonical: canonicalUrl,
+      },
       icons: {
         icon: product.image || store.branding?.logo || '/favicon.ico',
         apple: product.image || store.branding?.logo || '/favicon.ico',
@@ -58,6 +62,7 @@ export async function generateMetadata({ params }) {
       openGraph: {
         title,
         description,
+        url: canonicalUrl,
         images: [
           {
             url: productImageUrl,
@@ -241,13 +246,45 @@ export default async function ProductPage({ params }) {
   // Convert to plain objects
   const storeData = JSON.parse(JSON.stringify(store));
   const productData = JSON.parse(JSON.stringify(enhancedProduct));
+  const canonicalUrl = `https://stora.com.ng/${slug}/product/${id}`;
+  const productImages = transformedImages.map((image) => image.url).filter(Boolean);
+  const productSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.productName,
+    description: product.description || `Buy ${product.productName} from ${store.storeName} on Stora.`,
+    image: productImages.length > 0 ? productImages : [product.image || store.branding?.logo || 'https://stora.com.ng/stora2.png'],
+    sku: product.sku || undefined,
+    brand: {
+      '@type': 'Brand',
+      name: product.brand || store.storeName,
+    },
+    category: product.category || undefined,
+    offers: {
+      '@type': 'Offer',
+      url: canonicalUrl,
+      priceCurrency: 'NGN',
+      price: Number(currentPrice || 0),
+      availability: totalAvailableQuantity > 0
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      seller: {
+        '@type': 'Organization',
+        name: store.storeName,
+        url: `https://stora.com.ng/${slug}`,
+      },
+    },
+  };
 
   // Suspense boundary is required here -- ProductDetailsClient reads
   // ?from=discover via useSearchParams(), which Next.js otherwise refuses
   // to prerender under ISR (see this file's own `revalidate` above).
   return (
-    <Suspense fallback={null}>
-      <ProductDetailsClient store={storeData} product={productData} slug={slug} />
-    </Suspense>
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
+      <Suspense fallback={null}>
+        <ProductDetailsClient store={storeData} product={productData} slug={slug} />
+      </Suspense>
+    </>
   );
 }

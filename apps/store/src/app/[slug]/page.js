@@ -29,11 +29,15 @@ export async function generateMetadata({ params }) {
     }
 
     const seoSettings = store.website?.seo_settings || {};
+    const canonicalUrl = `https://stora.com.ng/${slug}`;
     
     return {
       title: seoSettings.meta_title || `${store.storeName} - Quality Products Online`,
       description: seoSettings.meta_description || `Shop quality products at ${store.storeName}. ${store.storeDescription}`,
       keywords: seoSettings.keywords?.join(', ') || '',
+      alternates: {
+        canonical: canonicalUrl,
+      },
       icons: {
         icon: store.branding?.logo || '/favicon.ico',
         apple: store.branding?.logo || '/favicon.ico',
@@ -41,6 +45,7 @@ export async function generateMetadata({ params }) {
       openGraph: {
         title: seoSettings.meta_title || `${store.storeName} - Quality Products Online`,
         description: seoSettings.meta_description || `Shop quality products at ${store.storeName}`,
+        url: canonicalUrl,
         images: [store.branding?.banner || store.branding?.logo || '/og-image.jpg'],
         type: 'website',
       },
@@ -69,17 +74,48 @@ export default async function StorePage({ params }) {
 
   if (!store) notFound();
 
+  const canonicalUrl = `https://stora.com.ng/${slug}`;
+  const primaryImage = store.branding?.banner || store.branding?.logo || 'https://stora.com.ng/stora2.png';
+  const storeSchema = {
+    '@context': 'https://schema.org',
+    '@type': store.platformMode === 'listing' ? 'LocalBusiness' : 'Store',
+    name: store.storeName,
+    url: canonicalUrl,
+    image: [primaryImage],
+    description: store.storeDescription || `Discover ${store.storeName} on Stora.`,
+    telephone: store.storePhone || undefined,
+    email: store.storeEmail || undefined,
+    address: store.address
+      ? {
+          '@type': 'PostalAddress',
+          addressLocality: store.state || undefined,
+          streetAddress: store.address,
+          addressCountry: 'NG',
+        }
+      : undefined,
+  };
+
   // Listing-mode stores: active subscription required to be publicly visible.
   if (store.platformMode === 'listing') {
     if (store.subscriptionStatus !== 'active') {
       notFound();
     }
-    return <ListingShowcase store={store} />;
+    return (
+      <>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(storeSchema) }} />
+        <ListingShowcase store={store} />
+      </>
+    );
   }
 
   if (!store.website?.isEnabled) {
     notFound();
   }
 
-  return <StoreWebsite store={store} />;
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(storeSchema) }} />
+      <StoreWebsite store={store} />
+    </>
+  );
 }

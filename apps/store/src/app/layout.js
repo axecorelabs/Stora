@@ -31,24 +31,44 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   metadataBase: new URL("https://stora.com.ng"),
-  title: "Stora Store",
-  description: "Your marketplace ",
+  title: {
+    default: "Stora | Nigeria's Marketplace for Businesses, Products, and Services",
+    template: "%s | Stora",
+  },
+  description:
+    "Discover trusted businesses, products, and services across Nigeria. Shop from top local vendors or list your business and get found on Stora.",
+  alternates: {
+    canonical: '/',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
   openGraph: {
-    title: "Stora Store",
-    description: "Your marketplace ",
+    title: "Stora | Nigeria's Marketplace for Businesses, Products, and Services",
+    description:
+      "Find what you need from trusted Nigerian businesses, or grow your reach by listing your business on Stora.",
     images: [
       {
         url: "/stora2.png",
         width: 1254,
         height: 1254,
-        alt: "Stora Store",
+        alt: "Stora - Nigeria's marketplace for businesses, products, and services",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Stora Store",
-    description: "Your marketplace ",
+    title: "Stora | Nigeria's Marketplace for Businesses, Products, and Services",
+    description:
+      "Discover and shop from trusted businesses across Nigeria, or list your business and get discovered on Stora.",
     images: ["/stora2.png"],
   },
   icons: {
