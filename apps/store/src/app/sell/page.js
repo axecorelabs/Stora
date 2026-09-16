@@ -309,17 +309,31 @@ export default function SellOnStoraPage() {
           </p>
 
           <div className="grid md:grid-cols-2 gap-4 text-left mb-8">
-            <div className="rounded-2xl border border-gold-200 bg-gold-50 p-6">
+            <a
+              href={LISTING_SIGNUP_URL}
+              className="rounded-2xl border border-gold-200 bg-gold-50 p-6 block hover:border-gold-300 hover:shadow-sm transition-all"
+            >
               <p className="text-xs font-semibold uppercase tracking-widest text-gold-700 mb-2">Business listing pricing</p>
               <p className="font-display text-4xl font-bold text-gold-900 mb-1">₦500<span className="text-base font-medium">/month</span></p>
               <p className="text-sm text-gold-900">For discoverability-focused businesses that want a profile, gallery, and direct customer contact options.</p>
-            </div>
+              <p className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-gold-800">
+                Start with listing
+                <ArrowRight className="w-4 h-4" />
+              </p>
+            </a>
 
-            <div className="rounded-2xl border border-brand-100 bg-brand-800 p-6 text-white">
+            <a
+              href={STORE_SIGNUP_URL}
+              className="rounded-2xl border border-brand-100 bg-brand-800 p-6 text-white block hover:bg-brand-700 transition-colors"
+            >
               <p className="text-xs font-semibold uppercase tracking-widest text-gold-300 mb-2">Sell on Stora pricing</p>
               <p className="font-display text-4xl font-bold mb-1">₦3,500<span className="text-base font-medium text-white/70">/month</span></p>
               <p className="text-sm text-white/80">Plus 2% commission per completed sale, with full checkout, inventory, POS, and order operations.</p>
-            </div>
+              <p className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-gold-300">
+                Start selling now
+                <ArrowRight className="w-4 h-4" />
+              </p>
+            </a>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-4 text-left">
@@ -364,13 +378,22 @@ export default function SellOnStoraPage() {
           <p className="text-white/60 text-sm sm:text-base mb-8 max-w-xl mx-auto">
             It takes a few minutes to set up -- no business registration required, and no setup cost.
           </p>
-          <a
-            href={STORE_SIGNUP_URL}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
-          >
-            Start selling
-            <ArrowRight className="w-4 h-4" />
-          </a>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href={STORE_SIGNUP_URL}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
+            >
+              Start selling
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <a
+              href={LISTING_SIGNUP_URL}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-brand-900 text-sm font-semibold hover:bg-gold-50 transition-colors"
+            >
+              List my business
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
         </div>
       </section>
 
