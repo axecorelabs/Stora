@@ -56,6 +56,8 @@ export default function OnboardingPage() {
   const [nameError, setNameError] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const [websiteError, setWebsiteError] = useState(null);
+  const [subscriptionError, setSubscriptionError] = useState('');
+  const [isStartingSubscription, setIsStartingSubscription] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -156,6 +158,24 @@ export default function OnboardingPage() {
     }
   };
 
+  const handleStartListingSubscription = async () => {
+    if (isStartingSubscription) return;
+    setSubscriptionError('');
+    setIsStartingSubscription(true);
+    try {
+      const response = await secureApiCall('/api/subscription', { method: 'POST' });
+      if (response?.authorizationUrl) {
+        window.location.href = response.authorizationUrl;
+        return;
+      }
+      setSubscriptionError(response?.message || 'Could not start payment -- try again.');
+    } catch (error) {
+      setSubscriptionError(error?.message || 'Could not start payment -- try again.');
+    } finally {
+      setIsStartingSubscription(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-10 sm:py-16">
       <img src="/stora.png" alt="Stora" className="w-12 h-12 object-contain mb-6" />
@@ -231,8 +251,8 @@ export default function OnboardingPage() {
                     <LayoutList className="w-5 h-5 text-brand-800" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">List my business</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Get a public showcase page with your gallery and contact details. ₦500/month.</p>
+                    <p className="text-sm font-semibold text-gray-900">List My Business</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Create a business profile so customers can find you, view your services, and contact you.</p>
                   </div>
                 </div>
               </button>
@@ -331,12 +351,19 @@ export default function OnboardingPage() {
             </p>
             <p className="text-2xl font-bold text-gray-900 mb-1">₦500<span className="text-sm font-normal text-gray-500">/month</span></p>
             <p className="text-xs text-gray-500 mb-6">Cancel anytime from your dashboard.</p>
+            {subscriptionError && (
+              <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 flex items-start gap-2 text-left">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{subscriptionError}</p>
+              </div>
+            )}
             <Button
               variant="primary"
-              onClick={() => router.push('/dashboard/subscription')}
+              onClick={handleStartListingSubscription}
+              disabled={isStartingSubscription}
               className="w-full mb-3"
             >
-              Subscribe and go live
+              {isStartingSubscription ? 'Redirecting to payment…' : 'Subscribe and go live'}
             </Button>
             <button
               onClick={() => router.push('/dashboard/overview')}
