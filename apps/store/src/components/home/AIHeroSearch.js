@@ -1,11 +1,8 @@
 "use client";
-import { useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Compass, Wrench, Sparkles, ChevronRight } from "lucide-react";
+import { Compass, Wrench, ChevronRight } from "lucide-react";
 import AISearchInput from "@/components/search/AISearchInput";
 import PrefetchLink from "@/components/ui/PrefetchLink";
-import { attachAutoScroll } from "@/lib/autoScroll";
-import { AI_SEARCH_TEMPLATES, AI_SEARCH_TEMPLATES_MOBILE } from "@/lib/aiSearchTemplates";
 
 // AISearchInput itself has no submit/navigation behavior -- onChange fires
 // only once a query is actually committed (Enter or the arrow button), so
@@ -15,64 +12,6 @@ import { AI_SEARCH_TEMPLATES, AI_SEARCH_TEMPLATES_MOBILE } from "@/lib/aiSearchT
 // with zero extra wiring on that end.
 function submitAiQuery(router, query) {
   router.push(`/products?mode=ai&q=${encodeURIComponent(query)}`);
-}
-
-// The hero's own AI-template row -- same underlying list, auto-scroll
-// mechanism, and light pill styling as CategoryDiscovery.js's "Try asking
-// Stora AI" row further down the page. Having it twice isn't accidental
-// duplication: the hero is a first impression before anyone's scrolled,
-// the later row is a second nudge once they're already browsing
-// categories.
-function TemplateRow() {
-  const scrollRef = useRef(null);
-  const pausedRef = useRef(false);
-  const directionRef = useRef(1);
-  useEffect(() => attachAutoScroll(scrollRef, pausedRef, directionRef, 1.2), []);
-  const pause = () => { pausedRef.current = true; };
-  const resume = () => { pausedRef.current = false; };
-
-  const pillClassName =
-    "flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium border border-brand-100 bg-white text-brand-800 hover:border-brand-300 transition-colors";
-
-  return (
-    <>
-      {/* Mobile/tablet: auto-scrolling, longer list -- mirrors
-          CategoryDiscovery.js's own lg:hidden AI row exactly. */}
-      <div
-        ref={scrollRef}
-        onMouseEnter={pause}
-        onMouseLeave={resume}
-        onTouchStart={pause}
-        onTouchEnd={resume}
-        className="lg:hidden flex gap-2 overflow-x-auto -mx-4 px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {AI_SEARCH_TEMPLATES_MOBILE.map((templateQuery) => (
-          <PrefetchLink
-            key={templateQuery}
-            href={`/products?mode=ai&q=${encodeURIComponent(templateQuery)}`}
-            className={pillClassName}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-gold-500" />
-            {templateQuery}
-          </PrefetchLink>
-        ))}
-      </div>
-
-      {/* Desktop: short list, wrapped in place, no animation. */}
-      <div className="hidden lg:flex flex-wrap justify-center gap-2">
-        {AI_SEARCH_TEMPLATES.map((templateQuery) => (
-          <PrefetchLink
-            key={templateQuery}
-            href={`/products?mode=ai&q=${encodeURIComponent(templateQuery)}`}
-            className={pillClassName}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-gold-500" />
-            {templateQuery}
-          </PrefetchLink>
-        ))}
-      </div>
-    </>
-  );
 }
 
 // Replaces the plain HeroSearch keyword box on the homepage hero -- the
@@ -137,11 +76,6 @@ export default function AIHeroSearch() {
           <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
         </PrefetchLink>
       </div>
-
-      <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-4">
-        Popular searches
-      </p>
-      <TemplateRow />
     </div>
   );
 }

@@ -27,7 +27,7 @@ export default function Home() {
         >
           <path
             fill="currentColor"
-            d="M0,60 Q720,0 1440,60 L1440,100 L0,100 Z"
+            d="M0,40 C240,90 480,0 720,40 C960,80 1200,10 1440,50 L1440,100 L0,100 Z"
           />
         </svg>
       </section>
