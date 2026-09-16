@@ -34,6 +34,11 @@ const BUSINESS_INTENT_TERMS = new Set([
   "photographer", "photography", "plumber", "electrician", "tailor", "stylist", "makeup", "salon", "barber",
   "cleaner", "cleaning", "mechanic", "repair", "decorator", "caterer", "dj", "videographer", "laundry"
 ]);
+const SERVICE_INTENT_TERMS = new Set([
+  "photographer", "photography", "videographer", "videography", "plumber", "electrician", "tailor", "stylist",
+  "makeup", "salon", "barber", "cleaner", "cleaning", "mechanic", "repair", "decorator", "caterer", "dj",
+  "laundry", "service", "services", "provider", "providers", "hire", "book"
+]);
 const STOP_WORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "from", "i", "i'm", "im", "in", "into", "is", "it",
   "looking", "look", "me", "my", "need", "of", "on", "or", "please", "shop", "some", "that", "the", "to", "want", "with", "you"
@@ -90,6 +95,28 @@ function extractQueryTerms(text) {
 function inferVendorIntentFromText(query) {
   const terms = extractQueryTerms(query);
   return terms.some((term) => BUSINESS_INTENT_TERMS.has(term));
+}
+
+function inferServiceIntentFromText(query) {
+  const terms = extractQueryTerms(query);
+  return terms.some((term) => SERVICE_INTENT_TERMS.has(term));
+}
+
+function termVariants(term) {
+  const variants = new Set([term]);
+  if (term.length > 5 && term.endsWith("ers")) variants.add(term.slice(0, -3));
+  if (term.length > 4 && term.endsWith("er")) variants.add(term.slice(0, -2));
+  if (term.length > 5 && term.endsWith("ing")) variants.add(term.slice(0, -3));
+  if (term.length > 4 && term.endsWith("ies")) variants.add(`${term.slice(0, -3)}y`);
+  if (term.length > 4 && term.endsWith("y")) variants.add(term.slice(0, -1));
+  if (term.length > 3 && term.endsWith("s")) variants.add(term.slice(0, -1));
+  return [...variants].filter(Boolean);
+}
+
+function isLocationLikeTerm(term) {
+  if (!term) return false;
+  if (STATE_VALUES_LOWER.has(term)) return true;
+  return CITY_TO_STATE.has(term);
 }
 
 function inferStateFromQuery(text) {
@@ -196,6 +223,7 @@ async function filterVendorsByRelevance(vendors, rawQuery, intent) {
   const vendorsById = new Map(vendors.map((vendor) => [vendor.id, vendor]));
   const serviceSignalsByStoreId = await loadServiceSignalsByStoreId([...vendorsById.keys()]);
   const inferredState = inferStateFromQuery(`${rawQuery || ""} ${intent?.cleanedQuery || ""}`);
+  const serviceIntent = intent?.scope === "services" || inferServiceIntentFromText(rawQuery) || inferServiceIntentFromText(intent?.cleanedQuery || "");
 
   const scored = vendors.map((vendor) => {
     const ownText = `${vendor.storeName || ""} ${vendor.storeDescription || ""} ${vendor.state || ""}`.toLowerCase();
@@ -207,11 +235,24 @@ async function filterVendorsByRelevance(vendors, rawQuery, intent) {
     };
     const serviceText = (serviceSignals.text || "").toLowerCase();
     const text = `${ownText} ${serviceText}`.trim();
+    const meaningfulTerms = candidateTerms.filter((term) => !isLocationLikeTerm(term));
 
     let score = 0;
+    let serviceSemanticHits = 0;
     for (const term of candidateTerms) {
-      if (text.includes(term)) score += 1;
-      if (serviceText.includes(term)) score += 1;
+      const variants = termVariants(term);
+      let matchedInAny = false;
+      let matchedInService = false;
+      for (const variant of variants) {
+        if (!variant) continue;
+        if (text.includes(variant)) matchedInAny = true;
+        if (serviceText.includes(variant)) matchedInService = true;
+      }
+      if (matchedInAny) score += 1;
+      if (matchedInService) {
+        score += 1;
+        if (meaningfulTerms.includes(term)) serviceSemanticHits += 1;
+      }
       if (serviceSignals.states.has(term)) score += 2;
       if (serviceSignals.cities.has(term)) score += 2;
     }
@@ -228,12 +269,13 @@ async function filterVendorsByRelevance(vendors, rawQuery, intent) {
       if (serviceSignals.coverAllNigeria) score += 1;
     }
 
-    return { vendor, score };
+    return { vendor, score, serviceSemanticHits };
   });
 
   const minScore = candidateTerms.length >= 3 ? 2 : 1;
   const filtered = scored
     .filter((row) => row.score >= minScore)
+    .filter((row) => !serviceIntent || row.serviceSemanticHits > 0)
     .sort((a, b) => b.score - a.score)
     .map((row) => row.vendor);
 
@@ -329,9 +371,10 @@ export async function GET(request) {
       const inferredStateFromIntent = inferStateFromQuery(intent.cleanedQuery || "") || undefined;
       const effectiveState = state || inferredStateFromIntent || inferredStateFromQuery;
       const categories = intent.category ? [intent.category] : undefined;
+      const serviceIntent = intent.scope === "services" || inferServiceIntentFromText(query) || inferServiceIntentFromText(intent.cleanedQuery || "");
       const vendorScope = intent.scope === "services" || intent.scope === "products"
         ? intent.scope
-        : scope;
+        : (serviceIntent ? "services" : scope);
       const productOffset = resolvedPrimary === "products" ? offset : 0;
       const productLimit = resolvedPrimary === "products" ? PAGE_SIZE : SECONDARY_LIMIT;
       const vendorOffset = resolvedPrimary === "vendors" ? offset : 0;
@@ -391,6 +434,10 @@ export async function GET(request) {
         const filteredVendors = await filterVendorsByRelevance(vendors, rawQuery, intent);
         vendors = filteredVendors;
         vendorTotal = filteredVendors.length;
+        if (vendorScope === "services") {
+          products = [];
+          productTotal = 0;
+        }
       }
     } else {
       // Fallback: extraction or embedding failed (bad/missing API key,
