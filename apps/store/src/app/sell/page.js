@@ -151,9 +151,8 @@ export default function SellOnStoraPage() {
               We&apos;ll bring everything else.
             </h1>
             <p className="text-white/60 text-base sm:text-lg mb-8 max-w-xl mx-auto lg:mx-0">
-              Set up a branded storefront on Stora, take payments through Paystack, and manage
-              orders and inventory from one dashboard for <span className="text-white font-semibold">₦3,500/month</span>,
-              plus 2% commission per completed sale.
+              Grow visibility, build trust, and turn discovery into customers. Start with a business listing,
+              then upgrade to full selling tools when you are ready to take online orders.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
               <a
@@ -171,10 +170,10 @@ export default function SellOnStoraPage() {
                 <ArrowRight className="w-4 h-4" />
               </a>
               <a
-                href="#how-it-works"
+                href="#value"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-white/20 text-white text-sm font-semibold hover:bg-white/5 transition-colors"
               >
-                See how it works
+                See why it works
               </a>
             </div>
           </div>
@@ -182,28 +181,26 @@ export default function SellOnStoraPage() {
           <div className="lg:col-span-5 flex justify-center lg:justify-end">
             <div className="relative w-full max-w-xs">
               <div className="absolute -inset-6 rounded-[2rem] bg-gold-500/10 blur-2xl" aria-hidden="true" />
-              <div className="relative bg-white rounded-3xl border border-white/10 shadow-2xl p-8 text-center">
-                <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 mb-2">Sell on Stora</p>
-                <p className="font-display text-5xl font-bold text-brand-900 mb-1">₦3,500</p>
-                <p className="text-sm text-gray-500 mb-4">per month + 2% commission per completed sale</p>
-
-                <div className="border-t border-gray-100 pt-4 text-left space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Business Listing</p>
-                  <p className="text-sm text-gray-600">₦500/month for a discoverable profile with services, gallery, and contact options.</p>
-                </div>
+              <div className="relative bg-white rounded-3xl border border-white/10 shadow-2xl p-8 text-left">
+                <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 mb-3">Why businesses choose Stora</p>
+                <ul className="space-y-2.5 text-sm text-gray-600">
+                  <li>Get discovered by customers searching in your city and category</li>
+                  <li>Show credibility with a polished profile, gallery, and clear service details</li>
+                  <li>Upgrade anytime to full checkout, payments, and inventory tools</li>
+                </ul>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Path chooser */}
-      <section className="py-14 sm:py-16 px-4 sm:px-6 lg:px-8 bg-white">
+      {/* Value proposition first */}
+      <section id="value" className="py-14 sm:py-16 px-4 sm:px-6 lg:px-8 bg-white scroll-mt-16">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Choose your setup</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Value first</p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 text-balance">
-              Start with full selling power
+              Why listing on Stora is valuable
             </h2>
           </div>
 
@@ -217,7 +214,7 @@ export default function SellOnStoraPage() {
               <ul className="text-sm text-gray-600 space-y-1.5 mb-5">
                 <li>Storefront with checkout and order management</li>
                 <li>Inventory, POS, and delivery-state controls</li>
-                <li>Pricing: ₦3,500/month + 2% commission on completed sales</li>
+                <li>Scale from profile-only discovery to full commerce when you are ready</li>
               </ul>
               <a
                 href={STORE_SIGNUP_URL}
@@ -237,7 +234,7 @@ export default function SellOnStoraPage() {
               <ul className="text-sm text-gray-600 space-y-1.5 mb-5">
                 <li>Public business profile with gallery and contact actions</li>
                 <li>Appear in business directory and AI-assisted vendor search</li>
-                <li>Pricing: ₦500/month, cancel anytime</li>
+                <li>Get found by customers already looking for what you offer</li>
               </ul>
               <a
                 href={LISTING_SIGNUP_URL}
@@ -302,27 +299,27 @@ export default function SellOnStoraPage() {
 
       {/* Pricing */}
       <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto text-center">
+        <div className="max-w-4xl mx-auto text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Pricing</p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-3 text-balance">
-            Sell on Stora pricing
+            Start with listing, upgrade to full selling
           </h2>
           <p className="text-sm sm:text-base text-gray-500 mb-8 max-w-xl mx-auto">
-            Run your full store for a flat monthly fee, then pay commission only when you make a sale.
+            Choose the level that matches where your business is now.
           </p>
 
-          <div className="bg-brand-800 rounded-3xl p-8 sm:p-10 mb-8 text-center">
-            <p className="flex items-center justify-center gap-3 mb-1">
-              <span className="font-display text-5xl sm:text-6xl font-bold text-white">₦3,500</span>
-              <span className="text-white/60 text-sm self-end mb-1.5">/month</span>
-            </p>
-            <p className="text-white/60 text-sm mb-2">plus 2% commission per completed sale</p>
-            <p className="text-white/40 text-xs">Cancel anytime. No setup fee.</p>
-          </div>
+          <div className="grid md:grid-cols-2 gap-4 text-left mb-8">
+            <div className="rounded-2xl border border-gold-200 bg-gold-50 p-6">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gold-700 mb-2">Business listing pricing</p>
+              <p className="font-display text-4xl font-bold text-gold-900 mb-1">₦500<span className="text-base font-medium">/month</span></p>
+              <p className="text-sm text-gold-900">For discoverability-focused businesses that want a profile, gallery, and direct customer contact options.</p>
+            </div>
 
-          <div className="rounded-2xl border border-gold-200 bg-gold-50 p-5 text-left mb-8">
-            <p className="text-xs font-semibold uppercase tracking-widest text-gold-700 mb-1">Business Listing option</p>
-            <p className="text-sm text-gold-900">Need visibility without full e-commerce tools? List My Business is ₦500/month for a public profile, service listing, and contact actions.</p>
+            <div className="rounded-2xl border border-brand-100 bg-brand-800 p-6 text-white">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gold-300 mb-2">Sell on Stora pricing</p>
+              <p className="font-display text-4xl font-bold mb-1">₦3,500<span className="text-base font-medium text-white/70">/month</span></p>
+              <p className="text-sm text-white/80">Plus 2% commission per completed sale, with full checkout, inventory, POS, and order operations.</p>
+            </div>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-4 text-left">
