@@ -821,12 +821,15 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
   // here and link straight into a storefront that now 404s (see the
   // website.isEnabled checks in [slug]/page.js and siblings) -- exclude
   // them at the query itself rather than filtering the already-limited
-  // results afterward, which could silently under-fill the grid.
+  // results afterward, which could silently under-fill the grid. Listing-
+  // mode businesses are intentionally showcase-only, so keep them out of
+  // global product discovery even if their listing website is enabled.
   const { data: enabledStores, error: enabledStoresError } = await supabaseAdmin
     .from('stores')
     .select('id')
     .eq('is_active', true)
-    .eq('website->>isEnabled', 'true');
+    .eq('website->>isEnabled', 'true')
+    .neq('platform_mode', 'listing');
 
   if (enabledStoresError) {
     console.error('Error finding enabled stores:', enabledStoresError);
