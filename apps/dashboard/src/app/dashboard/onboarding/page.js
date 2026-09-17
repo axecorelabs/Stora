@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Globe, CheckCircle2, AlertCircle, Store, LayoutList } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,7 +23,6 @@ const ONBOARDING_INTENT_KEY = 'stora-onboarding-intent';
 export default function OnboardingPage() {
   const { user, loading, isAuthenticated, secureApiCall, checkAuth } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   // This hook's own `['store']` query fetches on mount (during the 'name'
   // step, before any store exists yet) and caches a "no store" result for
@@ -63,14 +62,15 @@ export default function OnboardingPage() {
   const [preferredIntent, setPreferredIntent] = useState(null);
 
   useEffect(() => {
-    const fromQuery = searchParams.get('intent');
+    if (typeof window === 'undefined') return;
+
+    const fromQuery = new URLSearchParams(window.location.search).get('intent');
     if (fromQuery === 'store' || fromQuery === 'listing') {
       setPreferredIntent(fromQuery);
       setPlatformIntent(fromQuery);
       return;
     }
 
-    if (typeof window === 'undefined') return;
     const fromStorage = localStorage.getItem(ONBOARDING_INTENT_KEY);
     if (fromStorage === 'store' || fromStorage === 'listing') {
       // One-time use: avoid stale forced routing on future onboarding visits.
@@ -78,7 +78,7 @@ export default function OnboardingPage() {
       setPreferredIntent(fromStorage);
       setPlatformIntent(fromStorage);
     }
-  }, [searchParams]);
+  }, []);
 
   const handleChangeSetupType = () => {
     if (typeof window !== 'undefined') {
