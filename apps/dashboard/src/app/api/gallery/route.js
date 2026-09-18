@@ -13,7 +13,7 @@ export async function GET(req) {
 
     const { data: store } = await supabaseAdmin
       .from('stores')
-      .select('id, platform_mode')
+      .select('id')
       .eq('owner_id', user.id)
       .single();
 
@@ -47,9 +47,6 @@ export async function POST(req) {
       .single();
 
     if (!store) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
-    if (store.platform_mode !== 'listing') {
-      return NextResponse.json({ success: false, message: 'Gallery is only available for listing stores' }, { status: 403 });
-    }
 
     // Enforce 10-image cap before uploading.
     const { count } = await supabaseAdmin
