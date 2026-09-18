@@ -24,7 +24,8 @@ import {
   Layers,
   Zap,
   Star,
-  PlusCircle
+  PlusCircle,
+  Pencil
 } from "lucide-react";
 
 const SIDEBAR_SECTION_STATE_KEY_PREFIX = "stora-sidebar-sections";
@@ -119,6 +120,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   const [favorites, setFavorites] = useState([]);
   const [usageMap, setUsageMap] = useState({});
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [isManagingPins, setIsManagingPins] = useState(false);
 
   // Same ['store'] queryKey DashboardHeader.js/inventory/page.js already
   // use, so this shares their cache instead of firing its own request.
@@ -496,11 +498,27 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
                 )}
               </div>
 
+              {isManagingPins && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                  Pin mode is on. Tap stars beside items to add up to 3 pinned shortcuts.
+                </div>
+              )}
+
               {favoriteMenuItems.length > 0 && (
                 <div className="space-y-1">
-                  <div className="px-2 py-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 rounded-lg">
-                    <Star className="w-3.5 h-3.5" />
-                    <span>Pinned</span>
+                  <div className="px-2 py-1.5 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-3.5 h-3.5" />
+                      <span>Pinned</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsManagingPins((prev) => !prev)}
+                      className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white/70 px-2 py-1 text-[10px] font-semibold text-amber-800 hover:bg-white"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      {isManagingPins ? "Done" : "Manage"}
+                    </button>
                   </div>
                   <div className="space-y-2">
                     {favoriteMenuItems.map((item) => {
@@ -528,14 +546,39 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
                                 {pendingOrdersCount}
                               </span>
                             )}
-                            <span className="w-6 h-6 inline-flex items-center justify-center rounded-md bg-amber-100 text-amber-700">
-                              <Star className="w-3.5 h-3.5 fill-current" />
-                            </span>
+                            {isManagingPins && (
+                              <span
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleFavorite(item.path);
+                                }}
+                                className="w-6 h-6 inline-flex items-center justify-center rounded-md bg-amber-100 text-amber-700"
+                                role="button"
+                                aria-label="Unpin item"
+                                title="Unpin"
+                              >
+                                <Star className="w-3.5 h-3.5 fill-current" />
+                              </span>
+                            )}
                           </div>
                         </button>
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {favoriteMenuItems.length === 0 && (
+                <div className="px-2 py-1.5 flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 bg-gray-50 rounded-lg">
+                  <span>Pinned</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsManagingPins((prev) => !prev)}
+                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-semibold text-gray-600 hover:bg-gray-50"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    {isManagingPins ? "Done" : "Manage"}
+                  </button>
                 </div>
               )}
 
@@ -595,22 +638,24 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
                                     {pendingOrdersCount}
                                   </span>
                                 )}
-                                <span
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    toggleFavorite(item.path);
-                                  }}
-                                  className={`w-6 h-6 inline-flex items-center justify-center rounded-md ${
-                                    isFavorited
-                                      ? "text-amber-700 bg-amber-100"
-                                      : "text-gray-400 hover:text-amber-700 hover:bg-amber-50"
-                                  }`}
-                                  role="button"
-                                  aria-label={isFavorited ? "Unpin item" : "Pin item"}
-                                  title={isFavorited ? "Unpin" : "Pin"}
-                                >
-                                  <Star className={`w-3.5 h-3.5 ${isFavorited ? "fill-current" : ""}`} />
-                                </span>
+                                {isManagingPins && (
+                                  <span
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      toggleFavorite(item.path);
+                                    }}
+                                    className={`w-6 h-6 inline-flex items-center justify-center rounded-md ${
+                                      isFavorited
+                                        ? "text-amber-700 bg-amber-100"
+                                        : "text-gray-400 hover:text-amber-700 hover:bg-amber-50"
+                                    }`}
+                                    role="button"
+                                    aria-label={isFavorited ? "Unpin item" : "Pin item"}
+                                    title={isFavorited ? "Unpin" : "Pin"}
+                                  >
+                                    <Star className={`w-3.5 h-3.5 ${isFavorited ? "fill-current" : ""}`} />
+                                  </span>
+                                )}
                               </div>
                             </button>
                           );
