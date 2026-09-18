@@ -31,6 +31,30 @@ const DARK_CATEGORIES = new Set([
   "Wigs & Hair",
 ]);
 
+const CATEGORY_TILE_IMAGES = {
+  "Accessories": "/Accessories.webp",
+  "Automotive": "/Automotive.webp",
+  "Beverages": "/Beverages.webp",
+  "Books": "/Books.webp",
+  "Clothing": "/Clothing.webp",
+  "Electronics": "/Electronics.webp",
+  "Food": "/food.webp",
+  "Health & Beauty": "/Healthandbeauty.webp",
+  "Home & Garden": "/HomeandGarden.webp",
+  "Shoes": "/Shoes.webp",
+  "Sports": "/Sports.webp",
+  "Wigs & Hair": "/Wigsandhair.webp",
+};
+
+const DEFAULT_TILE_IMAGE_SCALE = 1.12;
+
+const CATEGORY_TILE_IMAGE_CROP = {
+  // Zoom is a factor (0..1) of the default extra zoom amount.
+  // 0.75 means "apply 75% of the default zoom-in", not scale image to 75%.
+  "Shoes": { zoom: 0.5, position: "center 62%" },
+  "Books": { zoom: 0.5, position: "center 72%" },
+};
+
 // Desktop layout: a real CSS grid (not multi-column masonry), so every row
 // resolves to the same height. One "big" tile spanning 2 rows, next to a
 // 2-wide/1-wide/1-wide row and a 2-wide/2-wide row underneath -- six tiles
@@ -209,18 +233,40 @@ export default function CategoryDiscovery() {
             const dark = DARK_CATEGORIES.has(value);
             const isFood = value === "Food";
             const tileStyle = bentoStyle(i, CATEGORIES.length);
-            const tileClassName = `relative flex flex-col justify-between rounded-2xl border p-6 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
-              dark
+            const imagePath = CATEGORY_TILE_IMAGES[value] || null;
+            const hasImageBackground = !!imagePath;
+            const imageCrop = CATEGORY_TILE_IMAGE_CROP[value] || { zoom: 1, position: "center top" };
+            const imageScale = 1 + (DEFAULT_TILE_IMAGE_SCALE - 1) * imageCrop.zoom;
+            const tileClassName = `relative overflow-hidden flex flex-col justify-between rounded-2xl border p-6 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
+              hasImageBackground
+                ? "border-brand-900/25"
+                : dark
                 ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
                 : "bg-brand-50/60 border-brand-100 hover:border-brand-300 hover:bg-brand-50"
             }`;
             const tileContent = (
               <>
-                {isFood && (
-                  <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${dark ? "text-white/40" : "text-brand-700/40"}`} />
+                {hasImageBackground && (
+                  <>
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0"
+                      style={{
+                        backgroundImage: `url(${imagePath})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: imageCrop.position,
+                        transform: `scale(${imageScale})`,
+                        transformOrigin: "top center"
+                      }}
+                    />
+                    <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-black/10" />
+                  </>
                 )}
-                {Icon && <Icon className={`w-8 h-8 ${dark ? "text-gold-400" : "text-brand-700"}`} strokeWidth={1.75} />}
-                <span className={`font-display text-xl font-semibold leading-tight ${dark ? "text-white" : "text-brand-900"}`}>
+                {isFood && (
+                  <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${hasImageBackground || dark ? "text-white/65" : "text-brand-700/40"}`} />
+                )}
+                {Icon && <Icon className={`relative z-10 w-8 h-8 ${hasImageBackground || dark ? "text-white" : "text-brand-700"}`} strokeWidth={1.75} />}
+                <span className={`relative z-10 font-display text-xl font-semibold leading-tight ${hasImageBackground || dark ? "text-white" : "text-brand-900"}`}>
                   {value}
                 </span>
               </>
