@@ -42,14 +42,25 @@ export default function Home() {
       <SiteHeader />
 
       {/* Hero -- green backdrop with a waved handoff into the sections below. */}
-      <section className="relative bg-brand-800 pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <AIHeroSearch />
+      <section className="relative pt-10 sm:pt-14 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <div aria-hidden="true" className="absolute inset-0">
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: "url('/IMG_6315%202.webp')" }}
+          />
+          <div className="absolute inset-0 bg-brand-900/62" />
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-900/52 via-brand-800/66 to-brand-900/78" />
+        </div>
+
+        <div className="relative z-10">
+          <AIHeroSearch />
+        </div>
 
         {/* Bottom wave into the white section below, same visual style as Biterave. */}
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
-          className="absolute bottom-0 left-0 w-full h-10 sm:h-16 text-white"
+          className="absolute z-10 bottom-0 left-0 w-full h-10 sm:h-16 text-white"
           aria-hidden="true"
         >
           <path
