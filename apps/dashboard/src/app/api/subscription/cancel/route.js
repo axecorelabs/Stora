@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { verifySession } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabase';
 import { applyListingInactiveState, resolveListingStoreByOwner } from '@/lib/listingSubscription';
+import { applyFullStoreInactiveState, resolveFullStoreByOwner } from '@/lib/fullStoreSubscription';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
@@ -28,35 +30,73 @@ export async function POST(req) {
     const user = await verifySession(req);
     if (!user) return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
 
-    const store = await resolveListingStoreByOwner(user.id);
+    const { data: ownerStore } = await supabaseAdmin
+      .from('stores')
+      .select('id, platform_mode')
+      .eq('owner_id', user.id)
+      .single();
 
-    if (!store) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
-    if (store.subscription_status !== 'active') {
-      return NextResponse.json({ success: false, message: 'No active subscription to cancel' }, { status: 400 });
+    if (!ownerStore) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
+
+    if (ownerStore.platform_mode === 'listing') {
+      const store = await resolveListingStoreByOwner(user.id);
+
+      if (!store) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
+      if (store.subscription_status !== 'active') {
+        return NextResponse.json({ success: false, message: 'No active subscription to cancel' }, { status: 400 });
+      }
+
+      if (store.subscription_paystack_code) {
+        await paystackRequest('/subscription/disable', {
+          method: 'POST',
+          body: {
+            code: store.subscription_paystack_code,
+            token: process.env.PAYSTACK_SECRET_KEY
+          }
+        });
+      }
+
+      await applyListingInactiveState({
+        storeId: store.id,
+        ownerId: user.id,
+        status: 'cancelled',
+        subscriptionCode: store.subscription_paystack_code || null,
+        cancelledAt: new Date().toISOString(),
+        raw: {
+          source: 'dashboard_cancel',
+          subscription_code: store.subscription_paystack_code || null
+        }
+      });
+
+      return NextResponse.json({ success: true });
     }
 
-    // Tell Paystack to stop charging -- the subscription.disable webhook will
-    // also fire and update the status, but we update locally too so the
-    // dashboard reflects it immediately without waiting for the webhook.
-    if (store.subscription_paystack_code) {
+    const store = await resolveFullStoreByOwner(user.id);
+
+    if (!store) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
+    if (store.full_store_subscription_status !== 'active') {
+      return NextResponse.json({ success: false, message: 'No active full-store subscription to cancel' }, { status: 400 });
+    }
+
+    if (store.full_store_subscription_paystack_code) {
       await paystackRequest('/subscription/disable', {
         method: 'POST',
         body: {
-          code: store.subscription_paystack_code,
-          token: process.env.PAYSTACK_SECRET_KEY // Paystack requires this for disable
+          code: store.full_store_subscription_paystack_code,
+          token: process.env.PAYSTACK_SECRET_KEY
         }
       });
     }
 
-    await applyListingInactiveState({
+    await applyFullStoreInactiveState({
       storeId: store.id,
       ownerId: user.id,
       status: 'cancelled',
-      subscriptionCode: store.subscription_paystack_code || null,
+      subscriptionCode: store.full_store_subscription_paystack_code || null,
       cancelledAt: new Date().toISOString(),
       raw: {
         source: 'dashboard_cancel',
-        subscription_code: store.subscription_paystack_code || null
+        subscription_code: store.full_store_subscription_paystack_code || null
       }
     });
 

@@ -58,7 +58,10 @@ export async function POST(req) {
         platform_mode: 'store',
         subscription_status: 'none',
         subscription_paystack_code: null,
-        subscription_next_payment_date: null
+        subscription_next_payment_date: null,
+        full_store_subscription_status: 'none',
+        full_store_subscription_paystack_code: null,
+        full_store_subscription_next_payment_date: null
       })
       .eq('id', store.id);
 

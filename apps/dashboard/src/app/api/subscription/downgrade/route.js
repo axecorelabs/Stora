@@ -15,7 +15,7 @@ export async function POST(req) {
 
     const { data: store } = await supabaseAdmin
       .from('stores')
-      .select('id, platform_mode, subscription_status, subscription_paystack_code')
+      .select('id, platform_mode, subscription_status, subscription_paystack_code, full_store_subscription_status, full_store_subscription_paystack_code, full_store_subscription_next_payment_date')
       .eq('owner_id', user.id)
       .single();
 
@@ -36,6 +36,9 @@ export async function POST(req) {
         subscription_status: 'none',
         subscription_paystack_code: null,
         subscription_next_payment_date: null,
+        full_store_subscription_status: 'none',
+        full_store_subscription_paystack_code: null,
+        full_store_subscription_next_payment_date: null,
         updated_at: now
       })
       .eq('id', store.id);
@@ -61,6 +64,9 @@ export async function POST(req) {
           platform_mode: 'store',
           subscription_status: store.subscription_status || 'none',
           subscription_paystack_code: store.subscription_paystack_code || null,
+          full_store_subscription_status: store.full_store_subscription_status || 'none',
+          full_store_subscription_paystack_code: store.full_store_subscription_paystack_code || null,
+          full_store_subscription_next_payment_date: store.full_store_subscription_next_payment_date || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', store.id);

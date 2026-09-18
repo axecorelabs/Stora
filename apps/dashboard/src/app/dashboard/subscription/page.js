@@ -7,12 +7,14 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Button from "@/components/ui/Button";
 import { CheckCircle2, AlertCircle, Clock, ArrowUpRight, Loader2 } from "lucide-react";
 
-function StatusBanner({ status, awaitingConfirmation = false }) {
+function StatusBanner({ status, mode, awaitingConfirmation = false }) {
+  const isListing = mode === 'listing';
+
   if (awaitingConfirmation) {
     return (
       <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
         <Clock className="w-4 h-4 flex-shrink-0" />
-        Payment received. We are confirming your subscription and your listing will go live shortly.
+        Payment received. We are confirming your subscription and activation will complete shortly.
       </div>
     );
   }
@@ -21,7 +23,7 @@ function StatusBanner({ status, awaitingConfirmation = false }) {
     return (
       <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
         <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-        Your listing is live and visible to the public.
+        {isListing ? 'Your listing is live and visible to the public.' : 'Your full store subscription is active.'}
       </div>
     );
   }
@@ -29,7 +31,7 @@ function StatusBanner({ status, awaitingConfirmation = false }) {
     return (
       <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
         <AlertCircle className="w-4 h-4 flex-shrink-0" />
-        Your last payment failed. Your listing is hidden until you resubscribe.
+        {isListing ? 'Your last payment failed. Your listing is hidden until you resubscribe.' : 'Your last payment failed. Resubscribe to keep full store billing active.'}
       </div>
     );
   }
@@ -37,14 +39,14 @@ function StatusBanner({ status, awaitingConfirmation = false }) {
     return (
       <div className="flex items-center gap-2 p-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-700">
         <Clock className="w-4 h-4 flex-shrink-0" />
-        Your subscription is cancelled. Resubscribe to make your listing live again.
+        {isListing ? 'Your subscription is cancelled. Resubscribe to make your listing live again.' : 'Your subscription is cancelled. Resubscribe to reactivate billing.'}
       </div>
     );
   }
   return (
     <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
       <AlertCircle className="w-4 h-4 flex-shrink-0" />
-      No active subscription. Subscribe to make your listing live.
+      {isListing ? 'No active subscription. Subscribe to make your listing live.' : 'No active subscription. Subscribe to activate full-store billing.'}
     </div>
   );
 }
@@ -154,23 +156,30 @@ export default function SubscriptionPage() {
 
   const isActive = sub?.subscriptionStatus === 'active';
   const isListing = sub?.platformMode === 'listing';
+  const amountKobo = Number.isFinite(sub?.subscriptionAmountKobo) ? sub.subscriptionAmountKobo : null;
+  const amountLabel = amountKobo ? `₦${(amountKobo / 100).toLocaleString()}` : 'Plan rate';
+  const planName = isListing ? 'Business Listing' : 'Full Store';
   const awaitingConfirmation = Boolean(justPaid && isListing && !isActive);
 
   return (
-    <DashboardLayout title="Subscription" subtitle={isListing ? 'Manage your listing subscription' : 'Manage your current mode'}>
+    <DashboardLayout title="Subscription" subtitle={isListing ? 'Manage your listing subscription' : 'Manage your full-store subscription'}>
       <div className="space-y-6">
 
-        {isListing && <StatusBanner status={sub?.subscriptionStatus} awaitingConfirmation={awaitingConfirmation} />}
+        <StatusBanner status={sub?.subscriptionStatus} mode={sub?.platformMode} awaitingConfirmation={awaitingConfirmation} />
 
         {/* Plan card */}
         <div className="bg-white border border-gray-100 rounded-2xl p-6 space-y-4">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Business Listing</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Showcase page, gallery, contact info</p>
+              <h2 className="text-base font-semibold text-gray-900">{planName}</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {isListing
+                  ? 'Showcase page, gallery, contact info'
+                  : 'Products, checkout, and full commerce tools'}
+              </p>
             </div>
             <div className="text-right">
-              <p className="text-xl font-bold text-gray-900">₦500</p>
+              <p className="text-xl font-bold text-gray-900">{amountLabel}</p>
               <p className="text-xs text-gray-500">/ month</p>
             </div>
           </div>
@@ -184,12 +193,19 @@ export default function SubscriptionPage() {
           )}
 
           <ul className="text-sm text-gray-600 space-y-1.5">
-            {[
-              'Public showcase page at your subdomain',
-              'Gallery of up to 10 images',
-              'Contact button (phone, WhatsApp, email)',
-              'Listed in Stora browse and search',
-            ].map(f => (
+            {(isListing
+              ? [
+                  'Public showcase page at your subdomain',
+                  'Gallery of up to 10 images',
+                  'Contact button (phone, WhatsApp, email)',
+                  'Listed in Stora browse and search'
+                ]
+              : [
+                  'Sell products with full storefront',
+                  'Accept and manage customer orders',
+                  'Delivery fee and inventory tools',
+                  'Commerce analytics in dashboard'
+                ]).map(f => (
               <li key={f} className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
                 {f}
@@ -197,7 +213,7 @@ export default function SubscriptionPage() {
             ))}
           </ul>
 
-          {isListing && !isActive && !awaitingConfirmation && (
+          {!isActive && !awaitingConfirmation && (
             <Button
               variant="primary"
               onClick={() => subscribeMutation.mutate()}
@@ -205,7 +221,7 @@ export default function SubscriptionPage() {
               className="w-full flex items-center justify-center gap-2"
             >
               {subscribeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {subscribeMutation.isPending ? 'Redirecting…' : 'Subscribe — ₦500/month'}
+              {subscribeMutation.isPending ? 'Redirecting…' : `Subscribe — ${amountLabel}/month`}
             </Button>
           )}
 

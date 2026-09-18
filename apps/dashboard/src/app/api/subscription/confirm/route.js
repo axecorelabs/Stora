@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import { verifySession } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabase';
 import {
   applyListingActiveState,
   getLatestPendingTransactionReference,
   resolveListingStoreByOwner,
   upsertSubscriptionTransaction
 } from '@/lib/listingSubscription';
+import {
+  applyFullStoreActiveState,
+  getLatestPendingFullStoreTransactionReference,
+  resolveFullStoreByOwner,
+  upsertFullStoreSubscriptionTransaction
+} from '@/lib/fullStoreSubscription';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
@@ -39,28 +46,47 @@ export async function POST(req) {
     const body = await req.json().catch(() => ({}));
     const inputReference = typeof body?.reference === 'string' ? body.reference : null;
 
-    const store = await resolveListingStoreByOwner(user.id);
+    const { data: ownerStore } = await supabaseAdmin
+      .from('stores')
+      .select('id, platform_mode, subscription_status, full_store_subscription_status')
+      .eq('owner_id', user.id)
+      .single();
+
+    if (!ownerStore) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
+
+    const isListing = ownerStore.platform_mode === 'listing';
+    const store = isListing
+      ? await resolveListingStoreByOwner(user.id)
+      : await resolveFullStoreByOwner(user.id);
 
     if (!store) return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
 
-    if (store.subscription_status === 'active') {
+    if (isListing && store.subscription_status === 'active') {
       return NextResponse.json({ success: true, data: { alreadyActive: true } });
     }
 
-    const reference = inputReference || await getLatestPendingTransactionReference(store.id);
+    if (!isListing && store.full_store_subscription_status === 'active') {
+      return NextResponse.json({ success: true, data: { alreadyActive: true } });
+    }
+
+    const reference = inputReference || (isListing
+      ? await getLatestPendingTransactionReference(store.id)
+      : await getLatestPendingFullStoreTransactionReference(store.id));
     if (!reference) {
-      return NextResponse.json({ success: false, message: 'No pending payment reference found for this listing' }, { status: 404 });
+      return NextResponse.json({ success: false, message: 'No pending payment reference found for this store' }, { status: 404 });
     }
 
     const tx = await paystackRequest(`/transaction/verify/${encodeURIComponent(reference)}`);
     const paid = tx?.status === 'success';
     const planCode = tx?.plan_object?.plan_code || tx?.plan?.plan_code || null;
-    const expectedPlanCode = process.env.PAYSTACK_LISTING_PLAN_CODE;
+    const expectedPlanCode = isListing
+      ? process.env.PAYSTACK_LISTING_PLAN_CODE
+      : process.env.PAYSTACK_FULL_STORE_PLAN_CODE;
     const purpose = tx?.metadata?.purpose;
     const metadataStoreId = tx?.metadata?.store_id;
 
     if (!paid) {
-      await upsertSubscriptionTransaction({
+      const pendingPayload = {
         storeId: store.id,
         ownerId: user.id,
         reference,
@@ -73,13 +99,21 @@ export async function POST(req) {
         providerPlanCode: planCode,
         paidAt: null,
         verificationPayload: tx
-      });
+      };
+
+      if (isListing) {
+        await upsertSubscriptionTransaction(pendingPayload);
+      } else {
+        await upsertFullStoreSubscriptionTransaction(pendingPayload);
+      }
+
       return NextResponse.json({ success: false, message: 'Payment is not successful yet' }, { status: 409 });
     }
 
-    const planMatches = expectedPlanCode ? planCode === expectedPlanCode : purpose === 'listing_subscription';
+    const expectedPurpose = isListing ? 'listing_subscription' : 'full_store_subscription';
+    const planMatches = expectedPlanCode ? planCode === expectedPlanCode : purpose === expectedPurpose;
     if (!planMatches) {
-      return NextResponse.json({ success: false, message: 'Payment does not match listing subscription plan' }, { status: 409 });
+      return NextResponse.json({ success: false, message: 'Payment does not match store subscription plan' }, { status: 409 });
     }
 
     if (metadataStoreId && metadataStoreId !== store.id) {
@@ -90,7 +124,7 @@ export async function POST(req) {
       ? new Date(new Date(tx.paid_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
       : null;
 
-    await applyListingActiveState({
+    const activePayload = {
       storeId: store.id,
       ownerId: user.id,
       subscriptionCode: tx?.subscription?.subscription_code || tx?.subscription_code || null,
@@ -99,7 +133,13 @@ export async function POST(req) {
       planCode,
       paidAt: tx?.paid_at || null,
       raw: tx
-    });
+    };
+
+    if (isListing) {
+      await applyListingActiveState(activePayload);
+    } else {
+      await applyFullStoreActiveState(activePayload);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
