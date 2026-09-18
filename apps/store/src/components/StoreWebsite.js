@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -14,6 +14,8 @@ import AvailabilityFilterModal from "./store/AvailabilityFilterModal";
 import MobileFilterDropdown from "./ui/MobileFilterDropdown";
 import { 
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Shirt,
   Smartphone,
   UtensilsCrossed,
@@ -57,13 +59,14 @@ import FloatingCartButton from "./ui/FloatingCartButton";
 import StarRating from "./ui/StarRating";
 import ViewBeacon from "./analytics/ViewBeacon";
 import { useProducts } from "@/hooks/useProducts";
+import { attachAutoScroll } from "@/lib/autoScroll";
 
 // Register GSAP plugins
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
-export default function StoreWebsite({ store }) {
+export default function StoreWebsite({ store, gallery = [] }) {
   const router = useRouter();
   
   // Replace products fetch with TanStack Query
@@ -613,6 +616,50 @@ export default function StoreWebsite({ store }) {
 
   const hasMoreProducts = filteredProducts.length > 8;
   const showLocationMap = store?.website?.settings?.locationMap !== false;
+  const galleryItems = useMemo(() => {
+    if (!Array.isArray(gallery)) return [];
+    return gallery.filter((item) => item?.image_url);
+  }, [gallery]);
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState(null);
+  const activeGalleryItem = activeGalleryIndex === null ? null : galleryItems[activeGalleryIndex];
+  const galleryTouchStartXRef = useRef(null);
+  const galleryScrollRef = useRef(null);
+  const galleryPausedRef = useRef(false);
+  const galleryDirectionRef = useRef(1);
+
+  const showPreviousGalleryImage = useCallback(() => {
+    setActiveGalleryIndex((current) => {
+      if (current === null || galleryItems.length === 0) return current;
+      return (current - 1 + galleryItems.length) % galleryItems.length;
+    });
+  }, [galleryItems.length]);
+
+  const showNextGalleryImage = useCallback(() => {
+    setActiveGalleryIndex((current) => {
+      if (current === null || galleryItems.length === 0) return current;
+      return (current + 1) % galleryItems.length;
+    });
+  }, [galleryItems.length]);
+
+  const closeGalleryViewer = useCallback(() => setActiveGalleryIndex(null), []);
+
+  const pauseGalleryScroll = () => { galleryPausedRef.current = true; };
+  const resumeGalleryScroll = () => { galleryPausedRef.current = false; };
+
+  const handleGalleryTouchStart = (event) => {
+    galleryTouchStartXRef.current = event.touches[0]?.clientX ?? null;
+  };
+
+  const handleGalleryTouchEnd = (event) => {
+    if (galleryTouchStartXRef.current === null) return;
+    const endX = event.changedTouches[0]?.clientX ?? galleryTouchStartXRef.current;
+    const delta = endX - galleryTouchStartXRef.current;
+    galleryTouchStartXRef.current = null;
+
+    if (Math.abs(delta) < 45) return;
+    if (delta > 0) showPreviousGalleryImage();
+    else showNextGalleryImage();
+  };
 
   const storeAddressText = useMemo(() => {
     const address = store?.address;
@@ -633,6 +680,30 @@ export default function StoreWebsite({ store }) {
   const storeMapEmbedUrl = showLocationMap && storeAddressText
     ? `https://maps.google.com/maps?q=${encodeURIComponent(storeAddressText)}&t=&z=14&ie=UTF8&iwloc=&output=embed`
     : null;
+
+  useEffect(() => {
+    if (galleryItems.length < 2) return () => {};
+    const speed = isMobile ? 0.55 : 0.8;
+    return attachAutoScroll(galleryScrollRef, galleryPausedRef, galleryDirectionRef, speed);
+  }, [galleryItems.length, isMobile]);
+
+  useEffect(() => {
+    if (activeGalleryIndex === null) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") closeGalleryViewer();
+      if (event.key === "ArrowLeft") showPreviousGalleryImage();
+      if (event.key === "ArrowRight") showNextGalleryImage();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeGalleryIndex, closeGalleryViewer, showPreviousGalleryImage, showNextGalleryImage]);
+
+  useEffect(() => {
+    if (activeGalleryIndex === null) return;
+    if (activeGalleryIndex >= galleryItems.length) setActiveGalleryIndex(null);
+  }, [activeGalleryIndex, galleryItems.length]);
 
   // Auto-play carousel effect
   useEffect(() => {
@@ -1191,6 +1262,51 @@ export default function StoreWebsite({ store }) {
 
         {store.offersServices && <ServicesSection store={store} isMobile={isMobile} />}
 
+        {galleryItems.length > 0 && (
+          <section id="gallery" className="mt-12 -mx-6 border-y border-gray-200 bg-white py-4 sm:mx-0 sm:rounded-2xl sm:border sm:px-6 sm:py-5">
+            <div className="mb-3 flex items-center justify-between gap-3 px-4 sm:px-0">
+              <h3 className="font-display text-lg font-semibold text-gray-900">Gallery</h3>
+              <span className="text-xs font-medium text-gray-500 tabular-nums">
+                {galleryItems.length} photo{galleryItems.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            <div
+              ref={galleryScrollRef}
+              onMouseEnter={pauseGalleryScroll}
+              onMouseLeave={resumeGalleryScroll}
+              onTouchStart={pauseGalleryScroll}
+              onTouchEnd={resumeGalleryScroll}
+              className="overflow-x-auto px-4 sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            >
+              <div className="flex w-max gap-3 sm:gap-4 pr-4 sm:pr-0">
+                {galleryItems.map((item, index) => (
+                  <button
+                    key={item.id || `${item.image_url}-${index}`}
+                    type="button"
+                    onClick={() => setActiveGalleryIndex(index)}
+                    className="group relative h-40 w-64 sm:h-48 sm:w-80 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-700/60"
+                    aria-label={`Open gallery image ${index + 1}`}
+                  >
+                    <img
+                      src={item.image_url}
+                      alt={item.caption || `Gallery image ${index + 1}`}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                      loading="lazy"
+                    />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 via-black/20 to-transparent" />
+                    {item.caption && (
+                      <span className="absolute left-3 right-3 bottom-2.5 line-clamp-1 text-left text-xs font-medium text-white/90 drop-shadow-sm">
+                        {item.caption}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {storeMapEmbedUrl && (
           <section className="mt-12 -mx-6 rounded-none border-y border-gray-200 bg-white p-4 pb-0 sm:mx-0 sm:rounded-2xl sm:border sm:p-6">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -1221,6 +1337,62 @@ export default function StoreWebsite({ store }) {
           </section>
         )}
       </main>
+
+      {activeGalleryItem && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/90"
+          onTouchStart={handleGalleryTouchStart}
+          onTouchEnd={handleGalleryTouchEnd}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Gallery image preview"
+        >
+          <button type="button" aria-label="Close image preview" className="absolute inset-0 cursor-default" onClick={closeGalleryViewer} />
+          <div className="relative z-10 w-full max-w-6xl px-4">
+            <button
+              type="button"
+              aria-label="Close image preview"
+              onClick={closeGalleryViewer}
+              className="absolute right-6 top-4 z-20 grid h-11 w-11 place-items-center rounded-full bg-white/95 text-black shadow-lg"
+            >
+              <X className="h-6 w-6" />
+            </button>
+
+            {galleryItems.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous image"
+                  onClick={showPreviousGalleryImage}
+                  className="absolute left-4 top-1/2 z-20 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-black shadow-lg sm:left-6 sm:h-12 sm:w-12"
+                >
+                  <ChevronLeft className="h-5 w-5 stroke-[2.6] sm:h-6 sm:w-6" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next image"
+                  onClick={showNextGalleryImage}
+                  className="absolute right-4 top-1/2 z-20 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-black shadow-lg sm:right-6 sm:h-12 sm:w-12"
+                >
+                  <ChevronRight className="h-5 w-5 stroke-[2.6] sm:h-6 sm:w-6" />
+                </button>
+              </>
+            )}
+
+            <div className="relative h-[82vh] w-full">
+              <img
+                src={activeGalleryItem.image_url}
+                alt={activeGalleryItem.caption || `Gallery image ${(activeGalleryIndex || 0) + 1}`}
+                className="h-full w-full object-contain"
+              />
+            </div>
+
+            <div className="mx-auto mt-4 max-w-3xl text-center text-sm font-medium text-white/80">
+              {activeGalleryItem.caption || `${(activeGalleryIndex || 0) + 1} of ${galleryItems.length}`}
+            </div>
+          </div>
+        </div>
+      )}
 
       <StoreFooter />
 

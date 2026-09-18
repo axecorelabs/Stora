@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import StoreWebsite from "@/components/StoreWebsite";
 import ListingShowcase from "@/components/ListingShowcase";
-import { findStoreByWebsitePath } from '@/lib/supabaseStore';
+import { findGalleryByStoreId, findStoreByWebsitePath } from '@/lib/supabaseStore';
 
 // Subscription status can flip listing visibility at any time (paid, past_due,
 // cancelled). Use per-request rendering so public access reflects that
@@ -112,10 +112,12 @@ export default async function StorePage({ params }) {
     notFound();
   }
 
+  const gallery = await findGalleryByStoreId(store.id);
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(storeSchema) }} />
-      <StoreWebsite store={store} />
+      <StoreWebsite store={store} gallery={gallery} />
     </>
   );
 }
