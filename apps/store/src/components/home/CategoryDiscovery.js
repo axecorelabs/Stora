@@ -51,7 +51,7 @@ const DEFAULT_TILE_IMAGE_SCALE = 1.12;
 const CATEGORY_TILE_IMAGE_CROP = {
   // Zoom is a factor (0..1) of the default extra zoom amount.
   // 0.75 means "apply 75% of the default zoom-in", not scale image to 75%.
-  "Shoes": { zoom: 0.5, position: "center 62%" },
+  "Shoes": { zoom: 0.6, position: "center 62%" },
   "Books": { zoom: 0.5, position: "center 72%" },
 };
 
@@ -82,6 +82,40 @@ const BENTO_POSITIONS = [
 ];
 const BENTO_COLS_PER_BLOCK = 5;
 
+// Mobile/tablet: vertical bento rhythm in a 2-col grid.
+const MOBILE_BENTO_POSITIONS = [
+  { colSpan: 2, rowSpan: 1 },
+  { colSpan: 1, rowSpan: 1 },
+  { colSpan: 1, rowSpan: 2 },
+  { colSpan: 1, rowSpan: 1 },
+  { colSpan: 1, rowSpan: 1 },
+  { colSpan: 2, rowSpan: 1 },
+];
+
+function mobileBentoClassName(i) {
+  // Keep the 7th visible tile compact so it pairs beside Perfumes.
+  if (i === 6) return "col-span-1 row-span-1";
+
+  const { colSpan, rowSpan } = MOBILE_BENTO_POSITIONS[i % MOBILE_BENTO_POSITIONS.length];
+  return `${colSpan === 2 ? "col-span-2" : "col-span-1"} ${rowSpan === 2 ? "row-span-2" : "row-span-1"}`;
+}
+
+function getMobileCategoryOrder(categories) {
+  const heroPriority = ["Clothing", "Food"];
+  const ordered = [];
+
+  heroPriority.forEach((hero) => {
+    const match = categories.find((c) => c.value === hero);
+    if (match) ordered.push(match);
+  });
+
+  categories.forEach((c) => {
+    if (!heroPriority.includes(c.value)) ordered.push(c);
+  });
+
+  return ordered;
+}
+
 function bentoStyle(i, total) {
   const patternedCount = Math.floor(total / BENTO_POSITIONS.length) * BENTO_POSITIONS.length;
 
@@ -111,7 +145,7 @@ function bentoStyle(i, total) {
 // How many category tiles show before mobile/tablet needs "See more" --
 // desktop scrolls horizontally instead and has room for all of them, so
 // this collapse only ever applies below the lg breakpoint.
-const INITIAL_VISIBLE_COUNT = 6;
+const INITIAL_VISIBLE_COUNT = 7;
 
 // Sits between the vendor showcase and the product discovery teaser on the
 // homepage. Two separate ways in: a category tile filters /products by
@@ -122,6 +156,7 @@ const INITIAL_VISIBLE_COUNT = 6;
 export default function CategoryDiscovery() {
   const [expanded, setExpanded] = useState(false);
   const hasMore = CATEGORIES.length > INITIAL_VISIBLE_COUNT;
+  const mobileCategories = getMobileCategoryOrder(CATEGORIES);
 
   // 0.6px/frame (~36px/s) was too subtle to actually notice at a glance --
   // confirmed moving in an automated scrollLeft check, but reads as
@@ -153,23 +188,52 @@ export default function CategoryDiscovery() {
     <div>
       {/* Mobile/tablet: plain 2/3-col wrapping grid + "See more", unchanged.
           Hidden at lg+ now that desktop gets its own horizontal shelf below. */}
-      <div className="lg:hidden grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-        {CATEGORIES.map(({ value, icon: Icon }, i) => {
+      <div className="lg:hidden grid grid-cols-2 gap-3 sm:gap-4 grid-flow-dense auto-rows-[8.25rem] sm:auto-rows-[9rem]">
+        {mobileCategories.map(({ value, icon: Icon }, i) => {
           const dark = DARK_CATEGORIES.has(value);
           const isFood = value === "Food";
           const collapsedOnMobile = i >= INITIAL_VISIBLE_COUNT && !expanded;
-          const tileClassName = `${collapsedOnMobile ? "hidden" : "flex"} relative aspect-square flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
-            dark
+          const mobileBentoClass = value === "Home & Garden"
+            ? "col-span-1 row-span-2 col-start-1"
+            : value === "Automotive"
+            ? "col-span-1 row-span-1 col-start-2"
+            : value === "Health & Beauty"
+            ? "col-span-1 row-span-1 col-start-2"
+            : mobileBentoClassName(i);
+          const imagePath = CATEGORY_TILE_IMAGES[value] || null;
+          const hasImageBackground = !!imagePath;
+          const imageCrop = CATEGORY_TILE_IMAGE_CROP[value] || { zoom: 1, position: "center top" };
+          const imageScale = 1 + (DEFAULT_TILE_IMAGE_SCALE - 1) * imageCrop.zoom;
+          const tileClassName = `${collapsedOnMobile ? "hidden" : "flex"} ${mobileBentoClass} relative h-full overflow-hidden flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
+            hasImageBackground
+              ? "border-brand-900/25"
+              : dark
               ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
               : "bg-brand-50/60 border-brand-100 hover:border-brand-300 hover:bg-brand-50"
           }`;
           const tileContent = (
             <>
-              {isFood && (
-                <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${dark ? "text-white/40" : "text-brand-700/40"}`} />
+              {hasImageBackground && (
+                <>
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage: `url(${imagePath})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: imageCrop.position,
+                      transform: `scale(${imageScale})`,
+                      transformOrigin: "top center"
+                    }}
+                  />
+                  <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/25 to-black/10" />
+                </>
               )}
-              {Icon && <Icon className={`w-7 h-7 ${dark ? "text-gold-400" : "text-brand-700"}`} strokeWidth={1.75} />}
-              <span className={`font-display text-lg font-semibold leading-tight ${dark ? "text-white" : "text-brand-900"}`}>
+              {isFood && (
+                <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${hasImageBackground || dark ? "text-white/65" : "text-brand-700/40"}`} />
+              )}
+              {Icon && <Icon className={`relative z-10 w-7 h-7 ${hasImageBackground || dark ? "text-white" : "text-brand-700"}`} strokeWidth={1.75} />}
+              <span className={`relative z-10 font-display text-lg font-semibold leading-tight ${hasImageBackground || dark ? "text-white" : "text-brand-900"}`}>
                 {value}
               </span>
             </>
