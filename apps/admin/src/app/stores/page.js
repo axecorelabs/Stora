@@ -32,6 +32,11 @@ const PLATFORM_MODE_OPTIONS = [
   { value: "listing", label: "Listings only" }
 ];
 
+function formatNaira(kobo) {
+  if (!Number.isFinite(kobo)) return "-";
+  return `₦${(kobo / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function StoresPageContent() {
   const { secureApiCall } = useAuth();
   const [stores, setStores] = useState([]);
@@ -80,7 +85,7 @@ function StoresPageContent() {
   useEffect(() => {
     const timeout = setTimeout(() => load({ q: query, status: statusFilter, verified: verifiedFilter, platformMode: platformModeFilter, page }), 300);
     return () => clearTimeout(timeout);
-  }, [query, statusFilter, verifiedFilter, page, load]);
+  }, [query, statusFilter, verifiedFilter, platformModeFilter, page, load]);
 
   const handleToggleStorefront = async (store, nextValue) => {
     setLoadingKey(`storefront-${store.id}`);
@@ -165,6 +170,54 @@ function StoresPageContent() {
     }
   };
 
+  const handleActivateManualListingSubscription = async (store) => {
+    const rawAmount = window.prompt(`Record physical payment for ${store.storeName}. Enter amount in Naira (e.g. 5000):`, "5000");
+    if (rawAmount === null) return;
+
+    const parsedAmount = Number(rawAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      window.alert("Please enter a valid amount greater than zero.");
+      return;
+    }
+
+    const note = window.prompt("Optional note (bank transfer ref, teller note, POS slip etc):", "") || "";
+
+    setLoadingKey(`subscription-${store.id}`);
+    try {
+      const data = await secureApiCall(`/api/stores/${store.id}/subscription/manual`, {
+        method: "POST",
+        body: JSON.stringify({
+          amountNaira: parsedAmount,
+          currency: "NGN",
+          periodDays: 30,
+          note: note.trim() || null,
+        })
+      });
+
+      if (data.success) {
+        setStores((prev) =>
+          prev.map((s) =>
+            s.id === store.id
+              ? {
+                  ...s,
+                  subscriptionStatus: data.store.subscriptionStatus,
+                  isPublished: data.store.isPublished,
+                  isLive: data.store.isLive,
+                }
+              : s
+          )
+        );
+
+        window.alert(`Subscription activated for ${store.storeName}. Recorded payment: ${formatNaira(data.payment.amountKobo)}.`);
+      }
+    } catch (error) {
+      console.error("Error activating manual subscription:", error);
+      window.alert(error?.message || "Failed to activate manual subscription.");
+    } finally {
+      setLoadingKey(null);
+    }
+  };
+
   const statRows = stats
     ? [
         { key: "total", icon: Store, tone: "brand", label: "Vendors", value: stats.total, sub: "matching filters" },
@@ -213,12 +266,13 @@ function StoresPageContent() {
                   <th className="px-4 py-3 font-medium text-center">Account</th>
                   <th className="px-4 py-3 font-medium text-center">Login</th>
                   <th className="px-4 py-3 font-medium text-center">Verified by Stora</th>
+                  <th className="px-4 py-3 font-medium text-center">Listing subscription</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {stores.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="p-6 text-sm text-gray-400 text-center">No vendors found.</td>
+                    <td colSpan={10} className="p-6 text-sm text-gray-400 text-center">No vendors found.</td>
                   </tr>
                 )}
                 {stores.map((store) => (
@@ -295,6 +349,28 @@ function StoresPageContent() {
                           label="Grant/revoke the public Verified by Stora badge"
                         />
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {(store.platformMode || 'store') === 'listing' ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${store.subscriptionStatus === 'active' ? 'bg-emerald-50 text-emerald-700' : store.subscriptionStatus === 'past_due' ? 'bg-amber-50 text-amber-700' : store.subscriptionStatus === 'cancelled' ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {store.subscriptionStatus || 'none'}
+                          </span>
+                          {store.subscriptionStatus !== 'active' && (
+                            <button
+                              type="button"
+                              onClick={() => handleActivateManualListingSubscription(store)}
+                              disabled={loadingKey === `subscription-${store.id}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-brand-200 px-2.5 py-1 text-[11px] font-semibold text-brand-800 hover:bg-brand-50 disabled:opacity-60"
+                            >
+                              {loadingKey === `subscription-${store.id}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                              Activate (manual)
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center text-xs text-gray-400">—</div>
+                      )}
                     </td>
                   </tr>
                 ))}
