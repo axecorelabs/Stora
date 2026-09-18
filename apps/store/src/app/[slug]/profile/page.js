@@ -132,12 +132,12 @@ export default async function StoreProfilePage({ params }) {
           )}
         </section>
 
-        <section className="mt-6 rounded-2xl border border-gray-100 bg-white p-5 sm:p-7">
+        <section className="mt-6 rounded-2xl border border-gray-100 bg-white p-5 pb-0 sm:p-7">
           <h2 className="text-base font-semibold text-gray-900">Location</h2>
           {addressText && embedUrl ? (
             <>
               <p className="mt-2 text-sm text-gray-600">{addressText}</p>
-              <div className="mt-4 h-64 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 sm:h-72">
+              <div className="mt-4 -mx-5 h-64 overflow-hidden border-y border-gray-200 bg-gray-100 sm:mx-0 sm:h-72 sm:rounded-xl sm:border">
                 <iframe
                   title="Store location"
                   src={embedUrl}
