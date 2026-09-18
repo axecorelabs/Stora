@@ -61,7 +61,9 @@ export async function POST(req) {
         subscription_next_payment_date: null,
         full_store_subscription_status: 'none',
         full_store_subscription_paystack_code: null,
-        full_store_subscription_next_payment_date: null
+        full_store_subscription_next_payment_date: null,
+        full_store_subscription_grace_ends_at: null,
+        full_store_subscription_locked_at: null
       })
       .eq('id', store.id);
 

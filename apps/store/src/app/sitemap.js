@@ -52,6 +52,17 @@ function isPubliclyVisibleStore(store) {
   if (platformMode === 'listing') {
     return store.subscription_status === 'active';
   }
+  if (platformMode === 'store') {
+    const status = store.full_store_subscription_status || 'none';
+    if (status === 'active' || status === 'none') return true;
+    if (status === 'past_due') {
+      const graceEndsAt = store.full_store_subscription_grace_ends_at;
+      if (!graceEndsAt) return true;
+      const graceExpiryMs = new Date(graceEndsAt).getTime();
+      return Number.isFinite(graceExpiryMs) && graceExpiryMs > Date.now();
+    }
+    return false;
+  }
   return true;
 }
 
@@ -60,7 +71,7 @@ async function getStoreUrls() {
 
   const { data, error } = await supabaseAdmin
     .from('stores')
-    .select('id, store_slug, website, updated_at, is_active, platform_mode, subscription_status');
+    .select('id, store_slug, website, updated_at, is_active, platform_mode, subscription_status, full_store_subscription_status, full_store_subscription_grace_ends_at');
 
   if (error || !data) {
     console.error('Sitemap stores query error:', error);

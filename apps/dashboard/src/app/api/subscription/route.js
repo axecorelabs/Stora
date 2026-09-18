@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
+import { captureServerEvent } from '@/lib/posthog-server';
 import { resolveListingStoreByOwner, upsertSubscriptionTransaction, getLatestPendingTransactionReference } from '@/lib/listingSubscription';
 import {
   getLatestPendingFullStoreTransactionReference,
@@ -91,6 +92,13 @@ export async function POST(req) {
         providerPlanCode: LISTING_PLAN_CODE
       });
 
+      await captureServerEvent(user.id, 'subscription_initialize', {
+        subscriptionMode: 'listing',
+        storeId: store.id,
+        planCode: LISTING_PLAN_CODE,
+        reference: result.reference || null
+      });
+
       return NextResponse.json({
         success: true,
         authorizationUrl: result.authorization_url,
@@ -135,6 +143,13 @@ export async function POST(req) {
       providerPlanCode: FULL_STORE_PLAN_CODE
     });
 
+    await captureServerEvent(user.id, 'subscription_initialize', {
+      subscriptionMode: 'full_store',
+      storeId: fullStore.id,
+      planCode: FULL_STORE_PLAN_CODE,
+      reference: result.reference || null
+    });
+
     return NextResponse.json({
       success: true,
       authorizationUrl: result.authorization_url,
@@ -154,7 +169,7 @@ export async function GET(req) {
 
     const { data: store } = await supabaseAdmin
       .from('stores')
-      .select('id, platform_mode, subscription_status, subscription_paystack_code, subscription_next_payment_date, full_store_subscription_status, full_store_subscription_paystack_code, full_store_subscription_next_payment_date')
+      .select('id, platform_mode, subscription_status, subscription_paystack_code, subscription_next_payment_date, full_store_subscription_status, full_store_subscription_paystack_code, full_store_subscription_next_payment_date, full_store_subscription_grace_ends_at, full_store_subscription_locked_at')
       .eq('owner_id', user.id)
       .single();
 
@@ -183,6 +198,8 @@ export async function GET(req) {
         fullStoreSubscriptionStatus: store.full_store_subscription_status,
         fullStoreSubscriptionNextPaymentDate: store.full_store_subscription_next_payment_date,
         fullStoreSubscriptionAmountKobo: FULL_STORE_DEFAULT_AMOUNT_KOBO,
+        fullStoreSubscriptionGraceEndsAt: store.full_store_subscription_grace_ends_at,
+        fullStoreSubscriptionLockedAt: store.full_store_subscription_locked_at,
         pendingReference
       }
     });

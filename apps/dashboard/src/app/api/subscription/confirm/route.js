@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifySession } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
+import { captureServerEvent } from '@/lib/posthog-server';
 import {
   applyListingActiveState,
   getLatestPendingTransactionReference,
@@ -140,6 +141,14 @@ export async function POST(req) {
     } else {
       await applyFullStoreActiveState(activePayload);
     }
+
+    await captureServerEvent(user.id, 'subscription_confirmed', {
+      subscriptionMode: isListing ? 'listing' : 'full_store',
+      storeId: store.id,
+      reference,
+      providerPlanCode: planCode || null,
+      nextPaymentDate: nextPaymentDate || null
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

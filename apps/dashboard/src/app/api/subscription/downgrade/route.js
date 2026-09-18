@@ -39,6 +39,8 @@ export async function POST(req) {
         full_store_subscription_status: 'none',
         full_store_subscription_paystack_code: null,
         full_store_subscription_next_payment_date: null,
+        full_store_subscription_grace_ends_at: null,
+        full_store_subscription_locked_at: null,
         updated_at: now
       })
       .eq('id', store.id);
@@ -67,6 +69,8 @@ export async function POST(req) {
           full_store_subscription_status: store.full_store_subscription_status || 'none',
           full_store_subscription_paystack_code: store.full_store_subscription_paystack_code || null,
           full_store_subscription_next_payment_date: store.full_store_subscription_next_payment_date || null,
+          full_store_subscription_grace_ends_at: null,
+          full_store_subscription_locked_at: null,
           updated_at: new Date().toISOString()
         })
         .eq('id', store.id);

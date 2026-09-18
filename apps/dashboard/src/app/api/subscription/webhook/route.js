@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { captureServerEvent } from '@/lib/posthog-server';
 import {
   applyListingActiveState,
   applyListingInactiveState,
@@ -241,6 +242,15 @@ export async function POST(req) {
           paidAt: data?.paid_at || null,
           raw: data
         });
+
+        await captureServerEvent(storeContext.ownerId, 'subscription_confirmed', {
+          source: 'webhook',
+          subscriptionMode: 'listing',
+          storeId: storeContext.storeId,
+          reference: data?.reference || null,
+          providerPlanCode: planCode || null,
+          nextPaymentDate: nextPaymentDate || null
+        });
       }
 
       if (isFullStorePlan && storeContext) {
@@ -257,6 +267,15 @@ export async function POST(req) {
           planCode,
           paidAt: data?.paid_at || null,
           raw: data
+        });
+
+        await captureServerEvent(storeContext.ownerId, 'subscription_confirmed', {
+          source: 'webhook',
+          subscriptionMode: 'full_store',
+          storeId: storeContext.storeId,
+          reference: data?.reference || null,
+          providerPlanCode: planCode || null,
+          nextPaymentDate: nextPaymentDate || null
         });
       }
     }
@@ -278,6 +297,15 @@ export async function POST(req) {
       } else {
         await applyListingInactiveState(inactivePayload);
       }
+
+      await captureServerEvent(storeContext.ownerId, eventType === 'subscription.disable' ? 'subscription_suspended' : 'subscription_renewal_failed', {
+        source: 'webhook',
+        subscriptionMode: subscriptionKind === 'full_store' ? 'full_store' : 'listing',
+        storeId: storeContext.storeId,
+        providerSubscriptionCode: data?.subscription_code || null,
+        webhookEvent: eventType,
+        status: newStatus
+      });
 
       if (data?.reference) {
         const failedTxPayload = {

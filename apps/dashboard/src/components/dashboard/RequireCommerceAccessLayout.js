@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getDashboardAccessContext } from '@/lib/storeAccess';
 
 export default async function RequireCommerceAccessLayout({ children }) {
-  const { user, store } = await getDashboardAccessContext();
+  const { user, store, commerceAccess } = await getDashboardAccessContext();
 
   if (!user) {
     redirect('/');
@@ -14,6 +14,10 @@ export default async function RequireCommerceAccessLayout({ children }) {
 
   if (store.platform_mode === 'listing') {
     redirect('/dashboard/overview');
+  }
+
+  if (!commerceAccess?.allowed) {
+    redirect('/dashboard/subscription');
   }
 
   return children;

@@ -1,4 +1,104 @@
 import { supabaseAdmin } from '@/lib/supabase';
+import { normalizeWebsiteConfig } from '@/lib/listingSubscription';
+
+const DEFAULT_GRACE_DAYS = 7;
+
+export function getFullStoreGraceDays() {
+  const raw = Number(process.env.FULL_STORE_SUBSCRIPTION_GRACE_DAYS ?? DEFAULT_GRACE_DAYS);
+  if (!Number.isFinite(raw)) return DEFAULT_GRACE_DAYS;
+  return Math.min(Math.max(Math.round(raw), 3), 7);
+}
+
+function computeGraceEndsAtIso(now = Date.now()) {
+  const graceDays = getFullStoreGraceDays();
+  const ms = graceDays * 24 * 60 * 60 * 1000;
+  return new Date(now + ms).toISOString();
+}
+
+export function evaluateFullStoreCommerceAccess(store, nowMs = Date.now()) {
+  if (!store || store.platform_mode !== 'store') {
+    return { allowed: true, restrictedReason: null, graceEndsAt: null, graceActive: false };
+  }
+
+  const status = store.full_store_subscription_status || 'none';
+  const graceEndsAt = store.full_store_subscription_grace_ends_at || null;
+  const lockedAt = store.full_store_subscription_locked_at || null;
+
+  if (status === 'active') {
+    return { allowed: true, restrictedReason: null, graceEndsAt, graceActive: false };
+  }
+
+  if (status === 'past_due') {
+    if (!graceEndsAt) {
+      return { allowed: true, restrictedReason: null, graceEndsAt: null, graceActive: true };
+    }
+
+    const graceExpiryMs = new Date(graceEndsAt).getTime();
+    const graceActive = Number.isFinite(graceExpiryMs) && graceExpiryMs > nowMs;
+    if (graceActive) {
+      return { allowed: true, restrictedReason: null, graceEndsAt, graceActive: true };
+    }
+
+    return {
+      allowed: false,
+      restrictedReason: lockedAt ? 'subscription_locked' : 'grace_expired',
+      graceEndsAt,
+      graceActive: false
+    };
+  }
+
+  if (status === 'cancelled') {
+    return { allowed: false, restrictedReason: 'subscription_cancelled', graceEndsAt, graceActive: false };
+  }
+
+  // Treat 'none' as allowed during rollout; can be tightened later.
+  return { allowed: true, restrictedReason: null, graceEndsAt, graceActive: false };
+}
+
+async function setStorefrontEnabled(storeId, enabled) {
+  const { data: store } = await supabaseAdmin
+    .from('stores')
+    .select('website')
+    .eq('id', storeId)
+    .eq('platform_mode', 'store')
+    .maybeSingle();
+
+  if (!store) return;
+
+  const nextWebsite = {
+    ...normalizeWebsiteConfig(store.website),
+    isEnabled: !!enabled
+  };
+
+  await supabaseAdmin
+    .from('stores')
+    .update({
+      website: nextWebsite,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', storeId)
+    .eq('platform_mode', 'store');
+}
+
+export async function enforceFullStoreLockIfNeeded(store) {
+  const access = evaluateFullStoreCommerceAccess(store);
+  if (access.allowed) return { ...access, newlyLocked: false };
+
+  const nowIso = new Date().toISOString();
+
+  const { data: lockResult } = await supabaseAdmin
+    .from('stores')
+    .update({ full_store_subscription_locked_at: nowIso })
+    .eq('id', store.id)
+    .eq('platform_mode', 'store')
+    .is('full_store_subscription_locked_at', null)
+    .select('id')
+    .maybeSingle();
+
+  await setStorefrontEnabled(store.id, false);
+
+  return { ...access, newlyLocked: !!lockResult?.id };
+}
 
 export async function upsertFullStoreSubscription({
   storeId,
@@ -117,10 +217,14 @@ export async function applyFullStoreActiveState({
     .update({
       full_store_subscription_status: 'active',
       full_store_subscription_paystack_code: subscriptionCode,
-      full_store_subscription_next_payment_date: nextPaymentDate
+      full_store_subscription_next_payment_date: nextPaymentDate,
+      full_store_subscription_grace_ends_at: null,
+      full_store_subscription_locked_at: null
     })
     .eq('id', storeId)
     .eq('platform_mode', 'store');
+
+  await setStorefrontEnabled(storeId, true);
 
   await upsertFullStoreSubscription({
     storeId,
@@ -159,11 +263,24 @@ export async function applyFullStoreInactiveState({
   cancelledAt = null,
   raw = null
 }) {
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const graceEndsAt = status === 'past_due' ? computeGraceEndsAtIso(now) : null;
+  const lockedAt = status === 'cancelled' ? nowIso : null;
+
   await supabaseAdmin
     .from('stores')
-    .update({ full_store_subscription_status: status })
+    .update({
+      full_store_subscription_status: status,
+      full_store_subscription_grace_ends_at: graceEndsAt,
+      full_store_subscription_locked_at: lockedAt
+    })
     .eq('id', storeId)
     .eq('platform_mode', 'store');
+
+  if (status === 'cancelled') {
+    await setStorefrontEnabled(storeId, false);
+  }
 
   await upsertFullStoreSubscription({
     storeId,
@@ -178,7 +295,7 @@ export async function applyFullStoreInactiveState({
 export async function resolveFullStoreByOwner(ownerId) {
   const { data: store } = await supabaseAdmin
     .from('stores')
-    .select('id, owner_id, platform_mode, full_store_subscription_status, full_store_subscription_paystack_code')
+    .select('id, owner_id, platform_mode, full_store_subscription_status, full_store_subscription_paystack_code, full_store_subscription_grace_ends_at, full_store_subscription_locked_at')
     .eq('owner_id', ownerId)
     .eq('platform_mode', 'store')
     .maybeSingle();

@@ -195,6 +195,31 @@ function isWebsiteEnabled(website) {
   return !!website?.isEnabled;
 }
 
+function getFullStoreGraceDays() {
+  const raw = Number(process.env.FULL_STORE_SUBSCRIPTION_GRACE_DAYS ?? 7);
+  if (!Number.isFinite(raw)) return 7;
+  return Math.min(Math.max(Math.round(raw), 3), 7);
+}
+
+function isFullStoreAccessAllowed(store, nowMs = Date.now()) {
+  const status = store?.full_store_subscription_status || 'none';
+  if (status === 'active' || status === 'none') return true;
+
+  if (status === 'past_due') {
+    const graceEndsAt = store?.full_store_subscription_grace_ends_at;
+    if (!graceEndsAt) {
+      const fallbackBase = store?.updated_at ? new Date(store.updated_at).getTime() : nowMs;
+      const fallbackGraceMs = getFullStoreGraceDays() * 24 * 60 * 60 * 1000;
+      return fallbackBase + fallbackGraceMs > nowMs;
+    }
+
+    const graceExpiryMs = new Date(graceEndsAt).getTime();
+    return Number.isFinite(graceExpiryMs) && graceExpiryMs > nowMs;
+  }
+
+  return false;
+}
+
 // Server-side public-visibility gate shared by storefront reads.
 // Full stores: active + website enabled.
 // Listing stores: active + website enabled + paid subscription.
@@ -205,6 +230,10 @@ function isPubliclyVisibleStore(store) {
   const platformMode = store.platform_mode || 'store';
   if (platformMode === 'listing') {
     return store.subscription_status === 'active';
+  }
+
+  if (platformMode === 'store') {
+    return isFullStoreAccessAllowed(store);
   }
 
   return true;
