@@ -1240,7 +1240,7 @@ export default function StoreWebsite({ store, gallery = [] }) {
               </div>
 
               {/* See All Button - Only show if there are more than 8 products */}
-                <div className="flex items-center justify-center mt-12">
+                <div className="flex items-center justify-center mt-12 mb-10">
                   <button
                     onClick={() => {
                       setIsNavigating(true);
