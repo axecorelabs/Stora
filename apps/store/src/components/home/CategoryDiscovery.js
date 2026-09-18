@@ -41,6 +41,7 @@ const CATEGORY_TILE_IMAGES = {
   "Food": "/food.webp",
   "Health & Beauty": "/Healthandbeauty.webp",
   "Home & Garden": "/HomeandGarden.webp",
+  "Perfumes": "/perfumes.webp",
   "Shoes": "/Shoes.webp",
   "Sports": "/Sports.webp",
   "Wigs & Hair": "/Wigsandhair.webp",
@@ -155,8 +156,26 @@ const INITIAL_VISIBLE_COUNT = 7;
 // isn't a replacement for them, just an earlier, more visual entry point.
 export default function CategoryDiscovery() {
   const [expanded, setExpanded] = useState(false);
+  const [loadedCategoryImages, setLoadedCategoryImages] = useState({});
   const hasMore = CATEGORIES.length > INITIAL_VISIBLE_COUNT;
   const mobileCategories = getMobileCategoryOrder(CATEGORIES);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    Object.entries(CATEGORY_TILE_IMAGES).forEach(([category, imagePath]) => {
+      const img = new Image();
+      img.onload = () => {
+        if (cancelled) return;
+        setLoadedCategoryImages((prev) => (prev[category] ? prev : { ...prev, [category]: true }));
+      };
+      img.src = imagePath;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 0.6px/frame (~36px/s) was too subtle to actually notice at a glance --
   // confirmed moving in an automated scrollLeft check, but reads as
@@ -202,10 +221,11 @@ export default function CategoryDiscovery() {
             : mobileBentoClassName(i);
           const imagePath = CATEGORY_TILE_IMAGES[value] || null;
           const hasImageBackground = !!imagePath;
+          const imageReady = hasImageBackground && !!loadedCategoryImages[value];
           const imageCrop = CATEGORY_TILE_IMAGE_CROP[value] || { zoom: 1, position: "center top" };
           const imageScale = 1 + (DEFAULT_TILE_IMAGE_SCALE - 1) * imageCrop.zoom;
           const tileClassName = `${collapsedOnMobile ? "hidden" : "flex"} ${mobileBentoClass} relative h-full overflow-hidden flex-col justify-between rounded-2xl border p-5 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
-            hasImageBackground
+            imageReady
               ? "border-brand-900/25"
               : dark
               ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
@@ -213,7 +233,7 @@ export default function CategoryDiscovery() {
           }`;
           const tileContent = (
             <>
-              {hasImageBackground && (
+              {imageReady && (
                 <>
                   <div
                     aria-hidden="true"
@@ -230,10 +250,10 @@ export default function CategoryDiscovery() {
                 </>
               )}
               {isFood && (
-                <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${hasImageBackground || dark ? "text-white/65" : "text-brand-700/40"}`} />
+                <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${imageReady || dark ? "text-white/65" : "text-brand-700/40"}`} />
               )}
-              {Icon && <Icon className={`relative z-10 w-7 h-7 ${hasImageBackground || dark ? "text-white" : "text-brand-700"}`} strokeWidth={1.75} />}
-              <span className={`relative z-10 font-display text-lg font-semibold leading-tight ${hasImageBackground || dark ? "text-white" : "text-brand-900"}`}>
+              {Icon && <Icon className={`relative z-10 w-7 h-7 ${imageReady || dark ? "text-white" : "text-brand-700"}`} strokeWidth={1.75} />}
+              <span className={`relative z-10 font-display text-lg font-semibold leading-tight ${imageReady || dark ? "text-white" : "text-brand-900"}`}>
                 {value}
               </span>
             </>
@@ -299,10 +319,11 @@ export default function CategoryDiscovery() {
             const tileStyle = bentoStyle(i, CATEGORIES.length);
             const imagePath = CATEGORY_TILE_IMAGES[value] || null;
             const hasImageBackground = !!imagePath;
+            const imageReady = hasImageBackground && !!loadedCategoryImages[value];
             const imageCrop = CATEGORY_TILE_IMAGE_CROP[value] || { zoom: 1, position: "center top" };
             const imageScale = 1 + (DEFAULT_TILE_IMAGE_SCALE - 1) * imageCrop.zoom;
             const tileClassName = `relative overflow-hidden flex flex-col justify-between rounded-2xl border p-6 transition-all duration-200 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 ${
-              hasImageBackground
+              imageReady
                 ? "border-brand-900/25"
                 : dark
                 ? "bg-brand-800 border-brand-800 hover:bg-brand-900"
@@ -310,7 +331,7 @@ export default function CategoryDiscovery() {
             }`;
             const tileContent = (
               <>
-                {hasImageBackground && (
+                {imageReady && (
                   <>
                     <div
                       aria-hidden="true"
@@ -327,10 +348,10 @@ export default function CategoryDiscovery() {
                   </>
                 )}
                 {isFood && (
-                  <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${hasImageBackground || dark ? "text-white/65" : "text-brand-700/40"}`} />
+                  <ArrowUpRight className={`w-4 h-4 absolute top-4 right-4 ${imageReady || dark ? "text-white/65" : "text-brand-700/40"}`} />
                 )}
-                {Icon && <Icon className={`relative z-10 w-8 h-8 ${hasImageBackground || dark ? "text-white" : "text-brand-700"}`} strokeWidth={1.75} />}
-                <span className={`relative z-10 font-display text-xl font-semibold leading-tight ${hasImageBackground || dark ? "text-white" : "text-brand-900"}`}>
+                {Icon && <Icon className={`relative z-10 w-8 h-8 ${imageReady || dark ? "text-white" : "text-brand-700"}`} strokeWidth={1.75} />}
+                <span className={`relative z-10 font-display text-xl font-semibold leading-tight ${imageReady || dark ? "text-white" : "text-brand-900"}`}>
                   {value}
                 </span>
               </>
