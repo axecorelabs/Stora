@@ -37,6 +37,16 @@ function formatNaira(kobo) {
   return `₦${(kobo / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatDateTimeLocal(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hour = pad(date.getHours());
+  const minute = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
 function StoresPageContent() {
   const { secureApiCall } = useAuth();
   const [stores, setStores] = useState([]);
@@ -49,6 +59,16 @@ function StoresPageContent() {
   const [platformModeFilter, setPlatformModeFilter] = useState("");
   const [page, setPage] = useState(1);
   const [loadingKey, setLoadingKey] = useState(null);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualStore, setManualStore] = useState(null);
+  const [manualForm, setManualForm] = useState({
+    amountNaira: "5000",
+    periodDays: "30",
+    paidAt: formatDateTimeLocal(),
+    reference: "",
+    note: "",
+  });
+  const [manualFormError, setManualFormError] = useState("");
 
   // Reset to page 1 when filters change, following React's own
   // "adjusting state when a prop changes" pattern (setState during render,
@@ -170,34 +190,70 @@ function StoresPageContent() {
     }
   };
 
-  const handleActivateManualListingSubscription = async (store) => {
-    const rawAmount = window.prompt(`Record physical payment for ${store.storeName}. Enter amount in Naira (e.g. 5000):`, "5000");
-    if (rawAmount === null) return;
+  const openManualActivationModal = (store) => {
+    setManualStore(store);
+    setManualForm({
+      amountNaira: "5000",
+      periodDays: "30",
+      paidAt: formatDateTimeLocal(),
+      reference: "",
+      note: "",
+    });
+    setManualFormError("");
+    setManualModalOpen(true);
+  };
 
-    const parsedAmount = Number(rawAmount);
+  const closeManualActivationModal = () => {
+    if (manualStore && loadingKey === `subscription-${manualStore.id}`) return;
+    setManualModalOpen(false);
+    setManualStore(null);
+    setManualFormError("");
+  };
+
+  const handleManualFormChange = (field, value) => {
+    setManualForm((prev) => ({ ...prev, [field]: value }));
+    if (manualFormError) setManualFormError("");
+  };
+
+  const handleActivateManualListingSubscription = async (event) => {
+    event.preventDefault();
+    if (!manualStore) return;
+
+    const parsedAmount = Number(manualForm.amountNaira);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      window.alert("Please enter a valid amount greater than zero.");
+      setManualFormError("Enter a valid amount in Naira.");
       return;
     }
 
-    const note = window.prompt("Optional note (bank transfer ref, teller note, POS slip etc):", "") || "";
+    const parsedPeriodDays = Number(manualForm.periodDays);
+    if (!Number.isFinite(parsedPeriodDays) || parsedPeriodDays < 1 || parsedPeriodDays > 365) {
+      setManualFormError("Period must be between 1 and 365 days.");
+      return;
+    }
 
-    setLoadingKey(`subscription-${store.id}`);
+    if (!manualForm.paidAt) {
+      setManualFormError("Select a payment date and time.");
+      return;
+    }
+
+    setLoadingKey(`subscription-${manualStore.id}`);
     try {
-      const data = await secureApiCall(`/api/stores/${store.id}/subscription/manual`, {
+      const data = await secureApiCall(`/api/stores/${manualStore.id}/subscription/manual`, {
         method: "POST",
         body: JSON.stringify({
           amountNaira: parsedAmount,
           currency: "NGN",
-          periodDays: 30,
-          note: note.trim() || null,
+          periodDays: parsedPeriodDays,
+          paidAt: new Date(manualForm.paidAt).toISOString(),
+          reference: manualForm.reference.trim() || null,
+          note: manualForm.note.trim() || null,
         })
       });
 
       if (data.success) {
         setStores((prev) =>
           prev.map((s) =>
-            s.id === store.id
+            s.id === manualStore.id
               ? {
                   ...s,
                   subscriptionStatus: data.store.subscriptionStatus,
@@ -208,11 +264,13 @@ function StoresPageContent() {
           )
         );
 
-        window.alert(`Subscription activated for ${store.storeName}. Recorded payment: ${formatNaira(data.payment.amountKobo)}.`);
+        const completedStoreName = manualStore.storeName;
+        closeManualActivationModal();
+        window.alert(`Subscription activated for ${completedStoreName}. Recorded payment: ${formatNaira(data.payment.amountKobo)}.`);
       }
     } catch (error) {
       console.error("Error activating manual subscription:", error);
-      window.alert(error?.message || "Failed to activate manual subscription.");
+      setManualFormError(error?.message || "Failed to activate manual subscription.");
     } finally {
       setLoadingKey(null);
     }
@@ -359,7 +417,7 @@ function StoresPageContent() {
                           {store.subscriptionStatus !== 'active' && (
                             <button
                               type="button"
-                              onClick={() => handleActivateManualListingSubscription(store)}
+                              onClick={() => openManualActivationModal(store)}
                               disabled={loadingKey === `subscription-${store.id}`}
                               className="inline-flex items-center gap-1 rounded-lg border border-brand-200 px-2.5 py-1 text-[11px] font-semibold text-brand-800 hover:bg-brand-50 disabled:opacity-60"
                             >
@@ -380,6 +438,114 @@ function StoresPageContent() {
 
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPrev={() => setPage((p) => Math.max(1, p - 1))} onNext={() => setPage((p) => p + 1)} />
         </>
+      )}
+
+      {manualModalOpen && manualStore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+          <button
+            type="button"
+            onClick={closeManualActivationModal}
+            className="absolute inset-0 bg-black/45"
+            aria-label="Close manual activation form"
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Activate Listing Subscription</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Record an offline payment and activate subscription for <span className="font-medium text-gray-700">{manualStore.storeName}</span>.
+              </p>
+            </div>
+
+            <form className="space-y-4" onSubmit={handleActivateManualListingSubscription}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-gray-600">Amount (Naira)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={manualForm.amountNaira}
+                    onChange={(e) => handleManualFormChange("amountNaira", e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-700"
+                    placeholder="5000"
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-gray-600">Subscription Period (Days)</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    step="1"
+                    value={manualForm.periodDays}
+                    onChange={(e) => handleManualFormChange("periodDays", e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-700"
+                    required
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-gray-600">Paid At</span>
+                  <input
+                    type="datetime-local"
+                    value={manualForm.paidAt}
+                    onChange={(e) => handleManualFormChange("paidAt", e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-700"
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-gray-600">Payment Reference (Optional)</span>
+                  <input
+                    type="text"
+                    value={manualForm.reference}
+                    onChange={(e) => handleManualFormChange("reference", e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-700"
+                    placeholder="Bank transfer ref / POS slip"
+                    maxLength={120}
+                  />
+                </label>
+              </div>
+
+              <label className="space-y-1 block">
+                <span className="text-xs font-medium text-gray-600">Internal Note (Optional)</span>
+                <textarea
+                  value={manualForm.note}
+                  onChange={(e) => handleManualFormChange("note", e.target.value)}
+                  className="w-full min-h-[84px] rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-700 resize-y"
+                  placeholder="How payment was received, who confirmed it, or any audit context"
+                  maxLength={500}
+                />
+              </label>
+
+              {manualFormError && (
+                <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{manualFormError}</p>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closeManualActivationModal}
+                  disabled={loadingKey === `subscription-${manualStore.id}`}
+                  className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingKey === `subscription-${manualStore.id}`}
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand-800 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-900 disabled:opacity-60"
+                >
+                  {loadingKey === `subscription-${manualStore.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Save Payment & Activate
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
