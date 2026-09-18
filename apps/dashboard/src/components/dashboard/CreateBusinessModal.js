@@ -4,7 +4,13 @@ import { Store, MapPin, Phone, Mail, Settings, Check, Sparkles, Info } from "luc
 import { useAuth } from "@/contexts/AuthContext";
 import CustomDropdown from "../ui/CustomDropdown";
 import Button from "../ui/Button";
-import { NIGERIAN_STATES } from "@stora/shared-constants";
+import {
+  BUSINESS_CATEGORY_VALUES,
+  BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY,
+  BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY,
+  BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY,
+  NIGERIAN_STATES
+} from "@stora/shared-constants";
 
 const STEPS = [
   { number: 1, label: "Basics" },
@@ -69,6 +75,9 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
     sellsProducts: true,
     offersFood: false,
     offersServices: false,
+    businessCategory: '',
+    businessSubcategory: '',
+    businessSubcategories: [],
     storeType: 'physical', // NEW
     storePhone: '',
     storeEmail: '',
@@ -151,6 +160,50 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
     { value: 'online', label: 'Online Store Only' }
   ];
 
+  const businessCategoryOptions = BUSINESS_CATEGORY_VALUES.map((value) => ({
+    value,
+    label: value.charAt(0).toUpperCase() + value.slice(1)
+  }));
+
+  const activeSubcategoryOptions = BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[formData.businessCategory] || [];
+  const activeSubcategoryCombos = BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY[formData.businessCategory] || [];
+  const activeSubcategorySingles = BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY[formData.businessCategory] || [];
+
+  const primarySubcategoryOptions = [
+    { value: '', label: 'Select primary subcategory' },
+    ...activeSubcategoryOptions
+  ];
+
+  const toggleAdditionalSubcategory = (value) => {
+    if (!value || value === formData.businessSubcategory) return;
+    setFormData((prev) => {
+      const current = Array.isArray(prev.businessSubcategories) ? prev.businessSubcategories : [];
+      const next = current.includes(value)
+        ? current.filter((entry) => entry !== value)
+        : [...current, value];
+      return { ...prev, businessSubcategories: next };
+    });
+  };
+
+  const applySuggestedCombo = (combo) => {
+    if (!combo) return;
+    const secondary = (combo.secondary || []).filter((entry) => entry !== combo.primary);
+    setFormData((prev) => ({
+      ...prev,
+      businessSubcategory: combo.primary,
+      businessSubcategories: secondary
+    }));
+  };
+
+  const applySuggestedSingle = (single) => {
+    if (!single) return;
+    setFormData((prev) => ({
+      ...prev,
+      businessSubcategory: single.primary || '',
+      businessSubcategories: []
+    }));
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -182,10 +235,20 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
         }));
       }
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setFormData(prev => {
+        if (name === 'businessCategory' && prev.businessCategory !== value) {
+          return {
+            ...prev,
+            businessCategory: value,
+            businessSubcategory: '',
+            businessSubcategories: []
+          };
+        }
+        return {
+          ...prev,
+          [name]: value
+        };
+      });
     }
 
     // Clear error when user starts typing
@@ -211,6 +274,9 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
       }
       if (!formData.storeType) {
         newErrors.storeType = 'Please select store type';
+      }
+      if (!formData.businessCategory) {
+        newErrors.businessCategory = 'Business category is required';
       }
     }
 
@@ -255,6 +321,15 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
         method: 'POST',
         body: JSON.stringify({
           ...formData,
+          businessSubcategories: (() => {
+            const primary = (formData.businessSubcategory || '').trim();
+            const secondary = (Array.isArray(formData.businessSubcategories) ? formData.businessSubcategories : [])
+              .map((entry) => String(entry).trim())
+              .filter(Boolean)
+              .filter((entry) => entry !== primary);
+            const merged = primary ? [primary, ...secondary] : secondary;
+            return merged.length > 0 ? merged : null;
+          })(),
           state: formData.storeType === 'physical' ? formData.address.state : formData.state,
           platformMode
         })
@@ -396,6 +471,105 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                   />
                   {errors.storeType && (
                     <p className="text-red-500 text-xs mt-1">{errors.storeType}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Business Category *
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Used for discovery and matching your business to the right customers.
+                  </p>
+                  <CustomDropdown
+                    options={businessCategoryOptions}
+                    value={formData.businessCategory}
+                    onChange={(value) => handleChange({ target: { name: 'businessCategory', value } })}
+                    placeholder="Select business category"
+                    error={!!errors.businessCategory}
+                  />
+                  {errors.businessCategory && (
+                    <p className="text-red-500 text-xs mt-1">{errors.businessCategory}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Business Subcategory
+                  </label>
+                  <CustomDropdown
+                    options={primarySubcategoryOptions}
+                    value={formData.businessSubcategory}
+                    onChange={(value) => handleChange({ target: { name: 'businessSubcategory', value } })}
+                    placeholder="Select primary subcategory"
+                    disabled={!formData.businessCategory}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Additional Subcategories
+                  </label>
+                  {!formData.businessCategory ? (
+                    <p className="text-xs text-gray-500">Choose a business category first to see subcategory chips.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {activeSubcategoryOptions
+                          .filter((option) => option.value !== formData.businessSubcategory)
+                          .map((option) => {
+                            const selected = (formData.businessSubcategories || []).includes(option.value);
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => toggleAdditionalSubcategory(option.value)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                                  selected
+                                    ? 'bg-brand-700 text-white border-brand-700'
+                                    : 'bg-white text-brand-800 border-brand-200 hover:border-brand-300'
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            );
+                          })}
+                      </div>
+                      {activeSubcategoryCombos.length > 0 && (
+                        <div className="pt-1">
+                          <p className="text-xs text-gray-500 mb-1">Suggested combinations</p>
+                          <div className="flex flex-wrap gap-2">
+                            {activeSubcategoryCombos.map((combo) => (
+                              <button
+                                key={combo.key}
+                                type="button"
+                                onClick={() => applySuggestedCombo(combo)}
+                                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-gold-300 text-gold-700 bg-gold-50 hover:bg-gold-100 transition-colors"
+                              >
+                                {combo.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {activeSubcategorySingles.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Single quick picks</p>
+                          <div className="flex flex-wrap gap-2">
+                            {activeSubcategorySingles.map((single) => (
+                              <button
+                                key={single.key}
+                                type="button"
+                                onClick={() => applySuggestedSingle(single)}
+                                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors"
+                              >
+                                {single.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 

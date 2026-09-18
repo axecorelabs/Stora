@@ -118,7 +118,11 @@ export async function GET(request) {
         // selfie). businessVerified is the separate, staff-granted public
         // "Verified by Stora" badge -- toggled below via PATCH
         // /api/stores/[storeId], not earned automatically by isVerified.
-        isVerified: !!s.is_verified,\n        verificationStatus: s.verification_status,\n        businessVerified: !!s.business_verified_at,\n        platformMode: s.platform_mode || 'store',\n        subscriptionStatus: s.subscription_status || 'none',
+        isVerified: !!s.is_verified,
+        verificationStatus: s.verification_status,
+        businessVerified: !!s.business_verified_at,
+        platformMode: s.platform_mode || 'store',
+        subscriptionStatus: s.subscription_status || 'none',
         totalSales: combinedSalesByStore.get(s.id) || 0,
         totalOrders: s.total_orders || 0,
         createdAt: s.created_at,

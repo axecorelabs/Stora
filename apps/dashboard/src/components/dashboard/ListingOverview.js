@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import SetupChecklist from "@/components/dashboard/SetupChecklist";
 import Button from "@/components/ui/Button";
 import {
   Images,
@@ -39,7 +40,7 @@ export default function ListingOverview({ store }) {
     staleTime: 2 * 60 * 1000
   });
 
-  const { data: galleryData } = useQuery({
+  const { data: galleryData, isLoading: galleryLoading } = useQuery({
     queryKey: ['gallery'],
     queryFn: () => secureApiCall('/api/gallery'),
     staleTime: 2 * 60 * 1000
@@ -86,6 +87,8 @@ export default function ListingOverview({ store }) {
   return (
     <DashboardLayout title="Dashboard Overview" subtitle={getCurrentDate()}>
       <div className="space-y-4 lg:space-y-6">
+
+        <SetupChecklist initialStore={store} initialGalleryCount={galleryLoading ? null : galleryCount} />
 
         {/* Not-live alert */}
         {!isLive && (

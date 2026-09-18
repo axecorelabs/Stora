@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, X, ShieldCheck, Globe, Truck, ArrowRight, ListChecks, Palette, Send } from "lucide-react";
+import { MapPin, X, ShieldCheck, Globe, Truck, ArrowRight, ListChecks, Palette, Send, Images, BadgeCheck, Tag } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { NIGERIAN_STATES, isValidNigerianState } from "@stora/shared-constants";
+import { BUSINESS_CATEGORY_VALUES, NIGERIAN_STATES, isValidNigerianState } from "@stora/shared-constants";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
 import { useTelegramEnabled } from "@/hooks/useTelegramEnabled";
@@ -14,13 +14,15 @@ import { useTelegramEnabled } from "@/hooks/useTelegramEnabled";
 // *incomplete* item -- delivery regions is deliberately NOT one of
 // these, since nationwide (the default) is already a complete, valid
 // state, not a missing field the way an unset operating state is.
-export default function SetupChecklist() {
+export default function SetupChecklist({ initialStore = null, initialGalleryCount = null }) {
   const { secureApiCall } = useAuth();
   const router = useRouter();
   const verificationEnabled = useVerificationEnabled();
   const telegramEnabled = useTelegramEnabled();
-  const [store, setStore] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [store, setStore] = useState(initialStore);
+  const [galleryCount, setGalleryCount] = useState(initialGalleryCount || 0);
+  const [hasLoadedGalleryCount, setHasLoadedGalleryCount] = useState(initialGalleryCount !== null);
+  const [loading, setLoading] = useState(!initialStore);
 
   // State-row's own inline edit state -- carried over byte-for-byte from
   // IncompleteStoreNudge, which was specifically built this way after
@@ -30,23 +32,63 @@ export default function SetupChecklist() {
   const [selectedState, setSelectedState] = useState("");
   const [isSavingState, setIsSavingState] = useState(false);
   const [stateError, setStateError] = useState("");
+  const [isPickingBusinessCategory, setIsPickingBusinessCategory] = useState(false);
+  const [selectedBusinessCategory, setSelectedBusinessCategory] = useState("");
+  const [isSavingBusinessCategory, setIsSavingBusinessCategory] = useState(false);
+  const [businessCategoryError, setBusinessCategoryError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    secureApiCall('/api/stores').then((response) => {
-      if (cancelled) return;
-      if (response?.success && response.hasStore) {
-        setStore(response.data);
+    (async () => {
+      try {
+        const response = await secureApiCall('/api/stores');
+        if (cancelled) return;
+        if (response?.success && response.hasStore) {
+          setStore(response.data);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
-    });
+    })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (store?.platformMode !== 'listing') {
+      setGalleryCount(0);
+      setHasLoadedGalleryCount(true);
+      return () => { cancelled = true; };
+    }
+
+    if (initialGalleryCount !== null) {
+      setGalleryCount(initialGalleryCount);
+      setHasLoadedGalleryCount(true);
+      return () => { cancelled = true; };
+    }
+
+    (async () => {
+      try {
+        const response = await secureApiCall('/api/gallery');
+        if (cancelled) return;
+        if (response?.success && Array.isArray(response.data)) {
+          setGalleryCount(response.data.length);
+        }
+      } finally {
+        if (!cancelled) setHasLoadedGalleryCount(true);
+      }
+    })();
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store?.platformMode, initialGalleryCount]);
+
   if (loading || !store) return null;
 
+  const isListingMode = store.platformMode === 'listing';
   const needsState = !isValidNigerianState(store.state);
+  const needsBusinessCategory = !store.businessCategory;
   // Only counted as a real task once QoreID's keys are actually
   // configured (see useVerificationEnabled) -- otherwise this would show
   // a "Get verified" row that's guaranteed to fail if clicked.
@@ -61,12 +103,14 @@ export default function SetupChecklist() {
   // with no default at all, so its absence is the genuine signal a vendor
   // never got to this step, same reasoning needsDeliveryFees below uses.
   const needsBranding = !store.branding?.logo;
+  const needsGallery = isListingMode && hasLoadedGalleryCount && galleryCount === 0;
+  const needsSubscription = isListingMode && store.subscriptionStatus !== 'active';
   // Unlike delivery regions (nationwide is already a complete, valid
   // choice), an empty fee map genuinely means nothing has been configured
   // yet -- every order ships for free until a vendor sets at least one.
-  const needsDeliveryFees = Object.keys(store.deliveryFees || {}).length === 0;
+  const needsDeliveryFees = !isListingMode && Object.keys(store.deliveryFees || {}).length === 0;
 
-  if (!needsState && !needsVerification && !needsTelegram && !needsWebsite && !needsBranding && !needsDeliveryFees) return null;
+  if (!needsState && !needsBusinessCategory && !needsVerification && !needsTelegram && !needsWebsite && !needsBranding && !needsGallery && !needsSubscription && !needsDeliveryFees) return null;
 
   const handleSaveState = async () => {
     if (!selectedState) return;
@@ -85,6 +129,23 @@ export default function SetupChecklist() {
     setIsSavingState(false);
   };
 
+  const handleSaveBusinessCategory = async () => {
+    if (!selectedBusinessCategory) return;
+    setIsSavingBusinessCategory(true);
+    setBusinessCategoryError("");
+    const response = await secureApiCall('/api/stores', {
+      method: 'PUT',
+      body: JSON.stringify({ businessCategory: selectedBusinessCategory })
+    });
+    if (response?.success) {
+      setStore((prev) => ({ ...prev, businessCategory: selectedBusinessCategory }));
+      setIsPickingBusinessCategory(false);
+    } else {
+      setBusinessCategoryError(response?.message || 'Could not save -- try again');
+    }
+    setIsSavingBusinessCategory(false);
+  };
+
   // Verification/Telegram only count toward the total while each is
   // actually available -- otherwise "1 of 3 done" would look permanently
   // stuck on a task nobody can complete yet. `null` (not yet resolved, or
@@ -92,10 +153,13 @@ export default function SetupChecklist() {
   // counting it as done or outstanding.
   const applicableItems = [
     needsState,
+    needsBusinessCategory,
     verificationEnabled === true ? needsVerification : null,
     telegramEnabled === true ? needsTelegram : null,
     needsWebsite,
     needsBranding,
+    isListingMode ? needsGallery : null,
+    isListingMode ? needsSubscription : null,
     needsDeliveryFees
   ].filter((item) => item !== null);
   const doneCount = applicableItems.filter((needed) => !needed).length;
@@ -179,6 +243,59 @@ export default function SetupChecklist() {
           </button>
         )}
 
+        {needsBusinessCategory && (
+          <div className="px-5 py-3.5">
+            {!isPickingBusinessCategory ? (
+              <button
+                onClick={() => setIsPickingBusinessCategory(true)}
+                className="w-full flex items-center justify-between gap-3 text-left"
+              >
+                <span className="flex items-center gap-2.5 text-sm text-gray-700">
+                  <Tag className="w-4 h-4 text-gold-700 flex-shrink-0" />
+                  Set your business category to improve discovery matching
+                </span>
+                <span className="font-semibold text-brand-800 text-sm flex-shrink-0">Set now</span>
+              </button>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="flex items-center gap-2 flex-shrink-0 text-sm text-gray-700">
+                  <Tag className="w-4 h-4 text-gold-700 flex-shrink-0" />
+                  Business category
+                </span>
+                <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
+                  <div className="flex-1 sm:flex-none sm:w-64">
+                    <CustomDropdown
+                      options={BUSINESS_CATEGORY_VALUES.map((value) => ({
+                        value,
+                        label: value.charAt(0).toUpperCase() + value.slice(1)
+                      }))}
+                      value={selectedBusinessCategory}
+                      onChange={setSelectedBusinessCategory}
+                      placeholder="Select category"
+                      size="sm"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveBusinessCategory}
+                    disabled={!selectedBusinessCategory || isSavingBusinessCategory}
+                    className="px-4 py-1.5 rounded-lg bg-brand-800 text-white text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-900 transition-colors flex-shrink-0"
+                  >
+                    {isSavingBusinessCategory ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => { setIsPickingBusinessCategory(false); setSelectedBusinessCategory(""); setBusinessCategoryError(""); }}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                    aria-label="Cancel"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {businessCategoryError && <p className="w-full text-xs text-red-600 text-right">{businessCategoryError}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
         {needsTelegram && (
           <button
             onClick={() => router.push('/dashboard/settings?tab=telegram')}
@@ -186,7 +303,9 @@ export default function SetupChecklist() {
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">
               <Send className="w-4 h-4 text-gold-700 flex-shrink-0" />
-              Connect Telegram to get new order alerts instantly
+              {isListingMode
+                ? 'Connect Telegram for notifications and updates'
+                : 'Connect Telegram to get new order alerts instantly'}
             </span>
             <span className="flex items-center gap-1 font-semibold text-brand-800 text-sm flex-shrink-0">
               Connect <ArrowRight className="w-3.5 h-3.5" />
@@ -201,7 +320,9 @@ export default function SetupChecklist() {
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">
               <Globe className="w-4 h-4 text-gold-700 flex-shrink-0" />
-              Set up your website so buyers can find you online
+              {isListingMode
+                ? 'Set up your showcase website so customers can find your listing'
+                : 'Set up your website so buyers can find you online'}
             </span>
             <span className="flex items-center gap-1 font-semibold text-brand-800 text-sm flex-shrink-0">
               Set up <ArrowRight className="w-3.5 h-3.5" />
@@ -220,6 +341,36 @@ export default function SetupChecklist() {
             </span>
             <span className="flex items-center gap-1 font-semibold text-brand-800 text-sm flex-shrink-0">
               Add branding <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </button>
+        )}
+
+        {needsGallery && (
+          <button
+            onClick={() => router.push('/dashboard/gallery')}
+            className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
+          >
+            <span className="flex items-center gap-2.5 text-sm text-gray-700">
+              <Images className="w-4 h-4 text-gold-700 flex-shrink-0" />
+              Add at least one gallery image so your listing looks complete
+            </span>
+            <span className="flex items-center gap-1 font-semibold text-brand-800 text-sm flex-shrink-0">
+              Add gallery <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </button>
+        )}
+
+        {needsSubscription && (
+          <button
+            onClick={() => router.push('/dashboard/subscription')}
+            className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
+          >
+            <span className="flex items-center gap-2.5 text-sm text-gray-700">
+              <BadgeCheck className="w-4 h-4 text-gold-700 flex-shrink-0" />
+              Activate your listing subscription to go live publicly
+            </span>
+            <span className="flex items-center gap-1 font-semibold text-brand-800 text-sm flex-shrink-0">
+              Subscribe <ArrowRight className="w-3.5 h-3.5" />
             </span>
           </button>
         )}

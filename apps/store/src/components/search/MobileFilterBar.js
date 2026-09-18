@@ -16,6 +16,10 @@ import { NIGERIAN_STATES } from "@stora/shared-constants";
 // hides that section entirely, same convention as SearchConsole.
 export default function MobileFilterBar({
   categories, onCategoriesChange, categoryOptions = CATEGORIES,
+  businessCategory, onBusinessCategoryChange, businessCategoryOptions = [],
+  businessSubcategory, onBusinessSubcategoryChange,
+  businessSubcategories = [], onBusinessSubcategoriesChange,
+  businessSubcategoryOptions = [],
   state, onStateChange,
   priceKey, onPriceChange,
   sort, onSortChange, sortOptions,
@@ -32,6 +36,15 @@ export default function MobileFilterBar({
   const toggleCategory = (value) => {
     onCategoriesChange(
       categories.includes(value) ? categories.filter((c) => c !== value) : [...categories, value]
+    );
+  };
+
+  const toggleBusinessSubcategory = (value) => {
+    if (!value || value === businessSubcategory) return;
+    onBusinessSubcategoriesChange(
+      businessSubcategories.includes(value)
+        ? businessSubcategories.filter((entry) => entry !== value)
+        : [...businessSubcategories, value]
     );
   };
 
@@ -53,6 +66,9 @@ export default function MobileFilterBar({
   // category/price signal from the sentence itself) -- excluded from the
   // count here the same way their sections below are hidden entirely.
   const activeCount = (aiMode ? 0 : categories.length)
+    + [businessCategory].filter(Boolean).length
+    + [businessSubcategory].filter(Boolean).length
+    + businessSubcategories.length
     + [state, aiMode ? null : priceKey, deliverableOnly ? true : null].filter(Boolean).length;
   const activeSortLabel = sortOptions.find((s) => s.key === sort)?.label || sortOptions[0]?.label;
 
@@ -115,6 +131,9 @@ export default function MobileFilterBar({
               <button
                 onClick={() => {
                   onCategoriesChange([]);
+                  onBusinessCategoryChange?.("");
+                  onBusinessSubcategoryChange?.("");
+                  onBusinessSubcategoriesChange?.([]);
                   onStateChange("");
                   onPriceChange?.("");
                   onDeliverableOnlyChange(false);
@@ -131,6 +150,78 @@ export default function MobileFilterBar({
         }
       >
         <div className="space-y-6">
+          {businessCategoryOptions.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2.5">Business type</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    onBusinessCategoryChange?.("");
+                    onBusinessSubcategoryChange?.("");
+                    onBusinessSubcategoriesChange?.([]);
+                  }}
+                  className={pillClass(!businessCategory)}
+                >
+                  All
+                </button>
+                {businessCategoryOptions.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      onBusinessCategoryChange?.(value);
+                      onBusinessSubcategoryChange?.("");
+                      onBusinessSubcategoriesChange?.([]);
+                    }}
+                    className={pillClass(businessCategory === value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {businessCategory && businessSubcategoryOptions.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2.5">Primary subcategory</p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                <button
+                  onClick={() => onBusinessSubcategoryChange?.("")}
+                  className={pillClass(!businessSubcategory)}
+                >
+                  Any
+                </button>
+                {businessSubcategoryOptions.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      onBusinessSubcategoryChange?.(value);
+                      onBusinessSubcategoriesChange?.(businessSubcategories.filter((entry) => entry !== value));
+                    }}
+                    className={pillClass(businessSubcategory === value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2.5">Include subcategories</p>
+              <div className="flex flex-wrap gap-2">
+                {businessSubcategoryOptions
+                  .filter(({ value }) => value !== businessSubcategory)
+                  .map(({ value, label }) => (
+                    <button
+                      key={`sub-${value}`}
+                      onClick={() => toggleBusinessSubcategory(value)}
+                      className={pillClass(businessSubcategories.includes(value))}
+                    >
+                      {label}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {/* Category/price are keyword-mode concepts -- AI mode already
               extracts both straight out of the sentence itself. */}
           {!aiMode && (

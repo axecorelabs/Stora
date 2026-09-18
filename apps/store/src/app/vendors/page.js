@@ -14,6 +14,10 @@ import MobileFilterBar from "@/components/search/MobileFilterBar";
 import { useDeliveryState } from "@/contexts/DeliveryStateContext";
 import { CATEGORIES } from "@/lib/categories";
 import { SERVICE_CATEGORIES } from "@/lib/serviceCategories";
+import {
+  BUSINESS_CATEGORY_VALUES,
+  BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY
+} from "@stora/shared-constants";
 
 const SCOPES = [
   { key: "all", label: "All" },
@@ -28,6 +32,42 @@ const SORTS = [
   { key: "nearest", label: "Nearest to me" },
 ];
 
+const BUSINESS_CATEGORY_LABELS = {
+  retail: "Retail",
+  restaurant: "Restaurants",
+  services: "Services",
+  hybrid: "Hybrid",
+  other: "Other"
+};
+
+const BUSINESS_CATEGORY_OPTIONS = BUSINESS_CATEGORY_VALUES.map((value) => ({
+  value,
+  label: BUSINESS_CATEGORY_LABELS[value] || value
+}));
+const BUSINESS_SUBCATEGORY_LABELS = Object.fromEntries(
+  Object.values(BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY)
+    .flat()
+    .map((option) => [option.value, option.label])
+);
+
+function normalizeBusinessSubcategories(rawValues, businessCategory) {
+  const values = (rawValues || [])
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+  const options = businessCategory && BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[businessCategory]
+    ? BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[businessCategory]
+    : [];
+  const allowed = new Set(options.map((option) => option.value));
+  return [...new Set(values)].filter((value) => allowed.has(value));
+}
+
+function isScopeBusinessCategoryCompatible(scope, businessCategory) {
+  if (!businessCategory || scope === "all") return true;
+  if (scope === "products") return businessCategory !== "services";
+  if (scope === "services") return businessCategory !== "retail" && businessCategory !== "restaurant";
+  return true;
+}
+
 function VendorsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,11 +80,28 @@ function VendorsPageInner() {
   const urlDeliverableOnly = searchParams.get("deliverableOnly") === "true";
   const urlAiMode = searchParams.get("mode") === "ai";
   const urlScope = SCOPES.some((s) => s.key === searchParams.get("scope")) ? searchParams.get("scope") : "all";
+  const urlBusinessCategory = BUSINESS_CATEGORY_VALUES.includes((searchParams.get("businessCategory") || "").toLowerCase())
+    ? (searchParams.get("businessCategory") || "").toLowerCase()
+    : "";
+  const urlSubcategoryCandidates = (searchParams.get("businessSubcategories") || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  const urlBusinessSubcategoryRaw = (searchParams.get("businessSubcategory") || "").trim().toLowerCase();
+  const urlSubcategoryValues = normalizeBusinessSubcategories(
+    [urlBusinessSubcategoryRaw, ...urlSubcategoryCandidates],
+    urlBusinessCategory
+  );
+  const urlBusinessSubcategory = urlSubcategoryValues[0] || "";
+  const urlBusinessSubcategories = urlSubcategoryValues.filter((value) => value !== urlBusinessSubcategory);
 
   const [q, setQ] = useState(urlQ);
   const [sort, setSort] = useState(urlSort);
   const [categories, setCategories] = useState(urlCategories);
   const [scope, setScope] = useState(urlScope);
+  const [businessCategory, setBusinessCategory] = useState(urlBusinessCategory);
+  const [businessSubcategory, setBusinessSubcategory] = useState(urlBusinessSubcategory);
+  const [businessSubcategories, setBusinessSubcategories] = useState(urlBusinessSubcategories);
   const [state, setState] = useState(urlState);
   const [deliverableOnly, setDeliverableOnly] = useState(urlDeliverableOnly);
   const [aiMode, setAiMode] = useState(urlAiMode);
@@ -74,13 +131,16 @@ function VendorsPageInner() {
     if (sort !== "featured") params.set("sort", sort);
     if (categories.length) params.set("category", categories.join(","));
     if (scope !== "all") params.set("scope", scope);
+    if (businessCategory) params.set("businessCategory", businessCategory);
+    if (businessSubcategory) params.set("businessSubcategory", businessSubcategory);
+    if (businessSubcategories.length) params.set("businessSubcategories", businessSubcategories.join(","));
     if (state) params.set("state", state);
     if (deliverableOnly) params.set("deliverableOnly", "true");
     if (aiMode) params.set("mode", "ai");
     const qs = params.toString();
     router.replace(qs ? `/vendors?${qs}` : "/vendors", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, sort, categories, scope, state, deliverableOnly, aiMode]);
+  }, [q, sort, categories, scope, businessCategory, businessSubcategory, businessSubcategories, state, deliverableOnly, aiMode]);
 
   // Switching scope swaps which category taxonomy is even visible (product
   // vs. service categories, see categoryOptions below) -- clearing the
@@ -89,6 +149,44 @@ function VendorsPageInner() {
   const handleScopeChange = (nextScope) => {
     setScope(nextScope);
     setCategories([]);
+    if (!isScopeBusinessCategoryCompatible(nextScope, businessCategory)) {
+      setBusinessCategory("");
+    }
+  };
+
+  // Keep URL-loaded or back/forward states coherent: contradictory
+  // scope+businessCategory combinations degrade to "all business types"
+  // rather than silently producing avoidable empty results.
+  useEffect(() => {
+    if (!isScopeBusinessCategoryCompatible(scope, businessCategory)) {
+      setBusinessCategory("");
+      setBusinessSubcategory("");
+      setBusinessSubcategories([]);
+    }
+  }, [scope, businessCategory]);
+
+  useEffect(() => {
+    if (!businessCategory) {
+      setBusinessSubcategory("");
+      setBusinessSubcategories([]);
+      return;
+    }
+    const normalized = normalizeBusinessSubcategories([businessSubcategory, ...businessSubcategories], businessCategory);
+    const normalizedPrimary = normalized[0] || "";
+    const normalizedSecondary = normalized.filter((value) => value !== normalizedPrimary);
+    if (normalizedPrimary !== businessSubcategory) setBusinessSubcategory(normalizedPrimary);
+    if (JSON.stringify(normalizedSecondary) !== JSON.stringify(businessSubcategories)) {
+      setBusinessSubcategories(normalizedSecondary);
+    }
+  }, [businessCategory]);
+
+  const activeBusinessSubcategoryOptions = businessCategory
+    ? (BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[businessCategory] || [])
+    : [];
+
+  const toggleBusinessSubcategory = (value) => {
+    if (!value || value === businessSubcategory) return;
+    setBusinessSubcategories((prev) => prev.includes(value) ? prev.filter((entry) => entry !== value) : [...prev, value]);
   };
 
   const categoryOptions = scope === "services" ? SERVICE_CATEGORIES : CATEGORIES;
@@ -111,6 +209,9 @@ function VendorsPageInner() {
         const params = new URLSearchParams({ q, primary: "vendors", page: String(pageNum) });
         if (state) params.set("state", state);
         if (scope !== "all") params.set("scope", scope);
+        if (businessCategory) params.set("businessCategory", businessCategory);
+          if (businessSubcategory) params.set("businessSubcategory", businessSubcategory);
+          if (businessSubcategories.length) params.set("businessSubcategories", businessSubcategories.join(","));
         if (deliverableOnly && deliveryState) {
           params.set("buyerState", deliveryState);
           params.set("deliverableOnly", "true");
@@ -136,6 +237,9 @@ function VendorsPageInner() {
       if (q) params.set("q", q);
       if (categories.length) params.set("category", categories.join(","));
       if (scope !== "all") params.set("scope", scope);
+      if (businessCategory) params.set("businessCategory", businessCategory);
+      if (businessSubcategory) params.set("businessSubcategory", businessSubcategory);
+      if (businessSubcategories.length) params.set("businessSubcategories", businessSubcategories.join(","));
       if (state) params.set("state", state);
       // buyerState powers both "nearest" (soft, reorders only) and
       // deliverableOnly (hard filter) -- either needs it sent regardless
@@ -154,7 +258,7 @@ function VendorsPageInner() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [q, sort, categories, scope, state, deliverableOnly, deliveryState, aiMode]);
+  }, [q, sort, categories, scope, businessCategory, businessSubcategory, businessSubcategories, state, deliverableOnly, deliveryState, aiMode]);
 
   useEffect(() => {
     fetchPage(1, true);
@@ -171,12 +275,30 @@ function VendorsPageInner() {
       label: scope === "services" ? `Offers ${c}` : `Sells ${c}`,
       onRemove: () => setCategories((prev) => prev.filter((x) => x !== c))
     })),
+    businessCategory && {
+      key: "businessCategory",
+      label: BUSINESS_CATEGORY_LABELS[businessCategory] || businessCategory,
+      onRemove: () => setBusinessCategory("")
+    },
+    businessSubcategory && {
+      key: "businessSubcategory",
+      label: `Primary: ${BUSINESS_SUBCATEGORY_LABELS[businessSubcategory] || businessSubcategory}`,
+      onRemove: () => setBusinessSubcategory("")
+    },
+    ...businessSubcategories.map((subcategory) => ({
+      key: `businessSubcategories-${subcategory}`,
+      label: `Includes ${BUSINESS_SUBCATEGORY_LABELS[subcategory] || subcategory}`,
+      onRemove: () => setBusinessSubcategories((prev) => prev.filter((entry) => entry !== subcategory))
+    })),
     state && { key: "state", label: state, onRemove: () => setState("") },
     deliverableOnly && { key: "deliverable", label: `Delivers to ${deliveryState}`, onRemove: () => setDeliverableOnly(false) }
   ].filter(Boolean);
 
   const clearAll = () => {
     setCategories([]);
+    setBusinessCategory("");
+    setBusinessSubcategory("");
+    setBusinessSubcategories([]);
     setState("");
     setDeliverableOnly(false);
   };
@@ -241,6 +363,89 @@ function VendorsPageInner() {
           ))}
         </div>
 
+        <div className="flex justify-center gap-2 mb-4 flex-wrap">
+          <button
+            onClick={() => setBusinessCategory("")}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+              !businessCategory
+                ? "bg-brand-700 text-white border-brand-700"
+                : "bg-white text-brand-800 border-brand-100 hover:border-brand-300"
+            }`}
+          >
+            All business types
+          </button>
+          {BUSINESS_CATEGORY_VALUES.map((value) => (
+            <button
+              key={value}
+              onClick={() => {
+                setBusinessCategory(value);
+                setBusinessSubcategory("");
+                setBusinessSubcategories([]);
+              }}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                businessCategory === value
+                  ? "bg-brand-700 text-white border-brand-700"
+                  : "bg-white text-brand-800 border-brand-100 hover:border-brand-300"
+              }`}
+            >
+              {BUSINESS_CATEGORY_LABELS[value] || value}
+            </button>
+          ))}
+        </div>
+
+        {businessCategory && activeBusinessSubcategoryOptions.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                onClick={() => setBusinessSubcategory("")}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                  !businessSubcategory
+                    ? "bg-brand-700 text-white border-brand-700"
+                    : "bg-white text-brand-800 border-brand-100 hover:border-brand-300"
+                }`}
+              >
+                Any primary subcategory
+              </button>
+              {activeBusinessSubcategoryOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => {
+                    setBusinessSubcategory(option.value);
+                    setBusinessSubcategories((prev) => prev.filter((entry) => entry !== option.value));
+                  }}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                    businessSubcategory === option.value
+                      ? "bg-brand-700 text-white border-brand-700"
+                      : "bg-white text-brand-800 border-brand-100 hover:border-brand-300"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {activeBusinessSubcategoryOptions
+                .filter((option) => option.value !== businessSubcategory)
+                .map((option) => {
+                  const selected = businessSubcategories.includes(option.value);
+                  return (
+                    <button
+                      key={`secondary-${option.value}`}
+                      onClick={() => toggleBusinessSubcategory(option.value)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                        selected
+                          ? "bg-sky-700 text-white border-sky-700"
+                          : "bg-white text-sky-800 border-sky-200 hover:border-sky-300"
+                      }`}
+                    >
+                      {selected ? "Including: " : "Include: "}{option.label}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
         <SearchConsole
           query={q}
           onQueryChange={setQ}
@@ -267,6 +472,14 @@ function VendorsPageInner() {
           categories={categories}
           onCategoriesChange={setCategories}
           categoryOptions={categoryOptions}
+          businessCategory={businessCategory}
+          onBusinessCategoryChange={setBusinessCategory}
+          businessCategoryOptions={BUSINESS_CATEGORY_OPTIONS}
+          businessSubcategory={businessSubcategory}
+          onBusinessSubcategoryChange={setBusinessSubcategory}
+          businessSubcategories={businessSubcategories}
+          onBusinessSubcategoriesChange={setBusinessSubcategories}
+          businessSubcategoryOptions={activeBusinessSubcategoryOptions}
           state={state}
           onStateChange={setState}
           sort={sort}
@@ -364,6 +577,8 @@ function VendorsPageInner() {
             <p className="text-gray-500 text-sm mb-4">
               {q
                 ? `No businesses match "${q}".`
+                : businessCategory
+                  ? `No ${BUSINESS_CATEGORY_LABELS[businessCategory] || businessCategory.toLowerCase()} businesses found right now.`
                 : categories.length > 0
                   ? `No businesses currently sell ${categories.join(", ")}.`
                   : "New businesses are joining Stora every week -- check back soon."}

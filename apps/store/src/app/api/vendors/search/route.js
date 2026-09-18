@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
 import { searchVendorsPaginated } from "@/lib/supabaseStore";
+import { BUSINESS_CATEGORY_VALUES, BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY } from "@stora/shared-constants";
 
 const PAGE_SIZE = 24;
+const ALL_BUSINESS_SUBCATEGORIES = new Set(
+  Object.values(BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY)
+    .flatMap((options) => options.map((option) => option.value))
+);
+
+function normalizeBusinessSubcategories(rawValues, businessCategory) {
+  const values = (rawValues || [])
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+  const allowed = businessCategory && BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[businessCategory]
+    ? new Set(BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[businessCategory].map((option) => option.value))
+    : ALL_BUSINESS_SUBCATEGORIES;
+  return [...new Set(values)].filter((value) => allowed.has(value));
+}
 
 // Public, unauthenticated -- backs the dedicated /vendors search & browse
 // page. Distinct from /api/stores/featured (small, cached homepage
@@ -15,6 +30,21 @@ export async function GET(request) {
     const state = searchParams.get("state") || undefined;
     const buyerState = searchParams.get("buyerState") || undefined;
     const deliverableOnly = searchParams.get("deliverableOnly") === "true" && !!buyerState;
+    const businessCategoryParam = searchParams.get("businessCategory")?.trim().toLowerCase();
+    const businessCategory = BUSINESS_CATEGORY_VALUES.includes(businessCategoryParam)
+      ? businessCategoryParam
+      : undefined;
+    const requestedBusinessSubcategory = searchParams.get("businessSubcategory")?.trim().toLowerCase();
+    const requestedBusinessSubcategories = searchParams
+      .get("businessSubcategories")
+      ?.split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean) || [];
+    const [businessSubcategory = undefined, ...otherSubcategories] = normalizeBusinessSubcategories(
+      [requestedBusinessSubcategory, ...requestedBusinessSubcategories],
+      businessCategory
+    );
+    const businessSubcategories = otherSubcategories.length > 0 ? otherSubcategories : undefined;
     const scopeParam = searchParams.get("scope");
     const scope = scopeParam === "products" || scopeParam === "services" ? scopeParam : undefined;
     const sortParam = searchParams.get("sort");
@@ -32,6 +62,9 @@ export async function GET(request) {
       state,
       buyerState,
       deliverableOnly,
+      businessCategory,
+      businessSubcategory,
+      businessSubcategories,
       scope,
       sort,
       limit: PAGE_SIZE,

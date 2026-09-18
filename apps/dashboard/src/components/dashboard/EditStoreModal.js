@@ -24,10 +24,16 @@ const TABS = [
   { id: 'preferences', label: 'Preferences', icon: SettingsIcon, errorKeys: [] }
 ];
 
-// Listing-mode businesses only need general info and location here.
-const LISTING_TABS = TABS.filter(t => t.id === 'general' || t.id === 'location');
+// Listing-mode businesses keep a slimmer modal, but still need
+// Preferences for business category/subcategory edits.
+const LISTING_TABS = TABS.filter(t => t.id === 'general' || t.id === 'location' || t.id === 'preferences');
 
 function buildEditData(store) {
+  const currentSubcategories = Array.isArray(store.businessSubcategories)
+    ? store.businessSubcategories
+    : (store.businessSubcategory ? [store.businessSubcategory] : []);
+  const secondarySubcategories = currentSubcategories.filter((entry) => entry !== store.businessSubcategory);
+
   return {
     storeName: store.storeName,
     storeDescription: store.storeDescription,
@@ -48,7 +54,10 @@ function buildEditData(store) {
         twitter: store.onlineStoreInfo?.socialMedia?.twitter || ''
       }
     },
-    settings: { ...store.settings }
+    settings: { ...store.settings },
+    businessCategory: store.businessCategory || '',
+    businessSubcategory: store.businessSubcategory || '',
+    businessSubcategories: secondarySubcategories
   };
 }
 
@@ -171,6 +180,15 @@ function EditStoreForm({ store, onClose, onStoreUpdated }) {
         method: 'PUT',
         body: JSON.stringify({
           ...editData,
+          businessSubcategories: (() => {
+            const primary = (editData.businessSubcategory || '').trim();
+            const secondary = (Array.isArray(editData.businessSubcategories) ? editData.businessSubcategories : [])
+              .map((entry) => String(entry).trim())
+              .filter(Boolean)
+              .filter((entry) => entry !== primary);
+            const merged = primary ? [primary, ...secondary] : secondary;
+            return merged.length > 0 ? merged : null;
+          })(),
           // Keep the canonical stores.state column in sync with whichever
           // field is the active source for this store type -- see
           // store/page.js's original handleSave for the full reasoning.

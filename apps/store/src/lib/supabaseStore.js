@@ -144,6 +144,12 @@ function transformStoreFields(store) {
     // defaults true at the DB level (existing stores predate this column).
     sellsProducts: store.sells_products !== false,
     offersServices: !!store.offers_services,
+    businessCategory: store.business_category || null,
+    businessSubcategory: store.business_subcategory || null,
+    businessSubcategories: Array.isArray(store.business_subcategories)
+      ? store.business_subcategories
+      : (store.business_subcategory ? [store.business_subcategory] : []),
+    businessTags: Array.isArray(store.business_tags) ? store.business_tags : [],
     storePhone: store.store_phone,
     storeEmail: store.store_email,
     state: store.state,
@@ -390,7 +396,20 @@ export async function findFeaturedStores({ limit = 12 } = {}) {
 // function (see 20260817000005_vendor_product_search.sql), which does the
 // ILIKE-over-trigram-index search, sort, and count(*) OVER() pagination
 // total in a single indexed query rather than pulling candidates into JS.
-export async function searchVendorsPaginated({ search, sort = 'featured', limit = 24, offset = 0, categories, state, buyerState, deliverableOnly, scope } = {}) {
+export async function searchVendorsPaginated({
+  search,
+  sort = 'featured',
+  limit = 24,
+  offset = 0,
+  categories,
+  state,
+  buyerState,
+  deliverableOnly,
+  scope,
+  businessCategory,
+  businessSubcategory,
+  businessSubcategories
+} = {}) {
   const rpcParams = {
     p_search: search || null,
     p_sort: sort,
@@ -412,8 +431,32 @@ export async function searchVendorsPaginated({ search, sort = 'featured', limit 
   // 20260913000000_search_vendors_services.sql). 'all' (the default) is
   // never sent, same as any other unset filter.
   if (scope === 'products' || scope === 'services') rpcParams.p_scope = scope;
+  if (businessCategory) rpcParams.p_business_category = businessCategory;
+  if (businessSubcategory) rpcParams.p_business_subcategory = businessSubcategory;
+  if (Array.isArray(businessSubcategories) && businessSubcategories.length > 0) {
+    rpcParams.p_business_subcategories = businessSubcategories;
+  }
 
-  const { data, error } = await supabaseAdmin.rpc('search_vendors', rpcParams);
+  let { data, error } = await supabaseAdmin.rpc('search_vendors', rpcParams);
+
+  if (error && (rpcParams.p_business_subcategory || rpcParams.p_business_subcategories)) {
+    const fallbackParams = { ...rpcParams };
+    delete fallbackParams.p_business_subcategory;
+    delete fallbackParams.p_business_subcategories;
+    const fallback = await supabaseAdmin.rpc('search_vendors', fallbackParams);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  // Deploys and SQL migrations are not atomic in this repo. If code ships
+  // first, retry once without the new arg so existing search keeps working.
+  if (error && rpcParams.p_business_category) {
+    const fallbackParams = { ...rpcParams };
+    delete fallbackParams.p_business_category;
+    const fallback = await supabaseAdmin.rpc('search_vendors', fallbackParams);
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     console.error('Error searching vendors:', error);
@@ -434,7 +477,19 @@ export async function searchVendorsPaginated({ search, sort = 'featured', limit 
 // (search_vendors_ai) instead of ILIKE, otherwise the same shape/response
 // as searchVendorsPaginated above so callers (the AI search route) can
 // treat both result sets identically.
-export async function searchVendorsByEmbedding({ embedding, categories, state, buyerState, deliverableOnly, scope, limit = 24, offset = 0 } = {}) {
+export async function searchVendorsByEmbedding({
+  embedding,
+  categories,
+  state,
+  buyerState,
+  deliverableOnly,
+  scope,
+  businessCategory,
+  businessSubcategory,
+  businessSubcategories,
+  limit = 24,
+  offset = 0
+} = {}) {
   const rpcParams = {
     p_embedding: embedding,
     p_categories: categories?.length ? categories : null,
@@ -445,8 +500,30 @@ export async function searchVendorsByEmbedding({ embedding, categories, state, b
   };
   if (deliverableOnly) rpcParams.p_deliverable_only = true;
   if (scope === 'products' || scope === 'services') rpcParams.p_scope = scope;
+  if (businessCategory) rpcParams.p_business_category = businessCategory;
+  if (businessSubcategory) rpcParams.p_business_subcategory = businessSubcategory;
+  if (Array.isArray(businessSubcategories) && businessSubcategories.length > 0) {
+    rpcParams.p_business_subcategories = businessSubcategories;
+  }
 
-  const { data, error } = await supabaseAdmin.rpc('search_vendors_ai', rpcParams);
+  let { data, error } = await supabaseAdmin.rpc('search_vendors_ai', rpcParams);
+
+  if (error && (rpcParams.p_business_subcategory || rpcParams.p_business_subcategories)) {
+    const fallbackParams = { ...rpcParams };
+    delete fallbackParams.p_business_subcategory;
+    delete fallbackParams.p_business_subcategories;
+    const fallback = await supabaseAdmin.rpc('search_vendors_ai', fallbackParams);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error && rpcParams.p_business_category) {
+    const fallbackParams = { ...rpcParams };
+    delete fallbackParams.p_business_category;
+    const fallback = await supabaseAdmin.rpc('search_vendors_ai', fallbackParams);
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     console.error('Error searching vendors by embedding:', error);
@@ -1285,6 +1362,12 @@ export function buildPublicStoreData(store) {
     // services sub-query here would be a real N+1).
     sellsProducts: store.sells_products !== false,
     offersServices: !!store.offers_services,
+    businessCategory: store.business_category || null,
+    businessSubcategory: store.business_subcategory || null,
+    businessSubcategories: Array.isArray(store.business_subcategories)
+      ? store.business_subcategories
+      : (store.business_subcategory ? [store.business_subcategory] : []),
+    businessTags: Array.isArray(store.business_tags) ? store.business_tags : [],
     storePhone: store.store_phone,
     storeEmail: store.store_email,
     state: store.state,

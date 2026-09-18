@@ -2,10 +2,65 @@ import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { invalidateStorefrontCache } from '@/lib/redis';
-import { isValidNigerianState } from '@stora/shared-constants';
+import { BUSINESS_CATEGORY_VALUES, isValidNigerianState } from '@stora/shared-constants';
 import { embedStoreById } from '@/lib/openrouter';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { RESERVED_SUBDOMAINS } from '@/lib/websitePath';
+
+function normalizeBusinessCategory(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return null;
+  return BUSINESS_CATEGORY_VALUES.includes(normalized) ? normalized : '__invalid__';
+}
+
+function normalizeBusinessSubcategory(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const normalized = String(value).trim();
+  return normalized || null;
+}
+
+function normalizeBusinessSubcategories(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (!Array.isArray(value)) return '__invalid__';
+  const deduped = [...new Set(value.map((entry) => String(entry).trim()).filter(Boolean))];
+  return deduped.length > 0 ? deduped : null;
+}
+
+function mergeBusinessSubcategories({ primary, list, fallbackPrimary = null, fallbackList = [] }) {
+  const normalizedPrimary = normalizeBusinessSubcategory(primary);
+  const normalizedList = normalizeBusinessSubcategories(list);
+
+  if (normalizedList === '__invalid__') {
+    return '__invalid__';
+  }
+
+  const resolvedPrimary = normalizedPrimary !== undefined ? normalizedPrimary : (fallbackPrimary || null);
+  const baseList = normalizedList !== undefined
+    ? (normalizedList || [])
+    : Array.isArray(fallbackList) ? fallbackList : [];
+
+  const combined = resolvedPrimary
+    ? [resolvedPrimary, ...baseList.filter((entry) => entry !== resolvedPrimary)]
+    : baseList;
+
+  const deduped = [...new Set(combined.map((entry) => String(entry).trim()).filter(Boolean))];
+  return {
+    primary: resolvedPrimary,
+    list: deduped.length > 0 ? deduped : null
+  };
+}
+
+function inferBusinessCategory({ restaurantMode, sellsProducts, offersServices }) {
+  if (restaurantMode) return 'restaurant';
+  if (offersServices && sellsProducts) return 'hybrid';
+  if (offersServices) return 'services';
+  if (sellsProducts) return 'retail';
+  return 'other';
+}
 
 // Helper to transform store data for response
 function transformStore(store) {
@@ -43,6 +98,12 @@ function transformStore(store) {
     // set together at business-creation time (CreateBusinessModal.js).
     sellsProducts: !!store.sells_products,
     offersServices: !!store.offers_services,
+    businessCategory: store.business_category || null,
+    businessSubcategory: store.business_subcategory || null,
+    businessSubcategories: Array.isArray(store.business_subcategories)
+      ? store.business_subcategories
+      : (store.business_subcategory ? [store.business_subcategory] : []),
+    businessTags: Array.isArray(store.business_tags) ? store.business_tags : [],
     address: parsedAddress,
     // Flat display string a few screens read directly (POS's store-info
     // header, the website settings page, ReceiptModal) -- was never
@@ -205,6 +266,31 @@ export async function POST(req) {
     }
 
     const storeData = await req.json();
+    const normalizedBusinessCategory = normalizeBusinessCategory(storeData.businessCategory);
+    const mergedBusinessSubcategories = mergeBusinessSubcategories({
+      primary: storeData.businessSubcategory,
+      list: storeData.businessSubcategories
+    });
+
+    if (normalizedBusinessCategory === '__invalid__') {
+      return NextResponse.json(
+        { success: false, message: `businessCategory must be one of: ${BUSINESS_CATEGORY_VALUES.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    if (mergedBusinessSubcategories === '__invalid__') {
+      return NextResponse.json(
+        { success: false, message: 'businessSubcategories must be an array of strings' },
+        { status: 400 }
+      );
+    }
+
+    const inferredBusinessCategory = inferBusinessCategory({
+      restaurantMode: !!storeData.offersFood,
+      sellsProducts: storeData.sellsProducts !== false,
+      offersServices: !!storeData.offersServices
+    });
 
     // Required going forward for every new store, regardless of storeType --
     // online-only vendors used to skip location entirely, which is exactly
@@ -254,6 +340,12 @@ export async function POST(req) {
         sells_products: storeData.sellsProducts !== false,
         offers_services: !!storeData.offersServices,
         restaurant_mode: !!storeData.offersFood,
+        business_category: normalizedBusinessCategory ?? inferredBusinessCategory,
+        business_subcategory: mergedBusinessSubcategories.primary,
+        business_subcategories: mergedBusinessSubcategories.list,
+        business_tags: Array.isArray(storeData.businessTags) && storeData.businessTags.length > 0
+          ? [...new Set(storeData.businessTags.map((tag) => String(tag).trim()).filter(Boolean))]
+          : null,
         // 'store' (default) or 'listing' -- set during onboarding intent step.
         platform_mode: storeData.platformMode === 'listing' ? 'listing' : 'store',
         subscription_status: 'none',
@@ -337,6 +429,22 @@ export async function PUT(req) {
     }
 
     const updateData = await req.json();
+    const normalizedBusinessCategory = normalizeBusinessCategory(updateData.businessCategory);
+    const normalizedBusinessSubcategories = normalizeBusinessSubcategories(updateData.businessSubcategories);
+
+    if (normalizedBusinessCategory === '__invalid__') {
+      return NextResponse.json(
+        { success: false, message: `businessCategory must be one of: ${BUSINESS_CATEGORY_VALUES.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    if (normalizedBusinessSubcategories === '__invalid__') {
+      return NextResponse.json(
+        { success: false, message: 'businessSubcategories must be an array of strings' },
+        { status: 400 }
+      );
+    }
 
     // Special handling for store type changes
     if (updateData.storeType === 'physical' && updateData.address) {
@@ -421,10 +529,12 @@ export async function PUT(req) {
     // via a separate endpoint (PATCH /api/stores/restaurant-mode), so
     // checking this here means fetching its current value alongside
     // whatever this request is actually changing.
+    let inferredAutoBusinessCategory;
+    let currentClassification;
     if (updateData.sellsProducts !== undefined || updateData.offersServices !== undefined) {
       const { data: currentStore } = await supabaseAdmin
         .from('stores')
-        .select('sells_products, offers_services, restaurant_mode')
+        .select('sells_products, offers_services, restaurant_mode, business_category')
         .eq('owner_id', user.id)
         .eq('is_active', true)
         .single();
@@ -439,6 +549,44 @@ export async function PUT(req) {
           { status: 400 }
         );
       }
+
+      // Keep business_category coherent when the vendor never explicitly
+      // chose one (legacy rows/backfill) and they change business type flags.
+      if (normalizedBusinessCategory === undefined && !currentStore?.business_category) {
+        inferredAutoBusinessCategory = inferBusinessCategory({
+          restaurantMode: resultingRestaurantMode,
+          sellsProducts: resultingSellsProducts,
+          offersServices: resultingOffersServices
+        });
+      }
+    }
+
+    if (updateData.businessSubcategory !== undefined || normalizedBusinessSubcategories !== undefined) {
+      const { data: classificationRow } = await supabaseAdmin
+        .from('stores')
+        .select('business_subcategory, business_subcategories')
+        .eq('owner_id', user.id)
+        .eq('is_active', true)
+        .single();
+      currentClassification = classificationRow;
+    }
+
+    const mergedBusinessSubcategories = (updateData.businessSubcategory !== undefined || normalizedBusinessSubcategories !== undefined)
+      ? mergeBusinessSubcategories({
+          primary: updateData.businessSubcategory,
+          list: normalizedBusinessSubcategories,
+          fallbackPrimary: currentClassification?.business_subcategory || null,
+          fallbackList: Array.isArray(currentClassification?.business_subcategories)
+            ? currentClassification.business_subcategories
+            : (currentClassification?.business_subcategory ? [currentClassification.business_subcategory] : [])
+        })
+      : null;
+
+    if (mergedBusinessSubcategories === '__invalid__') {
+      return NextResponse.json(
+        { success: false, message: 'businessSubcategories must be an array of strings' },
+        { status: 400 }
+      );
     }
 
     // Build update object with snake_case keys
@@ -462,6 +610,27 @@ export async function PUT(req) {
     if (updateData.bankDetails) dbUpdate.bank_details = updateData.bankDetails;
     if (updateData.sellsProducts !== undefined) dbUpdate.sells_products = !!updateData.sellsProducts;
     if (updateData.offersServices !== undefined) dbUpdate.offers_services = !!updateData.offersServices;
+    if (normalizedBusinessCategory !== undefined) dbUpdate.business_category = normalizedBusinessCategory;
+    if (normalizedBusinessCategory === undefined && inferredAutoBusinessCategory) {
+      dbUpdate.business_category = inferredAutoBusinessCategory;
+    }
+    if (mergedBusinessSubcategories) {
+      dbUpdate.business_subcategory = mergedBusinessSubcategories.primary;
+      dbUpdate.business_subcategories = mergedBusinessSubcategories.list;
+    }
+    if (updateData.businessTags !== undefined) {
+      if (updateData.businessTags === null) {
+        dbUpdate.business_tags = null;
+      } else if (!Array.isArray(updateData.businessTags)) {
+        return NextResponse.json(
+          { success: false, message: 'businessTags must be an array of strings' },
+          { status: 400 }
+        );
+      } else {
+        const dedupedTags = [...new Set(updateData.businessTags.map((tag) => String(tag).trim()).filter(Boolean))];
+        dbUpdate.business_tags = dedupedTags.length > 0 ? dedupedTags : null;
+      }
+    }
     
     dbUpdate.updated_at = new Date().toISOString();
 

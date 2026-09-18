@@ -1,6 +1,14 @@
 "use client";
+import { useEffect, useState } from "react";
 import { Settings, DollarSign, Loader2 } from "lucide-react";
 import SectionHeader from "@/components/ui/SectionHeader";
+import CustomDropdown from "@/components/ui/CustomDropdown";
+import {
+  BUSINESS_CATEGORY_VALUES,
+  BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY,
+  BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY,
+  BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY
+} from "@stora/shared-constants";
 
 // A store must always do at least one of Products/Food/Services (same rule
 // CreateBusinessModal enforces at creation) -- disables whichever toggle
@@ -17,6 +25,9 @@ export default function StorePreferencesTab({
   onRestaurantModeChange, isUpdatingRestaurantMode,
   onSellsProductsChange, isUpdatingSellsProducts,
   onOffersServicesChange, isUpdatingOffersServices,
+  onBusinessCategoryChange, isUpdatingBusinessCategory,
+  onBusinessSubcategoryChange, isUpdatingBusinessSubcategory,
+  isUpdatingBusinessSubcategories,
   // Skips the instant-toggle section entirely -- used inside EditStoreModal,
   // which only handles batched fields (Save/Cancel); the toggles below
   // save immediately and always live on the main Store page instead, so
@@ -24,6 +35,78 @@ export default function StorePreferencesTab({
   // confusing duplicate control for the same live value.
   hideInstantToggles = false
 }) {
+  const [subcategoryDraft, setSubcategoryDraft] = useState(store.businessSubcategory || '');
+  const [subcategoriesDraft, setSubcategoriesDraft] = useState(
+    (Array.isArray(store.businessSubcategories) ? store.businessSubcategories : [])
+      .filter((entry) => entry !== store.businessSubcategory)
+  );
+
+  useEffect(() => {
+    setSubcategoryDraft(store.businessSubcategory || '');
+    const secondary = (Array.isArray(store.businessSubcategories) ? store.businessSubcategories : [])
+      .filter((entry) => entry !== store.businessSubcategory);
+    setSubcategoriesDraft(secondary);
+  }, [store.businessSubcategory, store.businessSubcategories]);
+
+  const businessCategoryOptions = BUSINESS_CATEGORY_VALUES.map((value) => ({
+    value,
+    label: value.charAt(0).toUpperCase() + value.slice(1)
+  }));
+
+  const selectedCategory = isEditing ? editData.businessCategory : store.businessCategory;
+  const activeSubcategoryOptions = BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[selectedCategory] || [];
+  const activeSubcategoryCombos = BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY[selectedCategory] || [];
+  const activeSubcategorySingles = BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY[selectedCategory] || [];
+  const primarySubcategoryOptions = [{ value: '', label: 'Select primary subcategory' }, ...activeSubcategoryOptions];
+
+  const toggleDraftSubcategory = (value) => {
+    if (!value || value === subcategoryDraft) return;
+    setSubcategoriesDraft((prev) => prev.includes(value) ? prev.filter((entry) => entry !== value) : [...prev, value]);
+  };
+
+  const toggleEditSubcategory = (value) => {
+    if (!value || value === editData.businessSubcategory) return;
+    const current = Array.isArray(editData.businessSubcategories) ? editData.businessSubcategories : [];
+    const next = current.includes(value)
+      ? current.filter((entry) => entry !== value)
+      : [...current, value];
+    handleChange({ target: { name: 'businessSubcategories', value: next } });
+  };
+
+  const applyDraftCombo = (combo) => {
+    if (!combo) return;
+    setSubcategoryDraft(combo.primary || '');
+    setSubcategoriesDraft((combo.secondary || []).filter((entry) => entry !== combo.primary));
+  };
+
+  const applyEditCombo = (combo) => {
+    if (!combo) return;
+    handleChange({ target: { name: 'businessSubcategory', value: combo.primary || '' } });
+    handleChange({
+      target: {
+        name: 'businessSubcategories',
+        value: (combo.secondary || []).filter((entry) => entry !== combo.primary)
+      }
+    });
+  };
+
+  const applyDraftSingle = (single) => {
+    if (!single) return;
+    setSubcategoryDraft(single.primary || '');
+    setSubcategoriesDraft([]);
+  };
+
+  const applyEditSingle = (single) => {
+    if (!single) return;
+    handleChange({ target: { name: 'businessSubcategory', value: single.primary || '' } });
+    handleChange({ target: { name: 'businessSubcategories', value: [] } });
+  };
+
+  const currentSecondary = (Array.isArray(store.businessSubcategories) ? store.businessSubcategories : [])
+    .filter((entry) => entry !== store.businessSubcategory);
+  const hasSubcategoryChanges = (subcategoryDraft || '') !== (store.businessSubcategory || '')
+    || JSON.stringify(subcategoriesDraft) !== JSON.stringify(currentSecondary);
+
   return (
     <div className="bg-white rounded-2xl p-6 border border-gray-100">
       <SectionHeader icon={Settings} title="Store Preferences" tone="gold" />
@@ -71,6 +154,211 @@ export default function StorePreferencesTab({
             />
           ) : (
             <p className="text-gray-900 py-3">{store.settings.receiptFooter}</p>
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-gray-100 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-900">Business classification</h3>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Business Category</label>
+            {isEditing ? (
+              <CustomDropdown
+                options={businessCategoryOptions}
+                value={editData.businessCategory}
+                onChange={(value) => handleChange({ target: { name: 'businessCategory', value } })}
+                placeholder="Select business category"
+              />
+            ) : (
+              <CustomDropdown
+                options={businessCategoryOptions}
+                value={store.businessCategory || ''}
+                onChange={(value) => onBusinessCategoryChange?.(value)}
+                placeholder="Select business category"
+              />
+            )}
+            {errors.businessCategory && (
+              <p className="text-red-500 text-xs mt-1">{errors.businessCategory}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Business Subcategory</label>
+            {isEditing ? (
+              <div className="space-y-3">
+                <CustomDropdown
+                  options={primarySubcategoryOptions}
+                  value={editData.businessSubcategory || ''}
+                  onChange={(value) => {
+                    handleChange({ target: { name: 'businessSubcategory', value } });
+                    const current = Array.isArray(editData.businessSubcategories) ? editData.businessSubcategories : [];
+                    handleChange({
+                      target: {
+                        name: 'businessSubcategories',
+                        value: current.filter((entry) => entry !== value)
+                      }
+                    });
+                  }}
+                  placeholder="Select primary subcategory"
+                  disabled={!selectedCategory}
+                />
+                {selectedCategory ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {activeSubcategoryOptions
+                        .filter((option) => option.value !== editData.businessSubcategory)
+                        .map((option) => {
+                          const selected = (editData.businessSubcategories || []).includes(option.value);
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => toggleEditSubcategory(option.value)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                                selected
+                                  ? 'bg-brand-700 text-white border-brand-700'
+                                  : 'bg-white text-brand-800 border-brand-200 hover:border-brand-300'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    {activeSubcategoryCombos.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Suggested combinations</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activeSubcategoryCombos.map((combo) => (
+                            <button
+                              key={combo.key}
+                              type="button"
+                              onClick={() => applyEditCombo(combo)}
+                              className="px-3 py-1.5 rounded-full text-xs font-semibold border border-gold-300 text-gold-700 bg-gold-50 hover:bg-gold-100 transition-colors"
+                            >
+                              {combo.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {activeSubcategorySingles.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Single quick picks</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activeSubcategorySingles.map((single) => (
+                            <button
+                              key={single.key}
+                              type="button"
+                              onClick={() => applyEditSingle(single)}
+                              className="px-3 py-1.5 rounded-full text-xs font-semibold border border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors"
+                            >
+                              {single.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-500">Select a business category first.</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <CustomDropdown
+                  options={primarySubcategoryOptions}
+                  value={subcategoryDraft}
+                  onChange={(value) => {
+                    setSubcategoryDraft(value);
+                    setSubcategoriesDraft((prev) => prev.filter((entry) => entry !== value));
+                  }}
+                  placeholder="Select primary subcategory"
+                  disabled={!selectedCategory}
+                />
+                {selectedCategory ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {activeSubcategoryOptions
+                        .filter((option) => option.value !== subcategoryDraft)
+                        .map((option) => {
+                          const selected = subcategoriesDraft.includes(option.value);
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => toggleDraftSubcategory(option.value)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                                selected
+                                  ? 'bg-brand-700 text-white border-brand-700'
+                                  : 'bg-white text-brand-800 border-brand-200 hover:border-brand-300'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    {activeSubcategoryCombos.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Suggested combinations</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activeSubcategoryCombos.map((combo) => (
+                            <button
+                              key={combo.key}
+                              type="button"
+                              onClick={() => applyDraftCombo(combo)}
+                              className="px-3 py-1.5 rounded-full text-xs font-semibold border border-gold-300 text-gold-700 bg-gold-50 hover:bg-gold-100 transition-colors"
+                            >
+                              {combo.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {activeSubcategorySingles.length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Single quick picks</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activeSubcategorySingles.map((single) => (
+                            <button
+                              key={single.key}
+                              type="button"
+                              onClick={() => applyDraftSingle(single)}
+                              className="px-3 py-1.5 rounded-full text-xs font-semibold border border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors"
+                            >
+                              {single.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-500">Select a business category first.</p>
+                )}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={!hasSubcategoryChanges || !!isUpdatingBusinessSubcategory || !!isUpdatingBusinessSubcategories}
+                    onClick={() => onBusinessSubcategoryChange?.(subcategoryDraft.trim(), subcategoriesDraft)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-brand-200 text-brand-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {(isUpdatingBusinessSubcategory || isUpdatingBusinessSubcategories) ? 'Saving...' : 'Save subcategories'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {errors.businessSubcategory && (
+              <p className="text-red-500 text-xs mt-1">{errors.businessSubcategory}</p>
+            )}
+          </div>
+
+          {!isEditing && isUpdatingBusinessCategory && (
+            <p className="text-xs text-gray-500 flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Updating business category...
+            </p>
           )}
         </div>
 

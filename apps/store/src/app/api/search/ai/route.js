@@ -12,7 +12,11 @@ import {
 } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
 import { cached, cacheKey } from "@/lib/redis";
-import { NIGERIAN_STATES } from "@stora/shared-constants";
+import {
+  BUSINESS_CATEGORY_VALUES,
+  BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY,
+  NIGERIAN_STATES
+} from "@stora/shared-constants";
 
 const PAGE_SIZE = 24;
 // The *other* result type (vendors on /products, products on /vendors) is
@@ -38,6 +42,10 @@ const SERVICE_INTENT_TERMS = new Set([
   "photographer", "photography", "videographer", "videography", "plumber", "electrician", "tailor", "stylist",
   "makeup", "salon", "barber", "cleaner", "cleaning", "mechanic", "repair", "decorator", "caterer", "dj",
   "laundry", "service", "services", "provider", "providers", "hire", "book"
+]);
+const RESTAURANT_INTENT_TERMS = new Set([
+  "restaurant", "restaurants", "eat", "eatout", "dining", "dinner", "lunch", "breakfast", "meal", "meals",
+  "food", "foodspot", "shawarma", "pizza", "suya", "amala", "buka", "canteen"
 ]);
 const STOP_WORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "from", "i", "i'm", "im", "in", "into", "is", "it",
@@ -71,6 +79,48 @@ const CITY_TO_STATE = new Map([
   ["uyo", "Akwa Ibom"],
   ["calabar", "Cross River"]
 ]);
+const ALL_BUSINESS_SUBCATEGORY_VALUES = new Set(
+  Object.values(BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY)
+    .flatMap((options) => options.map((option) => option.value))
+);
+const RERANK_WEIGHTS = {
+  categoryMatch: 3,
+  categoryRestaurantFallback: 2,
+  categoryMismatchPenalty: 1,
+  primarySubcategoryMatch: 4,
+  secondarySubcategoryMatch: 2,
+  primarySubcategoryMissPenalty: 1,
+  requestedSecondaryMatch: 1
+};
+
+function normalizeBusinessSubcategoryCandidates(rawValues, businessCategory) {
+  const values = (rawValues || [])
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+  const allowed = businessCategory && BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[businessCategory]
+    ? new Set(BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[businessCategory].map((option) => option.value))
+    : ALL_BUSINESS_SUBCATEGORY_VALUES;
+  return [...new Set(values)].filter((value) => allowed.has(value));
+}
+
+function inferBusinessSubcategoriesFromText(query, businessCategory) {
+  const haystack = (query || "").toLowerCase().trim();
+  if (!haystack) return [];
+
+  const options = businessCategory && BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[businessCategory]
+    ? BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[businessCategory]
+    : Object.values(BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY).flat();
+
+  const matches = options
+    .filter((option) => {
+      const label = String(option.label || "").toLowerCase();
+      const valuePhrase = String(option.value || "").toLowerCase().replace(/-/g, " ");
+      return (label && haystack.includes(label)) || (valuePhrase && haystack.includes(valuePhrase));
+    })
+    .map((option) => option.value);
+
+  return normalizeBusinessSubcategoryCandidates(matches, businessCategory).slice(0, 4);
+}
 
 function normalizeToken(raw) {
   const token = (raw || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
@@ -100,6 +150,12 @@ function inferVendorIntentFromText(query) {
 function inferServiceIntentFromText(query) {
   const terms = extractQueryTerms(query);
   return terms.some((term) => SERVICE_INTENT_TERMS.has(term));
+}
+
+function inferBusinessCategoryFromText(query) {
+  const terms = extractQueryTerms(query);
+  if (terms.some((term) => RESTAURANT_INTENT_TERMS.has(term))) return "restaurant";
+  return null;
 }
 
 function termVariants(term) {
@@ -138,6 +194,8 @@ function inferStateFromQuery(text) {
 function shouldRouteToVendors(intent, rawQuery) {
   if (intent?.target === "vendors") return true;
   if (intent?.scope === "services") return true;
+  if (intent?.businessCategory === "restaurant") return true;
+  if (inferBusinessCategoryFromText(rawQuery) === "restaurant") return true;
   return inferVendorIntentFromText(rawQuery);
 }
 
@@ -273,6 +331,45 @@ async function filterVendorsByRelevance(vendors, rawQuery, intent) {
       if (serviceSignals.coverAllNigeria) score += 1;
     }
 
+    const requestedBusinessCategory = intent?.businessCategory || null;
+    const requestedBusinessSubcategory = intent?.businessSubcategory || null;
+    const requestedBusinessSubcategories = Array.isArray(intent?.businessSubcategories)
+      ? intent.businessSubcategories
+      : [];
+
+    const vendorBusinessCategory = vendor.businessCategory || null;
+    const vendorPrimarySubcategory = vendor.businessSubcategory || null;
+    const vendorSubcategories = Array.isArray(vendor.businessSubcategories)
+      ? vendor.businessSubcategories
+      : (vendor.businessSubcategory ? [vendor.businessSubcategory] : []);
+
+    if (requestedBusinessCategory) {
+      const categoryMatch = vendorBusinessCategory === requestedBusinessCategory;
+      const restaurantFallbackMatch = requestedBusinessCategory === "restaurant" && vendor.restaurantMode;
+      if (categoryMatch) {
+        score += RERANK_WEIGHTS.categoryMatch;
+      } else if (restaurantFallbackMatch) {
+        score += RERANK_WEIGHTS.categoryRestaurantFallback;
+      } else if (vendorBusinessCategory) {
+        score -= RERANK_WEIGHTS.categoryMismatchPenalty;
+      }
+    }
+
+    if (requestedBusinessSubcategory) {
+      if (vendorPrimarySubcategory === requestedBusinessSubcategory) {
+        score += RERANK_WEIGHTS.primarySubcategoryMatch;
+      } else if (vendorSubcategories.includes(requestedBusinessSubcategory)) {
+        score += RERANK_WEIGHTS.secondarySubcategoryMatch;
+      } else {
+        score -= RERANK_WEIGHTS.primarySubcategoryMissPenalty;
+      }
+    }
+
+    if (requestedBusinessSubcategories.length > 0) {
+      const secondaryMatchCount = requestedBusinessSubcategories.filter((value) => vendorSubcategories.includes(value)).length;
+      score += secondaryMatchCount * RERANK_WEIGHTS.requestedSecondaryMatch;
+    }
+
     return { vendor, score, serviceSemanticHits, ownSemanticHits };
   });
 
@@ -329,6 +426,23 @@ export async function GET(request) {
     // product-search ones.
     const scopeParam = searchParams.get("scope");
     const scope = scopeParam === "products" || scopeParam === "services" ? scopeParam : undefined;
+    const requestedBusinessCategoryParam = searchParams.get("businessCategory")?.trim().toLowerCase();
+    const requestedBusinessCategory = BUSINESS_CATEGORY_VALUES.includes(requestedBusinessCategoryParam)
+      ? requestedBusinessCategoryParam
+      : undefined;
+    const requestedBusinessSubcategoryParam = searchParams.get("businessSubcategory")?.trim().toLowerCase();
+    const requestedBusinessSubcategoriesParam = searchParams
+      .get("businessSubcategories")
+      ?.split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean) || [];
+    const requestedSubcategoryValues = normalizeBusinessSubcategoryCandidates(
+      [requestedBusinessSubcategoryParam, ...requestedBusinessSubcategoriesParam],
+      requestedBusinessCategory
+    );
+    const requestedBusinessSubcategory = requestedSubcategoryValues[0] || undefined;
+    const requestedBusinessSubcategories = requestedSubcategoryValues
+      .filter((value) => value !== requestedBusinessSubcategory);
     // Opt-in, additive params -- existing callers never pass these, so
     // today's behavior (LLM's own freeform category guess) is unchanged.
     // When present, Biterave forces the category to Food via a real,
@@ -375,10 +489,30 @@ export async function GET(request) {
       const inferredStateFromIntent = inferStateFromQuery(intent.cleanedQuery || "") || undefined;
       const effectiveState = state || inferredStateFromIntent || inferredStateFromQuery;
       const categories = intent.category ? [intent.category] : undefined;
+      const inferredBusinessCategory = requestedBusinessCategory
+        || intent.businessCategory
+        || inferBusinessCategoryFromText(`${query} ${intent.cleanedQuery || ""}`)
+        || undefined;
+      const inferredSubcategoryValues = normalizeBusinessSubcategoryCandidates(
+        [
+          ...requestedSubcategoryValues,
+          ...(Array.isArray(intent.businessSubcategories) ? intent.businessSubcategories : []),
+          ...inferBusinessSubcategoriesFromText(`${query} ${intent.cleanedQuery || ""}`, inferredBusinessCategory)
+        ],
+        inferredBusinessCategory
+      );
+      const inferredBusinessSubcategory = requestedBusinessSubcategory || inferredSubcategoryValues[0] || undefined;
+      const inferredBusinessSubcategories = inferredSubcategoryValues.filter((value) => value !== inferredBusinessSubcategory);
       const serviceIntent = intent.scope === "services" || inferServiceIntentFromText(query) || inferServiceIntentFromText(intent.cleanedQuery || "");
+      const rankingIntent = {
+        ...intent,
+        businessCategory: inferredBusinessCategory || null,
+        businessSubcategory: inferredBusinessSubcategory || null,
+        businessSubcategories: inferredBusinessSubcategories
+      };
       const vendorScope = intent.scope === "services" || intent.scope === "products"
         ? intent.scope
-        : (serviceIntent ? "services" : scope);
+        : (serviceIntent ? "services" : inferredBusinessCategory === "restaurant" ? "products" : scope);
       const productOffset = resolvedPrimary === "products" ? offset : 0;
       const productLimit = resolvedPrimary === "products" ? PAGE_SIZE : SECONDARY_LIMIT;
       const vendorOffset = resolvedPrimary === "vendors" ? offset : 0;
@@ -426,6 +560,9 @@ export async function GET(request) {
               state: effectiveState,
               buyerState,
               deliverableOnly,
+              businessCategory: inferredBusinessCategory,
+              businessSubcategory: inferredBusinessSubcategory,
+              businessSubcategories: inferredBusinessSubcategories,
               scope: vendorScope,
               limit: vendorLimit,
               offset: vendorOffset
@@ -435,7 +572,7 @@ export async function GET(request) {
       ({ vendors, totalCount: vendorTotal } = vendorResult);
 
       if (resolvedPrimary === "vendors") {
-        const filteredVendors = await filterVendorsByRelevance(vendors, rawQuery, intent);
+        const filteredVendors = await filterVendorsByRelevance(vendors, rawQuery, rankingIntent);
         vendors = filteredVendors;
         vendorTotal = filteredVendors.length;
 
@@ -459,12 +596,15 @@ export async function GET(request) {
                 state: effectiveState,
                 buyerState,
                 deliverableOnly,
+                businessCategory: inferredBusinessCategory,
+                businessSubcategory: inferredBusinessSubcategory,
+                businessSubcategories: inferredBusinessSubcategories,
                 scope: vendorScope,
                 limit: vendorLimit,
                 offset: vendorOffset
               });
 
-          vendors = await filterVendorsByRelevance(fallbackVendorResult.vendors || [], rawQuery, intent);
+          vendors = await filterVendorsByRelevance(fallbackVendorResult.vendors || [], rawQuery, rankingIntent);
           vendorTotal = vendors.length;
         }
 
@@ -481,6 +621,16 @@ export async function GET(request) {
       // customer has no way to fix.
       mode = "keyword-fallback";
       const fallbackState = state || inferredStateFromQuery;
+      const fallbackBusinessCategory = requestedBusinessCategory || inferBusinessCategoryFromText(query) || undefined;
+      const fallbackSubcategoryValues = normalizeBusinessSubcategoryCandidates(
+        [
+          ...requestedSubcategoryValues,
+          ...inferBusinessSubcategoriesFromText(query, fallbackBusinessCategory)
+        ],
+        fallbackBusinessCategory
+      );
+      const fallbackBusinessSubcategory = requestedBusinessSubcategory || fallbackSubcategoryValues[0] || undefined;
+      const fallbackBusinessSubcategories = fallbackSubcategoryValues.filter((value) => value !== fallbackBusinessSubcategory);
       const [productResult, vendorResult] = isBiterave
         ? await Promise.all([
             searchBiteraveProducts({
@@ -517,6 +667,9 @@ export async function GET(request) {
               state: fallbackState,
               buyerState,
               deliverableOnly,
+              businessCategory: fallbackBusinessCategory,
+              businessSubcategory: fallbackBusinessSubcategory,
+              businessSubcategories: fallbackBusinessSubcategories,
               scope,
               limit: requestedPrimary === "vendors" ? PAGE_SIZE : SECONDARY_LIMIT,
               offset: requestedPrimary === "vendors" ? offset : 0

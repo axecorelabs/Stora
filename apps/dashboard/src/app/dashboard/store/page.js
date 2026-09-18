@@ -38,8 +38,9 @@ const STORE_TABS = [
   { id: 'preferences', label: 'Preferences', icon: SettingsIcon }
 ];
 
-// Listing-mode businesses use profile-focused tabs.
-const LISTING_TABS = STORE_TABS.filter(t => t.id === 'general' || t.id === 'location');
+// Listing-mode businesses use profile-focused tabs but still need
+// Preferences to manage classification (business category/subcategory).
+const LISTING_TABS = STORE_TABS.filter(t => t.id === 'general' || t.id === 'location' || t.id === 'preferences');
 
 export default function StorePage() {
   const { secureApiCall } = useAuth();
@@ -53,6 +54,9 @@ export default function StorePage() {
   const [isUpdatingRestaurantMode, setIsUpdatingRestaurantMode] = useState(false);
   const [isUpdatingSellsProducts, setIsUpdatingSellsProducts] = useState(false);
   const [isUpdatingOffersServices, setIsUpdatingOffersServices] = useState(false);
+  const [isUpdatingBusinessCategory, setIsUpdatingBusinessCategory] = useState(false);
+  const [isUpdatingBusinessSubcategory, setIsUpdatingBusinessSubcategory] = useState(false);
+  const [isUpdatingBusinessSubcategories, setIsUpdatingBusinessSubcategories] = useState(false);
   const [isCreateStoreModalOpen, setIsCreateStoreModalOpen] = useState(false);
   const [isAddPhysicalStoreModalOpen, setIsAddPhysicalStoreModalOpen] = useState(false);
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
@@ -215,6 +219,67 @@ export default function StorePage() {
       }
     } finally {
       setIsUpdatingOffersServices(false);
+    }
+  };
+
+  const handleBusinessCategoryChange = async (businessCategory) => {
+    if (businessCategory === store.businessCategory || isUpdatingBusinessCategory) return;
+    setIsUpdatingBusinessCategory(true);
+    try {
+      const response = await secureApiCall('/api/stores', {
+        method: 'PUT',
+        body: JSON.stringify({ businessCategory })
+      });
+      if (response.success) {
+        setStore(response.data);
+        queryClient.invalidateQueries({ queryKey: ['store'] });
+      } else {
+        setErrors(prev => ({ ...prev, businessCategory: response.message || 'Failed to update' }));
+      }
+    } finally {
+      setIsUpdatingBusinessCategory(false);
+    }
+  };
+
+  const handleBusinessSubcategoryChange = async (businessSubcategory, businessSubcategories) => {
+    const normalizedPrimary = (businessSubcategory || '').trim();
+    const normalizedSecondaries = Array.isArray(businessSubcategories)
+      ? [...new Set(businessSubcategories.map((item) => String(item).trim()).filter(Boolean))]
+      : [];
+    const normalizedAll = normalizedPrimary
+      ? [normalizedPrimary, ...normalizedSecondaries.filter((item) => item !== normalizedPrimary)]
+      : normalizedSecondaries;
+    const currentAll = Array.isArray(store.businessSubcategories)
+      ? store.businessSubcategories
+      : (store.businessSubcategory ? [store.businessSubcategory] : []);
+
+    if (
+      normalizedPrimary === (store.businessSubcategory || '')
+      && JSON.stringify(normalizedAll) === JSON.stringify(currentAll)
+    ) {
+      return;
+    }
+    if (isUpdatingBusinessSubcategory || isUpdatingBusinessSubcategories) return;
+
+    setIsUpdatingBusinessSubcategory(true);
+    setIsUpdatingBusinessSubcategories(true);
+    try {
+      const response = await secureApiCall('/api/stores', {
+        method: 'PUT',
+        body: JSON.stringify({
+          businessSubcategory: normalizedPrimary || null,
+          businessSubcategories: normalizedAll.length > 0 ? normalizedAll : null
+        })
+      });
+      if (response.success) {
+        setStore(response.data);
+        queryClient.invalidateQueries({ queryKey: ['store'] });
+      } else {
+        setErrors(prev => ({ ...prev, businessSubcategory: response.message || 'Failed to update' }));
+      }
+    } finally {
+      setIsUpdatingBusinessSubcategory(false);
+      setIsUpdatingBusinessSubcategories(false);
     }
   };
 
@@ -418,6 +483,11 @@ export default function StorePage() {
               isUpdatingSellsProducts={isUpdatingSellsProducts}
               onOffersServicesChange={handleOffersServicesChange}
               isUpdatingOffersServices={isUpdatingOffersServices}
+              onBusinessCategoryChange={handleBusinessCategoryChange}
+              isUpdatingBusinessCategory={isUpdatingBusinessCategory}
+              onBusinessSubcategoryChange={handleBusinessSubcategoryChange}
+              isUpdatingBusinessSubcategory={isUpdatingBusinessSubcategory}
+              isUpdatingBusinessSubcategories={isUpdatingBusinessSubcategories}
             />
           )}
         </div>
