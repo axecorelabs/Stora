@@ -154,7 +154,7 @@ export default function AIHeroSearch() {
           className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-xs sm:text-sm font-medium bg-white/95 text-brand-900 hover:bg-white transition-colors"
         >
           <Wrench className="w-3.5 h-3.5 text-brand-700" />
-          Looking for a business too?
+          Looking for a business?
           <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
         </PrefetchLink>
       </div>
