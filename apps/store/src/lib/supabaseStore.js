@@ -201,7 +201,20 @@ function getFullStoreGraceDays() {
   return Math.min(Math.max(Math.round(raw), 3), 7);
 }
 
+function getFullStoreEnforcementStartMs() {
+  const configured = process.env.FULL_STORE_SUBSCRIPTION_ENFORCEMENT_START || '2026-09-30T00:00:00Z';
+  const parsed = new Date(configured).getTime();
+  if (!Number.isFinite(parsed)) {
+    return new Date('2026-09-30T00:00:00Z').getTime();
+  }
+  return parsed;
+}
+
 function isFullStoreAccessAllowed(store, nowMs = Date.now()) {
+  if (nowMs < getFullStoreEnforcementStartMs()) {
+    return true;
+  }
+
   const status = store?.full_store_subscription_status || 'none';
   if (status === 'active' || status === 'none') return true;
 

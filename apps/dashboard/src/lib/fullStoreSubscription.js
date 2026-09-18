@@ -2,6 +2,16 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { normalizeWebsiteConfig } from '@/lib/listingSubscription';
 
 const DEFAULT_GRACE_DAYS = 7;
+const DEFAULT_ENFORCEMENT_START = '2026-09-30T00:00:00Z';
+
+export function getFullStoreEnforcementStartMs() {
+  const configured = process.env.FULL_STORE_SUBSCRIPTION_ENFORCEMENT_START || DEFAULT_ENFORCEMENT_START;
+  const parsed = new Date(configured).getTime();
+  if (!Number.isFinite(parsed)) {
+    return new Date(DEFAULT_ENFORCEMENT_START).getTime();
+  }
+  return parsed;
+}
 
 export function getFullStoreGraceDays() {
   const raw = Number(process.env.FULL_STORE_SUBSCRIPTION_GRACE_DAYS ?? DEFAULT_GRACE_DAYS);
@@ -18,6 +28,17 @@ function computeGraceEndsAtIso(now = Date.now()) {
 export function evaluateFullStoreCommerceAccess(store, nowMs = Date.now()) {
   if (!store || store.platform_mode !== 'store') {
     return { allowed: true, restrictedReason: null, graceEndsAt: null, graceActive: false };
+  }
+
+  const enforcementStartMs = getFullStoreEnforcementStartMs();
+  if (nowMs < enforcementStartMs) {
+    return {
+      allowed: true,
+      restrictedReason: null,
+      graceEndsAt: null,
+      graceActive: false,
+      enforcementDeferredUntil: new Date(enforcementStartMs).toISOString()
+    };
   }
 
   const status = store.full_store_subscription_status || 'none';

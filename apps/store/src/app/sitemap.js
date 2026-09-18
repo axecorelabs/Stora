@@ -53,6 +53,12 @@ function isPubliclyVisibleStore(store) {
     return store.subscription_status === 'active';
   }
   if (platformMode === 'store') {
+    const enforcementStartRaw = process.env.FULL_STORE_SUBSCRIPTION_ENFORCEMENT_START || '2026-09-30T00:00:00Z';
+    const enforcementStartMs = new Date(enforcementStartRaw).getTime();
+    if (Number.isFinite(enforcementStartMs) && Date.now() < enforcementStartMs) {
+      return true;
+    }
+
     const status = store.full_store_subscription_status || 'none';
     if (status === 'active' || status === 'none') return true;
     if (status === 'past_due') {
