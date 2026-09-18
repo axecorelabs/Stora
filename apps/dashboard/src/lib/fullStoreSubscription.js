@@ -303,6 +303,12 @@ export async function resolveFullStoreByOwner(ownerId) {
   return store || null;
 }
 
+// Compatibility alias: requested naming in rollout checklist.
+export const resolveFullStoreStoreByOwner = resolveFullStoreByOwner;
+
+// Compatibility alias: requested naming in rollout checklist.
+export const upsertFullStoreTransaction = upsertFullStoreSubscriptionTransaction;
+
 export async function resolveFullStoreByCustomerEmail(email) {
   if (!email) return null;
 
