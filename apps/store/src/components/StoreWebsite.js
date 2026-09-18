@@ -1175,7 +1175,7 @@ export default function StoreWebsite({ store }) {
                       setIsNavigating(true);
                       router.push(storeHref(store.storeSlug, '/products'));
                     }}
-                    className="inline-flex items-center gap-2.5 px-7 py-3.5 text-white rounded-xl font-semibold text-sm hover:brightness-95 transition-all shadow-sm hover:shadow-md"
+                    className="inline-flex items-center gap-2.5 px-7 py-3.5 mx-3 text-white rounded-xl font-semibold text-sm hover:brightness-95 transition-all shadow-sm hover:shadow-md"
                     style={{ backgroundColor: primaryColor }}
                   >
                     <span>See all products</span>

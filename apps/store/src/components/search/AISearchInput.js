@@ -69,7 +69,7 @@ export default function AISearchInput({
         // shape people already recognize), collapsing to one line on
         // desktop where the compact search-bar look matters more and Enter
         // is always available. Grows beyond that as content wraps either way.
-        className={`w-full min-w-0 bg-transparent outline-none resize-none disabled:opacity-60 disabled:cursor-not-allowed ${textClassName} font-medium text-brand-900 placeholder-gray-400 py-2 pr-20 sm:pr-24 leading-snug ${minHeightClassName}`}
+        className={`w-full min-w-0 bg-transparent outline-none resize-none disabled:opacity-60 disabled:cursor-not-allowed ${textClassName} font-medium text-brand-900 placeholder:text-[11px] sm:placeholder:text-sm placeholder-gray-400 py-2 pr-20 sm:pr-24 leading-snug ${minHeightClassName}`}
         style={{ maxHeight: `${MAX_HEIGHT_PX}px`, overflowY: "auto" }}
       />
       {/* Bottom-anchored, not vertically centered -- keeps both controls in
@@ -103,7 +103,7 @@ export default function AISearchInput({
           ) : (
             <ArrowUp className="w-3.5 h-3.5" />
           )}
-          <span className="text-[11px] sm:text-xs font-semibold">{submitting ? "Searching..." : "Ask AI"}</span>
+          <span className="text-[10px] sm:text-xs font-semibold">{submitting ? "Searching..." : "Ask AI"}</span>
         </button>
       </div>
     </div>
