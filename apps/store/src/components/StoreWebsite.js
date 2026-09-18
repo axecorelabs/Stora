@@ -779,7 +779,7 @@ export default function StoreWebsite({ store }) {
         </div>
       )}
 
-      <main className={`max-w-7xl mx-auto px-6 lg:px-8 ${isMobile ? 'pt-0' : 'pt-8'} pb-8 relative z-10 min-h-screen`}>
+      <main className={`max-w-7xl mx-auto px-6 lg:px-8 ${isMobile ? 'pt-0 pb-0' : 'pt-8 pb-8'} relative z-10 min-h-screen`}>
         {/* Proactive heads-up, not a hard block -- this store still takes
             the order, delivery just needs to be worked out directly (same
             spirit as store.deliveryStates elsewhere: a real list is a
@@ -1192,7 +1192,7 @@ export default function StoreWebsite({ store }) {
         {store.offersServices && <ServicesSection store={store} isMobile={isMobile} />}
 
         {storeMapEmbedUrl && (
-          <section className="mt-12 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          <section className="mt-12 -mx-6 rounded-none border-y border-gray-200 bg-white p-4 pb-0 sm:mx-0 sm:rounded-2xl sm:border sm:p-6">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-brand-700" />
@@ -1209,11 +1209,11 @@ export default function StoreWebsite({ store }) {
               </a>
             </div>
             <p className="mb-3 text-sm text-gray-600">{storeAddressText}</p>
-            <div className="h-64 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 sm:h-72">
+            <div className="-mx-4 h-64 overflow-hidden border-y border-gray-200 bg-gray-100 sm:mx-0 sm:h-72 sm:rounded-xl sm:border">
               <iframe
                 title="Store location map"
                 src={storeMapEmbedUrl}
-                className="h-full w-full"
+                className="block h-full w-full"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
