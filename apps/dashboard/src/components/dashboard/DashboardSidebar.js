@@ -18,17 +18,40 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X,
   Images,
   BadgeCheck,
   Layers
 } from "lucide-react";
 
+const SIDEBAR_SECTION_STATE_KEY_PREFIX = "stora-sidebar-sections";
+
+function getSectionStorageKey(isListingMode) {
+  return `${SIDEBAR_SECTION_STATE_KEY_PREFIX}-${isListingMode ? "listing" : "full_store"}`;
+}
+
+function isItemActive(pathname, itemPath) {
+  if (pathname === "/dashboard" || pathname === "/dashboard/") {
+    return itemPath === "/dashboard/overview";
+  }
+  return pathname.startsWith(itemPath);
+}
+
+function createDefaultSectionState(sections, pathname) {
+  const defaults = {};
+  sections.forEach((section, index) => {
+    const sectionHasActiveItem = section.items.some((item) => isItemActive(pathname, item.path));
+    defaults[section.key] = index === 0 || sectionHasActiveItem;
+  });
+  return defaults;
+}
+
 export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = false, onCloseMobile }) {
   const router = useRouter();
   const pathname = usePathname();
   const { secureApiCall } = useAuth();
-  const [activeTab, setActiveTab] = useState('');
+  const [openSections, setOpenSections] = useState({});
 
   // Same ['store'] queryKey DashboardHeader.js/inventory/page.js already
   // use, so this shares their cache instead of firing its own request.
@@ -71,50 +94,116 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   });
   const pendingOrdersCount = orderStats?.pendingOrders || 0;
 
-  const menuItems = isListingMode
+  const menuSections = isListingMode
     ? [
-        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/overview' },
-        { name: 'Showcase', icon: Layers, path: '/dashboard/website' },
-        { name: 'Gallery', icon: Images, path: '/dashboard/gallery' },
-        { name: 'Services', icon: Wrench, path: '/dashboard/services' },
-        { name: 'Business Info', icon: Store, path: '/dashboard/store' },
-        { name: 'Subscription', icon: BadgeCheck, path: '/dashboard/subscription' },
-        { name: 'Settings', icon: Settings, path: '/dashboard/settings' },
+        {
+          key: "core",
+          title: "Core",
+          items: [
+            { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard/overview" },
+            { name: "Showcase", icon: Layers, path: "/dashboard/website" }
+          ]
+        },
+        {
+          key: "presence",
+          title: "Presence",
+          items: [
+            { name: "Gallery", icon: Images, path: "/dashboard/gallery" },
+            { name: "Services", icon: Wrench, path: "/dashboard/services" },
+            { name: "Business Info", icon: Store, path: "/dashboard/store" }
+          ]
+        },
+        {
+          key: "account",
+          title: "Account",
+          items: [
+            { name: "Subscription", icon: BadgeCheck, path: "/dashboard/subscription" },
+            { name: "Settings", icon: Settings, path: "/dashboard/settings" }
+          ]
+        }
       ]
     : [
-    { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/overview' },
-    ...(showCatalogue ? [{ name: 'Catalogue', icon: Package, path: '/dashboard/inventory' }] : []),
-    ...(showServices ? [{ name: 'Services', icon: Wrench, path: '/dashboard/services' }] : []),
-    { name: 'Store', icon: Store, path: '/dashboard/store' },
-    { name: 'POS', icon: CreditCard, path: '/dashboard/pos' },
-    { name: 'Website', icon: Globe, path: '/dashboard/website' },
-    { name: 'Gallery', icon: Images, path: '/dashboard/gallery' },
-    { name: 'Orders', icon: ShoppingBag, path: '/dashboard/orders' },
-    { name: 'Sales', icon: Receipt, path: '/dashboard/sales' },
-    { name: 'Payments', icon: Wallet, path: '/dashboard/payments' },
-    { name: 'Deliveries', icon: Truck, path: '/dashboard/deliveries' },
-    { name: 'Subscription', icon: BadgeCheck, path: '/dashboard/subscription' },
-    // { name: 'Reports & Analysis', icon: BarChart3, path: '/dashboard/reports' }, // Temporarily removed
-    { name: 'Settings', icon: Settings, path: '/dashboard/settings' },
-  ];
+        {
+          key: "core",
+          title: "Core",
+          items: [
+            { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard/overview" },
+            { name: "Orders", icon: ShoppingBag, path: "/dashboard/orders" },
+            { name: "POS", icon: CreditCard, path: "/dashboard/pos" }
+          ]
+        },
+        {
+          key: "commerce",
+          title: "Commerce",
+          items: [
+            ...(showCatalogue ? [{ name: "Catalogue", icon: Package, path: "/dashboard/inventory" }] : []),
+            ...(showServices ? [{ name: "Services", icon: Wrench, path: "/dashboard/services" }] : []),
+            { name: "Sales", icon: Receipt, path: "/dashboard/sales" },
+            { name: "Payments", icon: Wallet, path: "/dashboard/payments" },
+            { name: "Deliveries", icon: Truck, path: "/dashboard/deliveries" }
+          ]
+        },
+        {
+          key: "presence",
+          title: "Presence",
+          items: [
+            { name: "Store", icon: Store, path: "/dashboard/store" },
+            { name: "Website", icon: Globe, path: "/dashboard/website" },
+            { name: "Gallery", icon: Images, path: "/dashboard/gallery" }
+          ]
+        },
+        {
+          key: "account",
+          title: "Account",
+          items: [
+            { name: "Subscription", icon: BadgeCheck, path: "/dashboard/subscription" },
+            { name: "Settings", icon: Settings, path: "/dashboard/settings" }
+          ]
+        }
+      ];
 
-  // Update active tab based on current pathname
+  const flattenedMenuItems = menuSections.flatMap((section) => section.items);
+
   useEffect(() => {
-    const currentItem = menuItems.find(item => {
-      if (pathname === '/dashboard' || pathname === '/dashboard/') {
-        return item.name === 'Dashboard';
-      }
-      return pathname.startsWith(item.path);
-    });
-    
-    if (currentItem) {
-      setActiveTab(currentItem.name);
+    if (!storeLoaded) return;
+
+    const storageKey = getSectionStorageKey(isListingMode);
+    const defaults = createDefaultSectionState(menuSections, pathname);
+
+    let saved = {};
+    try {
+      const raw = localStorage.getItem(storageKey);
+      saved = raw ? JSON.parse(raw) : {};
+    } catch {
+      saved = {};
     }
-  }, [pathname]);
+
+    const sectionWithActiveRoute = menuSections.find((section) =>
+      section.items.some((item) => isItemActive(pathname, item.path))
+    );
+
+    const merged = { ...defaults, ...saved };
+    if (sectionWithActiveRoute) {
+      merged[sectionWithActiveRoute.key] = true;
+    }
+
+    setOpenSections(merged);
+  }, [storeLoaded, isListingMode, pathname, showCatalogue, showServices]);
+
+  useEffect(() => {
+    if (!storeLoaded) return;
+    const storageKey = getSectionStorageKey(isListingMode);
+    localStorage.setItem(storageKey, JSON.stringify(openSections));
+  }, [openSections, storeLoaded, isListingMode]);
+
+  const toggleSection = (sectionKey) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }));
+  };
 
   const handleNavigation = (item) => {
-    // Immediately update the active state to prevent flicker
-    setActiveTab(item.name);
     router.push(item.path);
     onCloseMobile?.();
   };
@@ -174,7 +263,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
       {/* Navigation -- same "expanded below lg regardless of collapse
           preference" rule as the logo above. */}
       <nav className={`flex-1 overflow-y-auto ${isCollapsed ? 'px-4 lg:px-3' : 'px-4'}`}>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {!storeLoaded ? (
             // Skeleton placeholders while store mode is being determined --
             // prevents the full store nav flashing before switching to the
@@ -182,39 +271,103 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
             [...Array(4)].map((_, i) => (
               <div key={i} className={`h-11 rounded-xl bg-gray-100 animate-pulse ${isCollapsed ? 'lg:w-11' : ''}`} />
             ))
-          ) : menuItems.map((item) => {
-            const IconComponent = item.icon;
-            const isActive = activeTab === item.name;
-            const showBadge = item.name === 'Orders' && pendingOrdersCount > 0;
+          ) : isCollapsed ? (
+            flattenedMenuItems.map((item) => {
+              const IconComponent = item.icon;
+              const itemIsActive = isItemActive(pathname, item.path);
+              const showBadge = item.name === 'Orders' && pendingOrdersCount > 0;
 
-            return (
-              <button
-                key={item.name}
-                onClick={() => handleNavigation(item)}
-                title={isCollapsed ? item.name : undefined}
-                className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 ${
-                  isCollapsed ? 'justify-between px-4 py-3 lg:justify-center lg:px-2 lg:py-3' : 'justify-between px-4 py-3'
-                } ${
-                  isActive
-                    ? 'bg-brand-800 text-white shadow-lg'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-brand-50'
-                }`}
-              >
-                <div className="flex items-center">
-                  <IconComponent className={`h-5 w-5 mr-3 ${isCollapsed ? 'lg:mr-0' : ''} ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                  <span className={isCollapsed ? 'lg:hidden' : ''}>{item.name}</span>
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => handleNavigation(item)}
+                  title={item.name}
+                  className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 ${
+                    'justify-between px-4 py-3 lg:justify-center lg:px-2 lg:py-3'
+                  } ${
+                    itemIsActive
+                      ? 'bg-brand-800 text-white shadow-lg'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-brand-50'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <IconComponent className={`h-5 w-5 mr-3 lg:mr-0 ${itemIsActive ? 'text-white' : 'text-gray-500'}`} />
+                    <span className="lg:hidden">{item.name}</span>
+                  </div>
+                  {showBadge && (
+                    <>
+                      <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white hidden lg:block" />
+                      <span className="flex items-center justify-center min-w-[24px] h-6 px-2 bg-red-500 text-white text-xs font-bold rounded-full lg:hidden">
+                        {pendingOrdersCount}
+                      </span>
+                    </>
+                  )}
+                </button>
+              );
+            })
+          ) : (
+            menuSections.map((section) => {
+              const isOpen = openSections[section.key] !== false;
+              const activeWithinSection = section.items.some((item) => isItemActive(pathname, item.path));
+              const hasOrders = section.items.some((item) => item.name === 'Orders');
+
+              return (
+                <div key={section.key} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.key)}
+                    className={`w-full px-2 py-1.5 flex items-center justify-between rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                      activeWithinSection
+                        ? 'text-brand-800 bg-brand-50'
+                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>{section.title}</span>
+                      {hasOrders && pendingOrdersCount > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                          {pendingOrdersCount}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isOpen && (
+                    <div className="space-y-2">
+                      {section.items.map((item) => {
+                        const IconComponent = item.icon;
+                        const itemIsActive = isItemActive(pathname, item.path);
+                        const showBadge = item.name === 'Orders' && pendingOrdersCount > 0;
+
+                        return (
+                          <button
+                            key={item.name}
+                            onClick={() => handleNavigation(item)}
+                            className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 justify-between px-4 py-3 ${
+                              itemIsActive
+                                ? 'bg-brand-800 text-white shadow-lg'
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-brand-50'
+                            }`}
+                          >
+                            <div className="flex items-center">
+                              <IconComponent className={`h-5 w-5 mr-3 ${itemIsActive ? 'text-white' : 'text-gray-500'}`} />
+                              <span>{item.name}</span>
+                            </div>
+                            {showBadge && (
+                              <span className="flex items-center justify-center min-w-[24px] h-6 px-2 bg-red-500 text-white text-xs font-bold rounded-full">
+                                {pendingOrdersCount}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                {showBadge && (
-                  <>
-                    <span className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white ${isCollapsed ? 'hidden lg:block' : 'hidden'}`} />
-                    <span className={`flex items-center justify-center min-w-[24px] h-6 px-2 bg-red-500 text-white text-xs font-bold rounded-full ${isCollapsed ? 'lg:hidden' : ''}`}>
-                      {pendingOrdersCount}
-                    </span>
-                  </>
-                )}
-              </button>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </nav>
       </div>
