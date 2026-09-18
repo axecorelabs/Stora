@@ -117,6 +117,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   const pathname = usePathname();
   const { secureApiCall } = useAuth();
   const [openSections, setOpenSections] = useState({});
+  const [hasLoadedSectionState, setHasLoadedSectionState] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const [usageMap, setUsageMap] = useState({});
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
@@ -295,7 +296,12 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
       section.items.some((item) => isItemActive(pathname, item.path))
     );
 
-    const merged = { ...defaults, ...saved };
+    const merged = Object.fromEntries(
+      menuSections.map((section) => [
+        section.key,
+        typeof saved[section.key] === "boolean" ? saved[section.key] : defaults[section.key]
+      ])
+    );
     if (sectionWithActiveRoute) {
       merged[sectionWithActiveRoute.key] = true;
     }
@@ -314,9 +320,28 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
     const quickRaw = localStorage.getItem(quickStorageKey);
     const quickState = safeReadJson(quickRaw, false);
 
+    setHasLoadedSectionState(true);
     setOpenSections(merged);
     setQuickActionsOpen(quickState === true);
-  }, [storeLoaded, isListingMode, pathname, showCatalogue, showServices]);
+  }, [storeLoaded, isListingMode, showCatalogue, showServices]);
+
+  useEffect(() => {
+    if (!storeLoaded || !hasLoadedSectionState) return;
+
+    const sectionWithActiveRoute = menuSections.find((section) =>
+      section.items.some((item) => isItemActive(pathname, item.path))
+    );
+
+    if (!sectionWithActiveRoute) return;
+
+    setOpenSections((prev) => {
+      if (prev[sectionWithActiveRoute.key]) return prev;
+      return {
+        ...prev,
+        [sectionWithActiveRoute.key]: true
+      };
+    });
+  }, [storeLoaded, hasLoadedSectionState, menuSections, pathname]);
 
   useEffect(() => {
     if (!storeLoaded) return;
@@ -583,7 +608,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
               )}
 
               {menuSections.map((section) => {
-                const isOpen = openSections[section.key] !== false;
+                const isOpen = hasLoadedSectionState ? openSections[section.key] !== false : false;
                 const activeWithinSection = section.items.some((item) => isItemActive(pathname, item.path));
                 const hasOrders = section.items.some((item) => item.name === "Orders");
 
