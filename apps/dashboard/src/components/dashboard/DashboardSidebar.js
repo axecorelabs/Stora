@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,10 +11,9 @@ import {
   Globe,
   ShoppingBag,
   Receipt,
-  BarChart3,
   Settings,
   Truck,
-  Wrench,  // Add Wrench icon for services
+  Wrench,
   Wallet,
   ChevronLeft,
   ChevronRight,
@@ -22,13 +21,40 @@ import {
   X,
   Images,
   BadgeCheck,
-  Layers
+  Layers,
+  Zap,
+  Star,
+  PlusCircle
 } from "lucide-react";
 
 const SIDEBAR_SECTION_STATE_KEY_PREFIX = "stora-sidebar-sections";
+const SIDEBAR_FAVORITES_KEY_PREFIX = "stora-sidebar-favorites";
+const SIDEBAR_USAGE_KEY_PREFIX = "stora-sidebar-usage";
+const SIDEBAR_QUICK_ACTIONS_KEY_PREFIX = "stora-sidebar-quick-actions";
 
 function getSectionStorageKey(isListingMode) {
   return `${SIDEBAR_SECTION_STATE_KEY_PREFIX}-${isListingMode ? "listing" : "full_store"}`;
+}
+
+function getFavoritesStorageKey(isListingMode) {
+  return `${SIDEBAR_FAVORITES_KEY_PREFIX}-${isListingMode ? "listing" : "full_store"}`;
+}
+
+function getUsageStorageKey(isListingMode) {
+  return `${SIDEBAR_USAGE_KEY_PREFIX}-${isListingMode ? "listing" : "full_store"}`;
+}
+
+function getQuickActionsStorageKey(isListingMode) {
+  return `${SIDEBAR_QUICK_ACTIONS_KEY_PREFIX}-${isListingMode ? "listing" : "full_store"}`;
+}
+
+function safeReadJson(value, fallback) {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
 }
 
 function isItemActive(pathname, itemPath) {
@@ -47,11 +73,52 @@ function createDefaultSectionState(sections, pathname) {
   return defaults;
 }
 
+function getSectionScore(section, usageMap) {
+  return section.items.reduce((sum, item) => sum + (usageMap[item.path] || 0), 0);
+}
+
+function sortSectionsByUsage(baseSections, usageMap) {
+  const coreSection = baseSections.find((section) => section.key === "core") || null;
+  const accountSection = baseSections.find((section) => section.key === "account") || null;
+
+  const adaptiveSections = baseSections.filter(
+    (section) => section.key !== "core" && section.key !== "account"
+  );
+
+  adaptiveSections.sort((a, b) => {
+    const scoreDelta = getSectionScore(b, usageMap) - getSectionScore(a, usageMap);
+    if (scoreDelta !== 0) return scoreDelta;
+    return a.title.localeCompare(b.title);
+  });
+
+  const ordered = [];
+  if (coreSection) ordered.push(coreSection);
+  ordered.push(...adaptiveSections);
+  if (accountSection) ordered.push(accountSection);
+  return ordered;
+}
+
+function sortItemsByUsage(section, usageMap) {
+  const dashboardItem = section.items.find((item) => item.path === "/dashboard/overview") || null;
+  const sortableItems = section.items.filter((item) => item.path !== "/dashboard/overview");
+
+  sortableItems.sort((a, b) => {
+    const scoreDelta = (usageMap[b.path] || 0) - (usageMap[a.path] || 0);
+    if (scoreDelta !== 0) return scoreDelta;
+    return a.name.localeCompare(b.name);
+  });
+
+  return dashboardItem ? [dashboardItem, ...sortableItems] : sortableItems;
+}
+
 export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = false, onCloseMobile }) {
   const router = useRouter();
   const pathname = usePathname();
   const { secureApiCall } = useAuth();
   const [openSections, setOpenSections] = useState({});
+  const [favorites, setFavorites] = useState([]);
+  const [usageMap, setUsageMap] = useState({});
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
 
   // Same ['store'] queryKey DashboardHeader.js/inventory/page.js already
   // use, so this shares their cache instead of firing its own request.
@@ -94,7 +161,7 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   });
   const pendingOrdersCount = orderStats?.pendingOrders || 0;
 
-  const menuSections = isListingMode
+  const baseMenuSections = isListingMode
     ? [
         {
           key: "core",
@@ -162,7 +229,51 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
         }
       ];
 
-  const flattenedMenuItems = menuSections.flatMap((section) => section.items);
+  const menuSections = useMemo(() => {
+    const withItemOrdering = baseMenuSections.map((section) => ({
+      ...section,
+      items: sortItemsByUsage(section, usageMap)
+    }));
+    return sortSectionsByUsage(withItemOrdering, usageMap);
+  }, [baseMenuSections, usageMap]);
+
+  const quickActions = useMemo(
+    () =>
+      isListingMode
+        ? [
+            { name: "Update showcase", path: "/dashboard/website", icon: Layers },
+            { name: "Add gallery", path: "/dashboard/gallery", icon: Images },
+            { name: "Add service", path: "/dashboard/services", icon: PlusCircle }
+          ]
+        : [
+            { name: "New product", path: "/dashboard/inventory", icon: PlusCircle },
+            { name: "Record sale", path: "/dashboard/pos", icon: Receipt },
+            { name: "Add service", path: "/dashboard/services", icon: Wrench }
+          ],
+    [isListingMode]
+  );
+
+  const flattenedMenuItems = useMemo(
+    () =>
+      menuSections.flatMap((section) =>
+        section.items.map((item) => ({ ...item, sectionKey: section.key }))
+      ),
+    [menuSections]
+  );
+
+  const favoriteMenuItems = useMemo(() => {
+    if (!favorites.length) return [];
+    return favorites
+      .map((path) => flattenedMenuItems.find((item) => item.path === path))
+      .filter(Boolean);
+  }, [favorites, flattenedMenuItems]);
+
+  const collapsedModeItems = useMemo(() => {
+    if (!favoriteMenuItems.length) return flattenedMenuItems;
+    const favoritePathSet = new Set(favoriteMenuItems.map((item) => item.path));
+    const nonFavorites = flattenedMenuItems.filter((item) => !favoritePathSet.has(item.path));
+    return [...favoriteMenuItems, ...nonFavorites];
+  }, [favoriteMenuItems, flattenedMenuItems]);
 
   useEffect(() => {
     if (!storeLoaded) return;
@@ -187,7 +298,22 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
       merged[sectionWithActiveRoute.key] = true;
     }
 
+    const favoriteStorageKey = getFavoritesStorageKey(isListingMode);
+    const favoritesRaw = localStorage.getItem(favoriteStorageKey);
+    const nextFavorites = safeReadJson(favoritesRaw, []);
+    setFavorites(Array.isArray(nextFavorites) ? nextFavorites.slice(0, 3) : []);
+
+    const usageStorageKey = getUsageStorageKey(isListingMode);
+    const usageRaw = localStorage.getItem(usageStorageKey);
+    const nextUsage = safeReadJson(usageRaw, {});
+    setUsageMap(nextUsage && typeof nextUsage === "object" ? nextUsage : {});
+
+    const quickStorageKey = getQuickActionsStorageKey(isListingMode);
+    const quickRaw = localStorage.getItem(quickStorageKey);
+    const quickState = safeReadJson(quickRaw, false);
+
     setOpenSections(merged);
+    setQuickActionsOpen(quickState === true);
   }, [storeLoaded, isListingMode, pathname, showCatalogue, showServices]);
 
   useEffect(() => {
@@ -196,6 +322,24 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
     localStorage.setItem(storageKey, JSON.stringify(openSections));
   }, [openSections, storeLoaded, isListingMode]);
 
+  useEffect(() => {
+    if (!storeLoaded) return;
+    const storageKey = getFavoritesStorageKey(isListingMode);
+    localStorage.setItem(storageKey, JSON.stringify(favorites));
+  }, [favorites, storeLoaded, isListingMode]);
+
+  useEffect(() => {
+    if (!storeLoaded) return;
+    const storageKey = getUsageStorageKey(isListingMode);
+    localStorage.setItem(storageKey, JSON.stringify(usageMap));
+  }, [usageMap, storeLoaded, isListingMode]);
+
+  useEffect(() => {
+    if (!storeLoaded) return;
+    const storageKey = getQuickActionsStorageKey(isListingMode);
+    localStorage.setItem(storageKey, JSON.stringify(quickActionsOpen));
+  }, [quickActionsOpen, storeLoaded, isListingMode]);
+
   const toggleSection = (sectionKey) => {
     setOpenSections((prev) => ({
       ...prev,
@@ -203,9 +347,22 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
     }));
   };
 
-  const handleNavigation = (item) => {
+  const handleNavigation = (item, sectionKey = null) => {
+    setUsageMap((prev) => ({
+      ...prev,
+      [item.path]: (prev[item.path] || 0) + 1,
+      ...(sectionKey ? { [`section:${sectionKey}`]: (prev[`section:${sectionKey}`] || 0) + 1 } : {})
+    }));
     router.push(item.path);
     onCloseMobile?.();
+  };
+
+  const toggleFavorite = (itemPath) => {
+    setFavorites((prev) => {
+      const exists = prev.includes(itemPath);
+      if (exists) return prev.filter((path) => path !== itemPath);
+      return [itemPath, ...prev].slice(0, 3);
+    });
   };
 
   return (
@@ -272,15 +429,15 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
               <div key={i} className={`h-11 rounded-xl bg-gray-100 animate-pulse ${isCollapsed ? 'lg:w-11' : ''}`} />
             ))
           ) : isCollapsed ? (
-            flattenedMenuItems.map((item) => {
+            collapsedModeItems.map((item) => {
               const IconComponent = item.icon;
               const itemIsActive = isItemActive(pathname, item.path);
               const showBadge = item.name === 'Orders' && pendingOrdersCount > 0;
 
               return (
                 <button
-                  key={item.name}
-                  onClick={() => handleNavigation(item)}
+                  key={item.path}
+                  onClick={() => handleNavigation(item, item.sectionKey)}
                   title={item.name}
                   className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 ${
                     'justify-between px-4 py-3 lg:justify-center lg:px-2 lg:py-3'
@@ -306,67 +463,164 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
               );
             })
           ) : (
-            menuSections.map((section) => {
-              const isOpen = openSections[section.key] !== false;
-              const activeWithinSection = section.items.some((item) => isItemActive(pathname, item.path));
-              const hasOrders = section.items.some((item) => item.name === 'Orders');
+            <>
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setQuickActionsOpen((prev) => !prev)}
+                  className="w-full px-2 py-1.5 flex items-center justify-between rounded-lg text-[11px] font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Quick Actions</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${quickActionsOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-              return (
-                <div key={section.key} className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(section.key)}
-                    className={`w-full px-2 py-1.5 flex items-center justify-between rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-colors ${
-                      activeWithinSection
-                        ? 'text-brand-800 bg-brand-50'
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>{section.title}</span>
-                      {hasOrders && pendingOrdersCount > 0 && (
-                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-red-500 text-white">
-                          {pendingOrdersCount}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                  </button>
+                {quickActionsOpen && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {quickActions.map((action) => {
+                      const ActionIcon = action.icon;
+                      return (
+                        <button
+                          key={action.path}
+                          onClick={() => handleNavigation(action, "core")}
+                          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-brand-50 hover:border-brand-200"
+                        >
+                          <ActionIcon className="w-3.5 h-3.5 text-gray-500" />
+                          <span className="truncate">{action.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-                  {isOpen && (
-                    <div className="space-y-2">
-                      {section.items.map((item) => {
-                        const IconComponent = item.icon;
-                        const itemIsActive = isItemActive(pathname, item.path);
-                        const showBadge = item.name === 'Orders' && pendingOrdersCount > 0;
+              {favoriteMenuItems.length > 0 && (
+                <div className="space-y-1">
+                  <div className="px-2 py-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 rounded-lg">
+                    <Star className="w-3.5 h-3.5" />
+                    <span>Pinned</span>
+                  </div>
+                  <div className="space-y-2">
+                    {favoriteMenuItems.map((item) => {
+                      const IconComponent = item.icon;
+                      const itemIsActive = isItemActive(pathname, item.path);
+                      const showBadge = item.name === "Orders" && pendingOrdersCount > 0;
 
-                        return (
-                          <button
-                            key={item.name}
-                            onClick={() => handleNavigation(item)}
-                            className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 justify-between px-4 py-3 ${
-                              itemIsActive
-                                ? 'bg-brand-800 text-white shadow-lg'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-brand-50'
-                            }`}
-                          >
-                            <div className="flex items-center">
-                              <IconComponent className={`h-5 w-5 mr-3 ${itemIsActive ? 'text-white' : 'text-gray-500'}`} />
-                              <span>{item.name}</span>
-                            </div>
+                      return (
+                        <button
+                          key={`favorite-${item.path}`}
+                          onClick={() => handleNavigation(item, item.sectionKey)}
+                          className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 justify-between px-4 py-3 ${
+                            itemIsActive
+                              ? "bg-brand-800 text-white shadow-lg"
+                              : "text-gray-700 hover:text-gray-900 hover:bg-brand-50"
+                          }`}
+                        >
+                          <div className="flex items-center min-w-0">
+                            <IconComponent className={`h-5 w-5 mr-3 ${itemIsActive ? 'text-white' : 'text-gray-500'}`} />
+                            <span className="truncate">{item.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
                             {showBadge && (
                               <span className="flex items-center justify-center min-w-[24px] h-6 px-2 bg-red-500 text-white text-xs font-bold rounded-full">
                                 {pendingOrdersCount}
                               </span>
                             )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                            <span className="w-6 h-6 inline-flex items-center justify-center rounded-md bg-amber-100 text-amber-700">
+                              <Star className="w-3.5 h-3.5 fill-current" />
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              );
-            })
+              )}
+
+              {menuSections.map((section) => {
+                const isOpen = openSections[section.key] !== false;
+                const activeWithinSection = section.items.some((item) => isItemActive(pathname, item.path));
+                const hasOrders = section.items.some((item) => item.name === "Orders");
+
+                return (
+                  <div key={section.key} className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(section.key)}
+                      className={`w-full px-2 py-1.5 flex items-center justify-between rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                        activeWithinSection
+                          ? "text-brand-800 bg-brand-50"
+                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{section.title}</span>
+                        {hasOrders && pendingOrdersCount > 0 && (
+                          <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                            {pendingOrdersCount}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isOpen && (
+                      <div className="space-y-2">
+                        {section.items.map((item) => {
+                          const IconComponent = item.icon;
+                          const itemIsActive = isItemActive(pathname, item.path);
+                          const showBadge = item.name === "Orders" && pendingOrdersCount > 0;
+                          const isFavorited = favorites.includes(item.path);
+
+                          return (
+                            <button
+                              key={item.path}
+                              onClick={() => handleNavigation(item, section.key)}
+                              className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 justify-between px-4 py-3 ${
+                                itemIsActive
+                                  ? "bg-brand-800 text-white shadow-lg"
+                                  : "text-gray-600 hover:text-gray-900 hover:bg-brand-50"
+                              }`}
+                            >
+                              <div className="flex items-center min-w-0">
+                                <IconComponent className={`h-5 w-5 mr-3 ${itemIsActive ? 'text-white' : 'text-gray-500'}`} />
+                                <span className="truncate">{item.name}</span>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                {showBadge && (
+                                  <span className="flex items-center justify-center min-w-[24px] h-6 px-2 bg-red-500 text-white text-xs font-bold rounded-full">
+                                    {pendingOrdersCount}
+                                  </span>
+                                )}
+                                <span
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleFavorite(item.path);
+                                  }}
+                                  className={`w-6 h-6 inline-flex items-center justify-center rounded-md ${
+                                    isFavorited
+                                      ? "text-amber-700 bg-amber-100"
+                                      : "text-gray-400 hover:text-amber-700 hover:bg-amber-50"
+                                  }`}
+                                  role="button"
+                                  aria-label={isFavorited ? "Unpin item" : "Pin item"}
+                                  title={isFavorited ? "Unpin" : "Pin"}
+                                >
+                                  <Star className={`w-3.5 h-3.5 ${isFavorited ? "fill-current" : ""}`} />
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
           )}
         </div>
       </nav>
