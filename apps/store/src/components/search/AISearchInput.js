@@ -21,6 +21,7 @@ export default function AISearchInput({
   minHeightClassName = "min-h-[3.25rem] sm:min-h-0",
   submitting = false,
   disabled = false,
+  mobileHintText = "Press Enter to search",
 }) {
   const [draft, setDraft] = useState(value || "");
   const textareaRef = useRef(null);
@@ -54,57 +55,85 @@ export default function AISearchInput({
   return (
     <div className="relative w-full flex items-start gap-1.5">
       <Sparkles className="w-3.5 h-3.5 text-brand-400 flex-shrink-0 mt-2" />
-      <textarea
-        ref={textareaRef}
-        rows={1}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={handleKeyDown}
-        disabled={disabled}
-        placeholder={placeholder || "Describe what you're looking for — a vendor that sells ankara fabric, a birthday gift under ₦20k…"}
-        // Enter-to-submit only works with a physical keyboard -- mobile's
-        // virtual keyboard has no reliable Shift key, so a touch visitor
-        // needs the explicit submit button below regardless. Two lines
-        // tall by default on mobile (the familiar multi-line AI-input
-        // shape people already recognize), collapsing to one line on
-        // desktop where the compact search-bar look matters more and Enter
-        // is always available. Grows beyond that as content wraps either way.
-        className={`w-full min-w-0 bg-transparent outline-none resize-none disabled:opacity-60 disabled:cursor-not-allowed ${textClassName} font-medium text-brand-900 placeholder:text-[11px] sm:placeholder:text-sm placeholder-gray-400 py-2 pr-20 sm:pr-24 leading-snug ${minHeightClassName}`}
-        style={{ maxHeight: `${MAX_HEIGHT_PX}px`, overflowY: "auto" }}
-      />
-      {/* Bottom-anchored, not vertically centered -- keeps both controls in
-          a stable spot as the textarea grows upward with more lines,
-          instead of drifting to the middle of a tall box. */}
-      <div className="absolute right-0 bottom-1.5 flex items-center gap-1.5">
-        {draft && (
+      <div className="w-full min-w-0">
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          placeholder={placeholder || "Describe what you're looking for — a vendor that sells ankara fabric, a birthday gift under ₦20k…"}
+          // Enter-to-submit only works with a physical keyboard -- mobile's
+          // virtual keyboard has no reliable Shift key, so a touch visitor
+          // needs the explicit submit button below regardless. Two lines
+          // tall by default on mobile (the familiar multi-line AI-input
+          // shape people already recognize), collapsing to one line on
+          // desktop where the compact search-bar look matters more and Enter
+          // is always available. Grows beyond that as content wraps either way.
+          className={`w-full min-w-0 bg-transparent outline-none resize-none disabled:opacity-60 disabled:cursor-not-allowed ${textClassName} font-medium text-brand-900 placeholder:text-[11px] sm:placeholder:text-sm placeholder-gray-400 py-2 pr-10 sm:pr-24 leading-snug ${minHeightClassName}`}
+          style={{ maxHeight: `${MAX_HEIGHT_PX}px`, overflowY: "auto" }}
+        />
+
+        <div className="mt-1.5 flex items-center justify-between sm:hidden">
+          <span className="text-[11px] text-brand-700/70">{mobileHintText}</span>
+          <div className="flex items-center gap-1.5">
+            {draft && (
+              <button
+                type="button"
+                onClick={() => setDraft("")}
+                className="text-gray-300 hover:text-gray-500 disabled:opacity-40"
+                aria-label="Clear search"
+                disabled={disabled || submitting}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={submit}
+              className="h-7 rounded-full bg-brand-700 text-white inline-flex items-center justify-center gap-1 px-2.5 hover:bg-brand-800 transition-colors flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
+              aria-label={submitting ? "Searching" : "Ask AI"}
+              disabled={disabled || submitting}
+            >
+              {submitting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <ArrowUp className="w-3.5 h-3.5" />
+              )}
+              <span className="text-[10px] font-semibold">{submitting ? "Searching..." : "Ask AI"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop keeps controls anchored inside the input body. */}
+        <div className="hidden sm:flex absolute right-0 bottom-1.5 items-center gap-1.5">
+          {draft && (
+            <button
+              type="button"
+              onClick={() => setDraft("")}
+              className="text-gray-300 hover:text-gray-500 disabled:opacity-40"
+              aria-label="Clear search"
+              disabled={disabled || submitting}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setDraft("")}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-40"
-            aria-label="Clear search"
+            onClick={submit}
+            className="h-8 rounded-full bg-brand-700 text-white inline-flex items-center justify-center gap-1.5 px-3 hover:bg-brand-800 transition-colors flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
+            aria-label={submitting ? "Searching" : "Ask AI"}
             disabled={disabled || submitting}
           >
-            <X className="w-3.5 h-3.5" />
+            {submitting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <ArrowUp className="w-3.5 h-3.5" />
+            )}
+            <span className="text-xs font-semibold">{submitting ? "Searching..." : "Ask AI"}</span>
           </button>
-        )}
-        {/* Always rendered, not just once there's a draft -- submit()
-            already no-ops on an empty/whitespace-only draft, so this
-            just gives the box a permanent, consistent submit affordance
-            instead of one that pops in only after the first keystroke. */}
-        <button
-          type="button"
-          onClick={submit}
-          className="h-7 sm:h-8 rounded-full bg-brand-700 text-white inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 hover:bg-brand-800 transition-colors flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
-          aria-label={submitting ? "Searching" : "Ask AI"}
-          disabled={disabled || submitting}
-        >
-          {submitting ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <ArrowUp className="w-3.5 h-3.5" />
-          )}
-          <span className="text-[10px] sm:text-xs font-semibold">{submitting ? "Searching..." : "Ask AI"}</span>
-        </button>
+        </div>
       </div>
     </div>
   );

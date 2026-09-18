@@ -134,7 +134,7 @@ export default function AIHeroSearch() {
           />
           </div>
 
-          <p className="text-left text-[11px] sm:text-xs text-brand-700/70 px-1">
+          <p className="hidden sm:block text-left text-xs text-brand-700/70 px-1">
             Press Enter to search or tap Ask AI
           </p>
         </div>
