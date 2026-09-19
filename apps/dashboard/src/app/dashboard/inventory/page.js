@@ -31,7 +31,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  Loader2
+  Loader2,
+  Info
 } from "lucide-react";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
@@ -608,20 +609,50 @@ export default function InventoryPage() {
 
         <div className="flex items-center gap-2">
         {restaurantMode && (
-          <button
-            onClick={() => router.push('/dashboard/inventory/add')}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 md:py-2 border border-gray-300 text-gray-700 rounded-lg md:rounded-xl hover:bg-gray-50 text-xs md:text-sm font-medium transition-all duration-200 whitespace-nowrap"
-          >
-            <span>Add Other Item</span>
-          </button>
+          <div className="relative group/info-other flex items-center gap-1.5">
+            <button
+              onClick={() => router.push('/dashboard/inventory/add')}
+              className="flex items-center justify-center gap-1.5 px-3 py-1.5 md:py-2 border border-gray-300 text-gray-700 rounded-lg md:rounded-xl hover:bg-gray-50 text-xs md:text-sm font-medium transition-all duration-200 whitespace-nowrap"
+            >
+              <span>Add Other Item</span>
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+              aria-label="What is Add Other Item for?"
+            >
+              <Info className="w-3 h-3" />
+              Info
+            </button>
+            <span className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-20 hidden w-64 rounded-lg bg-gray-900 px-2.5 py-2 text-[11px] leading-snug text-white shadow-lg group-hover/info-other:block group-focus-within/info-other:block">
+              Use this for non-menu inventory like drinks, packaged goods, merchandise, or any regular stock item.
+            </span>
+          </div>
         )}
-        <button
-          onClick={() => router.push(restaurantMode ? '/dashboard/inventory/add-menu-item' : '/dashboard/inventory/add')}
-          className="flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-brand-800 text-white rounded-lg md:rounded-xl hover:bg-brand-900 text-xs md:text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
-        >
-          <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          <span>{restaurantMode ? 'Add Menu Item' : 'Add Item'}</span>
-        </button>
+        <div className="relative group/info-primary flex items-center gap-1.5">
+          <button
+            onClick={() => router.push(restaurantMode ? '/dashboard/inventory/add-menu-item' : '/dashboard/inventory/add')}
+            className="flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-brand-800 text-white rounded-lg md:rounded-xl hover:bg-brand-900 text-xs md:text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
+          >
+            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <span>{restaurantMode ? 'Add Menu Item' : 'Add Item'}</span>
+          </button>
+          {restaurantMode && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-md border border-brand-200 bg-brand-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-brand-800 hover:bg-brand-100"
+              aria-label="What is Add Menu Item for?"
+            >
+              <Info className="w-3 h-3" />
+              Info
+            </button>
+          )}
+          {restaurantMode && (
+            <span className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-20 hidden w-64 rounded-lg bg-gray-900 px-2.5 py-2 text-[11px] leading-snug text-white shadow-lg group-hover/info-primary:block group-focus-within/info-primary:block">
+              Use this for food menu entries with menu-specific fields like prep details, portions, and extras.
+            </span>
+          )}
+        </div>
         </div>
       </div>
 

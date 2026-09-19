@@ -25,13 +25,43 @@ import {
   Zap,
   Star,
   PlusCircle,
-  Pencil
+  Pencil,
+  Clock3
 } from "lucide-react";
 
 const SIDEBAR_SECTION_STATE_KEY_PREFIX = "stora-sidebar-sections";
 const SIDEBAR_FAVORITES_KEY_PREFIX = "stora-sidebar-favorites";
 const SIDEBAR_USAGE_KEY_PREFIX = "stora-sidebar-usage";
 const SIDEBAR_QUICK_ACTIONS_KEY_PREFIX = "stora-sidebar-quick-actions";
+const DEFAULT_SUBSCRIPTION_START_AT = "2026-09-30T00:00:00Z";
+
+function getSubscriptionStartMs() {
+  const configured =
+    process.env.NEXT_PUBLIC_FULL_STORE_SUBSCRIPTION_ENFORCEMENT_START ||
+    DEFAULT_SUBSCRIPTION_START_AT;
+  const parsed = Date.parse(configured);
+  if (Number.isNaN(parsed)) return Date.parse(DEFAULT_SUBSCRIPTION_START_AT);
+  return parsed;
+}
+
+function formatCountdown(remainingMs) {
+  if (remainingMs <= 0) {
+    return {
+      headline: "Subscriptions are live",
+      detail: "Billing start date reached"
+    };
+  }
+
+  const totalMinutes = Math.floor(remainingMs / (1000 * 60));
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  return {
+    headline: `Starts in ${days}d ${hours}h ${minutes}m`,
+    detail: "Subscription launch countdown"
+  };
+}
 
 function getSectionStorageKey(isListingMode) {
   return `${SIDEBAR_SECTION_STATE_KEY_PREFIX}-${isListingMode ? "listing" : "full_store"}`;
@@ -67,9 +97,9 @@ function isItemActive(pathname, itemPath) {
 
 function createDefaultSectionState(sections, pathname) {
   const defaults = {};
-  sections.forEach((section, index) => {
+  sections.forEach((section) => {
     const sectionHasActiveItem = section.items.some((item) => isItemActive(pathname, item.path));
-    defaults[section.key] = index === 0 || sectionHasActiveItem;
+    defaults[section.key] = section.key === "core" || sectionHasActiveItem;
   });
   return defaults;
 }
@@ -122,6 +152,30 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   const [usageMap, setUsageMap] = useState({});
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [isManagingPins, setIsManagingPins] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const subscriptionStartMs = useMemo(() => getSubscriptionStartMs(), []);
+  const subscriptionCountdown = useMemo(
+    () => formatCountdown(subscriptionStartMs - nowMs),
+    [subscriptionStartMs, nowMs]
+  );
+  const subscriptionStartDateLabel = useMemo(
+    () =>
+      new Date(subscriptionStartMs).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      }),
+    [subscriptionStartMs]
+  );
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Same ['store'] queryKey DashboardHeader.js/inventory/page.js already
   // use, so this shares their cache instead of firing its own request.
@@ -302,6 +356,9 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
         typeof saved[section.key] === "boolean" ? saved[section.key] : defaults[section.key]
       ])
     );
+    if (Object.prototype.hasOwnProperty.call(merged, "core")) {
+      merged.core = true;
+    }
     if (sectionWithActiveRoute) {
       merged[sectionWithActiveRoute.key] = true;
     }
@@ -491,37 +548,89 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
             })
           ) : (
             <>
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  onClick={() => setQuickActionsOpen((prev) => !prev)}
-                  className="w-full px-2 py-1.5 flex items-center justify-between rounded-lg text-[11px] font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>Quick Actions</span>
-                  </div>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${quickActionsOpen ? 'rotate-180' : ''}`} />
-                </button>
+              {menuSections.map((section) => {
+                const isOpen = hasLoadedSectionState ? openSections[section.key] !== false : false;
+                const activeWithinSection = section.items.some((item) => isItemActive(pathname, item.path));
+                const hasOrders = section.items.some((item) => item.name === "Orders");
 
-                {quickActionsOpen && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {quickActions.map((action) => {
-                      const ActionIcon = action.icon;
-                      return (
-                        <button
-                          key={action.path}
-                          onClick={() => handleNavigation(action, "core")}
-                          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-brand-50 hover:border-brand-200"
-                        >
-                          <ActionIcon className="w-3.5 h-3.5 text-gray-500" />
-                          <span className="truncate">{action.name}</span>
-                        </button>
-                      );
-                    })}
+                return (
+                  <div key={section.key} className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(section.key)}
+                      className={`w-full px-2 py-1.5 flex items-center justify-between rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                        activeWithinSection
+                          ? "text-brand-800 bg-brand-50"
+                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{section.title}</span>
+                        {hasOrders && pendingOrdersCount > 0 && (
+                          <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-red-500 text-white">
+                            {pendingOrdersCount}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isOpen && (
+                      <div className="space-y-2">
+                        {section.items.map((item) => {
+                          const IconComponent = item.icon;
+                          const itemIsActive = isItemActive(pathname, item.path);
+                          const showBadge = item.name === "Orders" && pendingOrdersCount > 0;
+                          const isFavorited = favorites.includes(item.path);
+
+                          return (
+                            <button
+                              key={item.path}
+                              onClick={() => handleNavigation(item, section.key)}
+                              className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 justify-between px-4 py-3 ${
+                                itemIsActive
+                                  ? "bg-brand-800 text-white shadow-lg"
+                                  : "text-gray-600 hover:text-gray-900 hover:bg-brand-50"
+                              }`}
+                            >
+                              <div className="flex items-center min-w-0">
+                                <IconComponent className={`h-5 w-5 mr-3 ${itemIsActive ? 'text-white' : 'text-gray-500'}`} />
+                                <span className="truncate">{item.name}</span>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                {showBadge && (
+                                  <span className="flex items-center justify-center min-w-[24px] h-6 px-2 bg-red-500 text-white text-xs font-bold rounded-full">
+                                    {pendingOrdersCount}
+                                  </span>
+                                )}
+                                {isManagingPins && (
+                                  <span
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      toggleFavorite(item.path);
+                                    }}
+                                    className={`w-6 h-6 inline-flex items-center justify-center rounded-md ${
+                                      isFavorited
+                                        ? "text-amber-700 bg-amber-100"
+                                        : "text-gray-400 hover:text-amber-700 hover:bg-amber-50"
+                                    }`}
+                                    role="button"
+                                    aria-label={isFavorited ? "Unpin item" : "Pin item"}
+                                    title={isFavorited ? "Unpin" : "Pin"}
+                                  >
+                                    <Star className={`w-3.5 h-3.5 ${isFavorited ? "fill-current" : ""}`} />
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })}
 
               {isManagingPins && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
@@ -607,93 +716,61 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
                 </div>
               )}
 
-              {menuSections.map((section) => {
-                const isOpen = hasLoadedSectionState ? openSections[section.key] !== false : false;
-                const activeWithinSection = section.items.some((item) => isItemActive(pathname, item.path));
-                const hasOrders = section.items.some((item) => item.name === "Orders");
-
-                return (
-                  <div key={section.key} className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => toggleSection(section.key)}
-                      className={`w-full px-2 py-1.5 flex items-center justify-between rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-colors ${
-                        activeWithinSection
-                          ? "text-brand-800 bg-brand-50"
-                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>{section.title}</span>
-                        {hasOrders && pendingOrdersCount > 0 && (
-                          <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-red-500 text-white">
-                            {pendingOrdersCount}
-                          </span>
-                        )}
-                      </div>
-                      <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {isOpen && (
-                      <div className="space-y-2">
-                        {section.items.map((item) => {
-                          const IconComponent = item.icon;
-                          const itemIsActive = isItemActive(pathname, item.path);
-                          const showBadge = item.name === "Orders" && pendingOrdersCount > 0;
-                          const isFavorited = favorites.includes(item.path);
-
-                          return (
-                            <button
-                              key={item.path}
-                              onClick={() => handleNavigation(item, section.key)}
-                              className={`relative w-full flex items-center font-display text-sm font-medium rounded-xl transition-all duration-200 justify-between px-4 py-3 ${
-                                itemIsActive
-                                  ? "bg-brand-800 text-white shadow-lg"
-                                  : "text-gray-600 hover:text-gray-900 hover:bg-brand-50"
-                              }`}
-                            >
-                              <div className="flex items-center min-w-0">
-                                <IconComponent className={`h-5 w-5 mr-3 ${itemIsActive ? 'text-white' : 'text-gray-500'}`} />
-                                <span className="truncate">{item.name}</span>
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                {showBadge && (
-                                  <span className="flex items-center justify-center min-w-[24px] h-6 px-2 bg-red-500 text-white text-xs font-bold rounded-full">
-                                    {pendingOrdersCount}
-                                  </span>
-                                )}
-                                {isManagingPins && (
-                                  <span
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      toggleFavorite(item.path);
-                                    }}
-                                    className={`w-6 h-6 inline-flex items-center justify-center rounded-md ${
-                                      isFavorited
-                                        ? "text-amber-700 bg-amber-100"
-                                        : "text-gray-400 hover:text-amber-700 hover:bg-amber-50"
-                                    }`}
-                                    role="button"
-                                    aria-label={isFavorited ? "Unpin item" : "Pin item"}
-                                    title={isFavorited ? "Unpin" : "Pin"}
-                                  >
-                                    <Star className={`w-3.5 h-3.5 ${isFavorited ? "fill-current" : ""}`} />
-                                  </span>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setQuickActionsOpen((prev) => !prev)}
+                  className="w-full px-2 py-1.5 flex items-center justify-between rounded-lg text-[11px] font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Quick Actions</span>
                   </div>
-                );
-              })}
+                  <ChevronDown className={`w-4 h-4 transition-transform ${quickActionsOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {quickActionsOpen && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {quickActions.map((action) => {
+                      const ActionIcon = action.icon;
+                      return (
+                        <button
+                          key={action.path}
+                          onClick={() => handleNavigation(action, "core")}
+                          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-brand-50 hover:border-brand-200"
+                        >
+                          <ActionIcon className="w-3.5 h-3.5 text-gray-500" />
+                          <span className="truncate">{action.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
       </nav>
+
+      <div className={`border-t border-gray-200 ${isCollapsed ? 'px-2 py-3 lg:px-2' : 'px-4 py-3'}`}>
+        {isCollapsed ? (
+          <div
+            className="flex items-center justify-center w-full h-10 rounded-lg bg-gray-50 text-gray-600"
+            title={`${subscriptionCountdown.headline} • ${subscriptionStartDateLabel}`}
+          >
+            <Clock3 className="w-4 h-4" />
+          </div>
+        ) : (
+          <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              <Clock3 className="w-3.5 h-3.5" />
+              <span>Subscription Start</span>
+            </div>
+            <p className="mt-1 text-sm font-semibold text-gray-900">{subscriptionCountdown.headline}</p>
+            <p className="text-[11px] text-gray-500">{subscriptionStartDateLabel}</p>
+          </div>
+        )}
+      </div>
       </div>
     </>
   );
