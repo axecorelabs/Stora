@@ -76,6 +76,50 @@ function DetailField({ label, value }) {
   );
 }
 
+function formatCompactValue(value) {
+  const numericValue = Number(value) || 0;
+  const absValue = Math.abs(numericValue);
+
+  if (absValue < 1000) return numericValue.toLocaleString('en-NG');
+  if (absValue >= 1_000_000_000) return `${(numericValue / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
+  if (absValue >= 1_000_000) return `${(numericValue / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  return `${(numericValue / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+}
+
+function CompactMetricValue({ value, formatValue, threshold = 1000 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const numericValue = Number(value ?? 0) || 0;
+
+  if (Math.abs(numericValue) < threshold) {
+    return <span>{formatValue(numericValue)}</span>;
+  }
+
+  return (
+    <span className="relative inline-flex items-center gap-1">
+      <span>{formatCompactValue(numericValue)}</span>
+      <button
+        type="button"
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsOpen((current) => !current);
+        }}
+        title={formatValue(numericValue)}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[9px] font-bold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-100"
+        aria-label={`View full value: ${formatValue(numericValue)}`}
+      >
+        ...
+      </button>
+      {isOpen && (
+        <span className="absolute left-0 top-full z-20 mt-1 min-w-[150px] rounded-lg border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 shadow-lg">
+          {formatValue(numericValue)}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function InventoryPage() {
   const router = useRouter();
   const { secureApiCall } = useAuth();
@@ -212,7 +256,7 @@ export default function InventoryPage() {
     {
       title: 'Total Items',
       description: 'Total unique products',
-      value: String(Number(stats.totalItems) || 0),
+      value: <CompactMetricValue value={Number(stats.totalItems) || 0} formatValue={(n) => n.toLocaleString('en-NG')} />,
       icon: Package,
       iconBg: 'bg-brand-100',
       iconColor: 'text-brand-800'
@@ -220,7 +264,7 @@ export default function InventoryPage() {
     {
       title: 'Low Stock Items',
       description: 'Items below reorder level',
-      value: String(Number(stats.lowStockItems) || 0),
+      value: <CompactMetricValue value={Number(stats.lowStockItems) || 0} formatValue={(n) => n.toLocaleString('en-NG')} />,
       icon: AlertTriangle,
       iconBg: 'bg-gold-500/15',
       iconColor: 'text-gold-600'
@@ -228,7 +272,7 @@ export default function InventoryPage() {
     {
       title: 'Out of Stock',
       description: 'Items with zero quantity',
-      value: String(Number(stats.outOfStockItems) || 0),
+      value: <CompactMetricValue value={Number(stats.outOfStockItems) || 0} formatValue={(n) => n.toLocaleString('en-NG')} />,
       icon: XCircle,
       iconBg: 'bg-red-100',
       iconColor: 'text-red-600'
@@ -236,7 +280,7 @@ export default function InventoryPage() {
     {
       title: 'Total Stock Value',
       description: 'Total inventory worth (cost)',
-      value: formatCurrency(Number(stats.totalStockValue) || 0),
+      value: <CompactMetricValue value={Number(stats.totalStockValue) || 0} formatValue={formatCurrency} />,
       icon: ShoppingBag,
       iconBg: 'bg-brand-100',
       iconColor: 'text-brand-800'
@@ -244,7 +288,7 @@ export default function InventoryPage() {
     {
       title: 'Expected Revenue',
       description: 'Total selling value if all sold',
-      value: formatCurrency(Number(stats.totalSellingValue) || 0),
+      value: <CompactMetricValue value={Number(stats.totalSellingValue) || 0} formatValue={formatCurrency} />,
       icon: TrendingUp,
       iconBg: 'bg-brand-100',
       iconColor: 'text-brand-800'

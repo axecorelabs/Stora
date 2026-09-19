@@ -23,6 +23,50 @@ import {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
+function formatCompactValue(value) {
+  const numericValue = Number(value) || 0;
+  const absValue = Math.abs(numericValue);
+
+  if (absValue < 1000) return numericValue.toLocaleString('en-NG');
+  if (absValue >= 1_000_000_000) return `${(numericValue / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
+  if (absValue >= 1_000_000) return `${(numericValue / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  return `${(numericValue / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+}
+
+function CompactMetricValue({ value, formatValue, threshold = 1000 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const numericValue = Number(value ?? 0) || 0;
+
+  if (Math.abs(numericValue) < threshold) {
+    return <span>{formatValue(numericValue)}</span>;
+  }
+
+  return (
+    <span className="relative inline-flex items-center gap-1">
+      <span>{formatCompactValue(numericValue)}</span>
+      <button
+        type="button"
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsOpen((current) => !current);
+        }}
+        title={formatValue(numericValue)}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[9px] font-bold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-100"
+        aria-label={`View full value: ${formatValue(numericValue)}`}
+      >
+        ...
+      </button>
+      {isOpen && (
+        <span className="absolute left-0 top-full z-20 mt-1 min-w-[150px] rounded-lg border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 shadow-lg">
+          {formatValue(numericValue)}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function SalesPage() {
   const { secureApiCall } = useAuth();
   const [sales, setSales] = useState([]);
@@ -238,28 +282,28 @@ export default function SalesPage() {
   const statsCards = salesStats ? [
     {
       title: 'Total Sales',
-      value: salesStats.totalSales.toString(),
+      value: <CompactMetricValue value={salesStats.totalSales || 0} formatValue={(n) => n.toLocaleString('en-NG')} />,
       icon: Receipt,
       tone: 'brand',
       description: 'All time sales count'
     },
     {
       title: 'Total Revenue',
-      value: formatCurrency(salesStats.totalRevenue),
+      value: <CompactMetricValue value={salesStats.totalRevenue || 0} formatValue={(n) => `₦${Number(n).toLocaleString('en-NG')}`} />,
       icon: DollarSign,
       tone: 'gold',
       description: 'All time revenue'
     },
     {
       title: 'Average Sale',
-      value: formatCurrency(salesStats.avgSaleAmount),
+      value: <CompactMetricValue value={salesStats.avgSaleAmount || 0} formatValue={(n) => `₦${Number(n).toLocaleString('en-NG')}`} />,
       icon: TrendingUp,
       tone: 'brand',
       description: 'Average per transaction'
     },
     {
       title: "Today's Sales",
-      value: salesStats.todaySales?.toString() || '0',
+      value: <CompactMetricValue value={salesStats.todaySales || 0} formatValue={(n) => n.toLocaleString('en-NG')} />,
       icon: Calendar,
       tone: 'gold',
       description: 'Sales made today'

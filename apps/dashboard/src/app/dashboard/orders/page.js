@@ -45,6 +45,50 @@ export default function OrdersPage() {
   );
 }
 
+function formatCompactValue(value) {
+  const numericValue = Number(value) || 0;
+  const absValue = Math.abs(numericValue);
+
+  if (absValue < 1000) return numericValue.toLocaleString('en-NG');
+  if (absValue >= 1_000_000_000) return `${(numericValue / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
+  if (absValue >= 1_000_000) return `${(numericValue / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  return `${(numericValue / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+}
+
+function CompactMetricValue({ value, formatValue, threshold = 1000 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const numericValue = Number(value ?? 0) || 0;
+
+  if (Math.abs(numericValue) < threshold) {
+    return <span>{formatValue(numericValue)}</span>;
+  }
+
+  return (
+    <span className="relative inline-flex items-center gap-1">
+      <span>{formatCompactValue(numericValue)}</span>
+      <button
+        type="button"
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsOpen((current) => !current);
+        }}
+        title={formatValue(numericValue)}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[9px] font-bold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-100"
+        aria-label={`View full value: ${formatValue(numericValue)}`}
+      >
+        ...
+      </button>
+      {isOpen && (
+        <span className="absolute left-0 top-full z-20 mt-1 min-w-[150px] rounded-lg border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 shadow-lg">
+          {formatValue(numericValue)}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function OrdersPageContent() {
   const { secureApiCall } = useAuth();
   const searchParams = useSearchParams();
@@ -287,28 +331,28 @@ function OrdersPageContent() {
   const statsCards = orderStats ? [
     {
       title: 'Total Orders',
-      value: orderStats.totalOrders.toString(),
+      value: <CompactMetricValue value={orderStats.totalOrders || 0} formatValue={(n) => n.toLocaleString('en-NG')} />,
       icon: ShoppingBag,
       tone: 'brand',
       description: 'All time orders'
     },
     {
       title: 'Pending Orders',
-      value: orderStats.pendingOrders.toString(),
+      value: <CompactMetricValue value={orderStats.pendingOrders || 0} formatValue={(n) => n.toLocaleString('en-NG')} />,
       icon: Clock,
       tone: 'gold',
       description: 'Awaiting processing'
     },
     {
       title: 'Completed Orders',
-      value: orderStats.completedOrders.toString(),
+      value: <CompactMetricValue value={orderStats.completedOrders || 0} formatValue={(n) => n.toLocaleString('en-NG')} />,
       icon: CheckCircle,
       tone: 'brand',
       description: 'Successfully delivered'
     },
     {
       title: 'Total Revenue',
-      value: formatCurrency(orderStats.totalRevenue || 0),
+      value: <CompactMetricValue value={orderStats.totalRevenue || 0} formatValue={(n) => `₦${Number(n).toLocaleString('en-NG')}`} />,
       icon: DollarSign,
       tone: 'gold',
       description: 'From all orders'
