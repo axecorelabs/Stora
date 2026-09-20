@@ -60,7 +60,7 @@ export async function generateMetadata() {
   const url = `https://${host}/`;
   const title = "Biterave - Order meals or shop groceries from vendors near you";
   const description = "Real dishes from real restaurants, and real groceries from real vendors, all in one place.";
-  const image = "/og-image.jpg";
+  const image = "/stora2.png";
 
   return {
     title,

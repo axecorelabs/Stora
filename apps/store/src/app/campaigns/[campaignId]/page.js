@@ -20,7 +20,7 @@ export async function generateMetadata({ params }) {
 
   const title = `${campaign.title} - Stora`;
   const description = campaign.config?.resultsIntro || "Take our quiz and get personalized product recommendations.";
-  const image = campaign.banner_url || "/og-image.jpg";
+  const image = campaign.banner_url || "/stora2.png";
 
   return {
     title,

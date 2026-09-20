@@ -23,14 +23,19 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }) {
   try {
     const { slug, id } = await params;
-    const canonicalUrl = `https://stora.com.ng/${slug}/product/${id}`;
-    
+
     // Fetch store from Supabase
     const store = await findStoreBySlug(slug);
 
     if (!store || !store.website?.isEnabled) {
       return { title: 'Product Not Found' };
     }
+
+    // publicSlug (the vendor's own chosen address when set, store_slug
+    // otherwise -- see [slug]/page.js's own comment) so this canonical
+    // doesn't disagree with the store page's canonical depending on
+    // which of the store's equivalent URLs this request arrived on.
+    const canonicalUrl = `https://stora.com.ng/${store.publicSlug || slug}/product/${id}`;
 
     // Fetch product from Supabase
     const product = await findInventoryById(id);
@@ -46,7 +51,7 @@ export async function generateMetadata({ params }) {
 
     const title = `${product.productName} - ${store.storeName}`;
     const description = product.description || `Buy ${product.productName} at ${store.storeName}. Category: ${product.category}.`;
-    const productImageUrl = product.image || store.branding?.logo || '/og-image.jpg';
+    const productImageUrl = product.image || store.branding?.logo || '/stora2.png';
 
     return {
       title,
@@ -246,7 +251,7 @@ export default async function ProductPage({ params }) {
   // Convert to plain objects
   const storeData = JSON.parse(JSON.stringify(store));
   const productData = JSON.parse(JSON.stringify(enhancedProduct));
-  const canonicalUrl = `https://stora.com.ng/${slug}/product/${id}`;
+  const canonicalUrl = `https://stora.com.ng/${store.publicSlug || slug}/product/${id}`;
   const productImages = transformedImages.map((image) => image.url).filter(Boolean);
   const productSchema = {
     '@context': 'https://schema.org',
@@ -271,7 +276,7 @@ export default async function ProductPage({ params }) {
       seller: {
         '@type': 'Organization',
         name: store.storeName,
-        url: `https://stora.com.ng/${slug}`,
+        url: `https://stora.com.ng/${store.publicSlug || slug}`,
       },
     },
   };

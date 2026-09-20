@@ -61,7 +61,7 @@ export async function generateMetadata({ params }) {
   const url = `https://${host}/biterave/${storeSlug}`;
   const title = `${data.store.storeName} - Biterave`;
   const description = data.store.storeDescription || `Order food from ${data.store.storeName} on Biterave.`;
-  const image = data.store.branding?.banner || data.store.branding?.logo || "/og-image.jpg";
+  const image = data.store.branding?.banner || data.store.branding?.logo || "/stora2.png";
 
   return {
     title,

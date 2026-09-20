@@ -65,14 +65,14 @@ export async function generateMetadata({ params }) {
         title: seoSettings.meta_title || defaultTitle,
         description: seoSettings.meta_description || defaultDescription,
         url: canonicalUrl,
-        images: [store.branding?.banner || store.branding?.logo || '/og-image.jpg'],
+        images: [store.branding?.banner || store.branding?.logo || '/stora2.png'],
         type: 'website',
       },
       twitter: {
         card: 'summary_large_image',
         title: seoSettings.meta_title || defaultTitle,
         description: seoSettings.meta_description || defaultDescription,
-        images: [store.branding?.banner || store.branding?.logo || '/og-image.jpg'],
+        images: [store.branding?.banner || store.branding?.logo || '/stora2.png'],
       },
     };
   } catch (error) {
@@ -121,6 +121,17 @@ export default async function StorePage({ params }) {
           addressLocality: store.state || undefined,
           streetAddress: store.address,
           addressCountry: 'NG',
+        }
+      : undefined,
+    // Only when there's at least one real review -- Google's own
+    // guidelines treat an AggregateRating with no underlying reviews as a
+    // policy violation, so this can't just default ratingValue/reviewCount
+    // to 0 the way the on-page display (StoreWebsite.js) safely can.
+    aggregateRating: store.totalReviews > 0
+      ? {
+          '@type': 'AggregateRating',
+          ratingValue: store.averageRating,
+          reviewCount: store.totalReviews,
         }
       : undefined,
   };

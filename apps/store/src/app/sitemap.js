@@ -147,6 +147,32 @@ async function getProductUrls(storePathById) {
     .filter(Boolean);
 }
 
+// Campaigns live at the top level (/campaigns/[campaignId], not nested
+// under a vendor slug -- see that page's own comment: a campaign can pool
+// several vendors now), so this is a plain, un-joined query, same shape as
+// the campaign page's own generateMetadata gate (status = 'active', which
+// already has a partial index).
+async function getCampaignUrls() {
+  if (!supabaseAdmin) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from('campaigns')
+    .select('id, updated_at')
+    .eq('status', 'active');
+
+  if (error || !data) {
+    console.error('Sitemap campaigns query error:', error);
+    return [];
+  }
+
+  return data.map((campaign) => ({
+    url: `${SITE_URL}/campaigns/${campaign.id}`,
+    lastModified: campaign.updated_at ? new Date(campaign.updated_at) : new Date(),
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  }));
+}
+
 export default async function sitemap() {
   const staticUrls = STATIC_ROUTES.map((route) => ({
     url: `${SITE_URL}${route.path}`,
@@ -157,6 +183,7 @@ export default async function sitemap() {
 
   const { urls: storeUrls, storePathById } = await getStoreUrls();
   const productUrls = await getProductUrls(storePathById);
+  const campaignUrls = await getCampaignUrls();
 
-  return [...staticUrls, ...storeUrls, ...productUrls];
+  return [...staticUrls, ...storeUrls, ...productUrls, ...campaignUrls];
 }

@@ -31,7 +31,7 @@ export async function generateMetadata({ params }) {
         title: `${store.storeName} Profile`,
         description: store.storeDescription || `Gallery and location details for ${store.storeName}.`,
         url: `https://stora.com.ng/${slug}/profile`,
-        images: [store.branding?.banner || store.branding?.logo || '/og-image.jpg']
+        images: [store.branding?.banner || store.branding?.logo || '/stora2.png']
       }
     };
   } catch (error) {

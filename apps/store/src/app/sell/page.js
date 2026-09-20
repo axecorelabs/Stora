@@ -114,6 +114,20 @@ const FAQS = [
   },
 ];
 
+// Same live FAQ content the accordion below renders -- built once here so
+// the two can never drift apart, and rendered as a plain <script> tag the
+// same way the homepage renders its own Organization/WebSite JSON-LD in a
+// client component.
+const FAQ_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.q,
+    acceptedAnswer: { "@type": "Answer", text: faq.a },
+  })),
+};
+
 function FaqItem({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
@@ -136,6 +150,7 @@ function FaqItem({ q, a }) {
 export default function SellOnStoraPage() {
   return (
     <div className="min-h-screen bg-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }} />
       <SiteHeader />
 
       {/* Hero */}
