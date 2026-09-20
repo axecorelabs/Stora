@@ -7,8 +7,18 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Button from "@/components/ui/Button";
 import { CheckCircle2, AlertCircle, Clock, ArrowUpRight, Loader2 } from "lucide-react";
 
-function StatusBanner({ status, mode, awaitingConfirmation = false }) {
+function formatGraceDate(iso) {
+  return new Date(iso).toLocaleDateString('en-NG', {
+    day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit'
+  });
+}
+
+function StatusBanner({ status, mode, awaitingConfirmation = false, graceEndsAt = null, lockedAt = null }) {
   const isListing = mode === 'listing';
+  // Snapshot once at mount (a lazy useState initializer is React's
+  // documented safe spot for a one-time impure call) rather than calling
+  // Date.now() directly in the render body below.
+  const [nowMs] = useState(() => Date.now());
 
   if (awaitingConfirmation) {
     return (
@@ -28,6 +38,30 @@ function StatusBanner({ status, mode, awaitingConfirmation = false }) {
     );
   }
   if (status === 'past_due') {
+    // Full-store gets a short grace window (see fullStoreSubscription.js)
+    // before commerce access/storefront is actually locked -- listing mode
+    // has no such window yet, so graceEndsAt is only ever set for full-store.
+    const graceActive = !isListing && graceEndsAt && !lockedAt && new Date(graceEndsAt).getTime() > nowMs;
+    const isLocked = !isListing && !!lockedAt;
+
+    if (graceActive) {
+      return (
+        <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          Your last payment failed. You have until <strong>{formatGraceDate(graceEndsAt)}</strong> to resubscribe before storefront, POS, and inventory access is restricted.
+        </div>
+      );
+    }
+
+    if (isLocked) {
+      return (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          Your grace period has ended. Storefront, POS, and inventory access is restricted until you resubscribe.
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
         <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -165,7 +199,13 @@ export default function SubscriptionPage() {
     <DashboardLayout title="Subscription" subtitle={isListing ? 'Manage your listing subscription' : 'Manage your full-store subscription'}>
       <div className="space-y-6">
 
-        <StatusBanner status={sub?.subscriptionStatus} mode={sub?.platformMode} awaitingConfirmation={awaitingConfirmation} />
+        <StatusBanner
+          status={sub?.subscriptionStatus}
+          mode={sub?.platformMode}
+          awaitingConfirmation={awaitingConfirmation}
+          graceEndsAt={sub?.fullStoreSubscriptionGraceEndsAt}
+          lockedAt={sub?.fullStoreSubscriptionLockedAt}
+        />
 
         {/* Plan card */}
         <div className="bg-white border border-gray-100 rounded-2xl p-6 space-y-4">

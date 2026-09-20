@@ -3,6 +3,24 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { setListingWebsiteEnabled } from '@/lib/listingSubscription';
 
+const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+
+async function paystackRequest(path, { method = 'GET', body } = {}) {
+  const res = await fetch(`${PAYSTACK_BASE_URL}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await res.json();
+  if (!res.ok || data.status === false) {
+    throw new Error(data.message || `Paystack error: ${res.status}`);
+  }
+  return data.data;
+}
+
 // POST /api/subscription/downgrade
 // Switches a full-store account to listing mode. Listing remains inactive
 // until the owner subscribes to the monthly listing plan.
@@ -25,6 +43,36 @@ export async function POST(req) {
 
     if (store.platform_mode === 'listing') {
       return NextResponse.json({ success: false, message: 'Already on business listing mode' }, { status: 400 });
+    }
+
+    // Cancel any active Paystack subscription before wiping our own record
+    // of its code below -- otherwise Paystack keeps auto-charging the
+    // vendor's card every cycle with no way left to stop it, since the
+    // code that identifies the subscription to Paystack is gone from our
+    // side right after this. Checks both fields defensively (mirrors the
+    // two columns this route already resets below); full_store_* is the
+    // one actually being downgraded away from in practice.
+    if (store.full_store_subscription_paystack_code && store.full_store_subscription_status === 'active') {
+      try {
+        await paystackRequest('/subscription/disable', {
+          method: 'POST',
+          body: { code: store.full_store_subscription_paystack_code, token: process.env.PAYSTACK_SECRET_KEY }
+        });
+      } catch (err) {
+        // Log but don't block the downgrade -- matches upgrade/route.js's
+        // own handling of this exact situation in the opposite direction.
+        console.error('Paystack subscription disable failed during downgrade:', err);
+      }
+    }
+    if (store.subscription_paystack_code && store.subscription_status === 'active') {
+      try {
+        await paystackRequest('/subscription/disable', {
+          method: 'POST',
+          body: { code: store.subscription_paystack_code, token: process.env.PAYSTACK_SECRET_KEY }
+        });
+      } catch (err) {
+        console.error('Paystack subscription disable failed during downgrade:', err);
+      }
     }
 
     const now = new Date().toISOString();

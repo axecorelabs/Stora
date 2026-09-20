@@ -69,7 +69,12 @@ export async function POST(req) {
     let storeContext = null;
     let subscriptionKind = null;
 
-    const planCode = data?.plan?.plan_code || data?.plan_object?.plan_code || null;
+    // invoice.payment_failed nests the subscription under data.subscription
+    // (data itself is the invoice), unlike subscription.create/disable/
+    // not_renew where data IS the subscription -- check both shapes.
+    const subscriptionCode = data?.subscription_code || data?.subscription?.subscription_code || null;
+    const planCode = data?.plan?.plan_code || data?.plan_object?.plan_code
+      || data?.subscription?.plan?.plan_code || data?.subscription?.plan_object?.plan_code || null;
     const listingPlanCode = process.env.PAYSTACK_LISTING_PLAN_CODE;
     const fullStorePlanCode = process.env.PAYSTACK_FULL_STORE_PLAN_CODE;
 
@@ -108,12 +113,12 @@ export async function POST(req) {
       }
     }
 
-    if (!storeContext && data?.subscription_code) {
+    if (!storeContext && subscriptionCode) {
       if (subscriptionKind === 'full_store') {
         const { data: store } = await supabaseAdmin
           .from('stores')
           .select('id, owner_id')
-          .eq('full_store_subscription_paystack_code', data.subscription_code)
+          .eq('full_store_subscription_paystack_code', subscriptionCode)
           .eq('platform_mode', 'store')
           .maybeSingle();
         if (store) storeContext = { storeId: store.id, ownerId: store.owner_id };
@@ -121,7 +126,7 @@ export async function POST(req) {
         const { data: store } = await supabaseAdmin
           .from('stores')
           .select('id, owner_id')
-          .eq('subscription_paystack_code', data.subscription_code)
+          .eq('subscription_paystack_code', subscriptionCode)
           .eq('platform_mode', 'listing')
           .maybeSingle();
         if (store) storeContext = { storeId: store.id, ownerId: store.owner_id };
@@ -129,7 +134,7 @@ export async function POST(req) {
         const { data: listingStore } = await supabaseAdmin
           .from('stores')
           .select('id, owner_id')
-          .eq('subscription_paystack_code', data.subscription_code)
+          .eq('subscription_paystack_code', subscriptionCode)
           .eq('platform_mode', 'listing')
           .maybeSingle();
 
@@ -140,7 +145,7 @@ export async function POST(req) {
           const { data: fullStore } = await supabaseAdmin
             .from('stores')
             .select('id, owner_id')
-            .eq('full_store_subscription_paystack_code', data.subscription_code)
+            .eq('full_store_subscription_paystack_code', subscriptionCode)
             .eq('platform_mode', 'store')
             .maybeSingle();
           if (fullStore) {
@@ -280,15 +285,26 @@ export async function POST(req) {
       }
     }
 
-    // subscription.disable / subscription.not_renew: payment failed or vendor cancelled.
+    // subscription.disable / subscription.not_renew: both are steps of the
+    // SAME cancellation lifecycle, per Paystack's docs -- not_renew fires
+    // immediately when a cancellation is requested ("won't be charged next
+    // cycle"), and disable fires later, on the actual next payment date, as
+    // that same cancellation's final deactivation (also sent when a
+    // fixed-cycle plan completes all its billing cycles). Neither means a
+    // renewal charge failed -- that's invoice.payment_failed, handled
+    // separately below. Both used to map here as if one meant "cancelled"
+    // and the other "past_due with a grace period," which let a store that
+    // had already been correctly cancelled by not_renew get "resurrected"
+    // into a fresh grace window (with commerce access restored) when the
+    // delayed disable event for that same cancellation arrived.
     if ((eventType === 'subscription.disable' || eventType === 'subscription.not_renew') && storeContext) {
-      const newStatus = eventType === 'subscription.not_renew' ? 'cancelled' : 'past_due';
+      const newStatus = 'cancelled';
       const inactivePayload = {
         storeId: storeContext.storeId,
         ownerId: storeContext.ownerId,
         status: newStatus,
-        subscriptionCode: data?.subscription_code || null,
-        cancelledAt: newStatus === 'cancelled' ? new Date().toISOString() : null,
+        subscriptionCode,
+        cancelledAt: new Date().toISOString(),
         raw: data
       };
 
@@ -298,11 +314,11 @@ export async function POST(req) {
         await applyListingInactiveState(inactivePayload);
       }
 
-      await captureServerEvent(storeContext.ownerId, eventType === 'subscription.disable' ? 'subscription_suspended' : 'subscription_renewal_failed', {
+      await captureServerEvent(storeContext.ownerId, 'subscription_suspended', {
         source: 'webhook',
         subscriptionMode: subscriptionKind === 'full_store' ? 'full_store' : 'listing',
         storeId: storeContext.storeId,
-        providerSubscriptionCode: data?.subscription_code || null,
+        providerSubscriptionCode: subscriptionCode,
         webhookEvent: eventType,
         status: newStatus
       });
@@ -312,8 +328,8 @@ export async function POST(req) {
           storeId: storeContext.storeId,
           ownerId: storeContext.ownerId,
           reference: data.reference,
-          status: newStatus === 'cancelled' ? 'abandoned' : 'failed',
-          providerSubscriptionCode: data?.subscription_code || null,
+          status: 'abandoned',
+          providerSubscriptionCode: subscriptionCode,
           verificationPayload: data
         };
 
@@ -323,6 +339,39 @@ export async function POST(req) {
           await upsertSubscriptionTransaction(failedTxPayload);
         }
       }
+    }
+
+    // invoice.payment_failed: an actual renewal charge failure -- the real
+    // "past due" trigger (see the comment above; subscription.disable and
+    // subscription.not_renew are cancellation events, not this). For a
+    // full-store account this starts (or, on a later Paystack retry,
+    // refreshes) the grace window in applyFullStoreInactiveState; for a
+    // listing account there's no grace window yet, so this hides the
+    // listing the same way an outright cancellation already does.
+    if (eventType === 'invoice.payment_failed' && storeContext) {
+      const failedPayload = {
+        storeId: storeContext.storeId,
+        ownerId: storeContext.ownerId,
+        status: 'past_due',
+        subscriptionCode,
+        cancelledAt: null,
+        raw: data
+      };
+
+      if (subscriptionKind === 'full_store') {
+        await applyFullStoreInactiveState(failedPayload);
+      } else {
+        await applyListingInactiveState(failedPayload);
+      }
+
+      await captureServerEvent(storeContext.ownerId, 'subscription_renewal_failed', {
+        source: 'webhook',
+        subscriptionMode: subscriptionKind === 'full_store' ? 'full_store' : 'listing',
+        storeId: storeContext.storeId,
+        providerSubscriptionCode: subscriptionCode,
+        webhookEvent: eventType,
+        status: 'past_due'
+      });
     }
 
     await completeWebhookEvent(webhookEvent.id);
