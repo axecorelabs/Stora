@@ -4,15 +4,14 @@ import Image from "next/image";
 import {
   ArrowRight,
   Store,
-  LayoutList,
-  Package,
-  Wallet,
-  Truck,
-  CreditCard,
+  Images,
   MessageCircle,
-  UtensilsCrossed,
-  Globe,
+  Search,
   ShieldCheck,
+  MapPin,
+  Wallet,
+  Star,
+  LayoutList,
   ChevronDown,
   CheckCircle2,
 } from "lucide-react";
@@ -20,99 +19,98 @@ import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
-const STORE_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=store`;
 const LISTING_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=listing`;
 
 const STEPS = [
   {
     number: "01",
-    title: "Create your store",
-    body: "Sign up, name your store and drop in your own logo and colors. No registered business or existing website required.",
+    title: "Create your business profile",
+    body: "Sign up, name your business, pick your category, and drop in your own logo and colors. No registered business or existing website required.",
   },
   {
     number: "02",
-    title: "List what you sell",
-    body: "Add products, set your own prices, and track stock across variants. Selling food? Switch on Restaurant Mode for priced extras and made-to-order items.",
+    title: "Add your photos and price list",
+    body: "Show what you offer with a gallery of up to 10 photos and a clear price list, so customers already know before they reach out.",
   },
   {
     number: "03",
-    title: "Get paid, order by order",
-    body: "Customers pay by card, transfer or USSD through Paystack, which settles to your bank account, or order over WhatsApp if you're not ready to take card payments yet.",
+    title: "Get discovered and contacted",
+    body: "Show up in Stora's directory and AI-powered search, and let customers reach you directly by WhatsApp, call, or email.",
   },
 ];
 
 const FEATURES = [
   {
     icon: Store,
-    title: "A storefront that's yours",
+    title: "A profile that's yours",
     body: "Your own page on Stora with your name, logo and brand colors -- not a listing buried inside someone else's catalogue.",
   },
   {
-    icon: Package,
-    title: "Inventory that keeps up",
-    body: "Track stock across variants and batches, so you're never confirming an order you can't fulfil.",
-  },
-  {
-    icon: Wallet,
-    title: "Paid straight to your bank",
-    body: "Every online sale settles through Paystack to your bank account, with a clear record of what you earned and when.",
-  },
-  {
-    icon: Truck,
-    title: "Delivery, sorted by state",
-    body: "Set the states you deliver to, and customers can filter by location before they ever land on your store.",
-  },
-  {
-    icon: CreditCard,
-    title: "A till for walk-in customers",
-    body: "Ring up in-person sales with POS, on the same inventory as your online store -- nothing to reconcile by hand.",
+    icon: Images,
+    title: "A gallery that shows your work",
+    body: "Up to 10 photos so customers see what you do before they ever call.",
   },
   {
     icon: MessageCircle,
-    title: "WhatsApp orders, no card required",
-    body: "Not ready to take card payments? Customers can still find you, order, and pay you directly over WhatsApp.",
+    title: "Direct contact, no middleman",
+    body: "WhatsApp, phone and email buttons right on your profile -- customers reach you straight, no app or account needed on their end.",
   },
   {
-    icon: UtensilsCrossed,
-    title: "Built for food vendors too",
-    body: "Restaurant Mode adds priced extras and per-item customization -- shawarma with extra sausage, correctly priced, sorted.",
-  },
-  {
-    icon: Globe,
+    icon: Search,
     title: "Found by people looking to buy",
-    body: "Show up in Stora's marketplace search, so people already looking for what you sell can find you.",
+    body: "Show up in Stora's directory and AI-powered search, matched by category and city -- even when they don't know your business name yet.",
+  },
+  {
+    icon: Wallet,
+    title: "A price list, not a guessing game",
+    body: "List your services and prices upfront, so customers arrive already informed instead of asking \"how much?\" first.",
+  },
+  {
+    icon: MapPin,
+    title: "Your location and hours, clear upfront",
+    body: "A map preview and business hours on your profile, so people know exactly where and when to find you.",
+  },
+  {
+    icon: Star,
+    title: "Reviews that build trust",
+    body: "Customers who've used your business can leave a review right on your profile.",
   },
   {
     icon: ShieldCheck,
     title: "A Verified badge buyers can see",
-    body: "Verify your identity with your NIN -- no registered business needed -- and earn a Verified badge on your store, free for every vendor.",
+    body: "Verify your identity with your NIN -- no registered business needed -- and earn a Verified badge, free for every business.",
+  },
+  {
+    icon: LayoutList,
+    title: "Every kind of business welcome",
+    body: "Retail, restaurants, salons and barbers, photographers, tailors, event and catering services, home and repair trades, real estate, and more.",
   },
 ];
 
 const FAQS = [
   {
-    q: "Do I need a registered business or my own website to start?",
-    a: "No. You can start selling with just your name, a phone number and what you're selling -- no registered business and no existing website required.",
+    q: "Do I need a registered business or my own website to list?",
+    a: "No. You can create a business listing with just your name, a phone number and what you do -- no registered business and no existing website required.",
   },
   {
-    q: "What does it cost to sell on Stora?",
-    a: "Sell on Stora is ₦3,500/month plus 2% commission on completed sales. Business Listing is a separate option at ₦500/month for discoverability-only businesses.",
+    q: "What does it cost?",
+    a: "A business listing is ₦500/month, with no setup fee. Cancel your subscription anytime.",
   },
   {
-    q: "How and when do I get paid?",
-    a: "Orders paid by card, transfer or USSD go through Paystack, which settles to your bank account. If you'd rather collect payment yourself, customers can also order and pay you directly over WhatsApp.",
+    q: "How do customers actually reach me?",
+    a: "Through WhatsApp, call, or email buttons right on your profile -- there's no back-and-forth or app your customers need to install.",
   },
   {
-    q: "Do I need to verify my identity to sell?",
-    a: "No, it's optional -- but every vendor can verify their identity with their NIN, free of charge, and earn a Verified badge that helps buyers trust your store.",
+    q: "What kind of businesses can list on Stora?",
+    a: "A wide range -- retail shops, restaurants, salons and barbers, photographers, tailors, event and catering services, home and repair trades, real estate, and more.",
   },
   {
-    q: "Can I sell food or made-to-order items?",
-    a: "Yes -- switch on Restaurant Mode to add priced, limited extras and per-item customization for food and made-to-order menus.",
+    q: "Do I need to verify my identity to list my business?",
+    a: "No, it's optional -- but every business can verify with their NIN, free of charge, and earn a Verified badge that helps buyers trust your profile.",
   },
   {
-    q: "Can I still sell to people in person?",
-    a: "Yes. POS lets you ring up walk-in customers on the same inventory as your online store, so stock never falls out of sync.",
+    q: "Can I sell products or take orders online later?",
+    a: "Yes -- once you're set up on Stora, you can upgrade to full commerce tools (storefront, checkout, inventory, and POS) anytime from your dashboard, whenever you're ready.",
   },
 ];
 
@@ -144,29 +142,22 @@ export default function SellOnStoraPage() {
       <section className="bg-brand-800 pt-16 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-10 items-center">
           <div className="lg:col-span-7 text-center lg:text-left">
-            <p className="text-xs font-semibold uppercase tracking-widest text-gold-400 mb-3">For vendors</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold-400 mb-3">For businesses</p>
             <h1 className="font-display text-3xl sm:text-5xl font-bold text-white leading-tight mb-5 text-balance">
-              Bring your own brand.
+              Your business,
               <br />
-              We&apos;ll bring everything else.
+              one search away.
             </h1>
             <p className="text-white/60 text-base sm:text-lg mb-8 max-w-xl mx-auto lg:mx-0">
-              Grow visibility, build trust, and turn discovery into customers. Start with a business listing,
-              then upgrade to full selling tools when you are ready to take online orders.
+              A Stora business listing gets you a real online presence -- gallery, price list, and direct
+              contact buttons -- so customers can find and reach you today, not eventually.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
               <a
-                href={STORE_SIGNUP_URL}
+                href={LISTING_SIGNUP_URL}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
               >
-                Start selling
-                <ArrowRight className="w-4 h-4" />
-              </a>
-              <a
-                href={LISTING_SIGNUP_URL}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white text-brand-900 text-sm font-semibold hover:bg-gold-50 transition-colors"
-              >
-                List my business
+                List your business -- ₦500/month
                 <ArrowRight className="w-4 h-4" />
               </a>
               <a
@@ -185,8 +176,8 @@ export default function SellOnStoraPage() {
                 <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 mb-3">Why businesses choose Stora</p>
                 <ul className="space-y-2.5 text-sm text-gray-600">
                   <li>Get discovered by customers searching in your city and category</li>
-                  <li>Show credibility with a polished profile, gallery, and clear service details</li>
-                  <li>Upgrade anytime to full checkout, payments, and inventory tools</li>
+                  <li>Show credibility with a polished profile, gallery, and clear price list</li>
+                  <li>Reachable by WhatsApp, call, or email -- no app required for customers</li>
                 </ul>
               </div>
             </div>
@@ -197,64 +188,38 @@ export default function SellOnStoraPage() {
       {/* Value proposition first */}
       <section id="value" className="py-14 sm:py-16 px-4 sm:px-6 lg:px-8 bg-white scroll-mt-16">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8">
-            <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Value first</p>
+          <div className="text-center mb-10">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Built for businesses like yours</p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 text-balance">
-              Why listing on Stora is valuable
+              Whatever you do, there&apos;s room for it on Stora
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-5">
-            <div className="rounded-2xl border border-gray-100 p-6 bg-brand-50/40 md:col-span-2">
-              <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center mb-4">
-                <Store className="w-5 h-5 text-brand-700" />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { title: "Retail & shops", body: "Supermarkets, boutiques, electronics, pharmacies, and more." },
+              { title: "Restaurants & food", body: "Kitchens, bakeries, cafes, grills, and drink spots." },
+              { title: "Salons & beauty", body: "Salons, barbers, and beauty and wellness services." },
+              { title: "Photography & events", body: "Photographers, videographers, caterers, and event planners." },
+              { title: "Home & repair trades", body: "Electricians, plumbers, mechanics, and tech repair." },
+              { title: "Professional services", body: "Tailors, real estate, security, cleaning, and more." },
+            ].map((item) => (
+              <div key={item.title} className="rounded-2xl border border-gray-100 p-5 bg-brand-50/40">
+                <h3 className="font-display text-sm font-semibold text-brand-900 mb-1">{item.title}</h3>
+                <p className="text-sm text-gray-600">{item.body}</p>
               </div>
-              <h3 className="font-display text-lg font-semibold text-brand-900 mb-2">Sell on Stora</h3>
-              <p className="text-sm text-gray-600 mb-4">For businesses that want to sell products or services, accept orders online, and run operations from one dashboard.</p>
-              <ul className="text-sm text-gray-600 space-y-1.5 mb-5">
-                <li>Storefront with checkout and order management</li>
-                <li>Inventory, POS, and delivery-state controls</li>
-                <li>Scale from profile-only discovery to full commerce when you are ready</li>
-              </ul>
-              <a
-                href={STORE_SIGNUP_URL}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-800 text-white text-sm font-semibold hover:bg-brand-700 transition-colors"
-              >
-                Start selling
-                <ArrowRight className="w-4 h-4" />
-              </a>
-            </div>
-
-            <div className="rounded-2xl border border-gray-100 p-6 bg-white">
-              <div className="w-10 h-10 rounded-xl bg-gold-500/15 flex items-center justify-center mb-4">
-                <LayoutList className="w-5 h-5 text-gold-700" />
-              </div>
-              <h3 className="font-display text-lg font-semibold text-brand-900 mb-2">List My Business</h3>
-              <p className="text-sm text-gray-600 mb-4">For businesses focused on discoverability and direct customer inquiries.</p>
-              <ul className="text-sm text-gray-600 space-y-1.5 mb-5">
-                <li>Public business profile with gallery and contact actions</li>
-                <li>Appear in business directory and AI-assisted vendor search</li>
-                <li>Get found by customers already looking for what you offer</li>
-              </ul>
-              <a
-                href={LISTING_SIGNUP_URL}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-gold-400/50 text-gold-700 text-sm font-semibold hover:bg-gold-500/10 transition-colors"
-              >
-                Create business listing
-                <ArrowRight className="w-4 h-4" />
-              </a>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 scroll-mt-16">
+      <section id="how-it-works" className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">How it works</p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 text-balance">
-              Three steps from idea to first sale
+              Three steps from idea to first contact
             </h2>
           </div>
 
@@ -276,7 +241,7 @@ export default function SellOnStoraPage() {
           <div className="text-center mb-12">
             <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">What&apos;s included</p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 text-balance">
-              Everything you need to run a real store
+              Everything you need to be found and reached
             </h2>
           </div>
 
@@ -299,42 +264,32 @@ export default function SellOnStoraPage() {
 
       {/* Pricing */}
       <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-2xl mx-auto text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Pricing</p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-3 text-balance">
-            Start with listing, upgrade to full selling
+            One simple price
           </h2>
           <p className="text-sm sm:text-base text-gray-500 mb-8 max-w-xl mx-auto">
-            Choose the level that matches where your business is now.
+            No listing or setup fees, and no commitment beyond the month.
           </p>
 
-          <div className="grid md:grid-cols-2 gap-4 text-left mb-8">
-            <a
-              href={LISTING_SIGNUP_URL}
-              className="rounded-2xl border border-gold-200 bg-gold-50 p-6 block hover:border-gold-300 hover:shadow-sm transition-all"
-            >
-              <p className="text-xs font-semibold uppercase tracking-widest text-gold-700 mb-2">Business listing pricing</p>
-              <p className="font-display text-4xl font-bold text-gold-900 mb-1">₦500<span className="text-base font-medium">/month</span></p>
-              <p className="text-sm text-gold-900">For discoverability-focused businesses that want a profile, gallery, and direct customer contact options.</p>
-              <p className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-gold-800">
-                Start with listing
-                <ArrowRight className="w-4 h-4" />
-              </p>
-            </a>
+          <a
+            href={LISTING_SIGNUP_URL}
+            className="block rounded-2xl border border-gold-200 bg-gold-50 p-8 text-left hover:border-gold-300 hover:shadow-sm transition-all mb-8"
+          >
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold-700 mb-2">Business listing</p>
+            <p className="font-display text-5xl font-bold text-gold-900 mb-1">₦500<span className="text-base font-medium">/month</span></p>
+            <p className="text-sm text-gold-900 mt-3">Profile, gallery, price list, contact buttons, and full search visibility -- everything on this page.</p>
+            <p className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-gold-800">
+              List your business
+              <ArrowRight className="w-4 h-4" />
+            </p>
+          </a>
 
-            <a
-              href={STORE_SIGNUP_URL}
-              className="rounded-2xl border border-brand-100 bg-brand-800 p-6 text-white block hover:bg-brand-700 transition-colors"
-            >
-              <p className="text-xs font-semibold uppercase tracking-widest text-gold-300 mb-2">Sell on Stora pricing</p>
-              <p className="font-display text-4xl font-bold mb-1">₦3,500<span className="text-base font-medium text-white/70">/month</span></p>
-              <p className="text-sm text-white/80">Plus 2% commission per completed sale, with full checkout, inventory, POS, and order operations.</p>
-              <p className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-gold-300">
-                Start selling now
-                <ArrowRight className="w-4 h-4" />
-              </p>
-            </a>
-          </div>
+          <p className="text-sm text-gray-500 mb-8">
+            Ready to sell products or take orders online? Upgrade to full commerce tools -- storefront,
+            checkout, inventory, and POS -- anytime from your dashboard once you&apos;re set up.
+          </p>
 
           <div className="grid sm:grid-cols-3 gap-4 text-left">
             {[
@@ -373,27 +328,18 @@ export default function SellOnStoraPage() {
             <Image src="/stora-icon.png" alt="" width={24} height={28} className="h-7 w-auto" />
           </div>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-4 text-balance">
-            Ready to open your store?
+            Ready to be found?
           </h2>
           <p className="text-white/60 text-sm sm:text-base mb-8 max-w-xl mx-auto">
             It takes a few minutes to set up -- no business registration required, and no setup cost.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a
-              href={STORE_SIGNUP_URL}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
-            >
-              Start selling
-              <ArrowRight className="w-4 h-4" />
-            </a>
-            <a
-              href={LISTING_SIGNUP_URL}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-brand-900 text-sm font-semibold hover:bg-gold-50 transition-colors"
-            >
-              List my business
-              <ArrowRight className="w-4 h-4" />
-            </a>
-          </div>
+          <a
+            href={LISTING_SIGNUP_URL}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
+          >
+            List your business
+            <ArrowRight className="w-4 h-4" />
+          </a>
         </div>
       </section>
 

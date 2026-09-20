@@ -110,15 +110,15 @@ export default function SiteFooter({ brand = "stora" }) {
           ))}
 
           <div className="lg:col-span-3">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 mb-4">For vendors</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40 mb-4">For businesses</p>
             <p className="text-sm text-white/60 leading-relaxed mb-4">
-              Set up your own store on Stora and reach buyers across Nigeria.
+              Get a business profile customers can find and contact, from ₦500/month.
             </p>
             <Link
               href="/sell"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold-400 hover:text-gold-300 transition-colors"
             >
-              Sell on Stora
+              List Your Business
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>

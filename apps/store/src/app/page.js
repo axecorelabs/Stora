@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight, LayoutList, Store } from "lucide-react";
+import { ArrowRight, LayoutList, Camera, MessageCircle, Search } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import AIHeroSearch from "@/components/home/AIHeroSearch";
@@ -31,7 +31,6 @@ const WEBSITE_SCHEMA = {
 };
 
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
-const SELL_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=store`;
 const LISTING_SIGNUP_URL = `${DASHBOARD_URL}?mode=signup&intent=listing`;
 
 export default function Home() {
@@ -125,55 +124,57 @@ export default function Home() {
           nothing when there are no active campaigns (see the component). */}
       <CampaignsShowcase />
 
-      {/* Sell on Stora */}
+      {/* List Your Business */}
       <section className="border-t-2 border-gold-500 bg-brand-800 py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-gold-400 mb-1.5">For businesses</p>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-4">
-            Choose your growth path on Stora
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-4 text-balance">
+            Get found by customers already looking for you
           </h2>
-          <p className="text-white/60 text-sm sm:text-base mb-8 max-w-xl mx-auto">
-            Launch a full online store, or publish a business listing so customers can discover and contact you.
+          <p className="text-white/60 text-sm sm:text-base mb-9 max-w-xl mx-auto">
+            A business listing gets you a profile with your photos, services, and contact details --
+            live on Stora in minutes, no registered business or website required.
           </p>
 
-          <div className="grid sm:grid-cols-2 gap-4 text-left">
+          <div className="grid sm:grid-cols-3 gap-4 text-left mb-9">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="w-9 h-9 rounded-lg bg-gold-500/20 flex items-center justify-center mb-3">
-                <Store className="w-5 h-5 text-gold-300" />
+                <Camera className="w-5 h-5 text-gold-300" />
               </div>
-              <h3 className="font-display text-lg font-semibold text-white mb-1">Sell on Stora</h3>
-              <p className="text-sm text-white/60 mb-4">Create a full storefront, list products or services, and accept orders online.</p>
-              <a
-                href={SELL_SIGNUP_URL}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
-              >
-                Start selling
-                <ArrowRight className="w-4 h-4" />
-              </a>
+              <h3 className="font-display text-sm font-semibold text-white mb-1">Show your work</h3>
+              <p className="text-sm text-white/60">A gallery and price list that show customers what you offer before they even reach out.</p>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="w-9 h-9 rounded-lg bg-gold-500/20 flex items-center justify-center mb-3">
-                <LayoutList className="w-5 h-5 text-gold-300" />
+                <Search className="w-5 h-5 text-gold-300" />
               </div>
-              <h3 className="font-display text-lg font-semibold text-white mb-1">List My Business</h3>
-              <p className="text-sm text-white/60 mb-4">Get a discoverable profile with your services, gallery, and contact options.</p>
-              <a
-                href={LISTING_SIGNUP_URL}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-brand-900 text-sm font-semibold hover:bg-gold-50 transition-colors"
-              >
-                Create business listing
-                <ArrowRight className="w-4 h-4" />
-              </a>
+              <h3 className="font-display text-sm font-semibold text-white mb-1">Turn up in search</h3>
+              <p className="text-sm text-white/60">Listed in Stora&apos;s directory and AI-powered search, by category and city.</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="w-9 h-9 rounded-lg bg-gold-500/20 flex items-center justify-center mb-3">
+                <MessageCircle className="w-5 h-5 text-gold-300" />
+              </div>
+              <h3 className="font-display text-sm font-semibold text-white mb-1">Get contacted directly</h3>
+              <p className="text-sm text-white/60">WhatsApp, call, or email buttons right on your profile -- no back-and-forth required.</p>
             </div>
           </div>
 
-          <div className="mt-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href={LISTING_SIGNUP_URL}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
+            >
+              <LayoutList className="w-4 h-4" />
+              List your business -- ₦500/month
+            </a>
             <Link
               href="/sell"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-white hover:text-gold-200 transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-semibold text-white hover:text-gold-200 transition-colors"
             >
-              Compare both options
+              See what&apos;s included
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, Heart, User, Menu, X, Package, LogOut, UtensilsCrossed } from "lucide-react";
+import { ShoppingBag, Heart, User, Menu, X, Package, Store, LogOut, UtensilsCrossed } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useDeliveryState } from "@/contexts/DeliveryStateContext";
@@ -95,7 +95,7 @@ export default function SiteHeader({ brand = "stora" }) {
               href="/sell"
               className="text-sm font-medium text-white/70 hover:text-white transition-colors px-3 py-2"
             >
-              Sell on Stora
+              List Your Business
             </Link>
 
             <button
@@ -310,8 +310,8 @@ export default function SiteHeader({ brand = "stora" }) {
                   onClick={() => setShowMobileMenu(false)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-colors text-left"
                 >
-                  <Package className="w-5 h-5 text-gray-500" />
-                  <span className="font-medium">Sell on Stora</span>
+                  <Store className="w-5 h-5 text-gray-500" />
+                  <span className="font-medium">List Your Business</span>
                 </Link>
               </div>
 
