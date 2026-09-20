@@ -50,7 +50,12 @@ function transformInventory(item, variants = []) {
     barcode: v.barcode,
     isActive: v.is_active,
     price: v.price,
-    costPrice: v.cost_price
+    costPrice: v.cost_price,
+    // See api/inventory/route.js's identical field for why this matters --
+    // this GET (Edit Inventory modal) needs it to display/preserve
+    // made-to-order state correctly when a vendor reopens the item.
+    isUnlimited: v.is_unlimited,
+    maxOrdersPerDay: v.max_orders_per_day
   }));
 
   const totalStock = variants.reduce((sum, v) => sum + (v.quantity_in_stock || 0), 0);
@@ -58,6 +63,7 @@ function transformInventory(item, variants = []) {
   const totalSold = variants.reduce((sum, v) => sum + (v.sold_quantity || 0), 0);
   const representativePrice = variants[0]?.price ?? 0;
   const representativeCost = variants[0]?.cost_price ?? 0;
+  const isUnlimited = variants.some(v => v.is_unlimited);
 
   return {
     id: item.id,
@@ -84,6 +90,7 @@ function transformInventory(item, variants = []) {
     stockQuantity: totalStock,
     quantityReserved: totalReserved,
     soldQuantity: totalSold,
+    isUnlimited,
     minimumStock: item.minimum_stock,
     reorderLevel: item.minimum_stock,
     unitOfMeasure: item.unit_of_measure || 'Piece',

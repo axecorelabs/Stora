@@ -53,7 +53,16 @@ function transformInventory(item, variants = []) {
     barcode: v.barcode,
     isActive: v.is_active,
     price: v.price,
-    costPrice: v.cost_price
+    costPrice: v.cost_price,
+    // Was missing entirely -- a made-to-order variant's quantityInStock is
+    // always 0 by design (no batch is ever created for one), which is
+    // indistinguishable from genuinely out-of-stock without this. POS's
+    // own product list (usePOSData.js) needs it to stop filtering these
+    // out, and fn_sell_stock_direct (20260925000000_made_to_order_pos_
+    // direct_sale.sql) already knows how to sell one correctly -- this was
+    // the missing link between the two.
+    isUnlimited: v.is_unlimited,
+    maxOrdersPerDay: v.max_orders_per_day
   }));
 
   const totalStock = variants.reduce((sum, v) => sum + (v.quantity_in_stock || 0), 0);
@@ -65,6 +74,12 @@ function transformInventory(item, variants = []) {
   // representative of all of them until that UI exists.
   const representativePrice = variants[0]?.price ?? 0;
   const representativeCost = variants[0]?.cost_price ?? 0;
+  // Top-level convenience flag -- a made-to-order item always has
+  // quantityInStock=0 by design, so callers that only look at that number
+  // (usePOSData.js's product-list filter) need this to tell it apart from
+  // a genuinely out-of-stock item. True if any variant is unlimited,
+  // matching the realistic case (a menu item has exactly one variant).
+  const isUnlimited = variants.some(v => v.is_unlimited);
 
   return {
     id: item.id,
@@ -91,6 +106,7 @@ function transformInventory(item, variants = []) {
     stockQuantity: totalStock,
     quantityReserved: totalReserved,
     soldQuantity: totalSold,
+    isUnlimited,
     minimumStock: item.minimum_stock,
     reorderLevel: item.minimum_stock,
     unitOfMeasure: item.unit_of_measure || 'Piece',

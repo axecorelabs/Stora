@@ -209,7 +209,7 @@ export default function POSPage() {
     );
 
     if (existingItem) {
-      if (existingItem.quantity < item.quantityInStock) {
+      if (item.isUnlimited || existingItem.quantity < item.quantityInStock) {
         setCart(cart.map(cartItem =>
           cartItem === existingItem
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
@@ -313,7 +313,7 @@ export default function POSPage() {
 
       if (isMatch) {
         const maxStock = cartItem.variant ? cartItem.availableStock : cartItem.quantityInStock;
-        if (newQuantity > maxStock) {
+        if (!cartItem.isUnlimited && newQuantity > maxStock) {
           alert(`Only ${maxStock} units available`);
           return cartItem;
         }
@@ -1023,7 +1023,7 @@ export default function POSPage() {
             <SectionHeader icon={Package} title="Products" tone="gold" />
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredItems.map(item => {
-                const isLowStock = item.quantityInStock <= (item.reorderLevel || 0);
+                const isLowStock = !item.isUnlimited && item.quantityInStock <= (item.reorderLevel || 0);
                 const hasVariants = item.hasVariants && item.variants && item.variants.length > 0;
                 // One badge at a time -- variant count takes priority over batch info
                 // so cards never have to juggle two competing corner labels
@@ -1082,7 +1082,7 @@ export default function POSPage() {
                           </span>
                         )}
                         <span className="text-[11px] text-gray-500">
-                          {item.quantityInStock} in stock
+                          {item.isUnlimited ? 'Made to order' : `${item.quantityInStock} in stock`}
                         </span>
                       </div>
                       <button

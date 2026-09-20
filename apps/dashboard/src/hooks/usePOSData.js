@@ -23,9 +23,17 @@ export function usePOSData() {
     queryFn: async () => {
       const response = await secureApiCall('/api/inventory');
       if (response.success && Array.isArray(response.data)) {
-        // Filter active items with stock and apply batch pricing
+        // Filter active items with stock and apply batch pricing --
+        // isUnlimited (made-to-order menu items) always has
+        // quantityInStock=0 by design (no batch is ever created for one),
+        // so it needs its own exemption here rather than being
+        // indistinguishable from a genuinely out-of-stock item. See
+        // fn_sell_stock_direct (20260925000000_made_to_order_pos_direct_
+        // sale.sql), which already enforces its real limit (max orders/day)
+        // once it reaches the RPC -- this filter only ever needs to let it
+        // through, not re-check the cap itself.
         const activeItems = response.data
-          .filter(item => item.status === 'Active' && item.quantityInStock > 0)
+          .filter(item => item.status === 'Active' && (item.isUnlimited || item.quantityInStock > 0))
           .map(item => ({
             ...item,
             // Use current batch pricing if available, otherwise fall back to item pricing
