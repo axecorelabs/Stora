@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import sharp from 'sharp';
 
@@ -55,6 +55,21 @@ export async function uploadToR2(file, key, contentTypeOverride) {
   }
 }
 
+// Generate a short-lived presigned PUT URL for direct browser uploads.
+export async function generatePresignedUploadUrl(key, contentType, expiresIn = 300) {
+  try {
+    const command = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+      ContentType: contentType || 'application/octet-stream'
+    });
+    return await getSignedUrl(s3, command, { expiresIn });
+  } catch (error) {
+    console.error('Error generating upload URL:', error);
+    throw new Error('Failed to generate upload URL');
+  }
+}
+
 // Delete file from R2
 export async function deleteFromR2(key) {
   try {
@@ -85,6 +100,11 @@ export function extractKeyFromUrl(url) {
     console.error('Error extracting key from URL:', url, error);
     return null;
   }
+}
+
+export function getPublicUrlForKey(key) {
+  if (!PUBLIC_URL_BASE || !key) return null;
+  return `${PUBLIC_URL_BASE}/${String(key).replace(/^\/+/, '')}`;
 }
 
 // Generate a unique file key. Always .webp -- every upload now passes
@@ -203,5 +223,26 @@ export async function generatePresignedUrl(key, expiresIn = 3600) {
   } catch (error) {
     console.error('Error generating presigned URL:', error);
     throw new Error('Failed to generate presigned URL');
+  }
+}
+
+export async function getObjectMetadata(key) {
+  try {
+    const result = await s3.send(new HeadObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key
+    }));
+    return {
+      contentType: result.ContentType || null,
+      contentLength: Number(result.ContentLength || 0),
+      etag: result.ETag || null,
+      lastModified: result.LastModified || null
+    };
+  } catch (error) {
+    if (error?.name === 'NotFound' || error?.$metadata?.httpStatusCode === 404) {
+      return null;
+    }
+    console.error('Error reading object metadata from R2:', error);
+    throw new Error('Failed to verify uploaded object');
   }
 }

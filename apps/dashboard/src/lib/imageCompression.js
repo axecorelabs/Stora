@@ -45,8 +45,15 @@ function canvasToBlob(canvas, type, quality) {
 // (can't decode it, output came out no smaller) -- the caller's own
 // size/type validation is still the real gate either way, this is purely
 // a best-effort head start so most people never hit it.
-export async function compressImageIfNeeded(file) {
-  if (!file || !file.type?.startsWith("image/") || file.size <= TARGET_BYTES) {
+//
+// targetBytes defaults to TARGET_BYTES (2MB, matching lib/r2.js's
+// validateImageFile) -- every caller except the gallery's direct-to-R2
+// upload goes through that server-proxied route, so they must stay at
+// this default. Only pass a larger value for an upload path that's
+// verified to have its own higher ceiling; a mismatched override just
+// moves the rejection from here to that path's own size check.
+export async function compressImageIfNeeded(file, targetBytes = TARGET_BYTES) {
+  if (!file || !file.type?.startsWith("image/") || file.size <= targetBytes) {
     return file;
   }
 
@@ -69,7 +76,7 @@ export async function compressImageIfNeeded(file) {
     let quality = 0.85;
     let blob = await canvasToBlob(canvas, file.type, canAdjustQuality ? quality : undefined);
 
-    while (canAdjustQuality && blob.size > TARGET_BYTES && quality > MIN_QUALITY) {
+    while (canAdjustQuality && blob.size > targetBytes && quality > MIN_QUALITY) {
       quality -= QUALITY_STEP;
       blob = await canvasToBlob(canvas, file.type, quality);
     }

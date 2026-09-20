@@ -2,11 +2,20 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { compressImageIfNeeded } from "@/lib/imageCompression";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Button from "@/components/ui/Button";
 import { Upload, Trash2, GripVertical, Plus, AlertCircle, Loader2 } from "lucide-react";
 
 const MAX_IMAGES = 10;
+// Gallery uploads go straight to R2 via a presigned URL (see uploadDirect
+// below), never through a Vercel serverless function body -- so unlike
+// every other image upload in this app, it isn't bound by that platform's
+// ~4.5MB request cap. Its real ceiling is api/gallery/finalize's own
+// MAX_DIRECT_UPLOAD_BYTES (5MB); this targets a bit under that to leave
+// room for encoding rounding, rather than the shared 2MB default sized
+// for everyone else's still-server-proxied uploads.
+const GALLERY_COMPRESSION_TARGET_BYTES = 4.5 * 1024 * 1024;
 
 function GalleryItem({ item, onDelete, onCaptionChange, isDragging, dragHandleProps }) {
   const [caption, setCaption] = useState(item.caption || '');
@@ -108,19 +117,79 @@ export default function GalleryPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gallery'] })
   });
 
+  const uploadLegacy = async (file) => {
+    const form = new FormData();
+    form.append('image', file);
+    const response = await secureApiCall('/api/gallery', { method: 'POST', body: form });
+    if (!response.success) throw new Error(response.message);
+    return response.data;
+  };
+
+  const uploadDirect = async (file) => {
+    const uploadInit = await secureApiCall('/api/gallery/upload-url', {
+      method: 'POST',
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: file.type,
+        contentLength: file.size,
+      })
+    });
+
+    if (!uploadInit?.success || !uploadInit?.data?.uploadUrl || !uploadInit?.data?.uploadIntentToken) {
+      throw new Error(uploadInit?.message || 'Could not prepare upload');
+    }
+
+    const { uploadUrl, requiredHeaders, uploadIntentToken } = uploadInit.data;
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: requiredHeaders || { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error('Direct image upload failed');
+    }
+
+    const finalize = await secureApiCall('/api/gallery/finalize', {
+      method: 'POST',
+      body: JSON.stringify({
+        uploadIntentToken,
+        caption: null,
+      })
+    });
+
+    if (!finalize?.success) {
+      throw new Error(finalize?.message || 'Could not finalize upload');
+    }
+
+    return finalize.data;
+  };
+
   const handleUpload = async (files) => {
     setUploadError(null);
+    let currentCount = items.length;
     for (const file of Array.from(files)) {
-      if (items.length >= MAX_IMAGES) {
+      if (currentCount >= MAX_IMAGES) {
         setUploadError(`Gallery is full -- maximum ${MAX_IMAGES} images.`);
         break;
       }
       setUploading(true);
       try {
-        const form = new FormData();
-        form.append('image', file);
-        const response = await secureApiCall('/api/gallery', { method: 'POST', body: form });
-        if (!response.success) throw new Error(response.message);
+        const compressed = await compressImageIfNeeded(file, GALLERY_COMPRESSION_TARGET_BYTES);
+
+        try {
+          await uploadDirect(compressed);
+        } catch (directError) {
+          // Rollout safety: if signed-upload routes aren't available yet,
+          // keep uploads working via the existing multipart endpoint.
+          if (directError?.message?.includes('HTTP 404')) {
+            await uploadLegacy(compressed);
+          } else {
+            throw directError;
+          }
+        }
+
+        currentCount += 1;
         queryClient.invalidateQueries({ queryKey: ['gallery'] });
       } catch (err) {
         setUploadError(err.message || 'Upload failed');
@@ -212,7 +281,7 @@ export default function GalleryPage() {
           >
             <Upload className="w-8 h-8 text-gray-300 mx-auto mb-3" />
             <p className="text-sm font-medium text-gray-500">Upload your first image</p>
-            <p className="text-xs text-gray-400 mt-1">JPEG, PNG or WebP, up to 5MB each</p>
+            <p className="text-xs text-gray-400 mt-1">JPEG, PNG or WebP, up to 5MB each (auto-compressed before upload)</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
