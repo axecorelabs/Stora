@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { generateSKU, backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
-import { embedProductById } from '@/lib/openrouter';
+import { embedProductById, embedStoreById } from '@/lib/openrouter';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { normalizeExtraDefinitions } from '@stora/shared-constants';
 
@@ -519,6 +519,9 @@ export async function POST(req) {
     // saving a product must never wait on (or fail because of) it. AI
     // search just won't surface this item until the embedding lands.
     after(() => embedProductById(newItem.id));
+    // Also refreshes the store's own embedding (categories/brands) so a new
+    // product line shows up in AI vendor search, not just product search.
+    if (userStore?.id) after(() => embedStoreById(userStore.id));
 
     after(() => captureServerEvent(user.id, 'inventory_item_created', {
       category: newItem.category,

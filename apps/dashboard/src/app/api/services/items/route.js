@@ -5,6 +5,7 @@ import { verifySession } from '@/lib/auth';
 import { uploadToR2, generateFileKey, validateImageFile } from '@/lib/r2';
 import { loadServiceDocument } from '@/lib/services';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { embedStoreById } from '@/lib/openrouter';
 
 export const MAX_PORTFOLIO_IMAGES = 5;
 
@@ -155,6 +156,9 @@ export async function POST(request) {
 
     const serviceDoc = await loadServiceDocument(userStore.id);
     after(() => captureServerEvent(user.id, 'service_created', { store_id: userStore.id }));
+    // Re-embed the store so AI vendor search can find it by this service --
+    // service_items have no embedding of their own (see openrouter.js).
+    after(() => embedStoreById(userStore.id));
 
     return NextResponse.json({
       success: true,

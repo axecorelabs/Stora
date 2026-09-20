@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
-import { embedProductById } from '@/lib/openrouter';
+import { embedProductById, embedStoreById } from '@/lib/openrouter';
 import { normalizeExtraDefinitions } from '@stora/shared-constants';
 
 // Helper to transform inventory data for response. Every product has >=1
@@ -329,6 +329,12 @@ export async function PUT(request, { params }) {
     // new OpenRouter round trip. Deferred, same as the create route.
     if (dbUpdate.name !== undefined || dbUpdate.description !== undefined || dbUpdate.category !== undefined) {
       after(() => embedProductById(id));
+    }
+    // Store-level embedding only reads category/brand (see
+    // loadActiveProductSignals in openrouter.js) -- a name/description-only
+    // edit doesn't change what the store itself is searchable for.
+    if ((dbUpdate.category !== undefined || dbUpdate.brand !== undefined) && item.store_id) {
+      after(() => embedStoreById(item.store_id));
     }
 
     const finalVariants = await fetchVariants(id);

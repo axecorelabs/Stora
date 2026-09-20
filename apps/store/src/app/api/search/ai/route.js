@@ -36,16 +36,18 @@ const AI_SEARCH_CACHE_TTL_SECONDS = 60 * 60 * 24;
 const BUSINESS_INTENT_TERMS = new Set([
   "service", "services", "vendor", "vendors", "business", "businesses", "provider", "providers", "hire", "book",
   "photographer", "photography", "plumber", "electrician", "tailor", "stylist", "makeup", "salon", "barber",
-  "cleaner", "cleaning", "mechanic", "repair", "decorator", "caterer", "dj", "videographer", "laundry"
+  "cleaner", "cleaning", "mechanic", "repair", "decorator", "caterer", "dj", "videographer", "laundry",
+  "security", "guard", "realtor", "carpenter", "carpentry", "painter"
 ]);
 const SERVICE_INTENT_TERMS = new Set([
   "photographer", "photography", "videographer", "videography", "plumber", "electrician", "tailor", "stylist",
   "makeup", "salon", "barber", "cleaner", "cleaning", "mechanic", "repair", "decorator", "caterer", "dj",
-  "laundry", "service", "services", "provider", "providers", "hire", "book"
+  "laundry", "service", "services", "provider", "providers", "hire", "book",
+  "security", "guard", "realtor", "carpenter", "carpentry", "painter"
 ]);
 const RESTAURANT_INTENT_TERMS = new Set([
   "restaurant", "restaurants", "eat", "eatout", "dining", "dinner", "lunch", "breakfast", "meal", "meals",
-  "food", "foodspot", "shawarma", "pizza", "suya", "amala", "buka", "canteen"
+  "food", "foodspot", "shawarma", "pizza", "suya", "amala", "buka", "canteen", "bar", "lounge"
 ]);
 const STOP_WORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "from", "i", "i'm", "im", "in", "into", "is", "it",

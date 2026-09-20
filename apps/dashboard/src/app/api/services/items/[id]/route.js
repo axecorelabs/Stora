@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { verifySession } from '@/lib/auth';
 import { loadServiceDocument } from '@/lib/services';
+import { embedStoreById } from '@/lib/openrouter';
 import { validateServiceItemData, uploadPortfolioImages, writeServiceItem, MAX_PORTFOLIO_IMAGES } from '../route';
 
 // Neither PATCH nor DELETE existed for a specific service item before this
@@ -94,6 +95,7 @@ export async function PATCH(request, { params }) {
     }
 
     const serviceDoc = await loadServiceDocument(store.id);
+    after(() => embedStoreById(store.id));
     return NextResponse.json({ success: true, data: serviceDoc });
   } catch (error) {
     console.error('Error updating service item:', error);
@@ -119,6 +121,7 @@ export async function DELETE(request, { params }) {
     if (deleteError) throw deleteError;
 
     const serviceDoc = await loadServiceDocument(store.id);
+    after(() => embedStoreById(store.id));
     return NextResponse.json({ success: true, data: serviceDoc });
   } catch (error) {
     console.error('Error deleting service item:', error);

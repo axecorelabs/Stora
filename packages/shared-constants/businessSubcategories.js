@@ -3,14 +3,21 @@
 export const BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY = {
   retail: [
     { value: 'supermarket', label: 'Supermarket' },
+    // Distinct from Supermarket on purpose -- a different scale of
+    // business (the small neighborhood shop/kiosk), not just a synonym,
+    // so a micro-retailer has an accurate size-appropriate option instead
+    // of being forced into "Supermarket".
+    { value: 'provisions-store', label: 'Provisions Store / Mini-Mart' },
     { value: 'pharmacy', label: 'Pharmacy' },
     { value: 'fashion-boutique', label: 'Fashion Boutique' },
     { value: 'electronics', label: 'Electronics' },
     { value: 'beauty-cosmetics', label: 'Beauty & Cosmetics' },
     { value: 'home-kitchen', label: 'Home & Kitchen' },
+    { value: 'furniture-decor', label: 'Furniture & Home Decor' },
     { value: 'baby-kids', label: 'Baby & Kids' },
     { value: 'books-stationery', label: 'Books & Stationery' },
     { value: 'hardware-building', label: 'Hardware & Building Supplies' },
+    { value: 'agro-farm-supplies', label: 'Agriculture & Farm Supplies' },
     { value: 'auto-parts', label: 'Auto Parts' }
   ],
   restaurant: [
@@ -21,13 +28,34 @@ export const BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY = {
     { value: 'grill-bbq', label: 'Grill & BBQ' },
     { value: 'desserts', label: 'Desserts' },
     { value: 'drinks-juice', label: 'Drinks & Juice' },
+    { value: 'bar-lounge', label: 'Bar & Lounge' },
     { value: 'meal-prep', label: 'Meal Prep' }
   ],
+  // Search's own AI intent-extraction prompt (apps/store/src/lib/
+  // openrouter.js) and its keyword-fallback lists (apps/store/src/app/api/
+  // search/ai/route.js's SERVICE_INTENT_TERMS) already recognize
+  // "tailor"/"photographer"/"caterer" etc. as valid service-search intent,
+  // but before this there was no matching subcategory for any of them --
+  // a real tailor or photographer had nowhere accurate to register under,
+  // and fell into the generic "Repairs & Tech Support" catch-all (which
+  // reads as electronics/appliance repair) or nothing at all. Also splits
+  // "Repairs & Tech Support" itself: it was carrying phone/appliance
+  // repair, auto mechanics, AND home trades (electricians/plumbers) all at
+  // once -- three genuinely different trades a customer searches for
+  // differently.
   services: [
     { value: 'salon-barber', label: 'Salon & Barber' },
     { value: 'laundry-drycleaning', label: 'Laundry & Dry Cleaning' },
     { value: 'cleaning', label: 'Cleaning Services' },
     { value: 'repairs-tech', label: 'Repairs & Tech Support' },
+    { value: 'automotive', label: 'Automotive Services' },
+    { value: 'home-trades', label: 'Home & Construction Trades' },
+    { value: 'tailoring', label: 'Tailoring & Alterations' },
+    { value: 'photography-videography', label: 'Photography & Videography' },
+    { value: 'catering', label: 'Catering Services' },
+    { value: 'security', label: 'Security Services' },
+    { value: 'printing-branding', label: 'Printing, Branding & Design' },
+    { value: 'real-estate', label: 'Real Estate & Property' },
     { value: 'logistics-dispatch', label: 'Logistics & Dispatch' },
     { value: 'events', label: 'Events Services' },
     { value: 'health-wellness', label: 'Health & Wellness' },
@@ -120,6 +148,7 @@ export const BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY = {
 export const BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY = {
   retail: [
     { key: 'single-supermarket', label: 'Supermarket', primary: 'supermarket' },
+    { key: 'single-provisions-store', label: 'Provisions Store / Mini-Mart', primary: 'provisions-store' },
     { key: 'single-pharmacy', label: 'Pharmacy', primary: 'pharmacy' },
     { key: 'single-fashion', label: 'Fashion Boutique', primary: 'fashion-boutique' },
     { key: 'single-electronics', label: 'Electronics', primary: 'electronics' }
@@ -128,13 +157,19 @@ export const BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY = {
     { key: 'single-fastfood', label: 'Fast Food', primary: 'fast-food' },
     { key: 'single-local-kitchen', label: 'Local Kitchen', primary: 'local-kitchen' },
     { key: 'single-bakery', label: 'Bakery', primary: 'bakery' },
-    { key: 'single-cafe', label: 'Cafe', primary: 'cafe' }
+    { key: 'single-cafe', label: 'Cafe', primary: 'cafe' },
+    { key: 'single-bar-lounge', label: 'Bar & Lounge', primary: 'bar-lounge' }
   ],
   services: [
     { key: 'single-salon', label: 'Salon & Barber', primary: 'salon-barber' },
     { key: 'single-laundry', label: 'Laundry & Dry Cleaning', primary: 'laundry-drycleaning' },
     { key: 'single-cleaning', label: 'Cleaning Services', primary: 'cleaning' },
-    { key: 'single-repairs', label: 'Repairs & Tech Support', primary: 'repairs-tech' }
+    { key: 'single-repairs', label: 'Repairs & Tech Support', primary: 'repairs-tech' },
+    { key: 'single-automotive', label: 'Automotive Services', primary: 'automotive' },
+    { key: 'single-home-trades', label: 'Home & Construction Trades', primary: 'home-trades' },
+    { key: 'single-tailoring', label: 'Tailoring & Alterations', primary: 'tailoring' },
+    { key: 'single-photography', label: 'Photography & Videography', primary: 'photography-videography' },
+    { key: 'single-catering', label: 'Catering Services', primary: 'catering' }
   ],
   hybrid: [
     { key: 'single-supermarket-pharmacy', label: 'Supermarket + Pharmacy', primary: 'supermarket-pharmacy' },
