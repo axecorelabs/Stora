@@ -11,12 +11,29 @@ import { useAuth } from "@/contexts/AuthContext";
 // below lg (see DashboardHeader.js) rather than running two different
 // nav entry points side by side -- a native app picks one pattern, not
 // both.
-const COMMERCE_TABS = [
-  { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard/overview" },
-  { name: "Orders", icon: ShoppingBag, path: "/dashboard/orders" },
-  { name: "Catalogue", icon: Package, path: "/dashboard/inventory" },
-  { name: "Payments", icon: Wallet, path: "/dashboard/payments" },
-];
+//
+// The 3rd tab is picked dynamically (see getCommerceThirdTab below) --
+// this used to be a hardcoded "Catalogue" tab regardless of business
+// type, unlike DashboardSidebar.js's own Commerce section, which
+// correctly hides Catalogue for a vendor who doesn't sell products
+// (showCatalogue = sellsProducts || restaurantMode). A services-only
+// vendor got a permanent bottom-nav tab pointing at an inventory page
+// the desktop nav had deliberately hidden from them.
+function getCommerceThirdTab(store) {
+  const showCatalogue = store ? (!!store.sellsProducts || !!store.restaurantMode) : true;
+  if (showCatalogue) return { name: "Catalogue", icon: Package, path: "/dashboard/inventory" };
+  if (store?.offersServices) return { name: "Services", icon: Wrench, path: "/dashboard/services" };
+  return { name: "Catalogue", icon: Package, path: "/dashboard/inventory" };
+}
+
+function getCommerceTabs(store) {
+  return [
+    { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard/overview" },
+    { name: "Orders", icon: ShoppingBag, path: "/dashboard/orders" },
+    getCommerceThirdTab(store),
+    { name: "Payments", icon: Wallet, path: "/dashboard/payments" },
+  ];
+}
 
 const LISTING_TABS = [
   { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard/overview" },
@@ -35,8 +52,9 @@ export default function MobileBottomNav({ onOpenMore }) {
     queryFn: () => secureApiCall('/api/stores').catch(() => null),
     staleTime: 5 * 60 * 1000,
   });
-  const isListingMode = storeResponse?.data?.platformMode === "listing";
-  const tabs = isListingMode ? LISTING_TABS : COMMERCE_TABS;
+  const store = storeResponse?.data;
+  const isListingMode = store?.platformMode === "listing";
+  const tabs = isListingMode ? LISTING_TABS : getCommerceTabs(store);
 
   // Same queryKey as DashboardSidebar.js's own badge -- TanStack Query
   // dedupes/caches by key, so this doesn't add a second network call, and

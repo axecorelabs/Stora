@@ -303,11 +303,16 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
             { name: "Add service", path: "/dashboard/services", icon: PlusCircle }
           ]
         : [
-            { name: "New product", path: "/dashboard/inventory", icon: PlusCircle },
+            // Same showCatalogue/showServices gate the Commerce section
+            // above already applies -- these used to be unconditional, so
+            // a services-only vendor saw "New product" (and a
+            // products-only vendor saw "Add service") pointing at a page
+            // the main nav had deliberately hidden from them.
+            ...(showCatalogue ? [{ name: "New product", path: "/dashboard/inventory", icon: PlusCircle }] : []),
             { name: "Record sale", path: "/dashboard/pos", icon: Receipt },
-            { name: "Add service", path: "/dashboard/services", icon: Wrench }
+            ...(showServices ? [{ name: "Add service", path: "/dashboard/services", icon: Wrench }] : [])
           ],
-    [isListingMode]
+    [isListingMode, showCatalogue, showServices]
   );
 
   const flattenedMenuItems = useMemo(
