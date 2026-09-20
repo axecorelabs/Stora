@@ -21,7 +21,7 @@ export default function DiscoveryProductCard({ product }) {
   const { addToWishlist, removeFromWishlist } = useWishlistMutations();
   const isUpdatingWishlist = addToWishlist.isPending || removeFromWishlist.isPending;
   const accentColor = product.store?.primaryColor || "#145C41";
-  const storeSlug = product.store?.storeSlug;
+  const storeSlug = product.store?.publicSlug || product.store?.storeSlug;
   const storeInitial = (product.store?.storeName || "?").trim().charAt(0).toUpperCase();
   const showLogoImage = product.store?.logo && !logoErrored;
 

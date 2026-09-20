@@ -24,7 +24,7 @@ export default function VendorSearchCard({ store }) {
 
   return (
     <PrefetchLink
-      href={`/${store.storeSlug}`}
+      href={`/${store.publicSlug || store.storeSlug}`}
       className="group flex flex-col bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_8px_24px_rgba(11,59,46,0.10)] hover:-translate-y-0.5 transition-all duration-200"
     >
       <div className="h-28 sm:h-36 relative" style={{ backgroundColor: primaryColor }}>

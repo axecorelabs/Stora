@@ -105,6 +105,7 @@ export async function PUT(req) {
             // (transformStore's own fallback) rather than storing an
             // empty value.
             delete updatedWebsite.websitePath;
+            dbUpdate.website_path = null;
           } else {
             const shapeError = getWebsitePathShapeError(normalized);
             if (shapeError) {
@@ -126,6 +127,13 @@ export async function PUT(req) {
             }
 
             updatedWebsite.websitePath = normalized;
+            // Mirrored into its own indexed, unique column -- see
+            // 20260924000000_website_path_column.sql. This is what the
+            // storefront's routing and public link generation actually
+            // read; the JSONB copy above stays only for the dashboard's
+            // own existing reads (WebsiteSettingsView, this route's own
+            // transformStore).
+            dbUpdate.website_path = normalized;
           }
         }
       }
@@ -153,6 +161,17 @@ export async function PUT(req) {
 
     if (updateError) {
       console.error('Website settings update error:', updateError);
+      // stores_website_path_unique caught a collision the pre-check above
+      // missed -- two vendors racing for the same address at the same
+      // instant. Rare, but a real possibility this pre-check can't fully
+      // close (see isWebsitePathTaken's own comment), so this needs its
+      // own clean error rather than falling into the generic 500 below.
+      if (updateError.code === '23505' && dbUpdate.website_path !== undefined) {
+        return NextResponse.json(
+          { success: false, message: 'That website address is already taken' },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
         { success: false, message: 'Failed to update website settings' },
         { status: 500 }

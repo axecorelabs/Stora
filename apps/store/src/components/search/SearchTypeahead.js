@@ -115,12 +115,12 @@ export default function SearchTypeahead({ value, onChange, placeholder, variant 
     const previewVendors = preview?.vendors || [];
     const previewProducts = preview?.products || [];
     const items = [
-      ...previewVendors.map((v) => ({ type: "vendor", href: `/${v.storeSlug}` })),
+      ...previewVendors.map((v) => ({ type: "vendor", href: `/${v.publicSlug || v.storeSlug}` })),
       // ?from=discover -- search is always a site-wide action (SearchConsole,
       // which owns this typeahead, only renders on /products and /vendors,
       // never inside a vendor's own storefront), so a result click should
       // return to browsing, not strand the visitor on one vendor's storefront.
-      ...previewProducts.map((p) => ({ type: "product", href: `/${p.store?.storeSlug}/product/${p.id}?from=discover` }))
+      ...previewProducts.map((p) => ({ type: "product", href: `/${p.store?.publicSlug || p.store?.storeSlug}/product/${p.id}?from=discover` }))
     ];
     if (preview?.productTotal > previewProducts.length) {
       items.push({ type: "seeAllProducts", href: `/products?q=${encodeURIComponent(q)}` });
@@ -249,7 +249,7 @@ export default function SearchTypeahead({ value, onChange, placeholder, variant 
                         role="option"
                         aria-selected={highlighted === idx}
                         onMouseEnter={() => setHighlighted(idx)}
-                        onClick={() => go(`/${v.storeSlug}`)}
+                        onClick={() => go(`/${v.publicSlug || v.storeSlug}`)}
                         className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
                           highlighted === idx ? "bg-brand-50" : "hover:bg-gray-50"
                         }`}
@@ -282,7 +282,7 @@ export default function SearchTypeahead({ value, onChange, placeholder, variant 
                         role="option"
                         aria-selected={highlighted === idx}
                         onMouseEnter={() => setHighlighted(idx)}
-                        onClick={() => go(`/${p.store?.storeSlug}/product/${p.id}?from=discover`)}
+                        onClick={() => go(`/${p.store?.publicSlug || p.store?.storeSlug}/product/${p.id}?from=discover`)}
                         className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
                           highlighted === idx ? "bg-brand-50" : "hover:bg-gray-50"
                         }`}

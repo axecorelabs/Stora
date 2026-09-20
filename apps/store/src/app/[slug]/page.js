@@ -29,11 +29,30 @@ export async function generateMetadata({ params }) {
     }
 
     const seoSettings = store.website?.seo_settings || {};
-    const canonicalUrl = `https://stora.com.ng/${slug}`;
-    
+    // Always the vendor's resolved public slug (their own chosen address
+    // when set, store_slug otherwise -- see publicSlug in supabaseStore.js),
+    // never whichever of the store's several equivalent URLs this request
+    // happened to arrive on -- otherwise the same page declares a
+    // different canonical depending on how it was reached, and matches
+    // sitemap.js's own already-established precedent (path form, not the
+    // vendor subdomain -- that stays a valid alternate address, just not
+    // what Stora's own canonical/sitemap declare as authoritative).
+    const canonicalUrl = `https://stora.com.ng/${store.publicSlug || slug}`;
+    // Service-only listing businesses don't "sell products" -- this
+    // fallback used to say so unconditionally, contradicting the
+    // LocalBusiness/Store schema.org split a few lines below, which
+    // already gets this right.
+    const isListing = store.platformMode === 'listing';
+    const defaultTitle = isListing
+      ? `${store.storeName} - Book on Stora`
+      : `${store.storeName} - Quality Products Online`;
+    const defaultDescription = isListing
+      ? `Find and contact ${store.storeName} on Stora. ${store.storeDescription || ''}`.trim()
+      : `Shop quality products at ${store.storeName}. ${store.storeDescription || ''}`.trim();
+
     return {
-      title: seoSettings.meta_title || `${store.storeName} - Quality Products Online`,
-      description: seoSettings.meta_description || `Shop quality products at ${store.storeName}. ${store.storeDescription}`,
+      title: seoSettings.meta_title || defaultTitle,
+      description: seoSettings.meta_description || defaultDescription,
       keywords: seoSettings.keywords?.join(', ') || '',
       alternates: {
         canonical: canonicalUrl,
@@ -43,16 +62,16 @@ export async function generateMetadata({ params }) {
         apple: store.branding?.logo || '/favicon.ico',
       },
       openGraph: {
-        title: seoSettings.meta_title || `${store.storeName} - Quality Products Online`,
-        description: seoSettings.meta_description || `Shop quality products at ${store.storeName}`,
+        title: seoSettings.meta_title || defaultTitle,
+        description: seoSettings.meta_description || defaultDescription,
         url: canonicalUrl,
         images: [store.branding?.banner || store.branding?.logo || '/og-image.jpg'],
         type: 'website',
       },
       twitter: {
         card: 'summary_large_image',
-        title: seoSettings.meta_title || `${store.storeName} - Quality Products Online`,
-        description: seoSettings.meta_description || `Shop quality products at ${store.storeName}`,
+        title: seoSettings.meta_title || defaultTitle,
+        description: seoSettings.meta_description || defaultDescription,
         images: [store.branding?.banner || store.branding?.logo || '/og-image.jpg'],
       },
     };
@@ -69,12 +88,23 @@ export async function generateMetadata({ params }) {
 export default async function StorePage({ params }) {
   const { slug } = await params;
 
-  // Fetch store using Supabase
-  const store = await findStoreByWebsitePath(slug);
+  // findStoreByWebsitePath re-throws on a genuine DB error (its own
+  // comment: "let the page handle it gracefully") -- generateMetadata
+  // above already catches this same call and degrades cleanly; this page
+  // component didn't, so a transient Supabase error crashed straight into
+  // Next's generic (unbranded) error page instead of this app's own
+  // not-found UI. No app/error.js boundary exists to catch it otherwise.
+  let store;
+  try {
+    store = await findStoreByWebsitePath(slug);
+  } catch (error) {
+    console.error('Error loading store page:', error);
+    notFound();
+  }
 
   if (!store) notFound();
 
-  const canonicalUrl = `https://stora.com.ng/${slug}`;
+  const canonicalUrl = `https://stora.com.ng/${store.publicSlug || slug}`;
   const primaryImage = store.branding?.banner || store.branding?.logo || 'https://stora.com.ng/stora2.png';
   const storeSchema = {
     '@context': 'https://schema.org',

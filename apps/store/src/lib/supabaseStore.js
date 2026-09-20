@@ -136,6 +136,13 @@ function transformStoreFields(store) {
     id: store.id,
     storeName: store.store_name,
     storeSlug: store.store_slug,
+    // The address every internal link should actually use -- the vendor's
+    // own chosen address (website_path, see 20260924000000_website_path_
+    // column.sql) when they've set one, falling back to store_slug
+    // otherwise. storeSlug above stays for anything still reading it
+    // directly; publicSlug is what VendorCard/VendorSearchCard/
+    // [slug]/page.js's canonical URL etc. link through now.
+    publicSlug: store.website_path || store.store_slug,
     storeDescription: store.store_description,
     storeType: store.store_type,
     restaurantMode: !!store.restaurant_mode,
@@ -343,10 +350,16 @@ export async function findStoreById(storeId) {
   return attachServices(transformStoreFields(data));
 }
 
-// Public store URLs are keyed by website.websitePath (a clean, editable slug),
-// which is distinct from the store_slug column (generated once at creation with
-// a random suffix, e.g. "korrys-fit-3555b3" vs websitePath "korrys-fit"). Try
-// store_slug first for backwards compatibility, then fall back to websitePath.
+// Public store URLs are keyed by website_path (a clean, editable slug --
+// its own indexed, unique column as of 20260924000000_website_path_
+// column.sql), distinct from the store_slug column (generated once at
+// creation with a random suffix, e.g. "korrys-fit-3555b3" vs website_path
+// "korrys-fit"). Try store_slug first for backwards compatibility, then
+// fall back to website_path -- both real indexed lookups now, not a
+// scan. (Deliberately not a single .or() query: `slug` is unsanitized
+// user input from the URL, and supabase-js's .or() takes a raw PostgREST
+// filter string rather than a parameterized value the way .eq() does --
+// interpolating it there would be a filter-injection risk.)
 async function findActiveStoreByPathOrSlug(slug) {
   const { data: bySlug, error: slugError } = await supabaseAdmin
     .from('stores')
@@ -365,7 +378,7 @@ async function findActiveStoreByPathOrSlug(slug) {
   const { data: byPath, error: pathError } = await supabaseAdmin
     .from('stores')
     .select('*')
-    .contains('website', { websitePath: slug })
+    .eq('website_path', slug)
     .eq('is_active', true)
     .maybeSingle();
 
@@ -624,7 +637,7 @@ export async function searchBiteraveProducts({ mealOnly, search, storeId, cuisin
 
   const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
   const { data: stores, error: storesError } = storeIds.length > 0
-    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding, state').in('id', storeIds)
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, website_path, branding, state').in('id', storeIds)
     : { data: [], error: null };
 
   if (storesError) {
@@ -639,6 +652,7 @@ export async function searchBiteraveProducts({ mealOnly, search, storeId, cuisin
       store: store ? {
         storeName: store.store_name,
         storeSlug: store.store_slug,
+        publicSlug: store.website_path || store.store_slug,
         logo: store.branding?.logo || null,
         primaryColor: store.branding?.primaryColor || null,
         secondaryColor: store.branding?.secondaryColor || null,
@@ -682,7 +696,7 @@ export async function searchBiteraveProductsByEmbedding({ mealOnly, embedding, s
 
   const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
   const { data: stores, error: storesError } = storeIds.length > 0
-    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding, state').in('id', storeIds)
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, website_path, branding, state').in('id', storeIds)
     : { data: [], error: null };
 
   if (storesError) {
@@ -697,6 +711,7 @@ export async function searchBiteraveProductsByEmbedding({ mealOnly, embedding, s
       store: store ? {
         storeName: store.store_name,
         storeSlug: store.store_slug,
+        publicSlug: store.website_path || store.store_slug,
         logo: store.branding?.logo || null,
         primaryColor: store.branding?.primaryColor || null,
         secondaryColor: store.branding?.secondaryColor || null,
@@ -998,7 +1013,7 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
   // where that context is already implicit.
   const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
   const { data: stores, error: storesError } = storeIds.length > 0
-    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding').in('id', storeIds)
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, website_path, branding').in('id', storeIds)
     : { data: [], error: null };
 
   if (storesError) {
@@ -1014,6 +1029,7 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
       store: store ? {
         storeName: store.store_name,
         storeSlug: store.store_slug,
+        publicSlug: store.website_path || store.store_slug,
         logo: store.branding?.logo || null,
         primaryColor: store.branding?.primaryColor || null,
         secondaryColor: store.branding?.secondaryColor || null
@@ -1066,7 +1082,7 @@ export async function searchProductsPaginated({ search, categories, sort = 'tren
   // comment -- a cross-vendor card needs its own store's slug/colors.
   const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
   const { data: stores, error: storesError } = storeIds.length > 0
-    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding, state').in('id', storeIds)
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, website_path, branding, state').in('id', storeIds)
     : { data: [], error: null };
 
   if (storesError) {
@@ -1081,6 +1097,7 @@ export async function searchProductsPaginated({ search, categories, sort = 'tren
       store: store ? {
         storeName: store.store_name,
         storeSlug: store.store_slug,
+        publicSlug: store.website_path || store.store_slug,
         logo: store.branding?.logo || null,
         primaryColor: store.branding?.primaryColor || null,
         secondaryColor: store.branding?.secondaryColor || null,
@@ -1126,7 +1143,7 @@ export async function searchProductsByEmbedding({ embedding, categories, minPric
 
   const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
   const { data: stores, error: storesError } = storeIds.length > 0
-    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, branding, state').in('id', storeIds)
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, website_path, branding, state').in('id', storeIds)
     : { data: [], error: null };
 
   if (storesError) {
@@ -1141,6 +1158,7 @@ export async function searchProductsByEmbedding({ embedding, categories, minPric
       store: store ? {
         storeName: store.store_name,
         storeSlug: store.store_slug,
+        publicSlug: store.website_path || store.store_slug,
         logo: store.branding?.logo || null,
         primaryColor: store.branding?.primaryColor || null,
         secondaryColor: store.branding?.secondaryColor || null,
@@ -1395,6 +1413,7 @@ export function buildPublicStoreData(store) {
     id: store.id,
     storeName: store.store_name,
     storeSlug: store.store_slug,
+    publicSlug: store.website_path || store.store_slug,
     storeDescription: store.store_description,
     storeType: store.store_type,
     restaurantMode: !!store.restaurant_mode,

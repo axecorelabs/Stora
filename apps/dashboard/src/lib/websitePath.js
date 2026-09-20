@@ -54,9 +54,13 @@ export function getWebsitePathShapeError(path) {
 }
 
 // True if some OTHER active store already has this as their store_slug or
-// their own custom websitePath -- excludeStoreId lets a store re-save its
+// their own custom website_path -- excludeStoreId lets a store re-save its
 // own current value (whichever field it's currently resolved from)
-// without tripping over itself.
+// without tripping over itself. This is a UX pre-check only (lets the UI
+// tell the vendor before they commit) -- stores_website_path_unique (see
+// 20260924000000_website_path_column.sql) is the real guarantee, since
+// this check-then-set has an inherent gap between the read here and the
+// write in the settings route.
 export async function isWebsitePathTaken(path, { excludeStoreId } = {}) {
   const { data: bySlug, error: slugError } = await supabaseAdmin
     .from('stores')
@@ -74,12 +78,12 @@ export async function isWebsitePathTaken(path, { excludeStoreId } = {}) {
   const { data: byPath, error: pathError } = await supabaseAdmin
     .from('stores')
     .select('id')
-    .contains('website', { websitePath: path })
+    .eq('website_path', path)
     .eq('is_active', true)
     .maybeSingle();
 
   if (pathError) {
-    console.error('Error checking website path against websitePath:', pathError);
+    console.error('Error checking website path against website_path:', pathError);
     throw new Error('Failed to check website address availability');
   }
   if (byPath && byPath.id !== excludeStoreId) return true;

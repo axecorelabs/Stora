@@ -16,7 +16,7 @@ export default function VendorCard({ store }) {
 
   return (
     <PrefetchLink
-      href={`/${store.storeSlug}`}
+      href={`/${store.publicSlug || store.storeSlug}`}
       className="group flex-shrink-0 w-[220px] sm:w-auto bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200"
     >
       <div
