@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import VerifyEmail from "./VerifyEmail";
+import TurnstileWidget from "./ui/TurnstileWidget";
 
 export default function SignUp({ onToggleMode }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,6 +18,7 @@ export default function SignUp({ onToggleMode }) {
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   const { signUp } = useAuth();
 
@@ -91,7 +93,7 @@ export default function SignUp({ onToggleMode }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, turnstileToken }),
       });
 
       const data = await response.json();
@@ -316,6 +318,8 @@ export default function SignUp({ onToggleMode }) {
                 <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.agreeToTerms}</p>
               )}
             </div>
+
+            <TurnstileWidget onVerify={setTurnstileToken} />
 
             <button
               type="submit"

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Eye, EyeOff, X, Mail, Phone } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import VerifyEmailModal from "./VerifyEmailModal";
+import TurnstileWidget from "../ui/TurnstileWidget";
 
 export default function SignUpModal({ isOpen, onClose, onSuccess, onSwitchToSignIn }) {
   const { register } = useAuth();
@@ -24,6 +25,7 @@ export default function SignUpModal({ isOpen, onClose, onSuccess, onSwitchToSign
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -102,7 +104,7 @@ export default function SignUpModal({ isOpen, onClose, onSuccess, onSwitchToSign
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, turnstileToken }),
       });
 
       const data = await response.json();
@@ -405,6 +407,8 @@ export default function SignUpModal({ isOpen, onClose, onSuccess, onSwitchToSign
               </div>
               {errors.agreeToTerms && <p className="text-red-500 text-xs mt-1">{errors.agreeToTerms}</p>}
             </div>
+
+            <TurnstileWidget onVerify={setTurnstileToken} />
 
             {/* Submit Button */}
             <button

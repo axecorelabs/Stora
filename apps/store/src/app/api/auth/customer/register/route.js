@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/betterAuth";
-import { recordLegalAcceptance, clearLegalReviewPending } from "@/lib/legalAcceptance";
+import { recordLegalAcceptance, clearLegalReviewPending, getClientIp } from "@/lib/legalAcceptance";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 // Same request/response contract as before this migration -- the
 // frontend's signup form doesn't change at all. Internally, this now
@@ -24,6 +25,14 @@ export async function POST(request) {
     if (!agreeToTerms) {
       return NextResponse.json(
         { success: false, message: "You must agree to the Terms of Service" },
+        { status: 400 }
+      );
+    }
+
+    const isHuman = await verifyTurnstileToken(body.turnstileToken, getClientIp(request));
+    if (!isHuman) {
+      return NextResponse.json(
+        { success: false, message: "Verification failed. Please try again." },
         { status: 400 }
       );
     }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/betterAuth";
 import { validatePassword } from "@/lib/auth";
 import { recordLegalAcceptance, clearLegalReviewPending } from "@/lib/legalAcceptance";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 // Same request/response contract as before -- the frontend's signup form
 // doesn't change. Internally this now calls Better Auth's signUpEmail,
@@ -34,6 +35,18 @@ export async function POST(req) {
     if (!userData.agreeToTerms) {
       return NextResponse.json(
         { success: false, message: "You must agree to the Terms of Service" },
+        { status: 400 }
+      );
+    }
+
+    // Same client-IP extraction as proxy.js's own rate limiters -- passed
+    // through to Cloudflare mainly as an extra signal on their end, not
+    // something this route trusts on its own.
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined;
+    const isHuman = await verifyTurnstileToken(userData.turnstileToken, clientIp);
+    if (!isHuman) {
+      return NextResponse.json(
+        { success: false, message: "Verification failed. Please try again." },
         { status: 400 }
       );
     }
