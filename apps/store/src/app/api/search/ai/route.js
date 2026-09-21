@@ -198,6 +198,15 @@ function shouldRouteToVendors(intent, rawQuery) {
   if (intent?.scope === "services") return true;
   if (intent?.businessCategory === "restaurant") return true;
   if (inferBusinessCategoryFromText(rawQuery) === "restaurant") return true;
+  // The LLM already gave a confident, structured "this is a product
+  // search" answer -- don't let the raw-keyword fallback below override
+  // it. That fallback exists for when extraction gives NO signal either
+  // way, not to second-guess a case it got right: it can't tell "books"
+  // the product category from "book" the verb (BUSINESS_INTENT_TERMS
+  // stems "books" -> "book"), so "I need books on finance" was being
+  // sent to the vendor list despite the LLM correctly classifying it as
+  // a product search for books.
+  if (intent?.target === "products") return false;
   return inferVendorIntentFromText(rawQuery);
 }
 
@@ -283,7 +292,16 @@ async function filterVendorsByRelevance(vendors, rawQuery, intent) {
   const vendorsById = new Map(vendors.map((vendor) => [vendor.id, vendor]));
   const serviceSignalsByStoreId = await loadServiceSignalsByStoreId([...vendorsById.keys()]);
   const inferredState = inferStateFromQuery(`${rawQuery || ""} ${intent?.cleanedQuery || ""}`);
-  const serviceIntent = intent?.scope === "services" || inferServiceIntentFromText(rawQuery) || inferServiceIntentFromText(intent?.cleanedQuery || "");
+  // Same restaurant override as the route handler's own serviceIntent
+  // (a restaurant is never "services" scope on this platform) -- `intent`
+  // here is rankingIntent, which corrects businessCategory but still
+  // spreads the LLM's raw (and for restaurants, unreliable) `scope` field
+  // as-is, so re-deriving serviceIntent from `intent.scope` here on its
+  // own re-introduces the same bug this function is called to help fix:
+  // it required every restaurant vendor to have a literal text/service-item
+  // match on top of a real category match, zeroing them all out again.
+  const serviceIntent = intent?.businessCategory !== "restaurant"
+    && (intent?.scope === "services" || inferServiceIntentFromText(rawQuery) || inferServiceIntentFromText(intent?.cleanedQuery || ""));
 
   const scored = vendors.map((vendor) => {
     const ownText = `${vendor.storeName || ""} ${vendor.storeDescription || ""} ${vendor.state || ""}`.toLowerCase();
@@ -485,9 +503,16 @@ export async function GET(request) {
     if (understanding) {
       mode = "ai";
       const { intent, embedding } = understanding;
-      if (shouldRouteToVendors(intent, query)) {
-        resolvedPrimary = "vendors";
-      }
+      // A full assignment, not a one-way override -- this used to only
+      // ever SET resolvedPrimary to "vendors" and otherwise leave it at
+      // whatever requestedPrimary already was, so a request that arrived
+      // with primary=vendors (e.g. the customer was already on /vendors,
+      // however they got there) could never be corrected back to
+      // "products" even when shouldRouteToVendors correctly said this
+      // wasn't a vendor search -- the self-correcting redirect on
+      // /vendors/page.js only fires by reading this field, so it silently
+      // depended on already being right in that direction.
+      resolvedPrimary = shouldRouteToVendors(intent, query) ? "vendors" : "products";
       const inferredStateFromIntent = inferStateFromQuery(intent.cleanedQuery || "") || undefined;
       const effectiveState = state || inferredStateFromIntent || inferredStateFromQuery;
       const categories = intent.category ? [intent.category] : undefined;
@@ -505,16 +530,29 @@ export async function GET(request) {
       );
       const inferredBusinessSubcategory = requestedBusinessSubcategory || inferredSubcategoryValues[0] || undefined;
       const inferredBusinessSubcategories = inferredSubcategoryValues.filter((value) => value !== inferredBusinessSubcategory);
-      const serviceIntent = intent.scope === "services" || inferServiceIntentFromText(query) || inferServiceIntentFromText(intent.cleanedQuery || "");
+      // A restaurant is never "services" scope on this platform (menu
+      // items are products, full stop) -- the LLM has no way to know that
+      // and can call dining out a "service" in the colloquial sense (as it
+      // did for "I need a place to eat out tonight": scope: "services"),
+      // which then wrongly required vendors to have service_items/service
+      // text to match at all further down in filterVendorsByRelevance.
+      // inferredBusinessCategory === "restaurant" overrides the LLM's own
+      // scope guess here, the one case where the platform's own taxonomy
+      // is a stronger signal than what the model said.
+      const isRestaurantQuery = inferredBusinessCategory === "restaurant";
+      const serviceIntent = !isRestaurantQuery
+        && (intent.scope === "services" || inferServiceIntentFromText(query) || inferServiceIntentFromText(intent.cleanedQuery || ""));
       const rankingIntent = {
         ...intent,
         businessCategory: inferredBusinessCategory || null,
         businessSubcategory: inferredBusinessSubcategory || null,
         businessSubcategories: inferredBusinessSubcategories
       };
-      const vendorScope = intent.scope === "services" || intent.scope === "products"
-        ? intent.scope
-        : (serviceIntent ? "services" : inferredBusinessCategory === "restaurant" ? "products" : scope);
+      const vendorScope = isRestaurantQuery
+        ? "products"
+        : (intent.scope === "services" || intent.scope === "products")
+          ? intent.scope
+          : (serviceIntent ? "services" : scope);
       const productOffset = resolvedPrimary === "products" ? offset : 0;
       const productLimit = resolvedPrimary === "products" ? PAGE_SIZE : SECONDARY_LIMIT;
       const vendorOffset = resolvedPrimary === "vendors" ? offset : 0;
@@ -582,11 +620,34 @@ export async function GET(request) {
         // many vendors have no embedding yet), degrade to keyword vendor
         // search with the same scope/location filters, then rerank.
         if (vendors.length === 0) {
-          const fallbackQuery = serviceIntent ? null : ((intent.cleanedQuery || query).trim() || query);
+          // search_vendors (the underlying RPC) ANDs its keyword and
+          // subcategory filters with the category filter, not ORs --
+          // confirmed live twice: a real, active, correctly-tagged
+          // restaurant vendor matched businessCategory='restaurant' alone,
+          // but adding the query text ("restaurants") as a keyword on top
+          // zeroed every result (none of these vendors' names/descriptions
+          // literally contain the word "restaurant"), and separately, NO
+          // vendor on the platform has a business_subcategory set at all
+          // yet for several categories (a newer, sparsely-adopted part of
+          // the taxonomy -- see this session's business-listing audit), so
+          // requiring the LLM's specific subcategory guess (e.g.
+          // "local-kitchen") as a hard match zeroed the same vendor out a
+          // second, independent way. businessCategory alone is the one
+          // signal confirmed reliable at the DB level; subcategory is
+          // already handled as a soft scoring bonus (not a requirement) by
+          // filterVendorsByRelevance below, so it shouldn't ALSO be a hard
+          // filter here on top of that.
+          const cleanedFallbackQuery = serviceIntent ? null : ((intent.cleanedQuery || query).trim() || query);
+          // Only searchVendorsPaginated (the non-Biterave path) accepts a
+          // businessCategory filter at all -- Biterave's own vendor search
+          // has no such param, so the keyword is still its best available
+          // signal and stays as-is there.
+          const hasBusinessCategoryFilter = Boolean(inferredBusinessCategory);
+          const fallbackQuery = hasBusinessCategoryFilter ? null : cleanedFallbackQuery;
           const fallbackVendorResult = isBiterave
             ? await searchBiteraveVendors({
                 mealOnly,
-                search: fallbackQuery,
+                search: cleanedFallbackQuery,
                 state: effectiveState,
                 buyerState,
                 deliverableOnly,
@@ -599,8 +660,6 @@ export async function GET(request) {
                 buyerState,
                 deliverableOnly,
                 businessCategory: inferredBusinessCategory,
-                businessSubcategory: inferredBusinessSubcategory,
-                businessSubcategories: inferredBusinessSubcategories,
                 scope: vendorScope,
                 limit: vendorLimit,
                 offset: vendorOffset

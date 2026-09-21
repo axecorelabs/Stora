@@ -11,9 +11,17 @@ import PrefetchLink from "@/components/ui/PrefetchLink";
 // mode=ai + q URL shape CategoryDiscovery.js's own AI template pills
 // already use, which /products reads on load to auto-run the AI search
 // with zero extra wiring on that end.
+// "need"/"looking for" were dropped from this pattern -- they're far too
+// generic (they match "I need books on finance" just as readily as "I
+// need a plumber") to be a useful business-intent signal, and this is
+// only ever a same-tab first guess anyway: the real classification runs
+// server-side in api/search/ai/route.js's shouldRouteToVendors, and both
+// /products and /vendors self-correct via the `resolvedPrimary` it
+// returns if this guess is wrong. Keeping the more specific terms here is
+// still worth it purely to skip that redirect round-trip in the common case.
 function inferAiDestination(query) {
   const normalized = (query || "").toLowerCase();
-  const businessIntentPattern = /\b(need|looking\s+for|hire|book|find\s+me|vendor|business|service|photograph|photographer|tailor|plumber|electrician|makeup|stylist|repair|cleaning|barber|decorator)\b/;
+  const businessIntentPattern = /\b(hire|book|find\s+me|vendor|business|service|photograph|photographer|tailor|plumber|electrician|makeup|stylist|repair|cleaning|barber|decorator)\b/;
   return businessIntentPattern.test(normalized) ? "vendors" : "products";
 }
 
