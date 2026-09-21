@@ -25,12 +25,20 @@ export default function VendorSearchCard({ store }) {
     >
       <div className="h-28 sm:h-36 relative" style={{ backgroundColor: primaryColor }}>
         {store.branding?.banner && (
-          <img
-            src={store.branding.banner}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ opacity: 0.35 }}
-          />
+          <>
+            <img
+              src={store.branding.banner}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ opacity: 0.35 }}
+            />
+            {/* Vendor-uploaded banners range from clean photography to a
+                cropped WhatsApp promo flyer -- this scrim gives every one
+                of them the same darkened-bottom-edge treatment, so the
+                grid reads as one consistent design regardless of what a
+                given vendor uploaded. */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-black/0" />
+          </>
         )}
       </div>
 
@@ -74,7 +82,7 @@ export default function VendorSearchCard({ store }) {
           </p>
         )}
 
-        <p className="text-sm text-gray-500 mt-3 line-clamp-3 flex-1">
+        <p className="text-sm text-gray-600 mt-3 line-clamp-3 flex-1">
           {store.storeDescription || "A vendor on Stora."}
         </p>
 
@@ -88,8 +96,8 @@ export default function VendorSearchCard({ store }) {
             <span />
           )}
           <span
-            className="inline-flex items-center gap-1 text-sm font-semibold flex-shrink-0"
-            style={{ color: primaryColor }}
+            className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-white rounded-full pl-3 pr-2.5 py-1.5 flex-shrink-0"
+            style={{ backgroundColor: primaryColor }}
           >
             Visit store
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
