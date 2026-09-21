@@ -8,6 +8,7 @@ import VendorShowcase from "@/components/home/VendorShowcase";
 import CategoryDiscovery from "@/components/home/CategoryDiscovery";
 import DiscoverySection from "@/components/home/DiscoverySection";
 import CampaignsShowcase from "@/components/home/CampaignsShowcase";
+import Reveal from "@/components/ui/Reveal";
 
 const ORGANIZATION_SCHEMA = {
   "@context": "https://schema.org",
@@ -70,7 +71,7 @@ export default function Home() {
       </section>
 
       {/* Browse by category / AI search */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
+      <Reveal as="section" className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Browse</p>
@@ -78,10 +79,10 @@ export default function Home() {
           </div>
           <CategoryDiscovery />
         </div>
-      </section>
+      </Reveal>
 
       {/* Discover businesses */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
+      <Reveal as="section" className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-end justify-between mb-6 gap-4">
             <div>
@@ -107,10 +108,10 @@ export default function Home() {
             </Link>
           </div>
         </div>
-      </section>
+      </Reveal>
 
       {/* Discover products */}
-      <section id="discover" className="py-16 px-4 sm:px-6 lg:px-8 bg-brand-50/40 scroll-mt-16">
+      <Reveal as="section" id="discover" className="py-16 px-4 sm:px-6 lg:px-8 bg-brand-50/40 scroll-mt-16">
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-widest text-gold-600 mb-1.5">Discover</p>
@@ -118,14 +119,14 @@ export default function Home() {
           </div>
           <DiscoverySection />
         </div>
-      </section>
+      </Reveal>
 
       {/* Campaigns/quizzes teaser -- owns its own visibility, renders
           nothing when there are no active campaigns (see the component). */}
       <CampaignsShowcase />
 
       {/* List Your Business */}
-      <section className="border-t-2 border-gold-500 bg-brand-800 py-16 px-4 sm:px-6 lg:px-8">
+      <Reveal as="section" className="border-t-2 border-gold-500 bg-brand-800 py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-gold-400 mb-1.5">For businesses</p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-4 text-balance">
@@ -137,7 +138,7 @@ export default function Home() {
           </p>
 
           <div className="grid sm:grid-cols-3 gap-4 text-left mb-9">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 transition-[transform,background-color] duration-300 hover:-translate-y-1 hover:bg-white/[0.08]">
               <div className="w-9 h-9 rounded-lg bg-gold-500/20 flex items-center justify-center mb-3">
                 <Camera className="w-5 h-5 text-gold-300" />
               </div>
@@ -145,7 +146,7 @@ export default function Home() {
               <p className="text-sm text-white/60">A gallery and price list that show customers what you offer before they even reach out.</p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 transition-[transform,background-color] duration-300 hover:-translate-y-1 hover:bg-white/[0.08]">
               <div className="w-9 h-9 rounded-lg bg-gold-500/20 flex items-center justify-center mb-3">
                 <Search className="w-5 h-5 text-gold-300" />
               </div>
@@ -153,7 +154,7 @@ export default function Home() {
               <p className="text-sm text-white/60">Listed in Stora&apos;s directory and AI-powered search, by category and city.</p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 transition-[transform,background-color] duration-300 hover:-translate-y-1 hover:bg-white/[0.08]">
               <div className="w-9 h-9 rounded-lg bg-gold-500/20 flex items-center justify-center mb-3">
                 <MessageCircle className="w-5 h-5 text-gold-300" />
               </div>
@@ -165,7 +166,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
               href={LISTING_SIGNUP_URL}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold transition-[background-color,transform] duration-200 hover:bg-gold-400 hover:-translate-y-0.5"
             >
               <LayoutList className="w-4 h-4" />
               List your business
@@ -179,7 +180,7 @@ export default function Home() {
             </Link>
           </div>
         </div>
-      </section>
+      </Reveal>
 
       <SiteFooter />
     </div>

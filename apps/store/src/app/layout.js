@@ -115,6 +115,14 @@ export default function RootLayout({ children }) {
 
       </Head>
       <body className={`${inter.variable} ${spaceGrotesk.variable} ${geistMono.variable} bg-gray-50 text-gray-900 font-sans`}>
+        {/* Scroll/mount reveal animations (Reveal.js, AIHeroSearch's hero
+            entrance) start elements at opacity-0 and rely on client JS to
+            reveal them -- with JS disabled entirely, that JS never runs,
+            so this forces them back to visible rather than leaving real
+            page content invisible forever. */}
+        <noscript>
+          <style>{`.reveal-hidden { opacity: 1 !important; transform: none !important; }`}</style>
+        </noscript>
         <QueryProvider>
           <AuthProvider>
             <DeliveryStateProvider>

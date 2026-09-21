@@ -64,6 +64,16 @@ export default function AIHeroSearch() {
   const [intentMode, setIntentMode] = useState("auto");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Starts false and flips on the next frame (not the same one) so the
+  // browser actually paints the "hidden" state first -- setting it true
+  // synchronously on mount would let React batch both states into one
+  // paint, skipping the transition entirely.
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -82,7 +92,11 @@ export default function AIHeroSearch() {
 
   return (
     <div className="max-w-3xl mx-auto text-center w-full">
-      <h1 className="font-display text-2xl sm:text-5xl font-bold text-white leading-tight mb-8 sm:mb-10">
+      <h1
+        className={`font-display text-2xl sm:text-5xl font-bold text-white leading-tight mb-8 sm:mb-10 transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 ${
+          mounted ? "opacity-100 translate-y-0" : "reveal-hidden opacity-0 translate-y-4"
+        }`}
+      >
         What are you looking for today?{" "}
         <span className="text-xl sm:text-4xl align-middle">😊</span>
         <br />
@@ -92,9 +106,13 @@ export default function AIHeroSearch() {
       {/* Gradient border, not a plain one -- this box is the one thing on
           the page every visitor should notice first, so it gets the
           brand's own gold-to-green treatment as a focal point instead of
-          blending in with the flat-bordered pills around it. */}
+          blending in with the flat-bordered pills around it. Entrance is
+          staggered ~120ms after the headline (delay-150) -- one small,
+          orchestrated beat rather than everything landing at once. */}
       <div
-        className="rounded-2xl p-[1.5px] mb-6"
+        className={`rounded-2xl p-[1.5px] mb-6 transition-[opacity,transform] duration-700 delay-150 ease-out motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0 ${
+          mounted ? "opacity-100 translate-y-0" : "reveal-hidden opacity-0 translate-y-4"
+        }`}
         style={{
           background: "linear-gradient(115deg, #D8BC85 0%, rgba(216,188,133,0) 35%, rgba(20,92,65,0) 65%, #145C41 100%)"
         }}
