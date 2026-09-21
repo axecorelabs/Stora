@@ -5,6 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import ForgotPassword from "./ForgotPassword";
 import VerifyEmail from "./VerifyEmail";
+import TurnstileWidget, { TURNSTILE_ENABLED } from "./ui/TurnstileWidget";
+
+// Same reasoning as SignUp.js's own copy of this constant -- the widget
+// starts checking on mount, well before a human finishes typing, so this
+// is just a safety net against an ad-blocker/extension silently killing
+// Cloudflare's script (no callback fires at all in that case), not
+// something a real visitor should ever actually wait out.
+const TURNSTILE_TIMEOUT_MS = 8000;
 
 const GOOGLE_ERROR_MESSAGES = {
   google_cancelled: "Google sign-in was cancelled.",
@@ -30,9 +38,20 @@ function SignInInner({ onToggleMode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileError, setTurnstileError] = useState(false);
+  const [turnstileTimedOut, setTurnstileTimedOut] = useState(false);
 
   const { signIn } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!TURNSTILE_ENABLED || turnstileToken) return;
+    const timer = setTimeout(() => setTurnstileTimedOut(true), TURNSTILE_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [turnstileToken]);
+
+  const turnstilePending = TURNSTILE_ENABLED && !turnstileToken && !turnstileError && !turnstileTimedOut;
 
   useEffect(() => {
     if (searchParams.get("error")) {
@@ -82,7 +101,7 @@ function SignInInner({ onToggleMode }) {
     setIsSubmitting(true);
     setErrors({});
 
-    const result = await signIn(formData);
+    const result = await signIn({ ...formData, turnstileToken });
 
     if (!result.success) {
       if (result.needsVerification) {
@@ -225,9 +244,23 @@ function SignInInner({ onToggleMode }) {
                 </button>
               </div>
 
+              <TurnstileWidget
+                onVerify={(token) => { setTurnstileToken(token); setTurnstileError(false); }}
+                onError={() => { setTurnstileToken(""); setTurnstileError(true); }}
+              />
+              {turnstileError && (
+                <p className="text-red-500 text-xs -mt-2 ml-1">Verification failed -- refresh the page and try again.</p>
+              )}
+              {turnstilePending && (
+                <p className="text-gray-400 text-xs -mt-2 ml-1">Verifying you&apos;re human…</p>
+              )}
+              {turnstileTimedOut && !turnstileToken && !turnstileError && (
+                <p className="text-gray-400 text-xs -mt-2 ml-1">Taking longer than usual -- you can still try submitting.</p>
+              )}
+
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || turnstilePending}
                 className="w-full bg-[#0B3B2E] text-white py-3.5 px-4 rounded-xl font-medium hover:bg-[#0F4A38] hover:shadow-[0_10px_30px_-10px_rgba(198,161,91,0.6)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isSubmitting ? (

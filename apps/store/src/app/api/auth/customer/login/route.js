@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/betterAuth";
 import { findCustomerByEmail, sanitizeCustomer, updateCustomerLastLogin } from "@/lib/supabaseAuth";
 import { isLockedOut, recordFailedAttempt, clearFailedAttempts } from "@/lib/accountLockout";
+import { verifyTurnstileToken } from "@/lib/turnstile";
+import { getClientIp } from "@/lib/legalAcceptance";
 
 // Store login is deliberately non-enumerating: this exact message + status
 // is also returned for "no such customer" and "wrong password", so a
@@ -20,11 +22,22 @@ function genericInvalidCredentials() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email, password, turnstileToken } = body;
 
     if (!email || !password) {
       return NextResponse.json(
         { success: false, message: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    // Distinct message from genericInvalidCredentials below -- this is a
+    // bot check failing, not a wrong password, and telling someone their
+    // password is wrong when it isn't would send them down the wrong
+    // recovery path (resetting a password that was never the problem).
+    if (!(await verifyTurnstileToken(turnstileToken, getClientIp(request)))) {
+      return NextResponse.json(
+        { success: false, message: "Verification failed. Please try again." },
         { status: 400 }
       );
     }

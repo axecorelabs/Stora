@@ -3,6 +3,7 @@ import { auth } from "@/lib/betterAuth";
 import { isValidEmail } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { isLockedOut, recordFailedAttempt, clearFailedAttempts } from "@/lib/accountLockout";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 // Deliberately non-enumerating: this exact message + status is returned for
 // "no such account," "wrong password," "account deactivated," "Google-only
@@ -19,7 +20,7 @@ function genericInvalidCredentials() {
 // identical and independently testable, the same as it always was.
 export async function POST(req) {
   try {
-    const { email, password } = await req.json();
+    const { email, password, turnstileToken } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -30,6 +31,18 @@ export async function POST(req) {
     if (!isValidEmail(email)) {
       return NextResponse.json(
         { success: false, message: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+
+    // Distinct message from genericInvalidCredentials below -- this is a
+    // bot check failing, not a wrong password, and telling someone their
+    // password is wrong when it isn't would send them down the wrong
+    // recovery path (resetting a password that was never the problem).
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined;
+    if (!(await verifyTurnstileToken(turnstileToken, clientIp))) {
+      return NextResponse.json(
+        { success: false, message: 'Verification failed. Please try again.' },
         { status: 400 }
       );
     }

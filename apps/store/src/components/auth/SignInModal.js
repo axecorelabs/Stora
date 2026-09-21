@@ -1,10 +1,18 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Eye, EyeOff, X, Mail } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import VerifyEmailModal from "./VerifyEmailModal";
+import TurnstileWidget, { TURNSTILE_ENABLED } from "../ui/TurnstileWidget";
+
+// Same reasoning as SignUpModal.js's own copy of this constant -- the
+// widget starts checking on mount, well before a human finishes typing,
+// so this is just a safety net against an ad-blocker/extension silently
+// killing Cloudflare's script (no callback fires at all in that case),
+// not something a real visitor should ever actually wait out.
+const TURNSTILE_TIMEOUT_MS = 8000;
 
 export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgotPassword, onSuccess }) {
   const { login, adoptVerifiedSession, setRedirectAfterLogin } = useAuth();
@@ -20,6 +28,17 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVerifyEmail, setShowVerifyEmail] = useState(false);
   const [emailToVerify, setEmailToVerify] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileError, setTurnstileError] = useState(false);
+  const [turnstileTimedOut, setTurnstileTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!TURNSTILE_ENABLED || turnstileToken) return;
+    const timer = setTimeout(() => setTurnstileTimedOut(true), TURNSTILE_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [turnstileToken]);
+
+  const turnstilePending = TURNSTILE_ENABLED && !turnstileToken && !turnstileError && !turnstileTimedOut;
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -66,7 +85,7 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
     setErrors({});
 
     try {
-      const result = await login(formData.email, formData.password);
+      const result = await login(formData.email, formData.password, turnstileToken);
 
       if (result.success) {
         // Reset form
@@ -248,10 +267,24 @@ export default function SignInModal({ isOpen, onClose, onSwitchToSignUp, onForgo
               </button>
             </div>
 
+            <TurnstileWidget
+              onVerify={(token) => { setTurnstileToken(token); setTurnstileError(false); }}
+              onError={() => { setTurnstileToken(""); setTurnstileError(true); }}
+            />
+            {turnstileError && (
+              <p className="text-red-500 text-xs -mt-2">Verification failed -- refresh the page and try again.</p>
+            )}
+            {turnstilePending && (
+              <p className="text-gray-400 text-xs -mt-2">Verifying you&apos;re human…</p>
+            )}
+            {turnstileTimedOut && !turnstileToken && !turnstileError && (
+              <p className="text-gray-400 text-xs -mt-2">Taking longer than usual -- you can still try submitting.</p>
+            )}
+
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || turnstilePending}
               className="w-full bg-brand-700 hover:bg-brand-800 text-white py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
             >
               {isSubmitting ? (

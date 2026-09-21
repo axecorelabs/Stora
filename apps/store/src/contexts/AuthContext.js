@@ -117,7 +117,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, turnstileToken) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -128,7 +128,7 @@ export function AuthProvider({ children }) {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, turnstileToken }),
       });
 
       const data = await response.json();
