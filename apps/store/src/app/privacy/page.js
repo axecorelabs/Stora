@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalDocument title="Privacy Policy" lastUpdated="September 4, 2026">
+    <LegalDocument title="Privacy Policy" lastUpdated="September 21, 2026">
       <p>
         This Privacy Policy explains how <strong>Axecore Labs Limited</strong> (RC 9466911), operating <strong>Stora</strong>{" "}
         (stora.com.ng) and <strong>Biterave</strong> (biterave.stora.com.ng), collects, uses, and shares information when you use
@@ -52,6 +52,11 @@ export default function PrivacyPolicyPage() {
           for advertising or cross-site tracking.
         </li>
         <li>
+          <strong>Bot protection</strong>: when you sign up or sign in, Cloudflare Turnstile runs a short automated check to
+          confirm you&apos;re not a bot, using a short-lived cookie and browser signals for that purpose only — no image or text
+          puzzles are involved for most visitors.
+        </li>
+        <li>
           We do <strong>not</strong> use Google Analytics, Meta/Facebook Pixel, or similar advertising trackers on the
           customer-facing Stora/Biterave storefront. (Our separate Vendor dashboard uses a product-analytics tool, PostHog, to
           understand how Vendors use dashboard features — this does not apply to Customer browsing on the storefront.)
@@ -83,6 +88,7 @@ export default function PrivacyPolicyPage() {
           <tr><td><strong>Supabase</strong></td><td>Database and account hosting</td><td>All platform data described in this policy, as our hosting provider</td></tr>
           <tr><td><strong>Upstash (Redis)</strong></td><td>Short-term caching (sessions, search cache, abuse prevention)</td><td>Email (for login-attempt tracking), IP address (briefly, for abuse prevention), cached search results</td></tr>
           <tr><td><strong>Cloudflare R2</strong></td><td>Image/file storage</td><td>Product photos, store logos/banners you or Vendors upload</td></tr>
+          <tr><td><strong>Cloudflare Turnstile</strong></td><td>Bot/spam prevention on sign-up and sign-in</td><td>Browser/device signals during sign-up or sign-in — no account or personal data</td></tr>
           <tr><td><strong>Vercel</strong></td><td>Hosting and content delivery</td><td>Standard web request data, including an approximate location derived from your IP to guess your delivery state</td></tr>
           <tr><td><strong>Google</strong></td><td>&quot;Sign in with Google&quot;</td><td>Basic profile info, only if you choose this sign-in method</td></tr>
           <tr><td><strong>Email provider (ZeptoMail or Resend)</strong></td><td>Sending transactional emails (order confirmations, verification codes, receipts)</td><td>Your email address and the content of the email</td></tr>

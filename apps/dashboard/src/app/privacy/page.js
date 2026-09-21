@@ -11,7 +11,7 @@ export const metadata = {
 // the same reason as this app's /terms page.
 export default function PrivacyPolicyPage() {
   return (
-    <LegalDocument title="Privacy Policy" lastUpdated="September 4, 2026">
+    <LegalDocument title="Privacy Policy" lastUpdated="September 21, 2026">
       <p>
         This Privacy Policy explains how <strong>Axecore Labs Limited</strong> (RC 9466911), operating <strong>Stora</strong>{" "}
         (stora.com.ng) and <strong>Biterave</strong> (biterave.stora.com.ng), collects, uses, and shares information when you use
@@ -42,6 +42,7 @@ export default function PrivacyPolicyPage() {
       <ul>
         <li>Your login session cookie, which keeps you signed in.</li>
         <li>Product-analytics data via <strong>PostHog</strong>, used to understand how Vendors use dashboard features (not used on the Customer-facing storefront).</li>
+        <li>When you sign up or sign in, Cloudflare Turnstile runs a short automated check to confirm you&apos;re not a bot, using a short-lived cookie and browser signals for that purpose only.</li>
       </ul>
 
       <h2>2. How we use your information</h2>
@@ -62,6 +63,7 @@ export default function PrivacyPolicyPage() {
           <tr><td><strong>QoreID</strong></td><td>Vendor identity verification</td><td>Vendor&apos;s NIN and selfie photo (submitted only with consent, not stored by us afterward)</td></tr>
           <tr><td><strong>Supabase</strong></td><td>Database and account hosting</td><td>All platform data described in this policy</td></tr>
           <tr><td><strong>PostHog</strong></td><td>Product analytics (dashboard only)</td><td>Usage events, not linked to Customer data</td></tr>
+          <tr><td><strong>Cloudflare Turnstile</strong></td><td>Bot/spam prevention on sign-up and sign-in</td><td>Browser/device signals during sign-up or sign-in — no account or personal data</td></tr>
           <tr><td><strong>Google</strong></td><td>&quot;Sign in with Google&quot;</td><td>Basic profile info, only if you choose this sign-in method</td></tr>
           <tr><td><strong>Email provider (ZeptoMail or Resend)</strong></td><td>Transactional emails</td><td>Your email address and the content of the email</td></tr>
         </tbody>
