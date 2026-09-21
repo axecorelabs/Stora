@@ -168,7 +168,7 @@ export default function Home() {
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gold-500 text-brand-900 text-sm font-semibold hover:bg-gold-400 transition-colors"
             >
               <LayoutList className="w-4 h-4" />
-              List your business -- ₦500/month
+              List your business
             </a>
             <Link
               href="/sell"
