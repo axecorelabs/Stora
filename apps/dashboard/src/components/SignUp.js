@@ -358,14 +358,16 @@ export default function SignUp({ onToggleMode }) {
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
+          {/* No agreeToTerms gate here -- this checkbox only exists for the
+              email/password form above; the Google path never reads it
+              (see api/auth/google/start/route.js), and every brand-new
+              Google signup is unconditionally routed through
+              /auth/review-and-accept to show Terms/Privacy regardless.
+              Blocking the click on an unchecked box that has zero effect
+              on that outcome was pure friction, not a real gate. */}
           <a
             href="/api/auth/google/start"
-            onClick={(e) => { if (!formData.agreeToTerms) e.preventDefault(); }}
-            aria-disabled={!formData.agreeToTerms}
-            title={!formData.agreeToTerms ? "Check the box above agreeing to our Terms of Service and Privacy Policy first" : undefined}
-            className={`w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 text-[15px] font-medium text-gray-700 transition-colors ${
-              formData.agreeToTerms ? "hover:bg-gray-50" : "opacity-50 cursor-not-allowed"
-            }`}
+            className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 text-[15px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 01-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82z" />
