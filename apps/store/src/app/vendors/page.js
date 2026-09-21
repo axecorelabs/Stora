@@ -363,7 +363,11 @@ function VendorsPageInner() {
           ))}
         </div>
 
-        <div className="flex justify-center gap-2 mb-4 flex-wrap">
+        {/* Desktop-only -- MobileFilterBar's "Filters" sheet covers business
+            type + subcategory below sm with the exact same controls, same
+            convention as SearchConsole's category pills/state token and
+            this page's own delivery+sort row just below. */}
+        <div className="hidden sm:flex justify-center gap-2 mb-4 flex-wrap">
           <button
             onClick={() => setBusinessCategory("")}
             className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
@@ -394,7 +398,7 @@ function VendorsPageInner() {
         </div>
 
         {businessCategory && activeBusinessSubcategoryOptions.length > 0 && (
-          <div className="mb-4 space-y-2">
+          <div className="hidden sm:block mb-4 space-y-2">
             <div className="flex flex-wrap justify-center gap-2">
               <button
                 onClick={() => setBusinessSubcategory("")}
