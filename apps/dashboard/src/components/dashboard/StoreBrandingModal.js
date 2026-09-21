@@ -3,9 +3,11 @@ import { useState, useRef, useEffect } from "react";
 import { X, Upload, Image as ImageIcon, Palette, Save, Eye } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { compressImageIfNeeded } from "@/lib/imageCompression";
+import Button from "../ui/Button";
 
 export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated, store, embedded = false }) {
   const { secureFormDataCall } = useAuth();
+  const isListing = store?.platformMode === 'listing';
   const logoInputRef = useRef(null);
   const bannerInputRef = useRef(null);
   
@@ -180,12 +182,14 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-xl">
-              <Palette className="w-6 h-6 text-purple-600" />
+            <div className="p-2 bg-brand-100 rounded-xl">
+              <Palette className="w-6 h-6 text-brand-800" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Store Branding</h2>
-              <p className="text-sm text-gray-500">Customize your store's visual identity</p>
+              <h2 className="font-display text-xl font-semibold text-brand-900">{isListing ? "Business Branding" : "Store Branding"}</h2>
+              <p className="text-sm text-gray-500">
+                {isListing ? "Customize your business profile's visual identity" : "Customize your store's visual identity"}
+              </p>
             </div>
           </div>
           <button
@@ -214,7 +218,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                 {/* Logo Upload */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Store Logo
+                    {isListing ? "Business Logo" : "Store Logo"}
                   </label>
                   <p className="text-xs text-gray-500 mb-4">
                     Upload a square logo for your store. Recommended size: 200x200px
@@ -230,18 +234,14 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                             className="w-24 h-24 object-cover rounded-xl border border-gray-200"
                           />
                         </div>
-                        <div className="flex justify-center space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => logoInputRef.current?.click()}
-                            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                          >
+                        <div className="flex justify-center gap-2">
+                          <Button type="button" variant="secondary" size="sm" onClick={() => logoInputRef.current?.click()}>
                             Change Logo
-                          </button>
+                          </Button>
                           <button
                             type="button"
                             onClick={() => removeFile('logo')}
-                            className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             Remove
                           </button>
@@ -278,7 +278,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                 {/* Banner Upload */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Store Banner
+                    {isListing ? "Business Banner" : "Store Banner"}
                   </label>
                   <p className="text-xs text-gray-500 mb-4">
                     Upload a banner image for your store. Recommended size: 1200x400px
@@ -294,18 +294,14 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                             className="w-full max-w-sm h-24 object-cover rounded-xl border border-gray-200"
                           />
                         </div>
-                        <div className="flex justify-center space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => bannerInputRef.current?.click()}
-                            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                          >
+                        <div className="flex justify-center gap-2">
+                          <Button type="button" variant="secondary" size="sm" onClick={() => bannerInputRef.current?.click()}>
                             Change Banner
-                          </button>
+                          </Button>
                           <button
                             type="button"
                             onClick={() => removeFile('banner')}
-                            className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             Remove
                           </button>
@@ -362,7 +358,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                           type="text"
                           value={formData.primaryColor}
                           onChange={(e) => handleColorChange('primaryColor', e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black text-sm"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black text-sm"
                           placeholder="#0D9488"
                         />
                       </div>
@@ -381,7 +377,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                           type="text"
                           value={formData.secondaryColor}
                           onChange={(e) => handleColorChange('secondaryColor', e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black text-sm"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black text-sm"
                           placeholder="#F3F4F6"
                         />
                       </div>
@@ -465,7 +461,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Quick Presets
                   </label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
                       { primary: '#0D9488', secondary: '#F3F4F6', name: 'Teal' },
                       { primary: '#3B82F6', secondary: '#EFF6FF', name: 'Blue' },
@@ -483,7 +479,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                           primaryColor: preset.primary,
                           secondaryColor: preset.secondary
                         })}
-                        className="group relative p-2 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        className="group relative p-2 border border-gray-200 rounded-lg hover:border-brand-300 transition-colors"
                         title={preset.name}
                       >
                         <div className="flex space-x-1">
@@ -510,22 +506,18 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
 
         {/* Footer */}
         <div className="p-6 border-t border-gray-200 flex items-center justify-between">
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => {
               resetForm();
               onClose();
             }}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
           >
             {embedded ? "Skip for now" : "Cancel"}
-          </button>
-          
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
-          >
+          </Button>
+
+          <Button variant="primary" onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? (
               <>
                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -540,7 +532,7 @@ export default function StoreBrandingModal({ isOpen, onClose, onBrandingUpdated,
                 Save Branding
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
   );

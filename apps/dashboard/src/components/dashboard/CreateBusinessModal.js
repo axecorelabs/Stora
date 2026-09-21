@@ -18,14 +18,18 @@ const STEPS = [
   { number: 3, label: "Settings" }
 ];
 
-function StepIndicator({ currentStep }) {
+// A listing has no checkout, so the Settings step (currency/tax/receipt
+// footer) doesn't apply -- see the render guard on that step below.
+const LISTING_STEPS = STEPS.filter((step) => step.number <= 2);
+
+function StepIndicator({ currentStep, steps }) {
   return (
     <div className="mt-6 flex items-center">
-      {STEPS.map((step, idx) => {
+      {steps.map((step, idx) => {
         const isComplete = step.number < currentStep;
         const isCurrent = step.number === currentStep;
         return (
-          <div key={step.number} className={`flex items-center ${idx < STEPS.length - 1 ? "flex-1" : ""}`}>
+          <div key={step.number} className={`flex items-center ${idx < steps.length - 1 ? "flex-1" : ""}`}>
             <div className="flex flex-col items-center gap-1.5">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
@@ -46,7 +50,7 @@ function StepIndicator({ currentStep }) {
                 {step.label}
               </span>
             </div>
-            {idx < STEPS.length - 1 && (
+            {idx < steps.length - 1 && (
               <div className="flex-1 h-0.5 mx-2 -mt-5 rounded-full bg-gray-200 overflow-hidden">
                 <div
                   className="h-full bg-brand-800 transition-all duration-500 ease-out"
@@ -63,6 +67,9 @@ function StepIndicator({ currentStep }) {
 
 export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded = false, platformMode = 'store' }) {
   const { secureApiCall } = useAuth();
+  const isListing = platformMode === 'listing';
+  const visibleSteps = isListing ? LISTING_STEPS : STEPS;
+  const totalSteps = visibleSteps.length;
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     storeName: '',
@@ -361,11 +368,13 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
           </div>
           <div>
             <h2 className="font-display text-xl font-semibold text-brand-900">Create Your Business</h2>
-            <p className="text-sm text-gray-500">Tell us what you do and set up your store</p>
+            <p className="text-sm text-gray-500">
+              {isListing ? "Tell us about your business so customers can find you" : "Tell us what you do and set up your store"}
+            </p>
           </div>
         </div>
 
-        <StepIndicator currentStep={currentStep} />
+        <StepIndicator currentStep={currentStep} steps={visibleSteps} />
       </div>
 
       {/* Form Content */}
@@ -382,20 +391,20 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
             <div>
               <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <Store className="w-4.5 h-4.5 mr-2 text-brand-700" />
-                Tell us about your store
+                {isListing ? "Tell us about your business" : "Tell us about your store"}
               </h3>
 
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Store Name *
+                    {isListing ? "Business Name *" : "Store Name *"}
                   </label>
                   <input
                     type="text"
                     name="storeName"
                     value={formData.storeName}
                     onChange={handleChange}
-                    placeholder="e.g., John's Electronics Store"
+                    placeholder={isListing ? "e.g., John's Auto Repair" : "e.g., John's Electronics Store"}
                     className={`w-full px-4 py-3 border rounded-xl transition-colors focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black ${
                       errors.storeName ? 'border-red-300' : 'border-gray-300 hover:border-gray-400'
                     }`}
@@ -524,7 +533,7 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                                 key={option.value}
                                 type="button"
                                 onClick={() => toggleAdditionalSubcategory(option.value)}
-                                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                                className={`px-3 py-2 rounded-full text-xs font-semibold border transition-colors ${
                                   selected
                                     ? 'bg-brand-700 text-white border-brand-700'
                                     : 'bg-white text-brand-800 border-brand-200 hover:border-brand-300'
@@ -544,7 +553,7 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                                 key={combo.key}
                                 type="button"
                                 onClick={() => applySuggestedCombo(combo)}
-                                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-gold-300 text-gold-700 bg-gold-50 hover:bg-gold-100 transition-colors"
+                                className="px-3 py-2 rounded-full text-xs font-semibold border border-gold-300 text-gold-700 bg-gold-50 hover:bg-gold-100 transition-colors"
                               >
                                 {combo.label}
                               </button>
@@ -561,7 +570,7 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                                 key={single.key}
                                 type="button"
                                 onClick={() => applySuggestedSingle(single)}
-                                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors"
+                                className="px-3 py-2 rounded-full text-xs font-semibold border border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors"
                               >
                                 {single.label}
                               </button>
@@ -582,7 +591,7 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                     value={formData.storeDescription}
                     onChange={handleChange}
                     rows={3}
-                    placeholder="What does your store sell? (optional)"
+                    placeholder={isListing ? "Describe what your business offers (optional)" : "What does your store sell? (optional)"}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
                 </div>
@@ -590,7 +599,7 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Store Phone
+                      {isListing ? "Business Phone" : "Store Phone"}
                     </label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -607,7 +616,7 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Store Email
+                      {isListing ? "Business Email" : "Store Email"}
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -848,13 +857,15 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                       placeholder="https://yourstore.com"
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl transition-colors hover:border-gray-400 focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                     />
-                    <div className="mt-2 p-3 bg-gold-400/10 rounded-lg border border-gold-500/25 flex items-start gap-2">
-                      <Sparkles className="w-3.5 h-3.5 text-gold-700 flex-shrink-0 mt-0.5" />
-                      <p className="text-brand-900/80 text-xs">
-                        Don&apos;t have a website yet? We&apos;ll also give you a custom store on the Stora
-                        e-commerce platform to showcase and sell your products online.
-                      </p>
-                    </div>
+                    {!isListing && (
+                      <div className="mt-2 p-3 bg-gold-400/10 rounded-lg border border-gold-500/25 flex items-start gap-2">
+                        <Sparkles className="w-3.5 h-3.5 text-gold-700 flex-shrink-0 mt-0.5" />
+                        <p className="text-brand-900/80 text-xs">
+                          Don&apos;t have a website yet? We&apos;ll also give you a custom store on the Stora
+                          e-commerce platform to showcase and sell your products online.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -924,8 +935,9 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
           </div>
         )}
 
-        {/* Step 3: Settings */}
-        {currentStep === 3 && (
+        {/* Step 3: Settings -- store/checkout-only (currency, tax, receipt
+            footer), so it doesn't apply to a listing, which has neither. */}
+        {currentStep === 3 && !isListing && (
           <div className="space-y-6">
             <div>
               <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
@@ -991,7 +1003,7 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
           </Button>
         )}
 
-        {currentStep < 3 ? (
+        {currentStep < totalSteps ? (
           <Button variant="primary" onClick={handleNext}>
             Next
           </Button>
@@ -1003,10 +1015,10 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Creating Store...
+                {isListing ? "Creating Listing..." : "Creating Store..."}
               </>
             ) : (
-              'Create Store'
+              isListing ? 'Create Listing' : 'Create Store'
             )}
           </Button>
         )}

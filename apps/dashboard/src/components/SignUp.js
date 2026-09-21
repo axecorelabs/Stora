@@ -132,7 +132,7 @@ export default function SignUp({ onToggleMode }) {
   }
 
   return (
-    <div className="h-screen w-full grid lg:grid-cols-2 overflow-hidden animate-rise-in bg-white">
+    <div className="min-h-screen lg:h-screen w-full grid lg:grid-cols-2 lg:overflow-hidden animate-rise-in bg-white">
       {/* Hero panel */}
       <div className="hidden lg:block relative">
         <img
@@ -142,8 +142,13 @@ export default function SignUp({ onToggleMode }) {
         />
       </div>
 
-      {/* Form panel */}
-      <div className="flex flex-col justify-center px-8 py-12 sm:px-14 overflow-y-auto">
+      {/* Form panel -- min-h-screen/no overflow lock on mobile so the page
+          just scrolls normally (100vh + overflow-hidden is unreliable on
+          mobile Safari, where the address bar can leave real content, like
+          the submit button, below the visible fold with nowhere to scroll).
+          The split-hero layout only needs the fixed-height/internal-scroll
+          treatment at lg:, where the hero image is actually showing. */}
+      <div className="flex flex-col justify-center px-8 py-12 sm:px-14 lg:overflow-y-auto">
         <div className="w-full max-w-sm mx-auto">
           <div className="flex justify-center lg:hidden mb-6">
             <div className="w-12 h-12 rounded-xl overflow-hidden">
@@ -247,7 +252,7 @@ export default function SignUp({ onToggleMode }) {
                 <button
                   type="button"
                   onClick={togglePasswordVisibility}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   tabIndex={-1}
                 >

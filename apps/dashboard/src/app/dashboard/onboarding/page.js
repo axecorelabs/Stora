@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Globe, CheckCircle2, AlertCircle, Store, LayoutList } from "lucide-react";
+import { Globe, CheckCircle2, AlertCircle, Store, LayoutList, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWebsiteData } from "@/hooks/useWebsiteData";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
@@ -49,8 +49,12 @@ export default function OnboardingPage() {
   // sets platform_mode correctly. Listing accounts skip website/telegram and land
   // on 'subscribe' instead -- the listing only goes live once Paystack confirms payment.
   const [step, setStep] = useState('name');
-  // 'store' | 'listing' -- chosen at the 'intent' step, carried through to store creation.
-  const [platformIntent, setPlatformIntent] = useState('store');
+  // 'store' | 'listing' -- chosen at the 'intent' step, carried through to
+  // store creation. Defaults to 'listing' to match the intent step now
+  // leading with "List My Business" -- irrelevant to any real flow (a user
+  // always explicitly picks one), but keeps this value consistent with
+  // what's visually presented first if it's ever read before that pick.
+  const [platformIntent, setPlatformIntent] = useState('listing');
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -209,11 +213,46 @@ export default function OnboardingPage() {
     }
   };
 
+  // Whole-flow progress, not just CreateBusinessModal's own internal
+  // Basics/Location sub-steps -- a vendor on a slow connection has no idea
+  // how many screens are left otherwise. The two tracks diverge after
+  // 'branding'; verification/telegram only appear when their feature flags
+  // are on (see useVerificationEnabled/useTelegramEnabled above), so the
+  // "planned" list has to account for that or the count would be wrong for
+  // however many vendors don't see those steps.
+  const storeTrackSteps = [
+    'name', 'intent', 'business', 'branding',
+    ...(verificationEnabled === true ? ['verification'] : []),
+    'website',
+    ...(telegramEnabled === true ? ['telegram'] : []),
+    'done'
+  ];
+  const listingTrackSteps = ['name', 'intent', 'business', 'branding', 'subscribe', 'done'];
+  const activeTrackSteps = platformIntent === 'listing' ? listingTrackSteps : storeTrackSteps;
+  const stepIndex = activeTrackSteps.indexOf(step);
+  const showProgress = step !== 'done' && stepIndex > -1;
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-10 sm:py-16">
       <img src="/stora.png" alt="Stora" className="w-12 h-12 object-contain mb-6" />
 
       <div className={`w-full ${step === 'business' ? 'max-w-2xl' : step === 'branding' ? 'max-w-3xl' : 'max-w-lg'}`}>
+        {showProgress && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-gray-500">
+                Step {stepIndex + 1} of {activeTrackSteps.length - 1}
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
+              <div
+                className="h-full bg-brand-800 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${(stepIndex / (activeTrackSteps.length - 1)) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {step === 'name' && (
           <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100">
             <h1 className="text-lg font-semibold text-gray-900 mb-1.5">Confirm your legal name</h1>
@@ -262,20 +301,6 @@ export default function OnboardingPage() {
             </p>
             <div className="space-y-3">
               <button
-                onClick={() => { setPlatformIntent('store'); setStep('business'); }}
-                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-brand-800 hover:bg-brand-50 transition-colors group"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-brand-100 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-200 transition-colors">
-                    <Store className="w-5 h-5 text-brand-800" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">Sell on Stora</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Set up a store, list products or services, and accept orders online.</p>
-                  </div>
-                </div>
-              </button>
-              <button
                 onClick={() => { setPlatformIntent('listing'); setStep('business'); }}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-brand-800 hover:bg-brand-50 transition-colors group"
               >
@@ -289,20 +314,36 @@ export default function OnboardingPage() {
                   </div>
                 </div>
               </button>
+              <button
+                onClick={() => { setPlatformIntent('store'); setStep('business'); }}
+                className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-brand-800 hover:bg-brand-50 transition-colors group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-brand-100 flex items-center justify-center flex-shrink-0 group-hover:bg-brand-200 transition-colors">
+                    <Store className="w-5 h-5 text-brand-800" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Sell on Stora</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Set up a store, list products or services, and accept orders online.</p>
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
         )}
 
         {step === 'business' && (
           <div>
-            {preferredIntent && (
-              <button
-                onClick={handleChangeSetupType}
-                className="mb-4 text-sm font-medium text-brand-800 hover:text-brand-700"
-              >
-                Change setup type
-              </button>
-            )}
+            {/* Safe to always offer here -- nothing has been created yet,
+                unlike the steps after 'branding' where the store already
+                exists and a plain step-back can't undo that. */}
+            <button
+              onClick={handleChangeSetupType}
+              className="mb-4 flex items-center gap-1.5 text-sm font-medium text-brand-800 hover:text-brand-700"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {preferredIntent ? 'Change setup type' : 'Back'}
+            </button>
             <CreateBusinessModal isOpen={true} onStoreCreated={handleStoreCreated} embedded platformMode={platformIntent} />
           </div>
         )}
@@ -325,6 +366,16 @@ export default function OnboardingPage() {
 
         {step === 'verification' && (
           <div>
+            {/* Safe to go back to -- branding only PATCHes the already-created
+                store, it never re-creates it, unlike a step-back into
+                CreateBusinessModal would. */}
+            <button
+              onClick={() => setStep('branding')}
+              className="mb-4 flex items-center gap-1.5 text-sm font-medium text-brand-800 hover:text-brand-700"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
             <VerificationForm onVerified={() => setStep('website')} />
             <button
               onClick={() => setStep('website')}
@@ -337,6 +388,13 @@ export default function OnboardingPage() {
 
         {step === 'website' && (
           <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100 text-center">
+            <button
+              onClick={() => setStep(verificationEnabled === true ? 'verification' : 'branding')}
+              className="mb-4 flex items-center gap-1.5 text-sm font-medium text-brand-800 hover:text-brand-700"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
             <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
               <Globe className="w-7 h-7 text-brand-800" />
             </div>
@@ -373,6 +431,13 @@ export default function OnboardingPage() {
 
         {step === 'telegram' && (
           <div>
+            <button
+              onClick={() => setStep('website')}
+              className="mb-4 flex items-center gap-1.5 text-sm font-medium text-brand-800 hover:text-brand-700"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
             <TelegramForm onConnected={() => setStep('done')} />
             <button
               onClick={() => setStep('done')}
@@ -385,6 +450,13 @@ export default function OnboardingPage() {
 
         {step === 'subscribe' && (
           <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-100 text-center">
+            <button
+              onClick={() => setStep('branding')}
+              className="mb-4 flex items-center gap-1.5 text-sm font-medium text-brand-800 hover:text-brand-700"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
             <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
               <LayoutList className="w-7 h-7 text-brand-800" />
             </div>
@@ -414,6 +486,9 @@ export default function OnboardingPage() {
             >
               Do this later from dashboard
             </button>
+            <p className="text-xs text-gray-400 mt-2">
+              Your business profile is saved either way -- it just won&apos;t be visible to customers until you subscribe.
+            </p>
           </div>
         )}
 
