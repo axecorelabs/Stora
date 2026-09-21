@@ -1,9 +1,20 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import VerifyEmail from "./VerifyEmail";
-import TurnstileWidget from "./ui/TurnstileWidget";
+import TurnstileWidget, { TURNSTILE_ENABLED } from "./ui/TurnstileWidget";
+
+// How long to wait for a first Turnstile result before giving up on
+// blocking submit for it -- in practice the widget starts its check the
+// moment this form mounts, well before a human finishes typing name/
+// email/password, so this almost never fires for a real visitor. It
+// exists purely so an ad-blocker/extension silently killing Cloudflare's
+// script (which fires neither the success nor the error callback -- there
+// is no callback at all in that case) can't leave a legitimate signup
+// permanently stuck on a disabled button with no explanation. The server
+// still fails closed on a missing/invalid token regardless.
+const TURNSTILE_TIMEOUT_MS = 8000;
 
 export default function SignUp({ onToggleMode }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,6 +30,18 @@ export default function SignUp({ onToggleMode }) {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileError, setTurnstileError] = useState(false);
+  const [turnstileTimedOut, setTurnstileTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!TURNSTILE_ENABLED || turnstileToken) return;
+    const timer = setTimeout(() => setTurnstileTimedOut(true), TURNSTILE_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [turnstileToken]);
+
+  // Waiting on a first result, not yet timed out or errored -- the one
+  // state that actually disables submit.
+  const turnstilePending = TURNSTILE_ENABLED && !turnstileToken && !turnstileError && !turnstileTimedOut;
 
   const { signUp } = useAuth();
 
@@ -319,11 +342,23 @@ export default function SignUp({ onToggleMode }) {
               )}
             </div>
 
-            <TurnstileWidget onVerify={setTurnstileToken} />
+            <TurnstileWidget
+              onVerify={(token) => { setTurnstileToken(token); setTurnstileError(false); }}
+              onError={() => { setTurnstileToken(""); setTurnstileError(true); }}
+            />
+            {turnstileError && (
+              <p className="text-red-500 text-xs -mt-2 ml-1">Verification failed -- refresh the page and try again.</p>
+            )}
+            {turnstilePending && (
+              <p className="text-gray-400 text-xs -mt-2 ml-1">Verifying you&apos;re human…</p>
+            )}
+            {turnstileTimedOut && !turnstileToken && !turnstileError && (
+              <p className="text-gray-400 text-xs -mt-2 ml-1">Taking longer than usual -- you can still try submitting.</p>
+            )}
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || turnstilePending}
               className="w-full bg-[#0B3B2E] text-white py-3.5 px-4 rounded-xl font-medium hover:bg-[#0F4A38] hover:shadow-[0_10px_30px_-10px_rgba(198,161,91,0.6)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {isSubmitting ? (
