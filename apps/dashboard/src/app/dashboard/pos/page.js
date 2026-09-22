@@ -416,7 +416,12 @@ export default function POSPage() {
         saleId: pendingSaleForDelivery._id,
         transactionId: pendingSaleForDelivery.transactionId,
         orderId: pendingSaleForDelivery.linkedOrderId || null,
-        deliveryType: pendingSaleForDelivery.isFromOrder ? 'order' : 'pos_sale',
+        // 'sale', not 'pos_sale' -- delivery_schedules.delivery_type's own
+        // CHECK constraint only allows ('order','sale','custom'). Confirmed
+        // live: every walk-in-sale delivery scheduled through this modal
+        // had been silently failing that constraint since launch (the
+        // production delivery_schedules table has zero non-'order' rows).
+        deliveryType: pendingSaleForDelivery.isFromOrder ? 'order' : 'sale',
         ...deliveryData
       });
 

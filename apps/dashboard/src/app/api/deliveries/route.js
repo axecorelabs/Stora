@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { sendDeliveryScheduledEmail } from '@/lib/email';
 import { captureServerEvent } from '@/lib/posthog-server';
+import { validateScheduledDate, isStateDeliverable } from '@/lib/deliveryValidation';
 
 // Reshape a delivery_schedules row (+ its items) back into the nested
 // { customer, deliveryAddress, items, ... } shape the dashboard UI expects,
@@ -131,6 +132,39 @@ export async function POST(req) {
 
     const deliveryData = await req.json();
 
+    // Server-side re-check -- DeliveryScheduleModal.js validates this
+    // client-side only, so a request hitting this route directly could
+    // otherwise schedule a past/invalid date with no rejection (confirmed
+    // live: every one of the production delivery_schedules rows had
+    // already drifted into the past with no way to fix it, since nothing
+    // here or in the UI catches a bad date going in).
+    const { date: scheduledDate, error: dateError } = validateScheduledDate(deliveryData.scheduledDate);
+    if (dateError) {
+      return NextResponse.json({ success: false, message: dateError }, { status: 400 });
+    }
+
+    const address = deliveryData.address || {};
+
+    // Mirrors the storefront checkout's own deliverability check
+    // (apps/store/.../orders/create/route.js) -- the POS delivery
+    // scheduling path had no equivalent, so a cashier could freely
+    // schedule delivery to a state the vendor never configured as
+    // deliverable at all.
+    if (address.state) {
+      const { data: storeForDeliveryCheck } = await supabaseAdmin
+        .from('stores')
+        .select('delivery_states')
+        .eq('owner_id', user.id)
+        .single();
+
+      if (!isStateDeliverable(storeForDeliveryCheck?.delivery_states, address.state)) {
+        return NextResponse.json({
+          success: false,
+          message: `Your store doesn't deliver to ${address.state}. Choose a different delivery state or update your delivery areas in Store Settings.`
+        }, { status: 400 });
+      }
+    }
+
     const { data: sale, error: saleError } = await supabaseAdmin
       .from('sales')
       .select('*')
@@ -142,12 +176,29 @@ export async function POST(req) {
       return NextResponse.json({ success: false, message: 'Sale not found' }, { status: 404 });
     }
 
+    // Friendly pre-check for the common (non-racing) case -- the real
+    // safety net is delivery_schedules_sale_id_unique (partial unique
+    // index on sale_id, see the matching migration), whose violation is
+    // caught below too, since two near-simultaneous requests could both
+    // pass this check before either insert commits.
+    const { data: existingDelivery } = await supabaseAdmin
+      .from('delivery_schedules')
+      .select('id')
+      .eq('sale_id', sale.id)
+      .maybeSingle();
+
+    if (existingDelivery) {
+      return NextResponse.json({
+        success: false,
+        message: 'A delivery has already been scheduled for this sale.'
+      }, { status: 409 });
+    }
+
     const { data: saleItems } = await supabaseAdmin
       .from('sale_items')
       .select('*')
       .eq('sale_id', sale.id);
 
-    const address = deliveryData.address || {};
     const deliveryId = crypto.randomUUID();
     const totalAmount = parseFloat(sale.total) + (Number(deliveryData.deliveryFee) || 0);
 
@@ -169,7 +220,7 @@ export async function POST(req) {
         address_postal_code: address.postalCode || null,
         address_country: address.country || 'Nigeria',
         full_address: address.fullAddress || null,
-        scheduled_date: new Date(deliveryData.scheduledDate).toISOString(),
+        scheduled_date: scheduledDate.toISOString(),
         time_slot: deliveryData.timeSlot || 'anytime',
         delivery_fee: Number(deliveryData.deliveryFee) || 0,
         delivery_method: deliveryData.deliveryMethod || 'self_delivery',
@@ -185,6 +236,16 @@ export async function POST(req) {
       .single();
 
     if (insertError || !delivery) {
+      // 23505 = unique_violation -- the actual race-safety net behind the
+      // pre-check above (delivery_schedules_sale_id_unique), for the rare
+      // case where two requests for the same sale both passed that check
+      // before either insert committed.
+      if (insertError?.code === '23505') {
+        return NextResponse.json({
+          success: false,
+          message: 'A delivery has already been scheduled for this sale.'
+        }, { status: 409 });
+      }
       console.error('Delivery creation error:', insertError);
       return NextResponse.json({ success: false, message: 'Failed to create delivery' }, { status: 500 });
     }

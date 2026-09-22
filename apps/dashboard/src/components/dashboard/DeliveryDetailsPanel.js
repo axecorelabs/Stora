@@ -12,8 +12,25 @@ import {
   CheckCircle,
   XCircle,
   FileText,
-  Navigation
+  Navigation,
+  Pencil,
+  RotateCcw
 } from "lucide-react";
+
+// Same value set as DeliveryScheduleModal.js's own options -- kept
+// consistent so an edit here can't produce a value that modal wouldn't
+// have offered on the original schedule.
+const DELIVERY_METHOD_OPTIONS = [
+  { value: 'self_delivery', label: 'Self Delivery' },
+  { value: 'courier', label: 'Courier Service' },
+  { value: 'pickup', label: 'Customer Pickup' }
+];
+const TIME_SLOT_OPTIONS = [
+  { value: 'anytime', label: 'Anytime' },
+  { value: 'morning', label: 'Morning (8AM - 12PM)' },
+  { value: 'afternoon', label: 'Afternoon (12PM - 5PM)' },
+  { value: 'evening', label: 'Evening (5PM - 8PM)' }
+];
 
 // The DB only allows these five status values -- "in_progress" is shown to merchants as "In Transit".
 const STATUS_LABELS = {
@@ -24,10 +41,14 @@ const STATUS_LABELS = {
   failed: 'Failed'
 };
 
-export default function DeliveryDetailsPanel({ isOpen, onClose, delivery, onStatusUpdate }) {
+export default function DeliveryDetailsPanel({ isOpen, onClose, delivery, onStatusUpdate, onEditDelivery }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
 
   if (!delivery) return null;
 
@@ -41,6 +62,64 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery, onStat
       setStatusError(error.message || 'Failed to update status');
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  // scheduledDate arrives as a full ISO timestamp (always midnight UTC of
+  // the picked day -- see DeliveryScheduleModal.js's own comment on this)
+  // but a <input type="date"> needs a plain YYYY-MM-DD value.
+  const startEditing = () => {
+    setEditError('');
+    setEditForm({
+      scheduledDate: delivery.scheduledDate ? delivery.scheduledDate.slice(0, 10) : '',
+      timeSlot: delivery.timeSlot || 'anytime',
+      deliveryMethod: delivery.deliveryMethod || 'self_delivery',
+      deliveryFee: delivery.deliveryFee ?? 0,
+      deliveryNotes: delivery.deliveryNotes || '',
+      street: delivery.deliveryAddress?.street || '',
+      city: delivery.deliveryAddress?.city || '',
+      state: delivery.deliveryAddress?.state || '',
+      postalCode: delivery.deliveryAddress?.postalCode || '',
+      country: delivery.deliveryAddress?.country || 'Nigeria'
+    });
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditForm(null);
+    setEditError('');
+  };
+
+  const saveEdit = async () => {
+    if (!onEditDelivery || !editForm) return;
+    setIsSavingEdit(true);
+    setEditError('');
+    try {
+      const fullAddress = [editForm.street, editForm.city, editForm.state, editForm.postalCode]
+        .filter(Boolean)
+        .join(', ');
+      await onEditDelivery(delivery._id, {
+        scheduledDate: `${editForm.scheduledDate}T00:00:00.000Z`,
+        timeSlot: editForm.timeSlot,
+        deliveryMethod: editForm.deliveryMethod,
+        deliveryFee: Number(editForm.deliveryFee) || 0,
+        deliveryNotes: editForm.deliveryNotes,
+        address: {
+          street: editForm.street,
+          city: editForm.city,
+          state: editForm.state,
+          postalCode: editForm.postalCode,
+          country: editForm.country,
+          fullAddress
+        }
+      });
+      setIsEditing(false);
+      setEditForm(null);
+    } catch (error) {
+      setEditError(error.message || 'Failed to save changes');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -128,12 +207,26 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery, onStat
                 <p className="text-sm text-gray-500">Transaction #{delivery.transactionId}</p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-500" />
-            </button>
+            <div className="flex items-center gap-1">
+              {/* Not offered once delivered/in transit -- rescheduling a
+                  delivery that's already out or done isn't a real edit,
+                  it's a new delivery. */}
+              {!isEditing && onEditDelivery && ['scheduled', 'cancelled', 'failed'].includes(delivery.status) && (
+                <button
+                  onClick={startEditing}
+                  title="Edit delivery details"
+                  className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <Pencil className="w-4 h-4 text-gray-500" />
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
           </div>
 
           {/* Status and Priority */}
@@ -224,76 +317,202 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery, onStat
                   </div>
                 </div>
 
-                {/* Delivery Address */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                    <MapPin className="w-4 h-4 mr-2" />
-                    Delivery Address
-                  </h4>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-900 mb-2">{delivery.deliveryAddress.fullAddress}</p>
-                    <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
+                {isEditing ? (
+                  /* Edit form -- reschedule + address/method/fee/notes.
+                     Payment status and total amount aren't editable here
+                     (those come from the underlying sale, not this
+                     schedule), so they're left out rather than offering
+                     an edit that wouldn't actually do anything. */
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <span className="font-medium">City:</span> {delivery.deliveryAddress.city}
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Scheduled Date</label>
+                        <input
+                          type="date"
+                          value={editForm.scheduledDate}
+                          onChange={(e) => setEditForm({ ...editForm, scheduledDate: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
+                        />
                       </div>
                       <div>
-                        <span className="font-medium">State:</span> {delivery.deliveryAddress.state}
-                      </div>
-                      {delivery.deliveryAddress.postalCode && (
-                        <div>
-                          <span className="font-medium">Postal Code:</span> {delivery.deliveryAddress.postalCode}
-                        </div>
-                      )}
-                      <div>
-                        <span className="font-medium">Country:</span> {delivery.deliveryAddress.country}
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Time Slot</label>
+                        <select
+                          value={editForm.timeSlot}
+                          onChange={(e) => setEditForm({ ...editForm, timeSlot: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
+                        >
+                          {TIME_SLOT_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
-                    
-                    {/* Google Maps Link */}
-                    <button 
-                      onClick={() => {
-                        const address = encodeURIComponent(delivery.deliveryAddress.fullAddress);
-                        window.open(`https://maps.google.com/maps?q=${address}`, '_blank');
-                      }}
-                      className="mt-3 flex items-center space-x-2 text-xs text-brand-800 hover:text-brand-900"
-                    >
-                      <Navigation className="w-3 h-3" />
-                      <span>Open in Google Maps</span>
-                    </button>
-                  </div>
-                </div>
 
-                {/* Delivery Details */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                    <Truck className="w-4 h-4 mr-2" />
-                    Delivery Details
-                  </h4>
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Method:</span>
-                      <span className="text-gray-900 font-medium capitalize">{delivery.deliveryMethod.replace('_', ' ')}</span>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Street Address</label>
+                      <input
+                        type="text"
+                        value={editForm.street}
+                        onChange={(e) => setEditForm({ ...editForm, street: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
+                      />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Delivery Fee:</span>
-                      <span className="text-gray-900 font-medium">{formatCurrency(delivery.deliveryFee)}</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">City</label>
+                        <input
+                          type="text"
+                          value={editForm.city}
+                          onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">State</label>
+                        <input
+                          type="text"
+                          value={editForm.state}
+                          onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
+                        />
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Payment Status:</span>
-                      <span className={`font-medium ${
-                        delivery.paymentStatus === 'paid' ? 'text-green-600' : 
-                        delivery.paymentStatus === 'pending' ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>
-                        {delivery.paymentStatus.replace('_', ' ').toUpperCase()}
-                      </span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Postal Code</label>
+                        <input
+                          type="text"
+                          value={editForm.postalCode}
+                          onChange={(e) => setEditForm({ ...editForm, postalCode: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Delivery Method</label>
+                        <select
+                          value={editForm.deliveryMethod}
+                          onChange={(e) => setEditForm({ ...editForm, deliveryMethod: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
+                        >
+                          {DELIVERY_METHOD_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Total Amount:</span>
-                      <span className="text-gray-900 font-bold">{formatCurrency(delivery.totalAmount)}</span>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Delivery Fee (₦)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editForm.deliveryFee}
+                        onChange={(e) => setEditForm({ ...editForm, deliveryFee: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Delivery Notes</label>
+                      <textarea
+                        rows={2}
+                        value={editForm.deliveryNotes}
+                        onChange={(e) => setEditForm({ ...editForm, deliveryNotes: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-800 text-black"
+                      />
+                    </div>
+
+                    {editError && <p className="text-xs text-red-600">{editError}</p>}
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={saveEdit}
+                        disabled={isSavingEdit}
+                        className="flex-1 px-4 py-2 bg-brand-800 text-white rounded-lg hover:bg-brand-900 disabled:opacity-50 transition-colors text-sm font-medium"
+                      >
+                        {isSavingEdit ? 'Saving...' : 'Save Changes'}
+                      </button>
+                      <button
+                        onClick={cancelEditing}
+                        disabled={isSavingEdit}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors text-sm"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {/* Delivery Address */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                        <MapPin className="w-4 h-4 mr-2" />
+                        Delivery Address
+                      </h4>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-sm text-gray-900 mb-2">{delivery.deliveryAddress.fullAddress}</p>
+                        <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
+                          <div>
+                            <span className="font-medium">City:</span> {delivery.deliveryAddress.city}
+                          </div>
+                          <div>
+                            <span className="font-medium">State:</span> {delivery.deliveryAddress.state}
+                          </div>
+                          {delivery.deliveryAddress.postalCode && (
+                            <div>
+                              <span className="font-medium">Postal Code:</span> {delivery.deliveryAddress.postalCode}
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-medium">Country:</span> {delivery.deliveryAddress.country}
+                          </div>
+                        </div>
+
+                        {/* Google Maps Link */}
+                        <button
+                          onClick={() => {
+                            const address = encodeURIComponent(delivery.deliveryAddress.fullAddress);
+                            window.open(`https://maps.google.com/maps?q=${address}`, '_blank');
+                          }}
+                          className="mt-3 flex items-center space-x-2 text-xs text-brand-800 hover:text-brand-900"
+                        >
+                          <Navigation className="w-3 h-3" />
+                          <span>Open in Google Maps</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Delivery Details */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                        <Truck className="w-4 h-4 mr-2" />
+                        Delivery Details
+                      </h4>
+                      <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Method:</span>
+                          <span className="text-gray-900 font-medium capitalize">{delivery.deliveryMethod.replace('_', ' ')}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Delivery Fee:</span>
+                          <span className="text-gray-900 font-medium">{formatCurrency(delivery.deliveryFee)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Payment Status:</span>
+                          <span className={`font-medium ${
+                            delivery.paymentStatus === 'paid' ? 'text-green-600' :
+                            delivery.paymentStatus === 'pending' ? 'text-yellow-600' :
+                            'text-red-600'
+                          }`}>
+                            {delivery.paymentStatus.replace('_', ' ').toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Total Amount:</span>
+                          <span className="text-gray-900 font-bold">{formatCurrency(delivery.totalAmount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Delivery Notes */}
                 {delivery.deliveryNotes && (
@@ -482,6 +701,22 @@ export default function DeliveryDetailsPanel({ isOpen, onClose, delivery, onStat
                   Mark Failed
                 </button>
               </div>
+            )}
+
+            {/* cancelled/failed used to be dead ends -- nothing in this
+                panel offered a way back, and the only actual fix was
+                calling the API directly. The API itself never restricted
+                this (VALID_STATUSES has no transition-order check), so
+                reopening was always safe -- just never exposed. */}
+            {['cancelled', 'failed'].includes(delivery.status) && (
+              <button
+                onClick={() => handleStatusChange('scheduled')}
+                disabled={isUpdatingStatus}
+                className="w-full flex items-center justify-center px-4 py-2 bg-gold-500 text-brand-900 rounded-lg hover:bg-gold-400 disabled:opacity-50 transition-colors text-sm font-medium"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reopen as Scheduled
+              </button>
             )}
 
             <div className="flex space-x-3">

@@ -127,6 +127,10 @@ function transformStore(store) {
     // means "has this vendor linked a Telegram chat" (see
     // /api/telegram/status), used by SetupChecklist to nudge toward it.
     telegramConnected: !!store.telegram_chat_id,
+    // Vendor's explicit opt-in to the morning delivery-digest Telegram
+    // message (api/cron/delivery-digest) -- separate from telegramConnected
+    // itself, see api/stores/delivery-digest's own comment.
+    deliveryDigestEnabled: !!store.delivery_digest_enabled,
     totalSales: parseFloat(store.total_sales) || 0,
     totalOrders: store.total_orders || 0,
     averageRating: parseFloat(store.average_rating) || 0,

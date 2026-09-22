@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Truck, ChevronDown, ChevronUp } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Truck, ChevronDown, ChevronUp, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import StoreDeliveryTab from "@/components/dashboard/store/StoreDeliveryTab";
 
@@ -16,12 +17,14 @@ import StoreDeliveryTab from "@/components/dashboard/store/StoreDeliveryTab";
 // reused completely unmodified -- it was already self-contained.
 export default function DeliverySettingsCard() {
   const { secureApiCall } = useAuth();
+  const router = useRouter();
   const [store, setStore] = useState(null);
   const [editData, setEditData] = useState(null);
   const [errors, setErrors] = useState({});
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingFulfillmentMethod, setIsUpdatingFulfillmentMethod] = useState(false);
+  const [isUpdatingDigest, setIsUpdatingDigest] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
   useEffect(() => {
@@ -99,6 +102,25 @@ export default function DeliverySettingsCard() {
     }
   };
 
+  const handleDigestToggle = async (enabled) => {
+    if (isUpdatingDigest) return;
+    setIsUpdatingDigest(true);
+    setErrors(prev => ({ ...prev, digest: '' }));
+    try {
+      const response = await secureApiCall('/api/stores/delivery-digest', {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled })
+      });
+      if (response.success) {
+        setStore(prev => ({ ...prev, deliveryDigestEnabled: response.data.deliveryDigestEnabled }));
+      } else {
+        setErrors(prev => ({ ...prev, digest: response.message || 'Failed to update' }));
+      }
+    } finally {
+      setIsUpdatingDigest(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!editData.deliveryNationwide && (editData.deliveryStates || []).length === 0) {
       setErrors(prev => ({ ...prev, deliveryStates: 'Select at least one state, or choose Nationwide' }));
@@ -151,6 +173,46 @@ export default function DeliverySettingsCard() {
 
       {isExpanded && (
         <div className="border-t border-gray-100 p-4 lg:p-5">
+          <div className="flex items-center justify-between gap-3 pb-5 mb-5 border-b border-gray-100">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand-100 text-brand-800 flex-shrink-0">
+                <Send className="w-4.5 h-4.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900">Morning delivery digest</p>
+                {store.telegramConnected ? (
+                  <p className="text-xs text-gray-500">
+                    Get a Telegram message every morning listing that day&apos;s deliveries
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    <button
+                      type="button"
+                      onClick={() => router.push('/dashboard/settings?tab=telegram')}
+                      className="text-brand-800 font-medium hover:underline"
+                    >
+                      Connect Telegram
+                    </button>
+                    {' '}in Settings to turn this on
+                  </p>
+                )}
+              </div>
+            </div>
+            <label className={`relative inline-flex items-center flex-shrink-0 ${store.telegramConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+              <input
+                type="checkbox"
+                checked={!!store.deliveryDigestEnabled}
+                disabled={!store.telegramConnected || isUpdatingDigest}
+                onChange={(e) => handleDigestToggle(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-800"></div>
+            </label>
+          </div>
+          {errors.digest && (
+            <p className="text-red-500 text-xs -mt-4 mb-5">{errors.digest}</p>
+          )}
+
           <StoreDeliveryTab
             store={store}
             isEditing={true}

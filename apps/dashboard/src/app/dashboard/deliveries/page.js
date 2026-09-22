@@ -131,6 +131,30 @@ export default function DeliveriesPage() {
     return response.data;
   };
 
+  // Edit a delivery's schedule/address/method/fee/notes with no status
+  // change (PUT with `status` omitted -- the route treats that as "edit
+  // details only," see api/deliveries/[deliveryId]/route.js). Same
+  // refresh/sync shape as updateDeliveryStatus above.
+  const editDeliveryDetails = async (deliveryId, fields) => {
+    const response = await secureApiCall(`/api/deliveries/${deliveryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(fields)
+    });
+
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to update delivery details');
+    }
+
+    setSelectedDelivery(response.data);
+    await Promise.all([
+      fetchDeliveriesForDate(selectedDate),
+      fetchMonthDeliveries(currentDate),
+      fetchStats()
+    ]);
+
+    return response.data;
+  };
+
   // Calendar helper functions
   const getDaysInMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -490,6 +514,7 @@ export default function DeliveriesPage() {
         onClose={closeDetailsPanel}
         delivery={selectedDelivery}
         onStatusUpdate={updateDeliveryStatus}
+        onEditDelivery={editDeliveryDetails}
       />
 
       <style jsx global>{`
