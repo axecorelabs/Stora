@@ -8,7 +8,6 @@ import {
   BUSINESS_CATEGORY_VALUES,
   BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY,
   BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY,
-  BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY,
   NIGERIAN_STATES
 } from "@stora/shared-constants";
 
@@ -174,7 +173,6 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
 
   const activeSubcategoryOptions = BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[formData.businessCategory] || [];
   const activeSubcategoryCombos = BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY[formData.businessCategory] || [];
-  const activeSubcategorySingles = BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY[formData.businessCategory] || [];
 
   const primarySubcategoryOptions = [
     { value: '', label: 'Select primary subcategory' },
@@ -202,14 +200,6 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
     }));
   };
 
-  const applySuggestedSingle = (single) => {
-    if (!single) return;
-    setFormData((prev) => ({
-      ...prev,
-      businessSubcategory: single.primary || '',
-      businessSubcategories: []
-    }));
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -556,23 +546,6 @@ export default function CreateBusinessModal({ isOpen, onStoreCreated, embedded =
                                 className="px-3 py-2 rounded-full text-xs font-semibold border border-gold-300 text-gold-700 bg-gold-50 hover:bg-gold-100 transition-colors"
                               >
                                 {combo.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {activeSubcategorySingles.length > 0 && (
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Single quick picks</p>
-                          <div className="flex flex-wrap gap-2">
-                            {activeSubcategorySingles.map((single) => (
-                              <button
-                                key={single.key}
-                                type="button"
-                                onClick={() => applySuggestedSingle(single)}
-                                className="px-3 py-2 rounded-full text-xs font-semibold border border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors"
-                              >
-                                {single.label}
                               </button>
                             ))}
                           </div>

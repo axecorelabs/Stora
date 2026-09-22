@@ -6,8 +6,7 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import {
   BUSINESS_CATEGORY_VALUES,
   BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY,
-  BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY,
-  BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY
+  BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY
 } from "@stora/shared-constants";
 
 // A store must always do at least one of Products/Food/Services (same rule
@@ -57,7 +56,6 @@ export default function StorePreferencesTab({
   const selectedCategory = isEditing ? editData.businessCategory : store.businessCategory;
   const activeSubcategoryOptions = BUSINESS_SUBCATEGORY_OPTIONS_BY_CATEGORY[selectedCategory] || [];
   const activeSubcategoryCombos = BUSINESS_SUBCATEGORY_COMBOS_BY_CATEGORY[selectedCategory] || [];
-  const activeSubcategorySingles = BUSINESS_SUBCATEGORY_SINGLE_PRESETS_BY_CATEGORY[selectedCategory] || [];
   const primarySubcategoryOptions = [{ value: '', label: 'Select primary subcategory' }, ...activeSubcategoryOptions];
 
   const toggleDraftSubcategory = (value) => {
@@ -89,18 +87,6 @@ export default function StorePreferencesTab({
         value: (combo.secondary || []).filter((entry) => entry !== combo.primary)
       }
     });
-  };
-
-  const applyDraftSingle = (single) => {
-    if (!single) return;
-    setSubcategoryDraft(single.primary || '');
-    setSubcategoriesDraft([]);
-  };
-
-  const applyEditSingle = (single) => {
-    if (!single) return;
-    handleChange({ target: { name: 'businessSubcategory', value: single.primary || '' } });
-    handleChange({ target: { name: 'businessSubcategories', value: [] } });
   };
 
   const currentSecondary = (Array.isArray(store.businessSubcategories) ? store.businessSubcategories : [])
@@ -243,23 +229,6 @@ export default function StorePreferencesTab({
                         </div>
                       </div>
                     )}
-                    {activeSubcategorySingles.length > 0 && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Single quick picks</p>
-                        <div className="flex flex-wrap gap-2">
-                          {activeSubcategorySingles.map((single) => (
-                            <button
-                              key={single.key}
-                              type="button"
-                              onClick={() => applyEditSingle(single)}
-                              className="px-3 py-1.5 rounded-full text-xs font-semibold border border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors"
-                            >
-                              {single.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </>
                 ) : (
                   <p className="text-xs text-gray-500">Select a business category first.</p>
@@ -312,23 +281,6 @@ export default function StorePreferencesTab({
                               className="px-3 py-1.5 rounded-full text-xs font-semibold border border-gold-300 text-gold-700 bg-gold-50 hover:bg-gold-100 transition-colors"
                             >
                               {combo.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {activeSubcategorySingles.length > 0 && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Single quick picks</p>
-                        <div className="flex flex-wrap gap-2">
-                          {activeSubcategorySingles.map((single) => (
-                            <button
-                              key={single.key}
-                              type="button"
-                              onClick={() => applyDraftSingle(single)}
-                              className="px-3 py-1.5 rounded-full text-xs font-semibold border border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors"
-                            >
-                              {single.label}
                             </button>
                           ))}
                         </div>
