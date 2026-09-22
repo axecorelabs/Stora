@@ -102,7 +102,7 @@ export default function ProductCardMobile({ product, primaryColor, secondaryColo
   return (
     <>
     <div
-      className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] transition-all duration-200 group cursor-pointer active:scale-[0.98]"
+      className="bg-white rounded-md overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] transition-all duration-200 group cursor-pointer active:scale-[0.98]"
       onClick={handleProductClick}
     >
       {/* Image Container */}

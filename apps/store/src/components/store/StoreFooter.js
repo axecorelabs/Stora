@@ -20,6 +20,7 @@ import {
 import useStoreStore from '@/stores/storeStore';
 import { storeHref } from '@/lib/storeUrl';
 import { DAYS_OF_WEEK, formatDayHours, hasConfiguredBusinessHours } from '@stora/shared-constants';
+import { deriveStoreTheme } from '@/lib/storeTheme';
 
 export default function StoreFooter() {
   const router = useRouter();
@@ -74,6 +75,11 @@ export default function StoreFooter() {
   // Store colors with fallbacks
   const primaryColor = currentStore?.branding?.primaryColor || '#0D9488';
   const secondaryColor = currentStore?.branding?.secondaryColor || '#F3F4F6';
+  // Same derived tokens the hero/trust strip use -- see storeTheme.js.
+  // Computed unconditionally (hooks can't follow the early return below),
+  // harmless when currentStore is still null since it just falls back to
+  // the default teal.
+  const theme = deriveStoreTheme(primaryColor);
 
   // Scroll to top functionality
   const scrollToTop = () => {
@@ -173,7 +179,7 @@ export default function StoreFooter() {
   ].filter(link => link.handle && link.handle.trim() !== '');
 
   return (
-    <footer className="bg-gray-100 border-t border-gray-100 mt-auto" >
+    <footer className="border-t border-gray-100 mt-auto" style={{ backgroundColor: theme.canvas }}>
       {/* Main Footer Content */}
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12">
@@ -234,19 +240,8 @@ export default function StoreFooter() {
                       <button
                         key={index}
                         onClick={() => openSocialLink(social.platform, social.handle)}
-                        className="w-10 h-10 rounded-lg flex items-center justify-center border transition-all duration-200 group hover:shadow-md"
-                        style={{ 
-                          borderColor: `${primaryColor}30`,
-                          backgroundColor: 'white'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = `${primaryColor}10`;
-                          e.currentTarget.style.borderColor = primaryColor;
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'white';
-                          e.currentTarget.style.borderColor = `${primaryColor}30`;
-                        }}
+                        className="w-10 h-10 rounded-lg flex items-center justify-center border transition-all duration-200 group hover:shadow-md hover:[background-color:var(--tint)] hover:[border-color:var(--accent)]"
+                        style={{ borderColor: theme.border, backgroundColor: 'white', '--tint': theme.tint, '--accent': theme.accent }}
                         title={social.platform}
                       >
                         <IconComponent 
@@ -275,17 +270,9 @@ export default function StoreFooter() {
                       onClick={() => (link.external ? window.open(link.path, '_self') : router.push(link.path))}
                       className="flex items-center gap-2.5 text-sm text-gray-600 hover:text-gray-900 transition-colors group w-full text-left"
                     >
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-all group-hover:shadow-sm"
-                        style={{ 
-                          backgroundColor: `${primaryColor}10`,
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = `${primaryColor}20`;
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = `${primaryColor}10`;
-                        }}
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-all group-hover:shadow-sm group-hover:[background-color:var(--tint)]"
+                        style={{ backgroundColor: theme.tintFaint, '--tint': theme.tint }}
                       >
                         <IconComponent 
                           className="w-4 h-4 transition-transform group-hover:scale-110" 
@@ -313,7 +300,7 @@ export default function StoreFooter() {
                 <div className="flex items-start gap-3">
                   <div 
                     className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ backgroundColor: `${primaryColor}10` }}
+                    style={{ backgroundColor: theme.tintFaint }}
                   >
                     <MapPin className="w-4 h-4" style={{ color: primaryColor }} />
                   </div>
@@ -331,20 +318,16 @@ export default function StoreFooter() {
                 <div className="flex items-start gap-3">
                   <div 
                     className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${primaryColor}10` }}
+                    style={{ backgroundColor: theme.tintFaint }}
                   >
                     <Phone className="w-4 h-4" style={{ color: primaryColor }} />
                   </div>
                   <div className="flex-1">
                     <p className="text-xs font-semibold text-gray-900 mb-1">Phone</p>
-                    <a 
+                    <a
                       href={`tel:${currentStore.storePhone}`}
-                      className="text-sm text-gray-600 hover:underline"
-                      style={{ 
-                        '--hover-color': primaryColor 
-                      }}
-                      onMouseEnter={(e) => e.target.style.color = primaryColor}
-                      onMouseLeave={(e) => e.target.style.color = ''}
+                      className="text-sm text-gray-600 hover:underline hover:[color:var(--accent)]"
+                      style={{ '--accent': theme.accent }}
                     >
                       {currentStore.storePhone}
                     </a>
@@ -357,17 +340,16 @@ export default function StoreFooter() {
                 <div className="flex items-start gap-3">
                   <div 
                     className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${primaryColor}10` }}
+                    style={{ backgroundColor: theme.tintFaint }}
                   >
                     <Mail className="w-4 h-4" style={{ color: primaryColor }} />
                   </div>
                   <div className="flex-1">
                     <p className="text-xs font-semibold text-gray-900 mb-1">Email</p>
-                    <a 
+                    <a
                       href={`mailto:${currentStore.storeEmail}`}
-                      className="text-sm text-gray-600 hover:underline break-all"
-                      onMouseEnter={(e) => e.target.style.color = primaryColor}
-                      onMouseLeave={(e) => e.target.style.color = ''}
+                      className="text-sm text-gray-600 hover:underline break-all hover:[color:var(--accent)]"
+                      style={{ '--accent': theme.accent }}
                     >
                       {currentStore.storeEmail}
                     </a>
@@ -389,7 +371,7 @@ export default function StoreFooter() {
                 <div className="flex items-start gap-3">
                   <div
                     className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${primaryColor}10` }}
+                    style={{ backgroundColor: theme.tintFaint }}
                   >
                     <Clock className="w-4 h-4" style={{ color: primaryColor }} />
                   </div>
@@ -413,34 +395,25 @@ export default function StoreFooter() {
 
               {/* Delivery Areas Badge */}
               {currentStore.storeType === 'online' && currentStore.onlineStoreInfo?.deliveryAreas?.length > 0 && (
-                <div 
+                <div
                   className="p-3 rounded-lg border"
-                  style={{ 
-                    backgroundColor: `${primaryColor}05`,
-                    borderColor: `${primaryColor}20`
-                  }}
+                  style={{ backgroundColor: theme.tintFaint, borderColor: theme.border }}
                 >
                   <p className="text-xs font-semibold text-gray-900 mb-2">We Deliver To:</p>
                   <div className="flex flex-wrap gap-1.5">
                     {currentStore.onlineStoreInfo.deliveryAreas.slice(0, 4).map((area, index) => (
-                      <span 
+                      <span
                         key={index}
                         className="text-xs px-2.5 py-1 rounded-full font-medium"
-                        style={{ 
-                          backgroundColor: `${primaryColor}15`,
-                          color: primaryColor
-                        }}
+                        style={{ backgroundColor: theme.tint, color: theme.accent }}
                       >
                         {area}
                       </span>
                     ))}
                     {currentStore.onlineStoreInfo.deliveryAreas.length > 4 && (
-                      <span 
+                      <span
                         className="text-xs px-2.5 py-1 rounded-full font-medium"
-                        style={{ 
-                          backgroundColor: `${primaryColor}15`,
-                          color: primaryColor
-                        }}
+                        style={{ backgroundColor: theme.tint, color: theme.accent }}
                       >
                         +{currentStore.onlineStoreInfo.deliveryAreas.length - 4}
                       </span>
@@ -454,12 +427,9 @@ export default function StoreFooter() {
       </div>
 
       {/* Bottom Bar */}
-      <div 
+      <div
         className="border-t"
-        style={{ 
-          backgroundColor: `${primaryColor}05`,
-          borderColor: `${primaryColor}15`
-        }}
+        style={{ backgroundColor: theme.tintFaint, borderColor: theme.border }}
       >
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -497,10 +467,7 @@ export default function StoreFooter() {
             <button
               onClick={scrollToTop}
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all hover:shadow-md hover:scale-105 active:scale-95"
-              style={{ 
-                backgroundColor: primaryColor,
-                color: 'white'
-              }}
+              style={{ backgroundColor: theme.accent, color: theme.onAccent }}
             >
               <ArrowUp className="w-4 h-4" />
               <span>Back to Top</span>

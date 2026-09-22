@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from "react";
 // reused all over this app for unrelated purposes (hover overlays, cart
 // button visibility, etc.), so forcing THOSE visible with JS disabled
 // would break other components; this class name is only ever used here.
-export default function Reveal({ children, className = "", as: Tag = "div", delayMs = 0 }) {
+export default function Reveal({ children, className = "", as: Tag = "div", delayMs = 0, ...rest }) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
 
@@ -49,6 +49,7 @@ export default function Reveal({ children, className = "", as: Tag = "div", dela
         visible ? "opacity-100 translate-y-0" : "reveal-hidden opacity-0 translate-y-6"
       } ${className}`}
       style={delayMs > 0 ? { transitionDelay: `${delayMs}ms` } : undefined}
+      {...rest}
     >
       {children}
     </Tag>

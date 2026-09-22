@@ -177,14 +177,14 @@ export default function ProductCard({ product, primaryColor, secondaryColor, onN
 
   return (
     <>
-    <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer"
+    <div className="bg-white rounded-md overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer"
          onClick={handleProductClick}>
       {/* Image Container -- same framed treatment as home/DiscoveryProductCard.js
           and search/VendorSearchCard.js's logo slot: padded inset, not
           edge-to-edge, so every product card in the app reads as one
           consistent card language regardless of which page it's on. */}
       <div className="p-3">
-        <div className="relative w-full aspect-square rounded-xl overflow-hidden"
+        <div className="relative w-full aspect-square rounded-md overflow-hidden"
           style={{
             backgroundColor: secondaryColor || '#F3F4F6'
           }}

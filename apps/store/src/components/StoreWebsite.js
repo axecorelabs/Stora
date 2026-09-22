@@ -5,6 +5,9 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import StoreHeader from "./store/StoreHeader";
 import StoreFooter from "./store/StoreFooter";
+import StoreTrustStrip from "./store/StoreTrustStrip";
+import Reveal from "./ui/Reveal";
+import { deriveStoreTheme } from "@/lib/storeTheme";
 import ProductCard from "./store/ProductCard";
 import ProductCardMobile from "./store/ProductCardMobile";
 import ServicesSection from "./store/ServicesSection";
@@ -44,7 +47,6 @@ import {
   X,
   MapPin,
   ExternalLink,
-  ShieldCheck,
   AlertTriangle
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
@@ -56,7 +58,6 @@ import SignUpModal from "./auth/SignUpModal";
 import ForgotPasswordModal from "./auth/ForgotPasswordModal";
 import LoadingOverlay from "./ui/LoadingOverlay";
 import FloatingCartButton from "./ui/FloatingCartButton";
-import StarRating from "./ui/StarRating";
 import ViewBeacon from "./analytics/ViewBeacon";
 import { useProducts } from "@/hooks/useProducts";
 import { attachAutoScroll } from "@/lib/autoScroll";
@@ -75,11 +76,7 @@ export default function StoreWebsite({ store, gallery = [] }) {
 
   const [isMobile, setIsMobile] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
-  
-  // Add carousel state
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
-  
+
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedPrice, setSelectedPrice] = useState("all");
@@ -106,6 +103,12 @@ export default function StoreWebsite({ store, gallery = [] }) {
   // Get branding colors from store or use defaults
   const primaryColor = store.branding?.primaryColor || "#0D9488";
   const secondaryColor = store.branding?.secondaryColor || "#F3F4F6";
+  // Every derived tint/border/contrast-safe-text value the hero, trust
+  // strip, and CTA below need, computed once from this vendor's own
+  // accent -- see storeTheme.js for why this replaces the old
+  // `${primaryColor}66` string-concat pattern.
+  const theme = useMemo(() => deriveStoreTheme(primaryColor), [primaryColor]);
+  const hasBanner = !!store.branding?.banner;
 
   // Screen size detection function
   const detectScreenSize = () => {
@@ -306,115 +309,9 @@ export default function StoreWebsite({ store, gallery = [] }) {
   };
 
   // Animation refs
-  const mainRef = useRef(null);
-  const bannerRef = useRef(null);
-  const filtersRef = useRef(null);
   const productsGridRef = useRef(null);
-  const backgroundShapesRef = useRef(null);
   const loadingRef = useRef(null);
   const emptyStateRef = useRef(null);
-
-  // GSAP Animation Effects
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const ctx = gsap.context(() => {
-      // Initial page load animation
-      const tl = gsap.timeline();
-
-      // Animate background shapes on desktop
-      if (!isMobile && backgroundShapesRef.current) {
-        gsap.set(backgroundShapesRef.current.children, { 
-          scale: 0,
-          opacity: 0 
-        });
-        
-        gsap.to(backgroundShapesRef.current.children, {
-          scale: 1,
-          opacity: 1,
-          duration: 2,
-          stagger: 0.2,
-          ease: "back.out(1.7)"
-        });
-
-        // Floating animation for background shapes
-        gsap.to(backgroundShapesRef.current.children, {
-          y: "random(-20, 20)",
-          x: "random(-10, 10)",
-          rotation: "random(-5, 5)",
-          duration: "random(3, 6)",
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut",
-          stagger: {
-            amount: 1,
-            from: "random"
-          }
-        });
-      }
-
-      // Mobile banner animation
-      if (isMobile && bannerRef.current) {
-        gsap.fromTo(bannerRef.current, 
-          { 
-            y: -100,
-            opacity: 0,
-            scale: 0.95
-          },
-          { 
-            y: 0,
-            opacity: 1,
-            scale: 1,
-            duration: 1,
-            ease: "back.out(1.7)",
-            delay: 0.3
-          }
-        );
-
-        // Animate banner content
-        const bannerContent = bannerRef.current.querySelector('.banner-content');
-        if (bannerContent) {
-          gsap.fromTo(bannerContent.children,
-            {
-              y: 30,
-              opacity: 0
-            },
-            {
-              y: 0,
-              opacity: 1,
-              duration: 0.8,
-              stagger: 0.1,
-              delay: 0.8,
-              ease: "power2.out"
-            }
-          );
-        }
-      }
-
-      // Filters animation
-      if (filtersRef.current) {
-        gsap.fromTo(filtersRef.current.children,
-          {
-            y: 50,
-            opacity: 0,
-            scale: 0.8
-          },
-          {
-            y: 0,
-            opacity: 1,
-            scale: 1,
-            duration: 0.6,
-            stagger: 0.1,
-            delay: isMobile ? 1.2 : 0.5,
-            ease: "back.out(1.7)"
-          }
-        );
-      }
-
-    }, mainRef);
-
-    return () => ctx.revert();
-  }, [isMobile]);
 
   // Products grid animation
   useEffect(() => {
@@ -705,35 +602,12 @@ export default function StoreWebsite({ store, gallery = [] }) {
     if (activeGalleryIndex >= galleryItems.length) setActiveGalleryIndex(null);
   }, [activeGalleryIndex, galleryItems.length]);
 
-  // Auto-play carousel effect
-  useEffect(() => {
-    if (!isMobile || !isAutoPlaying) return;
-
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % carouselSlides.length);
-    }, 5000); // Change slide every 5 seconds
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, isAutoPlaying]);
-
-  // Carousel slides data -- trimmed to just the store's own banner for now
-  // (the second "Stora trust" slide is parked pending a better replacement).
-  const carouselSlides = [
-    {
-      type: 'store',
-      title: store.storeName,
-      description: store.storeDescription,
-      badge: store.storeType === 'physical' ? 'Physical store' : 'Online store',
-      showLogo: true
-    }
-  ];
-
-  const handleDotClick = (index) => {
-    setCurrentSlide(index);
-    setIsAutoPlaying(false);
-    // Resume autoplay after 10 seconds
-    setTimeout(() => setIsAutoPlaying(true), 10000);
+  // Scrolls to the products (or services) grid further down this same
+  // page -- the hero's CTA doesn't navigate anywhere, since the full
+  // catalog already lives right here, not on a separate "shop" page.
+  const scrollToShop = () => {
+    const targetId = store.sellsProducts || store.restaurantMode ? "products" : "services";
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -744,113 +618,86 @@ export default function StoreWebsite({ store, gallery = [] }) {
         onSignInClick={() => setShowSignInModal(true)}
       />
 
-      {/* Desktop Storefront Hero -- this page didn't have one at all before
-          (just decorative blur shapes behind a search bar); this is a
-          vendor's own shop window, so it leads with their name, their
-          description, their own color -- Stora's presence is the small
-          "Verified" mark, not a competing visual layer. */}
-      {!isMobile && (
-        <div className="relative overflow-hidden border-b border-gray-100 min-h-[220px] lg:min-h-[260px] flex items-center">
-          {/* Banner image, when the vendor has one -- same blurred color-wash
-              treatment the mobile carousel already uses for consistency,
-              just given real room to breathe on desktop. Falls back to a
-              flat vendor-tinted card when there's no banner to show. */}
-          {store.branding?.banner ? (
-            <>
-              <div
-                className="absolute inset-0 bg-cover bg-center scale-105"
-                style={{ backgroundImage: `url(${store.branding.banner})` }}
-              />
-              <div
-                className="absolute inset-0 backdrop-blur-md"
-                style={{ backgroundColor: `${primaryColor}66` }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-            </>
-          ) : (
-            <>
-              <div className="absolute inset-0" style={{ backgroundColor: `${primaryColor}E6` }} />
-              <div
-                className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full blur-3xl opacity-20 pointer-events-none bg-white"
-              />
-            </>
-          )}
+      {/* Storefront hero -- a vendor's own shop window, so it leads with
+          their name, their photo (real and crisp, not blurred under a
+          color wash), and their own accent color, with a single clear
+          action rather than a page-load of scattered facts. One
+          responsive block instead of separate mobile/desktop
+          implementations -- the old mobile version was a "carousel" of
+          exactly one slide, dead complexity for no visual difference. */}
+      <div className="relative overflow-hidden border-b" style={{ borderColor: theme.border }}>
+        {hasBanner ? (
+          <>
+            <div
+              className="absolute inset-0 bg-cover bg-center scale-105"
+              style={{ backgroundImage: `url(${store.branding.banner})` }}
+            />
+            {/* Soft-focus + accent wash over the banner -- guarantees text
+                legibility against any photo (busy or not) since blur
+                erases the underlying detail entirely rather than betting
+                on a gradient alone. Same recipe the previous hero used,
+                just carried into the bigger hero below. */}
+            <div className="absolute inset-0 backdrop-blur-md" style={{ backgroundColor: `${primaryColor}66` }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+          </>
+        ) : (
+          <div className="absolute inset-0" style={{ backgroundColor: theme.tintStrong }} />
+        )}
 
-          <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12 lg:py-14 relative w-full">
-            <div className="flex items-center gap-5">
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-8 py-14 sm:py-20 lg:py-28 min-h-[320px] sm:min-h-[420px] lg:min-h-[500px] flex flex-col justify-end">
+          <Reveal>
+            <div className="flex items-center gap-3 mb-4">
               {store.branding?.logo && (
                 <img
                   src={store.branding.logo}
                   alt={store.storeName}
-                  className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl object-cover bg-white border border-white/40 shadow-lg flex-shrink-0"
+                  className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl object-cover bg-white border border-white/40 shadow-lg flex-shrink-0"
                 />
               )}
-              <div className="min-w-0">
-                {/* businessVerified is the staff-granted "Verified by
-                    Stora" badge -- a vendor contacts Stora directly and
-                    staff decide, toggled via the admin-only PATCH
-                    /api/stores/[storeId]. Distinct from isVerified, the
-                    vendor's own QoreID identity check, which this badge
-                    used to be (incorrectly) tied to -- completing the NIN
-                    + selfie check alone no longer earns this badge. */}
-                {store.businessVerified && (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-gold-400/40 mb-2.5">
-                    <ShieldCheck className="w-3 h-3 text-gold-400" />
-                    <span className="text-[10.5px] font-semibold text-gold-400 tracking-wide uppercase">
-                      Verified by Stora
-                    </span>
-                  </div>
-                )}
-                <h1 className="font-display text-[28px] lg:text-[34px] font-semibold text-white tracking-tight truncate drop-shadow-sm">
-                  {store.storeName}
-                </h1>
-                {/* Store names aren't unique (see CreateStoreModal's
-                    name-collision warning) -- the slug is, and it's what
-                    the URL/subdomain actually is, so surfacing it here
-                    gives a shopper a real way to tell two same-named
-                    stores apart, or to notice one isn't who it claims. */}
-                <p className="text-white/70 text-[13px] font-mono truncate drop-shadow-sm">@{store.storeSlug}</p>
-                {/* Always renders now (the delivery segment has no
-                    condition of its own -- every store either ships
-                    nationwide or to a specific list, always worth
-                    showing), where before this row only appeared once a
-                    review or a state existed. */}
-                <div className="flex items-center gap-1.5 mt-1">
-                  {store.totalReviews > 0 && (
-                    <>
-                      <StarRating rating={store.averageRating} size={13} />
-                      <span className="text-white/80 text-[12.5px] tabular-nums drop-shadow-sm">
-                        {store.averageRating.toFixed(1)} · {store.totalReviews} review{store.totalReviews === 1 ? '' : 's'}
-                      </span>
-                    </>
-                  )}
-                  {store.state && (
-                    <span className="text-white/80 text-[12.5px] drop-shadow-sm">
-                      {store.totalReviews > 0 && <span className="text-white/40 mx-0.5">·</span>}
-                      Based in {store.state}
-                    </span>
-                  )}
-                  <span className="text-white/80 text-[12.5px] drop-shadow-sm">
-                    {(store.totalReviews > 0 || store.state) && <span className="text-white/40 mx-0.5">·</span>}
-                    {store.deliveryStates && store.deliveryStates.length > 0
-                      ? `Delivers to ${store.deliveryStates.length > 3
-                          ? `${store.deliveryStates.slice(0, 3).join(', ')} +${store.deliveryStates.length - 3} more`
-                          : store.deliveryStates.join(', ')}`
-                      : 'Delivers nationwide'}
-                  </span>
-                </div>
-                {store.storeDescription && (
-                  <p className="text-white/85 text-[15px] mt-1.5 max-w-xl line-clamp-2 drop-shadow-sm">
-                    {store.storeDescription}
-                  </p>
-                )}
-              </div>
+              {/* Store names aren't unique (see CreateStoreModal's
+                  name-collision warning) -- the slug is, and it's what the
+                  URL/subdomain actually is, so surfacing it here gives a
+                  shopper a real way to tell two same-named stores apart. */}
+              <p
+                className="font-mono text-[11px] tracking-[0.16em] uppercase truncate"
+                style={{ color: hasBanner ? 'rgba(255,255,255,0.75)' : `${theme.ink}99` }}
+              >
+                @{store.storeSlug}
+              </p>
             </div>
-          </div>
-        </div>
-      )}
 
-      <main className={`max-w-7xl mx-auto px-6 lg:px-8 ${isMobile ? 'pt-0 pb-0' : 'pt-8 pb-8'} relative z-10 min-h-screen`}>
+            <h1
+              className="font-display text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight max-w-2xl"
+              style={{ color: hasBanner ? '#FFFFFF' : theme.ink }}
+            >
+              {store.storeName}
+            </h1>
+
+            {store.storeDescription && (
+              <p
+                className="mt-4 max-w-xl text-base sm:text-lg leading-relaxed line-clamp-2"
+                style={{ color: hasBanner ? 'rgba(255,255,255,0.88)' : `${theme.ink}CC` }}
+              >
+                {store.storeDescription}
+              </p>
+            )}
+
+            {(store.sellsProducts || store.restaurantMode || store.offersServices) && (
+              <button
+                onClick={scrollToShop}
+                className="mt-8 inline-flex items-center px-7 py-3.5 rounded-xl font-semibold text-sm shadow-sm hover:shadow-md hover:brightness-95 transition-all"
+                style={{ backgroundColor: theme.accent, color: theme.onAccent }}
+              >
+                {store.restaurantMode ? 'View menu' : store.sellsProducts ? 'Shop now' : 'View services'}
+              </button>
+            )}
+          </Reveal>
+        </div>
+      </div>
+
+      <StoreTrustStrip store={store} theme={theme} />
+
+      <main className={`max-w-7xl mx-auto px-6 lg:px-8 ${isMobile ? 'pt-6 pb-0' : 'pt-8 pb-8'} relative z-10 min-h-screen`}>
         {/* Proactive heads-up, not a hard block -- this store still takes
             the order, delivery just needs to be worked out directly (same
             spirit as store.deliveryStates elsewhere: a real list is a
@@ -868,113 +715,6 @@ export default function StoreWebsite({ store, gallery = [] }) {
                 ? `${store.deliveryStates.slice(0, 3).join(', ')} +${store.deliveryStates.length - 3} more`
                 : store.deliveryStates.join(', ')}, not listed for {deliveryState}. Contact the vendor to confirm before ordering.
             </p>
-          </div>
-        )}
-
-        {/* Enhanced Mobile Store Banner with Carousel */}
-        {isMobile && (
-          <div className="mb-6 -mx-6 relative overflow-hidden" ref={mainRef}>
-            {/* Carousel Container - full-bleed on mobile, no rounding */}
-            <div className="relative h-64 overflow-hidden" ref={bannerRef}>
-              {/* Slides */}
-              <div 
-                className="flex transition-transform duration-500 ease-out h-full"
-                style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-              >
-                {carouselSlides.map((slide, index) => (
-                  <div
-                    key={index}
-                    className={`min-w-full h-64 relative flex-shrink-0 ${slide.type !== 'store' ? 'bg-gradient-to-br from-brand-800 to-brand-900' : ''}`}
-                    style={
-                      slide.type === 'store'
-                        ? {
-                            backgroundImage: store.branding?.banner ? `url(${store.branding.banner})` : 'none',
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            backgroundColor: `${primaryColor}12`
-                          }
-                        : undefined
-                    }
-                  >
-                    {slide.type === 'store' && (
-                      <div
-                        className="absolute inset-0 backdrop-blur-md"
-                        style={{ backgroundColor: `${primaryColor}25` }}
-                      />
-                    )}
-
-                    {/* Content */}
-                    <div className="absolute inset-0 flex flex-col justify-center px-6 banner-content">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        {slide.type === 'store' && slide.showLogo && store.branding?.logo && (
-                          <img
-                            src={store.branding.logo}
-                            alt={store.storeName}
-                            className="h-7 w-7 object-cover bg-white/90 backdrop-blur-sm rounded-lg p-0.5 flex-shrink-0"
-                          />
-                        )}
-                        {slide.type !== 'store' && (
-                          <ShieldCheck className="w-5 h-5 text-gold-400 flex-shrink-0" />
-                        )}
-                        <h1 className="text-lg font-bold text-white drop-shadow-lg font-display truncate">
-                          {slide.title}
-                        </h1>
-                      </div>
-
-                      {slide.description && (
-                        <p className="text-white/85 text-xs leading-relaxed drop-shadow-md line-clamp-2">
-                          {slide.description}
-                        </p>
-                      )}
-
-                      <div className="mt-1.5">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/15 backdrop-blur-sm text-white border border-white/25">
-                          {slide.badge}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              
-
-              {/* Pause/Play indicator (optional) */}
-              {!isAutoPlaying && (
-                <div className="absolute top-2 right-2 z-20">
-                  <div className="bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5 text-white text-[10px] font-medium border border-white/30">
-                    Paused
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Carousel Dots - only meaningful with more than one slide */}
-            {carouselSlides.length > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-3 z-20">
-              {carouselSlides.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleDotClick(index)}
-                  className="transition-all duration-300"
-                  aria-label={`Go to slide ${index + 1}`}
-                >
-                  <div 
-                    className={`rounded-full transition-all duration-300 ${
-                      currentSlide === index 
-                        ? 'w-6 h-2' 
-                        : 'w-2 h-2'
-                    }`}
-                    style={{
-                      backgroundColor: currentSlide === index 
-                        ? primaryColor
-                        : 'rgba(156, 163, 175, 0.5)' // gray-400 with opacity
-                    }}
-                  />
-                </button>
-              ))}
-            </div>
-            )}
           </div>
         )}
 
@@ -1054,27 +794,28 @@ export default function StoreWebsite({ store, gallery = [] }) {
             services-only business: it searches the (always-empty)
             products array, so showing it would just be a dead control. */}
         {isMobile && (store.sellsProducts || store.restaurantMode) && (
-          <div className="mb-8 relative z-40" >
-            <div className="flex items-center gap-2.5">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search products, brands, categories…"
-                  className="w-full pl-10 pr-10 py-3 text-gray-900 placeholder-gray-400 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-all text-base bg-gray-50/70 focus:bg-white"
-                  style={{ '--tw-ring-color': primaryColor }}
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
-                  >
-                    <X className="w-4 h-4 text-gray-400" />
-                  </button>
-                )}
-              </div>
+          <div className="mb-8 relative z-40">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={`Search ${store.storeName}…`}
+                className="peer w-full pl-11 pr-10 py-3.5 text-[15px] rounded-md border outline-none transition-colors placeholder:text-gray-400 focus:bg-white focus:[border-color:var(--accent)]"
+                style={{ backgroundColor: theme.tintFaint, borderColor: theme.border, color: theme.ink, '--accent': theme.accent }}
+              />
+              <Search
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none transition-colors peer-focus:[color:var(--accent)]"
+                style={{ '--accent': theme.accent }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              )}
             </div>
 
             {/* Search Results Count */}
@@ -1087,7 +828,7 @@ export default function StoreWebsite({ store, gallery = [] }) {
                   <button
                     onClick={() => setSearchQuery("")}
                     className="text-xs font-medium hover:underline"
-                    style={{ color: primaryColor }}
+                    style={{ color: theme.accent }}
                   >
                     Clear search
                   </button>
@@ -1151,15 +892,20 @@ export default function StoreWebsite({ store, gallery = [] }) {
             yet") is product-specific copy that would be misleading to a
             shopper who came for a service, not a missing catalog. */}
         {(store.sellsProducts || store.restaurantMode) && (
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-display text-xl md:text-2xl font-semibold text-gray-900">
-              {isMobile ? 'Products' : 'All products'}
-            </h3>
-            <span className="text-sm text-gray-500 tabular-nums">
-              {displayedProducts.length} of {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
+        <div id="products" className="py-10 sm:py-14 scroll-mt-20">
+          <Reveal className="flex items-end justify-between gap-4 mb-8">
+            <div>
+              <p className="font-mono text-[11px] tracking-[0.16em] uppercase mb-1.5" style={{ color: theme.accent }}>
+                {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'}
+              </p>
+              <h3 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight" style={{ color: theme.ink }}>
+                {store.restaurantMode ? 'The menu' : isMobile ? 'Products' : 'Shop the collection'}
+              </h3>
+            </div>
+            <span className="text-sm text-gray-500 tabular-nums hidden sm:inline">
+              {displayedProducts.length} of {filteredProducts.length}
             </span>
-          </div>
+          </Reveal>
 
           {loading ? (
             <div className="text-center py-20">
@@ -1260,12 +1006,19 @@ export default function StoreWebsite({ store, gallery = [] }) {
         </div>
         )}
 
-        {store.offersServices && <ServicesSection store={store} isMobile={isMobile} />}
+        {store.offersServices && (
+          <div id="services" className="scroll-mt-20">
+            <ServicesSection store={store} isMobile={isMobile} />
+          </div>
+        )}
 
         {galleryItems.length > 0 && (
-          <section id="gallery" className="mt-12 -mx-6 border-y border-gray-200 bg-white py-4 sm:mx-0 sm:rounded-2xl sm:border sm:px-6 sm:py-5">
-            <div className="mb-3 flex items-center justify-between gap-3 px-4 sm:px-0">
-              <h3 className="font-display text-lg font-semibold text-gray-900">Gallery</h3>
+          <Reveal as="section" id="gallery" className="mt-16 scroll-mt-20 -mx-6 border-y border-gray-200 bg-white py-5 sm:mx-0 sm:rounded-2xl sm:border sm:px-6 sm:py-6">
+            <div className="mb-4 flex items-center justify-between gap-3 px-4 sm:px-0">
+              <div>
+                <p className="font-mono text-[10.5px] tracking-[0.16em] uppercase mb-1" style={{ color: theme.accent }}>Look inside</p>
+                <h3 className="font-display text-lg font-semibold" style={{ color: theme.ink }}>Gallery</h3>
+              </div>
               <span className="text-xs font-medium text-gray-500 tabular-nums">
                 {galleryItems.length} photo{galleryItems.length === 1 ? "" : "s"}
               </span>
@@ -1304,21 +1057,25 @@ export default function StoreWebsite({ store, gallery = [] }) {
                 ))}
               </div>
             </div>
-          </section>
+          </Reveal>
         )}
 
         {storeMapEmbedUrl && (
-          <section className="mt-12 -mx-6 rounded-none border-y border-gray-200 bg-white p-4 pb-0 sm:mx-0 sm:rounded-2xl sm:border sm:p-6">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-brand-700" />
-                <h3 className="font-display text-lg font-semibold text-gray-900">Location</h3>
+          <Reveal as="section" className="mt-16 -mx-6 rounded-none border-y border-gray-200 bg-white p-4 pb-0 sm:mx-0 sm:rounded-2xl sm:border sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10.5px] tracking-[0.16em] uppercase mb-1" style={{ color: theme.accent }}>Visit in person</p>
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4.5 w-4.5" style={{ color: theme.accent }} />
+                  <h3 className="font-display text-lg font-semibold" style={{ color: theme.ink }}>Location</h3>
+                </div>
               </div>
               <a
                 href={storeMapUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-semibold text-brand-800 hover:bg-brand-50"
+                className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold hover:brightness-95"
+                style={{ borderColor: theme.border, color: theme.accent }}
               >
                 Open in Maps
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -1334,7 +1091,7 @@ export default function StoreWebsite({ store, gallery = [] }) {
                 referrerPolicy="no-referrer-when-downgrade"
               />
             </div>
-          </section>
+          </Reveal>
         )}
       </main>
 
