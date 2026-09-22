@@ -52,6 +52,7 @@ export default function StorePage() {
   const [errors, setErrors] = useState({});
   const [isUpdatingFulfillmentMethod, setIsUpdatingFulfillmentMethod] = useState(false);
   const [isUpdatingRestaurantMode, setIsUpdatingRestaurantMode] = useState(false);
+  const [isUpdatingTemporarilyClosed, setIsUpdatingTemporarilyClosed] = useState(false);
   const [isUpdatingSellsProducts, setIsUpdatingSellsProducts] = useState(false);
   const [isUpdatingOffersServices, setIsUpdatingOffersServices] = useState(false);
   const [isUpdatingBusinessCategory, setIsUpdatingBusinessCategory] = useState(false);
@@ -152,6 +153,28 @@ export default function StorePage() {
       }
     } finally {
       setIsUpdatingFulfillmentMethod(false);
+    }
+  };
+
+  const handleTemporarilyClosedChange = async (temporarilyClosed) => {
+    if (temporarilyClosed === store.temporarilyClosed || isUpdatingTemporarilyClosed) return;
+    setIsUpdatingTemporarilyClosed(true);
+    try {
+      const response = await secureApiCall('/api/stores/temporarily-closed', {
+        method: 'PATCH',
+        body: JSON.stringify({ temporarilyClosed })
+      });
+      if (response.success) {
+        setStore(prev => ({ ...prev, temporarilyClosed: response.data.temporarilyClosed }));
+        // Same reasoning as handleRestaurantModeChange below -- DashboardHeader's
+        // badge and the storefront-facing pieces of this page's own state
+        // aren't the only readers of ['store']; keep them all in sync.
+        queryClient.invalidateQueries({ queryKey: ['store'] });
+      } else {
+        setErrors(prev => ({ ...prev, temporarilyClosed: response.message || 'Failed to update' }));
+      }
+    } finally {
+      setIsUpdatingTemporarilyClosed(false);
     }
   };
 
@@ -477,6 +500,8 @@ export default function StorePage() {
               store={store}
               isEditing={false}
               errors={errors}
+              onTemporarilyClosedChange={handleTemporarilyClosedChange}
+              isUpdatingTemporarilyClosed={isUpdatingTemporarilyClosed}
               onRestaurantModeChange={handleRestaurantModeChange}
               isUpdatingRestaurantMode={isUpdatingRestaurantMode}
               onSellsProductsChange={handleSellsProductsChange}

@@ -1,5 +1,5 @@
 "use client";
-import { DAYS_OF_WEEK, DEFAULT_DAY_HOURS } from "@stora/shared-constants";
+import { DAYS_OF_WEEK, DEFAULT_DAY_HOURS, isStoreOpenNow } from "@stora/shared-constants";
 
 // Editable form -- one row per day, a closed/open toggle, and two time
 // inputs that only show while that day's open. Reuses EditStoreModal's
@@ -20,8 +20,21 @@ import { DAYS_OF_WEEK, DEFAULT_DAY_HOURS } from "@stora/shared-constants";
 // children rejoin the row as direct flex items in the same order they'd
 // have had without the wrapper -- the desktop layout is unchanged.
 export default function BusinessHoursEditor({ businessHours, handleChange }) {
+  // Live feedback while editing -- schedule-only (ignores the separate
+  // "Temporarily Closed" manual override in Store > Preferences), so a
+  // vendor can immediately see whether the hours they're typing would read
+  // as open or closed right now, instead of only finding out after Save.
+  const isOpenBySchedule = isStoreOpenNow(businessHours, false).isOpen;
+
   return (
-    <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+    <div>
+      <div className={`flex items-center gap-2 mb-3 px-3.5 py-2 rounded-lg text-xs font-medium ${
+        isOpenBySchedule ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
+      }`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${isOpenBySchedule ? 'bg-green-500' : 'bg-gray-400'}`} />
+        Based on this schedule, your store would show as {isOpenBySchedule ? 'Open' : 'Closed'} right now
+      </div>
+      <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
       {DAYS_OF_WEEK.map(({ key, label }) => {
         const dayHours = businessHours?.[key] || DEFAULT_DAY_HOURS;
         const isOpen = !dayHours.closed;
@@ -66,6 +79,7 @@ export default function BusinessHoursEditor({ businessHours, handleChange }) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

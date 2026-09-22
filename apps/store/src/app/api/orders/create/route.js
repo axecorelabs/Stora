@@ -7,7 +7,7 @@ import { getOrCreateCart, clearCart, removeItemsFromCart } from "@/lib/supabaseC
 import { findInventoryByIds, findActiveBatchesByInventoryIds, resolveBatchPricing } from "@/lib/supabaseStore";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveCampaignAttribution } from "@/lib/campaignAttribution";
-import { isValidNigerianState, computeStoreCheckoutAmount, estimatePaystackFee, normalizeExtraDefinitions, resolveExtrasSelection, resolveDeliveryFee } from "@stora/shared-constants";
+import { isValidNigerianState, computeStoreCheckoutAmount, estimatePaystackFee, normalizeExtraDefinitions, resolveExtrasSelection, resolveDeliveryFee, isStoreOpenNow, isMarkedUnavailableToday } from "@stora/shared-constants";
 
 const PLATFORM_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.02');
 // A flat 2% is too thin to be worth collecting on small orders (Paystack's
@@ -404,7 +404,7 @@ export async function POST(request) {
       pendingOrderIds.length > 0
         ? supabaseAdmin.from('orders').select('id, order_number').in('id', pendingOrderIds).not('status', 'in', '(cancelled,refunded)').then(r => r.data)
         : Promise.resolve(null),
-      supabaseAdmin.from('stores').select('id, store_name, delivery_states, paystack_ready, delivery_fees, fulfillment_method').in('id', checkoutStoreIds).then(r => r.data),
+      supabaseAdmin.from('stores').select('id, store_name, delivery_states, paystack_ready, delivery_fees, fulfillment_method, restaurant_mode, business_hours, temporarily_closed').in('id', checkoutStoreIds).then(r => r.data),
       findInventoryByIds(productIds),
       findActiveBatchesByInventoryIds(productIds)
     ]);
@@ -441,6 +441,23 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
+    // Closed-restaurant check -- same "this is the real enforcement point"
+    // reasoning as the deliverability check above (the storefront already
+    // disables Add to cart for a closed restaurant, but that's trivially
+    // bypassable). Only restaurant-mode vendors are blocked here -- a
+    // regular goods store's closed hours only affect a walk-in visit, not
+    // an order that can still be fulfilled once they reopen.
+    const closedRestaurantStores = (checkoutStores || []).filter(store =>
+      store.restaurant_mode && !isStoreOpenNow(store.business_hours, store.temporarily_closed).isOpen
+    );
+    if (closedRestaurantStores.length > 0) {
+      const names = closedRestaurantStores.map(s => s.store_name).join(', ');
+      return NextResponse.json({
+        success: false,
+        message: `${names} ${closedRestaurantStores.length === 1 ? 'is' : 'are'} closed right now. Remove ${closedRestaurantStores.length === 1 ? 'their items' : 'those items'} or try again once they reopen.`
+      }, { status: 400 });
+    }
+
     // Phase 1: validate every item first (no DB calls -- product/batches
     // are already fetched above, and resolveBatchPricing is pure
     // computation over that data), then reserve stock for every item that
@@ -462,6 +479,15 @@ export async function POST(request) {
       if (!product.isActive) {
         return NextResponse.json(
           { success: false, message: `Product ${product.productName} is not available` },
+          { status: 400 }
+        );
+      }
+
+      // Vendor-declared "ran out today" -- independent of the store-level
+      // closed check above (a store can be open with one dish 86'd).
+      if (isMarkedUnavailableToday(product.categoryDetails?.food)) {
+        return NextResponse.json(
+          { success: false, message: `${product.productName} is marked unavailable today. Please review your cart before checking out.` },
           { status: 400 }
         );
       }

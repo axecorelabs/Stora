@@ -166,6 +166,11 @@ function transformStoreFields(store) {
     settings: store.settings,
     branding: store.branding,
     businessHours: store.business_hours,
+    // Manual "closed right now" override -- combines with businessHours via
+    // isStoreOpenNow (@stora/shared-constants) to derive real-time open/
+    // closed status, consumed by ProductCard/StoreHeader for restaurant-mode
+    // stores and by orders/create's own closed-store check.
+    temporarilyClosed: !!store.temporarily_closed,
     website: store.website,
     // isVerified is the vendor's own identity check (QoreID NIN + live
     // selfie) -- confirms a real person, nothing about the business itself.
@@ -1013,7 +1018,7 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
   // where that context is already implicit.
   const storeIds = [...new Set(products.map(p => p.storeId).filter(Boolean))];
   const { data: stores, error: storesError } = storeIds.length > 0
-    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, website_path, branding').in('id', storeIds)
+    ? await supabaseAdmin.from('stores').select('id, store_name, store_slug, website_path, branding, restaurant_mode, business_hours, temporarily_closed').in('id', storeIds)
     : { data: [], error: null };
 
   if (storesError) {
@@ -1032,7 +1037,10 @@ export async function findDiscoverableProducts({ category, search, sort = 'trend
         publicSlug: store.website_path || store.store_slug,
         logo: store.branding?.logo || null,
         primaryColor: store.branding?.primaryColor || null,
-        secondaryColor: store.branding?.secondaryColor || null
+        secondaryColor: store.branding?.secondaryColor || null,
+        restaurantMode: !!store.restaurant_mode,
+        businessHours: store.business_hours,
+        temporarilyClosed: !!store.temporarily_closed
       } : null
     };
   }));
@@ -1438,6 +1446,11 @@ export function buildPublicStoreData(store) {
     settings: store.settings,
     branding: store.branding,
     businessHours: store.business_hours,
+    // Manual "closed right now" override -- combines with businessHours via
+    // isStoreOpenNow (@stora/shared-constants) to derive real-time open/
+    // closed status, consumed by ProductCard/StoreHeader for restaurant-mode
+    // stores and by orders/create's own closed-store check.
+    temporarilyClosed: !!store.temporarily_closed,
     // isVerified is the vendor's own identity check (QoreID NIN + live
     // selfie) -- confirms a real person, nothing about the business itself.
     // businessVerified is the actual "Verified by Stora" public trust badge:

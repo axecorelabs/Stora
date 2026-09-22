@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Package, Heart } from "lucide-react";
+import { Package, Heart, Clock } from "lucide-react";
+import { isStoreOpenNow, isMarkedUnavailableToday } from "@stora/shared-constants";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsInWishlist, useWishlistMutations } from "@/hooks/useWishlist";
 import PrefetchLink from "@/components/ui/PrefetchLink";
@@ -24,6 +25,12 @@ export default function DiscoveryProductCard({ product }) {
   const storeSlug = product.store?.publicSlug || product.store?.storeSlug;
   const storeInitial = (product.store?.storeName || "?").trim().charAt(0).toUpperCase();
   const showLogoImage = product.store?.logo && !logoErrored;
+  // Only restaurant-mode vendors get a closed badge here -- a regular
+  // goods store's hours don't block browsing this cross-vendor feed, same
+  // scoping as store/ProductCard.js's own isStoreClosed.
+  const isStoreClosed = !!product.store?.restaurantMode
+    && !isStoreOpenNow(product.store?.businessHours, product.store?.temporarilyClosed).isOpen;
+  const isUnavailableToday = isMarkedUnavailableToday(product.categoryDetails?.food);
 
   const formatPrice = (price) => `₦${Number(price || 0).toLocaleString("en-NG")}`;
 
@@ -73,6 +80,17 @@ export default function DiscoveryProductCard({ product }) {
               <Package className="w-8 h-8 text-gray-300" strokeWidth={1.5} />
             </div>
           )}
+
+          {isStoreClosed ? (
+            <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-gray-900/85 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full z-10">
+              <Clock className="w-3 h-3" />
+              Closed now
+            </div>
+          ) : isUnavailableToday ? (
+            <div className="absolute top-2.5 left-2.5 bg-red-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full z-10">
+              Unavailable today
+            </div>
+          ) : null}
 
           {/* Wishlist -- same top-right placement/behavior as
               store/ProductCard.js's heart, just cross-vendor. Only shown

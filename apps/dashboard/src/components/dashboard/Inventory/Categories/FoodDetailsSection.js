@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
-import { normalizeExtraDefinitions } from "@stora/shared-constants";
+import { normalizeExtraDefinitions, isMarkedUnavailableToday } from "@stora/shared-constants";
 
 export default function FoodDetailsSection({
   foodDetails,
@@ -15,6 +15,17 @@ export default function FoodDetailsSection({
   const [newIngredient, setNewIngredient] = useState('');
 
   if (!foodDetails) return null;
+
+  // Computed, not the raw stored flag -- a vendor who marked this
+  // unavailable yesterday and never flipped it back should see it as
+  // available again today, not a stale "on" toggle (see
+  // isMarkedUnavailableToday's own comment for the auto-reset logic).
+  const isUnavailableToday = isMarkedUnavailableToday(foodDetails);
+
+  const setUnavailableToday = (unavailable) => {
+    handleCategoryDetailChange('food', 'unavailableToday', unavailable);
+    handleCategoryDetailChange('food', 'unavailableMarkedAt', unavailable ? new Date().toISOString() : null);
+  };
 
   // Normalized here (not just at save time) so legacy plain-string extras
   // from before pricing existed still render correctly -- price 0,
@@ -71,6 +82,31 @@ export default function FoodDetailsSection({
       <h3 className="text-lg font-medium text-gray-900 mb-4">
         Food Details
       </h3>
+
+      {/* Vendor-declared "ran out today" -- separate from stock counts and
+          the made-to-order daily cap below, which are both about how many
+          can be sold rather than whether this specific dish is off today.
+          Auto-resets tomorrow with no action needed (see
+          isMarkedUnavailableToday's own comment). */}
+      <div className={`flex items-center justify-between gap-4 p-4 border rounded-xl mb-6 ${
+        isUnavailableToday ? 'border-red-200 bg-red-50' : 'border-gray-200'
+      }`}>
+        <div>
+          <p className="text-sm font-medium text-gray-900">Mark unavailable today</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Ran out of this dish? Hide it from ordering until tomorrow -- it comes back automatically, no need to remember to switch it back.
+          </p>
+        </div>
+        <label className="relative inline-flex items-center shrink-0 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isUnavailableToday}
+            onChange={(e) => setUnavailableToday(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+        </label>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>

@@ -1,5 +1,5 @@
 "use client";
-import { Bell, ChevronDown, LogOut, Settings, UtensilsCrossed, Handshake } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Settings, UtensilsCrossed, Handshake, XCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePartnershipProposal } from "@/contexts/PartnershipProposalContext";
 import { useRouter } from "next/navigation";
@@ -27,6 +27,7 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
     staleTime: 5 * 60 * 1000
   });
   const restaurantMode = !!storeResponse?.data?.restaurantMode;
+  const temporarilyClosed = !!storeResponse?.data?.temporarilyClosed;
 
   // Unread notification count -- on TanStack Query (not a local
   // setInterval poll) so the realtime hook's invalidateQueries(['notifications'])
@@ -76,6 +77,15 @@ export default function DashboardHeader({ title = "Inventory Management", subtit
                   >
                     <UtensilsCrossed className="w-3 h-3" />
                     <span className="hidden sm:inline">Restaurant Mode</span>
+                  </span>
+                )}
+                {temporarilyClosed && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 shrink-0"
+                    title="Shoppers see your store as closed right now (Store > Preferences)"
+                  >
+                    <XCircle className="w-3 h-3" />
+                    <span className="hidden sm:inline">Temporarily Closed</span>
                   </span>
                 )}
               </div>

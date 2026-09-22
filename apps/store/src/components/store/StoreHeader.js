@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ShoppingCart, User, Menu, Heart, LogOut, Package, X } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, Heart, LogOut, Package, X, Clock } from 'lucide-react';
+import { isStoreOpenNow } from '@stora/shared-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import SignInModal from '../auth/SignInModal';
@@ -34,6 +35,20 @@ export default function StoreHeader({ store, onSignInClick }) {
   // built a protocol-relative //product/... href that the browser
   // resolved against the wrong host entirely -- confirmed live).
   const storeSlug = currentStore?.storeSlug || store?.storeSlug;
+
+  // Restaurants: closed means orders are actually blocked (see
+  // ProductCard's own isStoreClosed), so the badge says so plainly.
+  // Physical, non-restaurant stores: closed only affects a walk-in visit --
+  // delivery/online orders are unaffected -- so this is informational only,
+  // worded to match (never blocks anything here).
+  const { isOpen } = isStoreOpenNow(currentStore?.businessHours, currentStore?.temporarilyClosed);
+  const closedBadgeLabel = isOpen
+    ? null
+    : currentStore?.restaurantMode
+      ? 'Closed now'
+      : (currentStore?.storeType === 'physical' || currentStore?.storeType === 'both')
+        ? 'Closed for walk-in customers'
+        : null;
 
   const handleSignOut = async () => {
     await logout();
@@ -130,6 +145,12 @@ export default function StoreHeader({ store, onSignInClick }) {
                 <h1 className="font-display text-xl font-semibold text-gray-900 truncate min-w-0" title={currentStore?.storeName}>
                   {currentStore?.storeName || 'Store'}
                 </h1>
+                {closedBadgeLabel && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-900/85 text-white shrink-0">
+                    <Clock className="w-3 h-3" />
+                    {closedBadgeLabel}
+                  </span>
+                )}
               </div>
 
               {/* Right: Wishlist Icon + Hamburger Menu */}
@@ -174,6 +195,12 @@ export default function StoreHeader({ store, onSignInClick }) {
                 <h1 className="font-display text-xl font-semibold text-gray-900 truncate max-w-[16rem] min-w-0" title={currentStore?.storeName}>
                   {currentStore?.storeName || 'Store'}
                 </h1>
+                {closedBadgeLabel && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-900/85 text-white shrink-0">
+                    <Clock className="w-3 h-3" />
+                    {closedBadgeLabel}
+                  </span>
+                )}
               </div>
             </div>
 

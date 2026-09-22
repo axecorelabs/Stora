@@ -22,6 +22,7 @@ function isLastBusinessType(store, field) {
 
 export default function StorePreferencesTab({
   store, isEditing, editData, handleChange, errors = {},
+  onTemporarilyClosedChange, isUpdatingTemporarilyClosed,
   onRestaurantModeChange, isUpdatingRestaurantMode,
   onSellsProductsChange, isUpdatingSellsProducts,
   onOffersServicesChange, isUpdatingOffersServices,
@@ -361,6 +362,40 @@ export default function StorePreferencesTab({
             </p>
           )}
         </div>
+
+        {/* Manual "closed right now" override -- separate from the weekly
+            hours schedule (Store > General > Business Hours), which can
+            only ever describe a recurring pattern, not an unexpected
+            closure. Same instant-toggle contract as everything below: no
+            Save step, takes effect immediately. */}
+        {!hideInstantToggles && (
+          <div className="pt-2 border-t border-gray-100">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                  Temporarily Closed
+                  {isUpdatingTemporarilyClosed && <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" />}
+                </h4>
+                <p className="text-sm text-gray-500">
+                  Shows as closed to shoppers right now, regardless of your regular hours -- use this for an unexpected closure.
+                </p>
+                {errors.temporarilyClosed && (
+                  <p className="text-red-500 text-xs mt-1">{errors.temporarilyClosed}</p>
+                )}
+              </div>
+              <label className={`relative inline-flex items-center shrink-0 ml-4 ${isUpdatingTemporarilyClosed ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                <input
+                  type="checkbox"
+                  checked={!!store.temporarilyClosed}
+                  disabled={isUpdatingTemporarilyClosed}
+                  onChange={(e) => onTemporarilyClosedChange?.(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600 peer-disabled:opacity-50"></div>
+              </label>
+            </div>
+          </div>
+        )}
 
         {/* Immediate PATCH/PUT on toggle, no Save step -- each of these is a
             binary on/off preference with an instantly-understood effect,

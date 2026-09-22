@@ -1,12 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { MapPin, X, ShieldCheck, Globe, Truck, ArrowRight, ListChecks, Palette, Send, Images, BadgeCheck, Tag } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { BUSINESS_CATEGORY_VALUES, NIGERIAN_STATES, isValidNigerianState } from "@stora/shared-constants";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
 import { useTelegramEnabled } from "@/hooks/useTelegramEnabled";
+import VerificationModal from "./VerificationModal";
+import TelegramModal from "./TelegramModal";
+import WebsiteQuickSetupModal from "./WebsiteQuickSetupModal";
+import DeliveryFeesModal from "./DeliveryFeesModal";
+import GalleryQuickAddModal from "./GalleryQuickAddModal";
+import SubscriptionModal from "./SubscriptionModal";
+import StoreBrandingModal from "./StoreBrandingModal";
 
 // Replaces the old IncompleteStoreNudge (which only ever covered the
 // operating-state case, as a banner on every dashboard page). This is
@@ -16,7 +22,6 @@ import { useTelegramEnabled } from "@/hooks/useTelegramEnabled";
 // state, not a missing field the way an unset operating state is.
 export default function SetupChecklist({ initialStore = null, initialGalleryCount = null }) {
   const { secureApiCall } = useAuth();
-  const router = useRouter();
   const verificationEnabled = useVerificationEnabled();
   const telegramEnabled = useTelegramEnabled();
   const [store, setStore] = useState(initialStore);
@@ -36,6 +41,11 @@ export default function SetupChecklist({ initialStore = null, initialGalleryCoun
   const [selectedBusinessCategory, setSelectedBusinessCategory] = useState("");
   const [isSavingBusinessCategory, setIsSavingBusinessCategory] = useState(false);
   const [businessCategoryError, setBusinessCategoryError] = useState("");
+
+  // Which quick-edit modal is open, if any -- every navigate-away item
+  // below opens one of these instead now, each with a "go to the full
+  // page" link at the bottom for anyone who wants more than the quick path.
+  const [openModal, setOpenModal] = useState(null); // 'verification' | 'telegram' | 'website' | 'branding' | 'delivery' | 'gallery' | 'subscription' | null
 
   useEffect(() => {
     let cancelled = false;
@@ -230,7 +240,7 @@ export default function SetupChecklist({ initialStore = null, initialGalleryCoun
 
         {needsVerification && (
           <button
-            onClick={() => router.push('/dashboard/settings?tab=verification')}
+            onClick={() => setOpenModal('verification')}
             className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">
@@ -298,7 +308,7 @@ export default function SetupChecklist({ initialStore = null, initialGalleryCoun
 
         {needsTelegram && (
           <button
-            onClick={() => router.push('/dashboard/settings?tab=telegram')}
+            onClick={() => setOpenModal('telegram')}
             className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">
@@ -315,7 +325,7 @@ export default function SetupChecklist({ initialStore = null, initialGalleryCoun
 
         {needsWebsite && (
           <button
-            onClick={() => router.push('/dashboard/website')}
+            onClick={() => setOpenModal('website')}
             className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">
@@ -332,7 +342,7 @@ export default function SetupChecklist({ initialStore = null, initialGalleryCoun
 
         {needsBranding && (
           <button
-            onClick={() => router.push('/dashboard/website')}
+            onClick={() => setOpenModal('branding')}
             className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">
@@ -347,7 +357,7 @@ export default function SetupChecklist({ initialStore = null, initialGalleryCoun
 
         {needsGallery && (
           <button
-            onClick={() => router.push('/dashboard/gallery')}
+            onClick={() => setOpenModal('gallery')}
             className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">
@@ -362,7 +372,7 @@ export default function SetupChecklist({ initialStore = null, initialGalleryCoun
 
         {needsSubscription && (
           <button
-            onClick={() => router.push('/dashboard/subscription')}
+            onClick={() => setOpenModal('subscription')}
             className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">
@@ -377,7 +387,7 @@ export default function SetupChecklist({ initialStore = null, initialGalleryCoun
 
         {needsDeliveryFees && (
           <button
-            onClick={() => router.push('/dashboard/deliveries')}
+            onClick={() => setOpenModal('delivery')}
             className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors"
           >
             <span className="flex items-center gap-2.5 text-sm text-gray-700">
@@ -390,6 +400,44 @@ export default function SetupChecklist({ initialStore = null, initialGalleryCoun
           </button>
         )}
       </div>
+
+      <VerificationModal
+        isOpen={openModal === 'verification'}
+        onClose={() => setOpenModal(null)}
+        onVerified={() => setStore((prev) => ({ ...prev, isVerified: true }))}
+      />
+      <TelegramModal
+        isOpen={openModal === 'telegram'}
+        onClose={() => setOpenModal(null)}
+        onConnected={() => setStore((prev) => ({ ...prev, telegramConnected: true }))}
+      />
+      <WebsiteQuickSetupModal
+        isOpen={openModal === 'website'}
+        onClose={() => setOpenModal(null)}
+        isListingMode={isListingMode}
+        onEnabled={() => setStore((prev) => ({ ...prev, website: { ...prev.website, isEnabled: true } }))}
+      />
+      <StoreBrandingModal
+        isOpen={openModal === 'branding'}
+        onClose={() => setOpenModal(null)}
+        store={store}
+        onBrandingUpdated={(updatedStore) => setStore((prev) => ({ ...prev, ...updatedStore }))}
+      />
+      <DeliveryFeesModal
+        isOpen={openModal === 'delivery'}
+        onClose={() => setOpenModal(null)}
+        store={store}
+        onSaved={(updatedStore) => setStore((prev) => ({ ...prev, ...updatedStore }))}
+      />
+      <GalleryQuickAddModal
+        isOpen={openModal === 'gallery'}
+        onClose={() => setOpenModal(null)}
+        onAdded={() => setGalleryCount((prev) => prev + 1)}
+      />
+      <SubscriptionModal
+        isOpen={openModal === 'subscription'}
+        onClose={() => setOpenModal(null)}
+      />
     </div>
   );
 }

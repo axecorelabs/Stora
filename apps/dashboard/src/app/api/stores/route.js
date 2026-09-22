@@ -131,6 +131,10 @@ function transformStore(store) {
     // message (api/cron/delivery-digest) -- separate from telegramConnected
     // itself, see api/stores/delivery-digest's own comment.
     deliveryDigestEnabled: !!store.delivery_digest_enabled,
+    // Manual "closed right now" override -- see api/stores/temporarily-closed
+    // and isStoreOpenNow (@stora/shared-constants) for how this combines
+    // with the weekly businessHours schedule.
+    temporarilyClosed: !!store.temporarily_closed,
     totalSales: parseFloat(store.total_sales) || 0,
     totalOrders: store.total_orders || 0,
     averageRating: parseFloat(store.average_rating) || 0,

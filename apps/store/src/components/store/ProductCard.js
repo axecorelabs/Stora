@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart, ShoppingCart, Check, Package } from 'lucide-react';
-import { normalizeExtraDefinitions } from '@stora/shared-constants';
+import { Heart, ShoppingCart, Check, Package, Clock } from 'lucide-react';
+import { normalizeExtraDefinitions, isStoreOpenNow, isMarkedUnavailableToday } from '@stora/shared-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import QuickAddModal from '@/components/product/QuickAddModal';
@@ -69,6 +69,8 @@ export default function ProductCard({ product, primaryColor, secondaryColor, onN
   // one-tap add, so an ordinary product gets no new friction.
   const handleAddToCart = async (e) => {
     e.stopPropagation();
+
+    if (isBlockedFromOrdering) return;
 
     if (!isAuthenticated) {
       onSignInRequired?.();
@@ -163,6 +165,16 @@ export default function ProductCard({ product, primaryColor, secondaryColor, onN
   const isOutOfStock = !isMadeToOrder && availableQuantity <= 0;
   const isLowStock = !isMadeToOrder && availableQuantity > 0 && availableQuantity <= reorderLevel;
 
+  // Store-level closed only blocks ordering for restaurant-mode vendors --
+  // a regular goods store being "closed" only matters for walk-in visits
+  // (see StoreHeader's own badge), not for a delivery that can still be
+  // fulfilled once they reopen. Item-level "ran out today" is independent
+  // of that and applies regardless of restaurant mode.
+  const isStoreClosed = !!currentStore?.restaurantMode
+    && !isStoreOpenNow(currentStore?.businessHours, currentStore?.temporarilyClosed).isOpen;
+  const isUnavailableToday = isMarkedUnavailableToday(product.categoryDetails?.food);
+  const isBlockedFromOrdering = isStoreClosed || isUnavailableToday;
+
   return (
     <>
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer"
@@ -199,17 +211,27 @@ export default function ProductCard({ product, primaryColor, secondaryColor, onN
             </div>
           )}
 
-          {/* Stock Badge */}
-          {isOutOfStock && (
+          {/* Stock/availability badge -- closed store takes priority over
+              item-level "ran out today" (a shopper doesn't need both facts
+              at once), which in turn takes priority over stock badges. */}
+          {isStoreClosed ? (
+            <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-gray-900/85 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
+              <Clock className="w-3 h-3" />
+              Closed now
+            </div>
+          ) : isUnavailableToday ? (
+            <div className="absolute top-2.5 left-2.5 bg-red-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
+              Unavailable today
+            </div>
+          ) : isOutOfStock ? (
             <div className="absolute top-2.5 left-2.5 bg-red-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
               Out of stock
             </div>
-          )}
-          {isLowStock && (
+          ) : isLowStock ? (
             <div className="absolute top-2.5 left-2.5 bg-gold-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
               Low stock
             </div>
-          )}
+          ) : null}
 
           {/* Wishlist Button - Only show if user is authenticated */}
           {isAuthenticated && (
@@ -256,9 +278,13 @@ export default function ProductCard({ product, primaryColor, secondaryColor, onN
             onClick={handleAddToCart}
             className="flex-1 py-2.5 text-white rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             style={{ backgroundColor: justAdded ? '#16a34a' : primaryColor }}
-            disabled={isOutOfStock || isAddingToCart}
+            disabled={isOutOfStock || isBlockedFromOrdering || isAddingToCart}
           >
-            {isOutOfStock ? (
+            {isStoreClosed ? (
+              'Closed now'
+            ) : isUnavailableToday ? (
+              'Unavailable today'
+            ) : isOutOfStock ? (
               'Out of stock'
             ) : isAddingToCart ? (
               <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />

@@ -150,6 +150,16 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   const [hasLoadedSectionState, setHasLoadedSectionState] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const [usageMap, setUsageMap] = useState({});
+  // Snapshot of usageMap taken once per mount (see the load effect below)
+  // and never updated again afterward -- menuSections sorts against THIS,
+  // not the live usageMap. Without the split, clicking an item bumped its
+  // score and re-sorted the visible list in the same tick, so the item
+  // you'd just clicked (or its whole section) could jump above its
+  // siblings while you were still looking at the list you clicked in --
+  // a reorder mid-click instead of one that only shows up next visit.
+  // usageMap itself keeps updating live and persisting normally; only the
+  // order derived from it is frozen for the session.
+  const [orderingSnapshot, setOrderingSnapshot] = useState({});
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [isManagingPins, setIsManagingPins] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -289,10 +299,10 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
   const menuSections = useMemo(() => {
     const withItemOrdering = baseMenuSections.map((section) => ({
       ...section,
-      items: sortItemsByUsage(section, usageMap)
+      items: sortItemsByUsage(section, orderingSnapshot)
     }));
-    return sortSectionsByUsage(withItemOrdering, usageMap);
-  }, [baseMenuSections, usageMap]);
+    return sortSectionsByUsage(withItemOrdering, orderingSnapshot);
+  }, [baseMenuSections, orderingSnapshot]);
 
   const quickActions = useMemo(
     () =>
@@ -376,7 +386,9 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
     const usageStorageKey = getUsageStorageKey(isListingMode);
     const usageRaw = localStorage.getItem(usageStorageKey);
     const nextUsage = safeReadJson(usageRaw, {});
-    setUsageMap(nextUsage && typeof nextUsage === "object" ? nextUsage : {});
+    const safeUsage = nextUsage && typeof nextUsage === "object" ? nextUsage : {};
+    setUsageMap(safeUsage);
+    setOrderingSnapshot(safeUsage);
 
     const quickStorageKey = getQuickActionsStorageKey(isListingMode);
     const quickRaw = localStorage.getItem(quickStorageKey);
@@ -757,25 +769,31 @@ export default function DashboardSidebar({ isCollapsed = false, onToggleCollapse
         </div>
       </nav>
 
-      <div className={`border-t border-gray-200 ${isCollapsed ? 'px-2 py-3 lg:px-2' : 'px-4 py-3'}`}>
-        {isCollapsed ? (
-          <div
-            className="flex items-center justify-center w-full h-10 rounded-lg bg-gray-50 text-gray-600"
-            title={`${subscriptionCountdown.headline} • ${subscriptionStartDateLabel}`}
-          >
-            <Clock3 className="w-4 h-4" />
-          </div>
-        ) : (
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-              <Clock3 className="w-3.5 h-3.5" />
-              <span>Subscription Start</span>
+      {/* Full-store billing enforcement countdown -- meaningless for
+          listing-mode vendors, whose ₦500/mo subscription already bills
+          normally today with no grace period (see the Business Listing
+          plan terms), not something with a future "start date" at all. */}
+      {!isListingMode && (
+        <div className={`border-t border-gray-200 ${isCollapsed ? 'px-2 py-3 lg:px-2' : 'px-4 py-3'}`}>
+          {isCollapsed ? (
+            <div
+              className="flex items-center justify-center w-full h-10 rounded-lg bg-gray-50 text-gray-600"
+              title={`${subscriptionCountdown.headline} • ${subscriptionStartDateLabel}`}
+            >
+              <Clock3 className="w-4 h-4" />
             </div>
-            <p className="mt-1 text-sm font-semibold text-gray-900">{subscriptionCountdown.headline}</p>
-            <p className="text-[11px] text-gray-500">{subscriptionStartDateLabel}</p>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                <Clock3 className="w-3.5 h-3.5" />
+                <span>Subscription Start</span>
+              </div>
+              <p className="mt-1 text-sm font-semibold text-gray-900">{subscriptionCountdown.headline}</p>
+              <p className="text-[11px] text-gray-500">{subscriptionStartDateLabel}</p>
+            </div>
+          )}
+        </div>
+      )}
       </div>
     </>
   );
