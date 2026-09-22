@@ -644,14 +644,14 @@ export default function StoreWebsite({ store, gallery = [] }) {
           <div className="absolute inset-0" style={{ backgroundColor: theme.tintStrong }} />
         )}
 
-        <div className="relative max-w-7xl mx-auto px-6 lg:px-8 py-14 sm:py-20 lg:py-28 min-h-[320px] sm:min-h-[420px] lg:min-h-[500px] flex flex-col justify-end">
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-8 py-10 sm:py-12 lg:py-14 min-h-[220px] sm:min-h-[240px] lg:min-h-[260px] flex flex-col justify-end">
           <Reveal>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2.5 mb-2">
               {store.branding?.logo && (
                 <img
                   src={store.branding.logo}
                   alt={store.storeName}
-                  className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl object-cover bg-white border border-white/40 shadow-lg flex-shrink-0"
+                  className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl object-cover bg-white border border-white/40 shadow-lg flex-shrink-0"
                 />
               )}
               {/* Store names aren't unique (see CreateStoreModal's
@@ -659,7 +659,7 @@ export default function StoreWebsite({ store, gallery = [] }) {
                   URL/subdomain actually is, so surfacing it here gives a
                   shopper a real way to tell two same-named stores apart. */}
               <p
-                className="font-mono text-[11px] tracking-[0.16em] uppercase truncate"
+                className="font-mono text-[10.5px] tracking-[0.16em] uppercase truncate"
                 style={{ color: hasBanner ? 'rgba(255,255,255,0.75)' : `${theme.ink}99` }}
               >
                 @{store.storeSlug}
@@ -667,7 +667,7 @@ export default function StoreWebsite({ store, gallery = [] }) {
             </div>
 
             <h1
-              className="font-display text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight max-w-2xl"
+              className="font-display text-[22px] sm:text-2xl lg:text-[28px] font-semibold tracking-tight max-w-2xl truncate"
               style={{ color: hasBanner ? '#FFFFFF' : theme.ink }}
             >
               {store.storeName}
@@ -675,7 +675,7 @@ export default function StoreWebsite({ store, gallery = [] }) {
 
             {store.storeDescription && (
               <p
-                className="mt-4 max-w-xl text-base sm:text-lg leading-relaxed line-clamp-2"
+                className="mt-1.5 max-w-xl text-sm sm:text-[15px] leading-relaxed line-clamp-2"
                 style={{ color: hasBanner ? 'rgba(255,255,255,0.88)' : `${theme.ink}CC` }}
               >
                 {store.storeDescription}
@@ -685,7 +685,7 @@ export default function StoreWebsite({ store, gallery = [] }) {
             {(store.sellsProducts || store.restaurantMode || store.offersServices) && (
               <button
                 onClick={scrollToShop}
-                className="mt-8 inline-flex items-center px-7 py-3.5 rounded-xl font-semibold text-sm shadow-sm hover:shadow-md hover:brightness-95 transition-all"
+                className="mt-3.5 inline-flex items-center px-5 py-2.5 rounded-xl font-semibold text-sm shadow-sm hover:shadow-md hover:brightness-95 transition-all"
                 style={{ backgroundColor: theme.accent, color: theme.onAccent }}
               >
                 {store.restaurantMode ? 'View menu' : store.sellsProducts ? 'Shop now' : 'View services'}
@@ -794,7 +794,7 @@ export default function StoreWebsite({ store, gallery = [] }) {
             services-only business: it searches the (always-empty)
             products array, so showing it would just be a dead control. */}
         {isMobile && (store.sellsProducts || store.restaurantMode) && (
-          <div className="mb-8 relative z-40">
+          <div className="relative z-40">
             <div className="relative">
               <input
                 type="text"
