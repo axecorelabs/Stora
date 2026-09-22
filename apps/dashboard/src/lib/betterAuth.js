@@ -103,7 +103,16 @@ async function sendLoginAlert(session) {
 
 export const auth = betterAuth({
   database: pool,
-  baseURL: process.env.NEXT_PUBLIC_APP_URL,
+  // Better Auth builds the Google OAuth redirect_uri from this at server
+  // startup (not per-request, unlike the old hand-rolled googleAuth.js
+  // this replaced) -- if NEXT_PUBLIC_APP_URL isn't actually set in
+  // Vercel's production env (exactly what f2f8f07 found and fixed for the
+  // old flow, before this file replaced it), Google rejects the mismatched
+  // redirect_uri and Better Auth follows errorCallbackURL straight to
+  // "Google sign-in failed." Same fallback every other NEXT_PUBLIC_APP_URL
+  // read in this app already has (subscription/route.js, the email
+  // templates) -- this was the one place missing it.
+  baseURL: process.env.NEXT_PUBLIC_APP_URL || 'https://app.stora.com.ng',
 
   databaseHooks: {
     user: {

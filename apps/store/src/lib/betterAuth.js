@@ -24,16 +24,27 @@ async function verify({ password, hash: hashedPassword }) {
 // a pg.Pool directly and auto-detects the Postgres dialect from it.
 const pool = new Pool({ connectionString: process.env.SUPABASE_DB_URL });
 
+// Falls back to the real apex domain, never localhost -- in local dev
+// .env.local always sets this explicitly (http://localhost:3001), so the
+// fallback only ever fires when Vercel's production env genuinely doesn't
+// have it set, which is exactly the scenario a past bug (see git blame,
+// "Fix Google OAuth redirect_uri using localhost in production") already
+// hit once for the old hand-rolled OAuth flow this file replaced. Better
+// Auth builds the Google redirect_uri from baseURL at server startup, not
+// per-request, so there's no request-derived fallback available here the
+// way that old flow had -- this has to resolve correctly on its own.
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://stora.com.ng';
+
 // Same apex domain apps/store/src/proxy.js and lib/storeUrl.js use. Only
-// scope cookies to the whole apex family when NEXT_PUBLIC_APP_URL actually
-// points at that apex -- in local dev it's http://localhost:3001, and a
-// browser silently drops any Set-Cookie whose Domain isn't the current host
-// or a parent of it, so forcing `.stora.com.ng` there would break every
-// local sign-in rather than just Google's cross-subdomain case.
+// scope cookies to the whole apex family when APP_URL actually points at
+// that apex -- in local dev it's http://localhost:3001, and a browser
+// silently drops any Set-Cookie whose Domain isn't the current host or a
+// parent of it, so forcing `.stora.com.ng` there would break every local
+// sign-in rather than just Google's cross-subdomain case.
 const APEX_DOMAIN = process.env.NEXT_PUBLIC_STORE_APEX_DOMAIN || 'stora.com.ng';
 const isApexDeployment = (() => {
   try {
-    return new URL(process.env.NEXT_PUBLIC_APP_URL || '').hostname.endsWith(APEX_DOMAIN);
+    return new URL(APP_URL).hostname.endsWith(APEX_DOMAIN);
   } catch {
     return false;
   }
@@ -81,7 +92,7 @@ async function sendLoginAlert(session) {
 
 export const auth = betterAuth({
   database: pool,
-  baseURL: process.env.NEXT_PUBLIC_APP_URL,
+  baseURL: APP_URL,
 
   databaseHooks: {
     user: {
@@ -281,7 +292,7 @@ export const auth = betterAuth({
       // (?token=<raw token>) -- the frontend page and its POST back to
       // this same API route don't change at all. The token itself is the
       // same real one Better Auth will check on submission either way.
-      const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`;
+      const resetUrl = `${APP_URL}/reset-password?token=${token}`;
       await sendPasswordResetEmail(user.email, user.name, resetUrl, 15);
     }
   },

@@ -1,6 +1,8 @@
 import { colors, emailShell, defaultFooter, paragraph, notice, card, row } from '../shared/brand.js';
 
 export const getLoginAlertTemplate = ({ firstName, email, browser, os, ipAddress, time }) => {
+  // Same fallback every other NEXT_PUBLIC_APP_URL read in this app uses.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.stora.com.ng';
   const formattedTime = time.toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -18,7 +20,7 @@ export const getLoginAlertTemplate = ({ firstName, email, browser, os, ipAddress
     ${paragraph(`Hi ${firstName},`)}
     ${paragraph('Your Stora account was just signed into. If this was you, no action is needed.')}
     ${card(detailsTable)}
-    ${notice(`If you don't recognize this activity, <a href="${process.env.NEXT_PUBLIC_APP_URL}" style="color:${colors.gold700};font-weight:700;">sign in</a> and reset your password right away.`)}
+    ${notice(`If you don't recognize this activity, <a href="${appUrl}" style="color:${colors.gold700};font-weight:700;">sign in</a> and reset your password right away.`)}
   `;
 
   const html = emailShell({
@@ -38,7 +40,7 @@ Time: ${formattedTime}
 Device: ${browser} on ${os}
 IP address: ${ipAddress || 'Unknown'}
 
-If you don't recognize this activity, sign in and reset your password right away: ${process.env.NEXT_PUBLIC_APP_URL}
+If you don't recognize this activity, sign in and reset your password right away: ${appUrl}
 
 The Stora Team
   `.trim();
