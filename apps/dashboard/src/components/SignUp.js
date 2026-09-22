@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import VerifyEmail from "./VerifyEmail";
@@ -16,7 +17,21 @@ import TurnstileWidget, { TURNSTILE_ENABLED } from "./ui/TurnstileWidget";
 // still fails closed on a missing/invalid token regardless.
 const TURNSTILE_TIMEOUT_MS = 8000;
 
-export default function SignUp({ onToggleMode }) {
+// Same map as SignIn.js's own copy -- google/start/route.js sends
+// whichever form the user started from back to itself on failure
+// (?mode=signup here), so this form needs to be able to show the error
+// too instead of only SignIn.js ever displaying it.
+const GOOGLE_ERROR_MESSAGES = {
+  google_cancelled: "Google sign-in was cancelled.",
+  state_mismatch: "Sign-up failed, please try again.",
+  google_failed: "Google sign-up failed, please try again.",
+  google_email_unverified: "Your Google account's email isn't verified. Please verify it with Google and try again.",
+  account_deactivated: "Account is deactivated",
+  server_error: "Something went wrong, please try again."
+};
+
+function SignUpInner({ onToggleMode }) {
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -27,7 +42,10 @@ export default function SignUp({ onToggleMode }) {
     password: "",
     agreeToTerms: false,
   });
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState(() => {
+    const code = searchParams.get("error");
+    return code ? { submit: GOOGLE_ERROR_MESSAGES[code] || GOOGLE_ERROR_MESSAGES.server_error } : {};
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileError, setTurnstileError] = useState(false);
@@ -405,7 +423,7 @@ export default function SignUp({ onToggleMode }) {
               Blocking the click on an unchecked box that has zero effect
               on that outcome was pure friction, not a real gate. */}
           <a
-            href="/api/auth/google/start"
+            href="/api/auth/google/start?mode=signup"
             className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 px-4 text-[15px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -429,5 +447,13 @@ export default function SignUp({ onToggleMode }) {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignUp(props) {
+  return (
+    <Suspense fallback={null}>
+      <SignUpInner {...props} />
+    </Suspense>
   );
 }

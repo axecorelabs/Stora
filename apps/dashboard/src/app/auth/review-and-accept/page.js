@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,6 +18,22 @@ export default function ReviewAndAcceptPage() {
   const { user, loading, isAuthenticated, checkAuth } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  // The session cookie Better Auth just set on the OAuth redirect back to
+  // this page should already be visible to the very first checkAuth()
+  // AuthContext fires on mount -- but this page is reached by a real
+  // cross-site redirect from Google, right at the edge of that cookie
+  // actually being set, so one retry here is cheap insurance against a
+  // one-off race rather than bouncing a genuinely-just-signed-up vendor
+  // straight back out on the very first check.
+  const [hasRetried, setHasRetried] = useState(false);
+
+  useEffect(() => {
+    if (loading || isAuthenticated || hasRetried) return;
+    checkAuth().finally(() => setHasRetried(true));
+    // checkAuth's identity changes every AuthProvider render; hasRetried
+    // is what actually gates this to firing at most once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isAuthenticated, hasRetried]);
 
   const handleAccept = async () => {
     setSubmitting(true);
@@ -38,7 +54,7 @@ export default function ReviewAndAcceptPage() {
     }
   };
 
-  if (loading) {
+  if (loading || (!isAuthenticated && !hasRetried)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <Loader2 className="w-6 h-6 text-brand-800 animate-spin" />
@@ -46,10 +62,13 @@ export default function ReviewAndAcceptPage() {
     );
   }
 
-  // Landed here without a session at all (direct navigation, expired
-  // session) -- nothing to review yet, back to sign-in.
+  // Still not authenticated after a retry -- a genuinely missing/expired
+  // session (direct navigation, or the OAuth flow itself failed), not just
+  // a one-off timing race. Back to the sign-up form specifically (this
+  // page only exists on the Google signup path), with the same error
+  // sign-in's own Google button already knows how to show.
   if (!isAuthenticated || !user) {
-    router.replace("/");
+    router.replace("/?error=google_failed&mode=signup");
     return null;
   }
 

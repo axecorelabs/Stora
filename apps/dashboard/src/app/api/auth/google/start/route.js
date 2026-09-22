@@ -10,6 +10,13 @@ import { auth } from "@/lib/betterAuth";
 // /dashboard on success, matching the old callback route's hardcoded
 // destination (this app never supported a returnTo param).
 export async function GET(req) {
+  // The Sign In and Sign Up forms both link here -- ?mode threads through
+  // to errorCallbackURL so a failure sends someone back to the same form
+  // they started from instead of always defaulting to sign-in (root page.js
+  // only reads ?mode on its very first render).
+  const mode = req.nextUrl.searchParams.get("mode") === "signup" ? "signup" : "signin";
+  const errorRedirect = `/?error=google_failed&mode=${mode}`;
+
   // Better Auth's own new-vs-existing-user distinction (isRegister, set
   // when this call actually inserts a new users row rather than linking
   // an existing one by matching provider/email) -- a brand-new Google
@@ -25,14 +32,14 @@ export async function GET(req) {
       provider: "google",
       callbackURL: "/dashboard",
       newUserCallbackURL: "/auth/review-and-accept",
-      errorCallbackURL: "/?error=google_failed"
+      errorCallbackURL: errorRedirect
     },
     asResponse: true
   });
 
   const data = await result.json();
   if (!data.url) {
-    return NextResponse.redirect(new URL("/?error=google_failed", req.url));
+    return NextResponse.redirect(new URL(errorRedirect, req.url));
   }
 
   const response = NextResponse.redirect(data.url);
