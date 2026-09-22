@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
-import ListingGallery from '@/components/ListingGallery';
-import { ExternalLink, MapPin, Phone, Mail } from 'lucide-react';
+import StoreProfileClient from '@/components/StoreProfileClient';
 import { findGalleryByStoreId, findStoreByWebsitePath } from '@/lib/supabaseStore';
 
 export const revalidate = 60;
@@ -83,75 +82,13 @@ export default async function StoreProfilePage({ params }) {
   const contacts = contactLinks(store);
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="mx-auto w-full max-w-5xl px-6 py-8 sm:px-8 sm:py-10">
-        <a
-          href=".."
-          className="inline-flex items-center gap-1 text-sm font-semibold text-brand-800 hover:text-brand-900"
-        >
-          Back to storefront <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-
-        <header className="mt-5 rounded-2xl border border-gray-100 bg-gray-50 p-5 sm:p-7">
-          <h1 className="font-display text-2xl font-bold text-gray-900 sm:text-3xl">{store.storeName}</h1>
-          <p className="mt-1 text-sm text-gray-600">Business profile</p>
-          {store.storeDescription && (
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-gray-700 sm:text-base">{store.storeDescription}</p>
-          )}
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {contacts.phone && (
-              <a href={`tel:${contacts.phone}`} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-brand-200 hover:text-brand-800">
-                <Phone className="h-3.5 w-3.5" />
-                Call
-              </a>
-            )}
-            {contacts.email && (
-              <a href={`mailto:${contacts.email}`} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-brand-200 hover:text-brand-800">
-                <Mail className="h-3.5 w-3.5" />
-                Email
-              </a>
-            )}
-            {mapUrl && (
-              <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-brand-200 hover:text-brand-800">
-                <MapPin className="h-3.5 w-3.5" />
-                Open map
-              </a>
-            )}
-          </div>
-        </header>
-
-        <section className="mt-8 rounded-2xl border border-gray-100 bg-white p-5 sm:p-7">
-          <h2 className="text-base font-semibold text-gray-900">Gallery</h2>
-          {gallery.length > 0 ? (
-            <div className="mt-4">
-              <ListingGallery items={gallery} />
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-gray-500">No gallery images have been published yet.</p>
-          )}
-        </section>
-
-        <section className="mt-6 rounded-2xl border border-gray-100 bg-white p-5 pb-0 sm:p-7">
-          <h2 className="text-base font-semibold text-gray-900">Location</h2>
-          {addressText && embedUrl ? (
-            <>
-              <p className="mt-2 text-sm text-gray-600">{addressText}</p>
-              <div className="mt-4 -mx-5 h-64 overflow-hidden border-y border-gray-200 bg-gray-100 sm:mx-0 sm:h-72 sm:rounded-xl sm:border">
-                <iframe
-                  title="Store location"
-                  src={embedUrl}
-                  className="h-full w-full"
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
-            </>
-          ) : (
-            <p className="mt-2 text-sm text-gray-500">Location details are not available yet.</p>
-          )}
-        </section>
-      </div>
-    </main>
+    <StoreProfileClient
+      store={store}
+      gallery={gallery}
+      addressText={addressText}
+      mapUrl={mapUrl}
+      embedUrl={embedUrl}
+      contacts={contacts}
+    />
   );
 }

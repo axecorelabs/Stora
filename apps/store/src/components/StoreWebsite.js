@@ -801,8 +801,8 @@ export default function StoreWebsite({ store, gallery = [] }) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={`Search ${store.storeName}…`}
-                className="peer w-full pl-11 pr-10 py-3.5 text-[15px] rounded-md border outline-none transition-colors placeholder:text-gray-400 focus:bg-white focus:[border-color:var(--accent)]"
-                style={{ backgroundColor: theme.tintFaint, borderColor: theme.border, color: theme.ink, '--accent': theme.accent }}
+                className="peer w-full pl-11 pr-10 py-3.5 text-[15px] rounded-md border outline-none transition-colors placeholder:text-gray-400 focus:[border-color:var(--accent)]"
+                style={{ backgroundColor: '#FFFFFF', borderColor: theme.border, color: theme.ink, '--accent': theme.accent }}
               />
               <Search
                 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none transition-colors peer-focus:[color:var(--accent)]"
