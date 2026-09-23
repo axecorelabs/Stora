@@ -419,9 +419,13 @@ export default function FoodDetailsSection({
             </div>
           )}
 
-          {/* Dashed border marks this as the entry row, distinct from the
-              saved extras above. Same mobile card-grouping fix as those. */}
-          <div className="flex flex-col gap-2 p-3 border border-dashed border-gray-300 rounded-xl sm:grid sm:grid-cols-[1fr_140px_110px_auto] sm:items-center sm:gap-2 sm:p-0 sm:border-0 sm:rounded-none">
+          {/* Entry row -- name and price/max group first, then the Add
+              button on its own full-width row on mobile (a dashed outline
+              rather than a filled button, so it reads as "add a slot" the
+              same way the saved-extras' dashed card border does). Desktop
+              (sm:) folds it back into the same flat row as the inputs via
+              sm:contents. */}
+          <div className="flex flex-col gap-2 sm:grid sm:grid-cols-[1fr_140px_110px_auto] sm:items-center sm:gap-2">
             <input
               type="text"
               value={newExtraName}
@@ -452,15 +456,15 @@ export default function FoodDetailsSection({
                 placeholder="Max"
                 className="flex-1 min-w-0 sm:flex-none px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
               />
-              <button
-                type="button"
-                onClick={addExtra}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brand-800 text-white hover:bg-brand-900 transition-colors whitespace-nowrap"
-              >
-                <Plus className="w-4 h-4" />
-                Add
-              </button>
             </div>
+            <button
+              type="button"
+              onClick={addExtra}
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border-2 border-dashed border-brand-800 text-brand-800 hover:bg-brand-50 transition-colors whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              Add
+            </button>
           </div>
         </div>
       </div>
