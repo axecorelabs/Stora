@@ -653,50 +653,60 @@ export default function InventoryPage() {
 
         <div className="flex items-center gap-2">
         {restaurantMode && (
-          <div className="relative group/info-other flex items-center gap-1.5">
+          // Split-button: the info trigger lives inside the same
+          // bordered/rounded container as the action itself, as a
+          // separate inner button (not just a click zone within the
+          // main one) -- tapping it only reveals the tooltip, it can't
+          // also fire the navigation the way an icon merely painted
+          // inside the main button's own click area would on touch.
+          <div className="relative group/info-other inline-flex items-stretch rounded-lg md:rounded-xl border border-gray-300 overflow-hidden">
             <button
               onClick={() => router.push('/dashboard/inventory/add')}
-              className="flex items-center justify-center gap-1.5 px-3 py-1.5 md:py-2 border border-gray-300 text-gray-700 rounded-lg md:rounded-xl hover:bg-gray-50 text-xs md:text-sm font-medium transition-all duration-200 whitespace-nowrap"
+              className="flex items-center px-3 py-1.5 md:py-2 text-gray-700 hover:bg-gray-50 text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
             >
-              <span>Add Other Item</span>
+              Add Other Item
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+              className="flex items-center justify-center px-2 border-l border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
               aria-label="What is Add Other Item for?"
             >
-              <Info className="w-3 h-3" />
-              Info
+              <Info className="w-3.5 h-3.5" />
             </button>
             <span className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-20 hidden w-64 rounded-lg bg-gray-900 px-2.5 py-2 text-[11px] leading-snug text-white shadow-lg group-hover/info-other:block group-focus-within/info-other:block">
               Use this for non-menu inventory like drinks, packaged goods, merchandise, or any regular stock item.
             </span>
           </div>
         )}
-        <div className="relative group/info-primary flex items-center gap-1.5">
-          <button
-            onClick={() => router.push(restaurantMode ? '/dashboard/inventory/add-menu-item' : '/dashboard/inventory/add')}
-            className="flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-brand-800 text-white rounded-lg md:rounded-xl hover:bg-brand-900 text-xs md:text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
-          >
-            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
-            <span>{restaurantMode ? 'Add Menu Item' : 'Add Item'}</span>
-          </button>
-          {restaurantMode && (
+        {restaurantMode ? (
+          <div className="relative group/info-primary inline-flex items-stretch rounded-lg md:rounded-xl bg-brand-800 hover:bg-brand-900 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+            <button
+              onClick={() => router.push('/dashboard/inventory/add-menu-item')}
+              className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 text-white text-xs md:text-sm font-medium whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span>Add Menu Item</span>
+            </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-md border border-brand-200 bg-brand-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-brand-800 hover:bg-brand-100"
+              className="flex items-center justify-center px-2 border-l border-white/20 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
               aria-label="What is Add Menu Item for?"
             >
-              <Info className="w-3 h-3" />
-              Info
+              <Info className="w-3.5 h-3.5" />
             </button>
-          )}
-          {restaurantMode && (
             <span className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-20 hidden w-64 rounded-lg bg-gray-900 px-2.5 py-2 text-[11px] leading-snug text-white shadow-lg group-hover/info-primary:block group-focus-within/info-primary:block">
               Use this for food menu entries with menu-specific fields like prep details, portions, and extras.
             </span>
-          )}
-        </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => router.push('/dashboard/inventory/add')}
+            className="flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-brand-800 text-white rounded-lg md:rounded-xl hover:bg-brand-900 text-xs md:text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
+          >
+            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <span>Add Item</span>
+          </button>
+        )}
         </div>
       </div>
 
