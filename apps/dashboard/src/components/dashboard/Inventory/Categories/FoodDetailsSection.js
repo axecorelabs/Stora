@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Trash2, Plus } from "lucide-react";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { normalizeExtraDefinitions, isMarkedUnavailableToday } from "@stora/shared-constants";
 
@@ -231,6 +231,11 @@ export default function FoodDetailsSection({
             here until now. */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Delivery/Prep Time</label>
+          {/* Fixed narrow widths, not flex-1 on the number input -- an
+              unconstrained flex item's default min-width is its intrinsic
+              browser-rendered size, which for a bare <input> is wider than
+              it looks and was pushing this row past its column, causing
+              horizontal overflow. */}
           <div className="flex gap-2">
             <input
               type="number"
@@ -238,9 +243,9 @@ export default function FoodDetailsSection({
               onChange={(e) => handleCategoryDetailChange('food', 'deliveryTime', { ...deliveryTime, value: e.target.value })}
               placeholder="e.g., 30"
               min="0"
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+              className="w-20 min-w-0 shrink-0 px-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
             />
-            <div className="w-36 shrink-0">
+            <div className="w-28 shrink-0">
               <CustomDropdown
                 options={[
                   { value: 'minutes', label: 'Minutes' },
@@ -365,45 +370,58 @@ export default function FoodDetailsSection({
                 <span>Max per item</span>
                 <span></span>
               </div>
+              {/* Card-grouped on mobile (name on its own line, price/max/
+                  delete together in one row right below it) so the delete
+                  button reads as belonging to this extra, not an orphaned
+                  control on its own line. sm:contents un-wraps the price/
+                  max/delete group back into the grid's own 4 columns at
+                  sm: and up, matching the flat single-row layout there. */}
               {extras.map((extra, index) => (
-                <div key={index} className="grid grid-cols-2 sm:grid-cols-[1fr_140px_110px_auto] gap-2 items-center">
+                <div
+                  key={index}
+                  className="flex flex-col gap-2 p-3 border border-gray-200 rounded-xl sm:grid sm:grid-cols-[1fr_140px_110px_auto] sm:items-center sm:gap-2 sm:p-0 sm:border-0 sm:rounded-none"
+                >
                   <input
                     type="text"
                     value={extra.name}
                     onChange={(e) => updateExtraAt(index, 'name', e.target.value)}
                     placeholder="e.g. Extra sausage"
-                    className="col-span-2 sm:col-span-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                  />
-                  <input
-                    type="number"
-                    value={extra.price}
-                    onChange={(e) => updateExtraAt(index, 'price', e.target.value)}
-                    min="0"
-                    placeholder="0"
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
                   />
-                  <input
-                    type="number"
-                    value={extra.maxQuantity}
-                    onChange={(e) => updateExtraAt(index, 'maxQuantity', e.target.value)}
-                    min="1"
-                    placeholder="1"
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeExtraAt(index)}
-                    aria-label={`Remove ${extra.name || 'extra'}`}
-                    className="justify-self-end sm:justify-self-start text-gray-400 hover:text-red-600 p-2"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2 sm:contents">
+                    <input
+                      type="number"
+                      value={extra.price}
+                      onChange={(e) => updateExtraAt(index, 'price', e.target.value)}
+                      min="0"
+                      placeholder="0"
+                      className="flex-1 min-w-0 sm:flex-none px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                    />
+                    <input
+                      type="number"
+                      value={extra.maxQuantity}
+                      onChange={(e) => updateExtraAt(index, 'maxQuantity', e.target.value)}
+                      min="1"
+                      placeholder="1"
+                      className="flex-1 min-w-0 sm:flex-none px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeExtraAt(index)}
+                      aria-label={`Remove ${extra.name || 'extra'}`}
+                      className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-[1fr_140px_110px_auto] gap-2 items-center">
+          {/* Dashed border marks this as the entry row, distinct from the
+              saved extras above. Same mobile card-grouping fix as those. */}
+          <div className="flex flex-col gap-2 p-3 border border-dashed border-gray-300 rounded-xl sm:grid sm:grid-cols-[1fr_140px_110px_auto] sm:items-center sm:gap-2 sm:p-0 sm:border-0 sm:rounded-none">
             <input
               type="text"
               value={newExtraName}
@@ -415,31 +433,34 @@ export default function FoodDetailsSection({
                 }
               }}
               placeholder="e.g. Extra sausage"
-              className="col-span-2 sm:col-span-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-            />
-            <input
-              type="number"
-              value={newExtraPrice}
-              onChange={(e) => setNewExtraPrice(e.target.value)}
-              min="0"
-              placeholder="Price"
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
             />
-            <input
-              type="number"
-              value={newExtraMaxQuantity}
-              onChange={(e) => setNewExtraMaxQuantity(e.target.value)}
-              min="1"
-              placeholder="Max"
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
-            />
-            <button
-              type="button"
-              onClick={addExtra}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-800 text-white hover:bg-brand-900 whitespace-nowrap"
-            >
-              Add
-            </button>
+            <div className="flex items-center gap-2 sm:contents">
+              <input
+                type="number"
+                value={newExtraPrice}
+                onChange={(e) => setNewExtraPrice(e.target.value)}
+                min="0"
+                placeholder="Price"
+                className="flex-1 min-w-0 sm:flex-none px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+              />
+              <input
+                type="number"
+                value={newExtraMaxQuantity}
+                onChange={(e) => setNewExtraMaxQuantity(e.target.value)}
+                min="1"
+                placeholder="Max"
+                className="flex-1 min-w-0 sm:flex-none px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-800 focus:border-transparent text-black"
+              />
+              <button
+                type="button"
+                onClick={addExtra}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-brand-800 text-white hover:bg-brand-900 transition-colors whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                Add
+              </button>
+            </div>
           </div>
         </div>
       </div>
