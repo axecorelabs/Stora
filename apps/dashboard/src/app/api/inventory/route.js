@@ -127,6 +127,7 @@ function transformInventory(item, variants = []) {
     // state was wrong). Nullable, default true at the DB level, so `!==
     // false` treats an unset legacy row the same as an explicit true.
     webVisibility: item.web_visibility !== false,
+    aiTryonEnabled: item.ai_tryon_enabled === true,
     createdAt: item.created_at,
     updatedAt: item.updated_at
   };

@@ -12,8 +12,15 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Settings
+  Settings,
+  Sparkles
 } from "lucide-react";
+
+// Try-on only makes sense for wearables -- gating the toggle to these
+// categories client-side (the PUT route itself only enforces ownership,
+// not category) avoids a vendor enabling it on something nonsensical
+// like groceries.
+const AI_TRYON_ELIGIBLE_CATEGORIES = ['Clothing', 'Shoes', 'Accessories'];
 import CustomDropdown from "../ui/CustomDropdown";
 
 export default function WebsiteInventoryView({ onBack, store }) {
@@ -24,6 +31,7 @@ export default function WebsiteInventoryView({ onBack, store }) {
   const [filterBy, setFilterBy] = useState('all');
   const [filterValue, setFilterValue] = useState('');
   const [togglingItems, setTogglingItems] = useState(new Set());
+  const [togglingTryonItems, setTogglingTryonItems] = useState(new Set());
 
   // Filter options
   const filterOptions = [
@@ -57,7 +65,8 @@ export default function WebsiteInventoryView({ onBack, store }) {
         // Ensure webVisibility is always defined
         const itemsWithVisibility = response.data.map(item => ({
           ...item,
-          webVisibility: item.webVisibility !== undefined ? item.webVisibility : true
+          webVisibility: item.webVisibility !== undefined ? item.webVisibility : true,
+          aiTryonEnabled: Boolean(item.aiTryonEnabled)
         }));
         setInventoryItems(itemsWithVisibility);
       }
@@ -100,6 +109,40 @@ export default function WebsiteInventoryView({ onBack, store }) {
       alert('Error updating visibility. Please try again.');
     } finally {
       setTogglingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }
+  };
+
+  // Toggle AI try-on eligibility
+  const toggleAiTryon = async (itemId, currentlyEnabled) => {
+    setTogglingTryonItems(prev => new Set([...prev, itemId]));
+
+    try {
+      const response = await secureApiCall(`/api/inventory/${itemId}/ai-tryon`, {
+        method: 'PUT',
+        body: JSON.stringify({ aiTryonEnabled: !currentlyEnabled })
+      });
+
+      if (response.success) {
+        setInventoryItems(prev =>
+          prev.map(item =>
+            item._id === itemId
+              ? { ...item, aiTryonEnabled: Boolean(!currentlyEnabled) }
+              : item
+          )
+        );
+      } else {
+        console.error('Failed to toggle AI try-on:', response.message);
+        alert('Failed to update AI try-on setting. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error toggling AI try-on:', error);
+      alert('Error updating AI try-on setting. Please try again.');
+    } finally {
+      setTogglingTryonItems(prev => {
         const newSet = new Set(prev);
         newSet.delete(itemId);
         return newSet;
@@ -339,12 +382,13 @@ export default function WebsiteInventoryView({ onBack, store }) {
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Website Visibility</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Try-On</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center">
+                  <td colSpan="9" className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center">
                       {inventoryItems.length === 0 ? (
                         <>
@@ -454,6 +498,37 @@ export default function WebsiteInventoryView({ onBack, store }) {
                           </div>
                         )}
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {AI_TRYON_ELIGIBLE_CATEGORIES.includes(item.category) ? (
+                        <div className="flex items-center space-x-2">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(item.aiTryonEnabled)}
+                              onChange={() => toggleAiTryon(item._id, Boolean(item.aiTryonEnabled))}
+                              disabled={togglingTryonItems.has(item._id)}
+                              className="sr-only peer"
+                            />
+                            <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gold-300 transition-all ${
+                              Boolean(item.aiTryonEnabled)
+                                ? 'bg-gold-500 peer-checked:after:translate-x-full'
+                                : 'bg-gray-200'
+                            } peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                              togglingTryonItems.has(item._id) ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}></div>
+                          </label>
+                          {togglingTryonItems.has(item._id) ? (
+                            <div className="w-4 h-4">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gold-600"></div>
+                            </div>
+                          ) : Boolean(item.aiTryonEnabled) && (
+                            <Sparkles className="w-4 h-4 text-gold-600" />
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">Not applicable</span>
+                      )}
                     </td>
                   </tr>
                 ))

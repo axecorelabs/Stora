@@ -105,6 +105,7 @@ function transformInventory(item, variants = []) {
     // in ../route.js's own transformInventory for why this must be here:
     // without it, a hidden item looks visible again on every reload.
     webVisibility: item.web_visibility !== false,
+    aiTryonEnabled: item.ai_tryon_enabled === true,
     createdAt: item.created_at,
     updatedAt: item.updated_at
   };
