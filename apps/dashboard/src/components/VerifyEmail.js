@@ -136,10 +136,10 @@ export default function VerifyEmail({ email, onBack, onVerified }) {
       </div>
 
       {/* Header */}
-      <div className="p-6 relative z-10">
+      <div className="p-4 sm:p-6 relative z-10">
         <button
           onClick={onBack}
-          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors p-2 -m-2"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
           <span className="text-sm font-medium">Back</span>
@@ -147,28 +147,34 @@ export default function VerifyEmail({ email, onBack, onVerified }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-6 relative z-10">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 relative z-10">
         <div className="w-full max-w-md">
           {/* Email Icon */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-3xl mb-6 shadow-lg border border-gray-200">
-              <Mail className="w-10 h-10 text-green-600" />
+            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-3xl mb-6 shadow-lg border border-gray-200">
+              <Mail className="w-8 h-8 sm:w-10 sm:h-10 text-green-600" />
             </div>
-            
-            <h1 className="text-3xl font-bold text-gray-900 mb-3">
+
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
               Check your inbox!
             </h1>
-            
-            <p className="text-gray-600 text-sm leading-relaxed">
+
+            <p className="text-gray-600 text-sm leading-relaxed px-2">
               We've sent a 6-digit verification code to<br />
-              <span className="font-semibold text-gray-900">{email}</span>
+              <span className="font-semibold text-gray-900 break-all">{email}</span>
             </p>
           </div>
 
           {/* Verification Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Code Input */}
-            <div className="flex justify-center space-x-3">
+            {/* Code Input -- sized to fit every box + gap within a 320px
+                viewport (the narrowest real phones still common in this
+                market) with room to spare; scales back up to the original
+                size at sm: and above. Was fixed at w-12 (48px) + a 12px
+                gap regardless of screen size -- 6 boxes never fit under
+                ~396px including the page's own padding, overflowing on an
+                iPhone SE/mini (375px) and every budget Android below that. */}
+            <div className="flex justify-center gap-1.5 sm:gap-3">
               {verificationCode.map((digit, index) => (
                 <input
                   key={index}
@@ -179,9 +185,9 @@ export default function VerifyEmail({ email, onBack, onVerified }) {
                   value={digit}
                   onChange={(e) => handleInputChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
-                  onPaste={index === 0 ? handlePaste : undefined}
-                  className="w-12 h-12 text-center text-lg font-semibold bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all placeholder-gray-400"
-                  autoComplete="off"
+                  onPaste={handlePaste}
+                  className="w-10 h-12 sm:w-12 sm:h-12 text-center text-lg font-semibold bg-white border border-gray-300 text-gray-900 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all placeholder-gray-400"
+                  autoComplete={index === 0 ? "one-time-code" : "off"}
                 />
               ))}
             </div>
