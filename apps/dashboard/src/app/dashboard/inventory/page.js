@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -249,6 +249,62 @@ function CompactMetricValue({ value, formatValue, threshold = 1000 }) {
         </span>
       )}
     </span>
+  );
+}
+
+// The split-button info trigger's tooltip used to rely purely on CSS
+// group-hover/group-focus-within -- neither fires reliably from a tap on
+// touch devices (no :hover, and iOS Safari doesn't focus a tapped button),
+// so the button looked tappable but silently did nothing on mobile. This
+// gives it a real onClick that toggles the tooltip (with an outside-tap
+// dismiss), while still opening on hover for desktop mouse users.
+// The tooltip lives in an outer wrapper that is NOT overflow-hidden --
+// only the pill (the two flat buttons) clips for its rounded/divided look.
+// Nesting the tooltip inside that clipped pill (as the previous version
+// did) meant it was clipped away entirely, on top of only ever opening via
+// CSS group-hover/group-focus-within, neither of which fires reliably from
+// a tap on touch devices (no :hover, and iOS Safari doesn't focus a tapped
+// button). This gives the info trigger a real onClick that toggles the
+// tooltip (with an outside-tap dismiss), while still opening on hover for
+// desktop mouse users.
+function SplitActionButton({ onAction, actionClassName, actionContent, pillClassName, infoLabel, infoTriggerClassName, children }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div ref={wrapperRef} className="relative group/info inline-flex items-stretch">
+      <div className={`inline-flex items-stretch overflow-hidden ${pillClassName}`}>
+        <button onClick={onAction} className={actionClassName}>
+          {actionContent}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setIsOpen((prev) => !prev); }}
+          onMouseEnter={() => setIsOpen(true)}
+          onMouseLeave={() => setIsOpen(false)}
+          className={infoTriggerClassName}
+          aria-label={infoLabel}
+        >
+          <Info className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <span className={`pointer-events-none absolute right-0 top-[calc(100%+6px)] z-20 w-64 rounded-lg bg-gray-900 px-2.5 py-2 text-[11px] leading-snug text-white shadow-lg ${
+        isOpen ? 'block' : 'hidden group-hover/info:block'
+      }`}>
+        {children}
+      </span>
+    </div>
   );
 }
 
@@ -784,51 +840,33 @@ export default function InventoryPage() {
 
         <div className="flex items-center gap-2">
         {restaurantMode && (
-          // Split-button: the info trigger lives inside the same
-          // bordered/rounded container as the action itself, as a
-          // separate inner button (not just a click zone within the
-          // main one) -- tapping it only reveals the tooltip, it can't
-          // also fire the navigation the way an icon merely painted
-          // inside the main button's own click area would on touch.
-          <div className="relative group/info-other inline-flex items-stretch rounded-lg md:rounded-xl border border-gray-300 overflow-hidden">
-            <button
-              onClick={() => router.push('/dashboard/inventory/add')}
-              className="flex items-center px-3 py-1.5 md:py-2 text-gray-700 hover:bg-gray-50 text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
-            >
-              Add Other Item
-            </button>
-            <button
-              type="button"
-              className="flex items-center justify-center px-2 border-l border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
-              aria-label="What is Add Other Item for?"
-            >
-              <Info className="w-3.5 h-3.5" />
-            </button>
-            <span className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-20 hidden w-64 rounded-lg bg-gray-900 px-2.5 py-2 text-[11px] leading-snug text-white shadow-lg group-hover/info-other:block group-focus-within/info-other:block">
-              Use this for non-menu inventory like drinks, packaged goods, merchandise, or any regular stock item.
-            </span>
-          </div>
+          <SplitActionButton
+            onAction={() => router.push('/dashboard/inventory/add')}
+            pillClassName="rounded-lg md:rounded-xl border border-gray-300"
+            actionClassName="flex items-center px-3 py-1.5 md:py-2 text-gray-700 hover:bg-gray-50 text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
+            actionContent="Add Other Item"
+            infoLabel="What is Add Other Item for?"
+            infoTriggerClassName="flex items-center justify-center px-2 border-l border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+          >
+            Use this for non-menu inventory like drinks, packaged goods, merchandise, or any regular stock item.
+          </SplitActionButton>
         )}
         {restaurantMode ? (
-          <div className="relative group/info-primary inline-flex items-stretch rounded-lg md:rounded-xl bg-brand-800 hover:bg-brand-900 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
-            <button
-              onClick={() => router.push('/dashboard/inventory/add-menu-item')}
-              className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 text-white text-xs md:text-sm font-medium whitespace-nowrap"
-            >
-              <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              <span>Add Menu Item</span>
-            </button>
-            <button
-              type="button"
-              className="flex items-center justify-center px-2 border-l border-white/20 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-              aria-label="What is Add Menu Item for?"
-            >
-              <Info className="w-3.5 h-3.5" />
-            </button>
-            <span className="pointer-events-none absolute right-0 top-[calc(100%+6px)] z-20 hidden w-64 rounded-lg bg-gray-900 px-2.5 py-2 text-[11px] leading-snug text-white shadow-lg group-hover/info-primary:block group-focus-within/info-primary:block">
-              Use this for food menu entries with menu-specific fields like prep details, portions, and extras.
-            </span>
-          </div>
+          <SplitActionButton
+            onAction={() => router.push('/dashboard/inventory/add-menu-item')}
+            pillClassName="rounded-lg md:rounded-xl bg-brand-800 hover:bg-brand-900 shadow-sm hover:shadow-md transition-all duration-200"
+            actionClassName="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 text-white text-xs md:text-sm font-medium whitespace-nowrap"
+            actionContent={
+              <>
+                <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span>Add Menu Item</span>
+              </>
+            }
+            infoLabel="What is Add Menu Item for?"
+            infoTriggerClassName="flex items-center justify-center px-2 border-l border-white/20 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+          >
+            Use this for food menu entries with menu-specific fields like prep details, portions, and extras.
+          </SplitActionButton>
         ) : (
           <button
             onClick={() => router.push('/dashboard/inventory/add')}
