@@ -12,6 +12,7 @@ import CategoryBreakdownChart from "@/components/dashboard/charts/CategoryBreakd
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import ChartCardHeader from "@/components/dashboard/charts/ChartCardHeader";
+import { bentoLastSpanClass } from "@/lib/statsBento";
 import {
   TrendingUp,
   ShoppingCart,
@@ -140,11 +141,12 @@ export default function DashboardOverview() {
             </div>
           </div>
 
-          {/* Stat strip Skeleton */}
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="p-4 lg:p-5 animate-pulse">
+          {/* Stat strip Skeleton -- matches the real strip's 2-col mobile
+              bento (odd card out spans both columns) */}
+          <div className="bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-px">
+              {[1, 2, 3].map((i, index) => (
+                <div key={i} className={`p-4 lg:p-5 bg-white animate-pulse ${bentoLastSpanClass(index, 3)}`}>
                   <div className="h-3 w-16 bg-gray-200 rounded"></div>
                   <div className="h-6 lg:h-7 w-12 bg-gray-200 rounded mt-3 mb-2"></div>
                   <div className="h-3 w-24 bg-gray-200 rounded"></div>
@@ -298,16 +300,17 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        {/* Stat strip */}
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-            {statRows.map((row) => {
+        {/* Stat strip -- 2-col bento on mobile; the odd card out spans both
+            columns instead of being left alone. Desktop/tablet unchanged. */}
+        <div className="bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-px">
+            {statRows.map((row, index) => {
               const Icon = row.icon;
               return (
                 <button
                   key={row.key}
                   onClick={row.onClick}
-                  className="text-left p-4 lg:p-5 hover:bg-gray-50 transition-colors"
+                  className={`text-left p-4 lg:p-5 bg-white hover:bg-gray-50 transition-colors ${bentoLastSpanClass(index, statRows.length)}`}
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${row.tone === 'gold' ? 'bg-gold-500/15 text-gold-600' : 'bg-brand-100 text-brand-800'}`}>

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import SetupChecklist from "@/components/dashboard/SetupChecklist";
 import Button from "@/components/ui/Button";
+import { bentoLastSpanClass } from "@/lib/statsBento";
 import {
   Images,
   Eye,
@@ -163,11 +164,13 @@ export default function ListingOverview({ store }) {
           </div>
         </div>
 
-        {/* Stat strip */}
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-            {statRows.map((row) => {
+        {/* Stat strip -- 2-col bento on mobile; the odd card out spans both
+            columns instead of being left alone. Desktop/tablet unchanged. */}
+        <div className="bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-px">
+            {statRows.map((row, index) => {
               const Icon = row.icon;
+              const spanClass = bentoLastSpanClass(index, statRows.length);
               const inner = (
                 <div className={`text-left p-4 lg:p-5 w-full ${row.onClick ? 'hover:bg-gray-50 transition-colors cursor-pointer' : ''}`}>
                   <div className="flex items-center gap-2 mb-3">
@@ -187,8 +190,8 @@ export default function ListingOverview({ store }) {
                 </div>
               );
               return row.onClick
-                ? <button key={row.key} onClick={row.onClick}>{inner}</button>
-                : <div key={row.key}>{inner}</div>;
+                ? <button key={row.key} onClick={row.onClick} className={`bg-white ${spanClass}`}>{inner}</button>
+                : <div key={row.key} className={`bg-white ${spanClass}`}>{inner}</div>;
             })}
           </div>
         </div>

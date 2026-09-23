@@ -7,6 +7,7 @@ import PayoutSettingsModal from "@/components/dashboard/PayoutSettingsModal";
 import Modal from "@/components/ui/Modal";
 import { usePayments } from "@/hooks/usePayments";
 import useResponsiveRowExpand from "@/hooks/useResponsiveRowExpand";
+import { bentoLastSpanClass } from "@/lib/statsBento";
 import {
   Wallet,
   Landmark,
@@ -369,14 +370,15 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* Stats strip */}
+      {/* Stats strip -- 2-col bento on mobile; the odd card out spans both
+          columns instead of being left alone. Desktop/tablet unchanged. */}
       {stats && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 lg:mb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
+        <div className="bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden mb-6 lg:mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-px">
             {statsCards.map((stat, index) => {
               const IconComponent = stat.icon;
               return (
-                <div key={index} className="p-4 lg:p-5">
+                <div key={index} className={`p-4 lg:p-5 bg-white ${bentoLastSpanClass(index, statsCards.length)}`}>
                   <div className="flex items-center gap-2 mb-3">
                     <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${
                       stat.tone === 'gold' ? 'bg-gold-500/15 text-gold-600' : 'bg-brand-100 text-brand-800'

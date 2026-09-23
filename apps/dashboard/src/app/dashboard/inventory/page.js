@@ -12,6 +12,7 @@ import ProductQrDownloadButton from "@/components/dashboard/Inventory/ProductQrD
 import Modal from "@/components/ui/Modal";
 import { useInventoryData } from "@/hooks/useInventoryData";
 import useResponsiveRowExpand from "@/hooks/useResponsiveRowExpand";
+import { bentoLastSpanClass } from "@/lib/statsBento";
 import {
   Package,
   AlertTriangle,
@@ -635,11 +636,12 @@ export default function InventoryPage() {
   if (isLoading) {
     return (
       <DashboardLayout title="Inventory Management" subtitle={getCurrentDate()}>
-        {/* Stats strip Skeleton */}
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 md:mb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="p-3 md:p-4 lg:p-5 animate-pulse">
+        {/* Stats strip Skeleton -- matches the real strip's 2-col mobile
+            bento (odd card out spans both columns) */}
+        <div className="bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden mb-6 md:mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-px">
+            {[1, 2, 3, 4, 5].map((i, index) => (
+              <div key={i} className={`p-3 md:p-4 lg:p-5 bg-white animate-pulse ${bentoLastSpanClass(index, 5)}`}>
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-7 h-7 bg-gray-200 rounded-lg"></div>
                   <div className="h-3 w-20 bg-gray-200 rounded"></div>
@@ -729,13 +731,14 @@ export default function InventoryPage() {
 
   return (
     <DashboardLayout title="Inventory Management" subtitle={getCurrentDate()}>
-      {/* Stats strip */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6 md:mb-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x lg:divide-x divide-gray-100">
+      {/* Stats strip -- 2-col bento on mobile; the odd card out spans both
+          columns instead of being left alone. Desktop/tablet unchanged. */}
+      <div className="bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden mb-6 md:mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-px">
           {statsCards.map((stat, index) => {
             const IconComponent = stat.icon;
             return (
-              <div key={index} className="p-3 md:p-4 lg:p-5">
+              <div key={index} className={`p-3 md:p-4 lg:p-5 bg-white ${bentoLastSpanClass(index, statsCards.length)}`}>
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${stat.iconBg} ${stat.iconColor}`}>
                     <IconComponent className="w-4 h-4" />
