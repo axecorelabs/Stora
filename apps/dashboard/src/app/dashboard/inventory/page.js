@@ -9,7 +9,9 @@ import StockUpdateModal from "@/components/dashboard/StockUpdateModal";
 import DeleteConfirmationModal from "@/components/dashboard/DeleteConfirmationModal";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import ProductQrDownloadButton from "@/components/dashboard/Inventory/ProductQrDownloadButton";
+import Modal from "@/components/ui/Modal";
 import { useInventoryData } from "@/hooks/useInventoryData";
+import useResponsiveRowExpand from "@/hooks/useResponsiveRowExpand";
 import {
   Package,
   AlertTriangle,
@@ -72,6 +74,135 @@ function DetailField({ label, value }) {
     <div>
       <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
       <p className="text-xs md:text-sm font-medium text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+// The full detail block a row reveals -- shared between the desktop
+// inline-expand row and the mobile detail Modal (useResponsiveRowExpand)
+// so the two never drift apart into two different feature sets.
+function ItemDetailContent({
+  item, margin, hasImage, categoryDetailEntries, formatCurrency, getStatusText,
+  itemStorefrontUrl, store, onEdit, onAdjustStock, onViewFullPage, onToggleVisibility, isTogglingVisibility, onDelete
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-5 md:gap-8">
+      {/* Bigger image */}
+      <div className="w-full sm:w-40 md:w-44 h-40 md:h-44 flex-shrink-0 bg-gradient-to-br from-brand-50 to-brand-100 rounded-xl flex items-center justify-center overflow-hidden mx-auto sm:mx-0">
+        {hasImage ? (
+          <img
+            src={item.image || item.images[0].url}
+            alt={item.productName}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextElementSibling.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        <Package className={`w-12 h-12 text-brand-800 ${hasImage ? 'hidden' : ''}`} />
+      </div>
+
+      {/* Detail grid */}
+      <div className="flex-1 min-w-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 md:gap-y-4">
+          <DetailField label="SKU" value={item.sku} />
+          <DetailField label="Brand" value={item.brand} />
+          <DetailField label="Category" value={item.category} />
+          <DetailField label="Supplier" value={item.supplier} />
+          <DetailField label="Location" value={item.location} />
+          <DetailField label="Stock" value={`${item.quantityInStock} ${item.unitOfMeasure || ''}`.trim()} />
+          <DetailField label="Reorder Level" value={item.reorderLevel} />
+          <DetailField label="Cost Price" value={formatCurrency(getCostPrice(item))} />
+          <DetailField label="Selling Price" value={formatCurrency(getSellPrice(item))} />
+          <DetailField label="Margin" value={margin !== null ? `${margin >= 0 ? '+' : ''}${margin.toFixed(0)}%` : null} />
+          <DetailField label="Stock Value" value={formatCurrency(getStockValue(item))} />
+          <DetailField label="Status" value={getStatusText(item)} />
+          {item.batchPricing?.hasActiveBatch && (
+            <DetailField label="Active Batch" value={item.batchPricing.activeBatchCode} />
+          )}
+          {categoryDetailEntries.map(([key, value]) => (
+            <DetailField key={key} label={prettifyKey(key)} value={String(value)} />
+          ))}
+        </div>
+
+        {item.description && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Description</p>
+            <p className="text-xs md:text-sm text-gray-700">{item.description}</p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <Edit className="w-3.5 h-3.5" />
+            Edit product
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onAdjustStock(item); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Adjust stock
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onViewFullPage(item); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            View full page
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleVisibility(item); }}
+            disabled={isTogglingVisibility}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium border transition-colors disabled:opacity-50 ${
+              item.webVisibility !== false
+                ? 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
+                : 'text-gold-700 bg-gold-500/10 border-gold-500/30 hover:bg-gold-500/15'
+            }`}
+          >
+            {isTogglingVisibility ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : item.webVisibility !== false ? (
+              <Eye className="w-3.5 h-3.5" />
+            ) : (
+              <EyeOff className="w-3.5 h-3.5" />
+            )}
+            {item.webVisibility !== false ? 'Visible on website' : 'Hidden from website'}
+          </button>
+          {itemStorefrontUrl && (
+            <>
+              <a
+                href={itemStorefrontUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                View in storefront
+              </a>
+              <ProductQrDownloadButton
+                url={itemStorefrontUrl}
+                color={store?.branding?.primaryColor || '#0B3B2E'}
+                filename={`${item.sku || item._id}-qr-code.png`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              />
+            </>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(item); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 transition-colors ml-auto"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -172,7 +303,7 @@ export default function InventoryPage() {
   const [sortDirection, setSortDirection] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [expandedItemId, setExpandedItemId] = useState(null);
+  const { expandedId: expandedItemId, mobileDetailItem, toggleRow: toggleExpanded, closeMobileDetail } = useResponsiveRowExpand();
   const [togglingVisibilityIds, setTogglingVisibilityIds] = useState(new Set());
 
   // Use TanStack Query for data fetching
@@ -204,9 +335,6 @@ export default function InventoryPage() {
     }
   }, [stats, statsError]);
 
-  const toggleExpanded = (itemId) => {
-    setExpandedItemId(prev => (prev === itemId ? null : itemId));
-  };
 
   const getStockTone = (item) => {
     if (item.quantityInStock === 0) return 'critical';
@@ -873,7 +1001,7 @@ export default function InventoryPage() {
                     <Fragment key={item._id}>
                       {/* Collapsed row — minimal, single line per column */}
                       <tr
-                        onClick={() => toggleExpanded(item._id)}
+                        onClick={() => toggleExpanded(item._id, item)}
                         className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50/80' : ''}`}
                       >
                         <td className="px-3 md:px-6 py-2.5 md:py-3">
@@ -923,128 +1051,26 @@ export default function InventoryPage() {
                         </td>
                       </tr>
 
-                      {/* Expanded detail panel — bigger image + full breakdown, dropped down instead of forced into the row */}
+                      {/* Expanded detail panel — bigger image + full breakdown, dropped down instead of forced into the row (desktop only; useResponsiveRowExpand routes this to the mobile Modal below instead) */}
                       {isExpanded && (
                         <tr>
                           <td colSpan="7" className="px-4 md:px-8 py-5 md:py-6 bg-gray-50/60 border-b border-gray-100">
-                            <div className="flex flex-col sm:flex-row gap-5 md:gap-8">
-                              {/* Bigger image */}
-                              <div className="w-full sm:w-40 md:w-44 h-40 md:h-44 flex-shrink-0 bg-gradient-to-br from-brand-50 to-brand-100 rounded-xl flex items-center justify-center overflow-hidden mx-auto sm:mx-0">
-                                {hasImage ? (
-                                  <img
-                                    src={item.image || item.images[0].url}
-                                    alt={item.productName}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.nextElementSibling.style.display = 'flex';
-                                    }}
-                                  />
-                                ) : null}
-                                <Package className={`w-12 h-12 text-brand-800 ${hasImage ? 'hidden' : ''}`} />
-                              </div>
-
-                              {/* Detail grid */}
-                              <div className="flex-1 min-w-0">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 md:gap-y-4">
-                                  <DetailField label="SKU" value={item.sku} />
-                                  <DetailField label="Brand" value={item.brand} />
-                                  <DetailField label="Category" value={item.category} />
-                                  <DetailField label="Supplier" value={item.supplier} />
-                                  <DetailField label="Location" value={item.location} />
-                                  <DetailField label="Stock" value={`${item.quantityInStock} ${item.unitOfMeasure || ''}`.trim()} />
-                                  <DetailField label="Reorder Level" value={item.reorderLevel} />
-                                  <DetailField label="Cost Price" value={formatCurrency(getCostPrice(item))} />
-                                  <DetailField label="Selling Price" value={formatCurrency(getSellPrice(item))} />
-                                  <DetailField label="Margin" value={margin !== null ? `${margin >= 0 ? '+' : ''}${margin.toFixed(0)}%` : null} />
-                                  <DetailField label="Stock Value" value={formatCurrency(getStockValue(item))} />
-                                  <DetailField label="Status" value={getStatusText(item)} />
-                                  {item.batchPricing?.hasActiveBatch && (
-                                    <DetailField label="Active Batch" value={item.batchPricing.activeBatchCode} />
-                                  )}
-                                  {categoryDetailEntries.map(([key, value]) => (
-                                    <DetailField key={key} label={prettifyKey(key)} value={String(value)} />
-                                  ))}
-                                </div>
-
-                                {item.description && (
-                                  <div className="mt-4 pt-4 border-t border-gray-200">
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Description</p>
-                                    <p className="text-xs md:text-sm text-gray-700">{item.description}</p>
-                                  </div>
-                                )}
-
-                                {/* Actions */}
-                                <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center gap-2">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); openEditModal(item); }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                                  >
-                                    <Edit className="w-3.5 h-3.5" />
-                                    Edit product
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); openStockModal(item); }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                                  >
-                                    <RefreshCw className="w-3.5 h-3.5" />
-                                    Adjust stock
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/inventory/${item._id}`); }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                    View full page
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleToggleWebVisibility(item); }}
-                                    disabled={togglingVisibilityIds.has(item._id)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium border transition-colors disabled:opacity-50 ${
-                                      item.webVisibility !== false
-                                        ? 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
-                                        : 'text-gold-700 bg-gold-500/10 border-gold-500/30 hover:bg-gold-500/15'
-                                    }`}
-                                  >
-                                    {togglingVisibilityIds.has(item._id) ? (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : item.webVisibility !== false ? (
-                                      <Eye className="w-3.5 h-3.5" />
-                                    ) : (
-                                      <EyeOff className="w-3.5 h-3.5" />
-                                    )}
-                                    {item.webVisibility !== false ? 'Visible on website' : 'Hidden from website'}
-                                  </button>
-                                  {storefrontUrl(item) && (
-                                    <>
-                                      <a
-                                        href={storefrontUrl(item)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                                      >
-                                        <ExternalLink className="w-3.5 h-3.5" />
-                                        View in storefront
-                                      </a>
-                                      <ProductQrDownloadButton
-                                        url={storefrontUrl(item)}
-                                        color={store?.branding?.primaryColor || '#0B3B2E'}
-                                        filename={`${item.sku || item._id}-qr-code.png`}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                                      />
-                                    </>
-                                  )}
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); openDeleteModal(item); }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 transition-colors ml-auto"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    Delete
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
+                            <ItemDetailContent
+                              item={item}
+                              margin={margin}
+                              hasImage={hasImage}
+                              categoryDetailEntries={categoryDetailEntries}
+                              formatCurrency={formatCurrency}
+                              getStatusText={getStatusText}
+                              itemStorefrontUrl={storefrontUrl(item)}
+                              store={store}
+                              onEdit={openEditModal}
+                              onAdjustStock={openStockModal}
+                              onViewFullPage={(it) => router.push(`/dashboard/inventory/${it._id}`)}
+                              onToggleVisibility={handleToggleWebVisibility}
+                              isTogglingVisibility={togglingVisibilityIds.has(item._id)}
+                              onDelete={openDeleteModal}
+                            />
                           </td>
                         </tr>
                       )}
@@ -1140,6 +1166,39 @@ export default function InventoryPage() {
         item={itemToDelete}
         isDeleting={isDeletingItem}
       />
+
+      {/* Mobile row-detail sheet -- same content the desktop inline-expand
+          row shows, see useResponsiveRowExpand's own reasoning. */}
+      <Modal
+        isOpen={!!mobileDetailItem}
+        onClose={closeMobileDetail}
+        title={mobileDetailItem?.productName || "Item details"}
+        icon={Package}
+        size="lg"
+      >
+        {mobileDetailItem && (
+          <ItemDetailContent
+            item={mobileDetailItem}
+            margin={getMarginPercent(mobileDetailItem)}
+            hasImage={!!(mobileDetailItem.image || (mobileDetailItem.images && mobileDetailItem.images.length > 0))}
+            categoryDetailEntries={
+              mobileDetailItem.categoryDetails && typeof mobileDetailItem.categoryDetails === 'object'
+                ? Object.entries(mobileDetailItem.categoryDetails).filter(([, v]) => v !== null && v !== undefined && v !== '')
+                : []
+            }
+            formatCurrency={formatCurrency}
+            getStatusText={getStatusText}
+            itemStorefrontUrl={storefrontUrl(mobileDetailItem)}
+            store={store}
+            onEdit={(it) => { closeMobileDetail(); openEditModal(it); }}
+            onAdjustStock={(it) => { closeMobileDetail(); openStockModal(it); }}
+            onViewFullPage={(it) => { closeMobileDetail(); router.push(`/dashboard/inventory/${it._id}`); }}
+            onToggleVisibility={handleToggleWebVisibility}
+            isTogglingVisibility={togglingVisibilityIds.has(mobileDetailItem._id)}
+            onDelete={(it) => { closeMobileDetail(); openDeleteModal(it); }}
+          />
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }

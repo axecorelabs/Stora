@@ -6,6 +6,8 @@ import AddServiceModal from "@/components/dashboard/AddServiceModal";
 import StoreServicesTab from "@/components/dashboard/store/StoreServicesTab";
 import Button from "@/components/ui/Button";
 import CustomDropdown from "@/components/ui/CustomDropdown";
+import Modal from "@/components/ui/Modal";
+import useResponsiveRowExpand from "@/hooks/useResponsiveRowExpand";
 import {
   Wrench,
   Plus,
@@ -121,6 +123,89 @@ function AvailabilityStrip({ availability }) {
   );
 }
 
+// Shared by the desktop inline expanded row and the mobile detail Modal so
+// the two never drift into different feature sets.
+function ServiceDetailContent({ serviceItem, hasImage, formatCurrency, getCoverageLabel, onEdit, onDelete, isDeleting }) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-5 md:gap-8">
+      <div className="w-full sm:w-40 md:w-44 h-40 md:h-44 flex-shrink-0 bg-gradient-to-br from-brand-50 to-brand-100 rounded-xl flex items-center justify-center overflow-hidden mx-auto sm:mx-0">
+        {hasImage ? (
+          <img src={serviceItem.portfolioImages[0]} alt={serviceItem.name} className="w-full h-full object-cover" />
+        ) : (
+          <Wrench className="w-12 h-12 text-brand-800" />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 md:gap-y-4">
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Category</p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.category || 'Uncategorized'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Sub-category</p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.subCategory || 'Not set'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Duration</p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">{formatDuration(serviceItem.duration, serviceItem.durationUnit)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Price</p>
+            <p className="text-xs md:text-sm font-semibold text-gray-900 tabular-nums">{formatCurrency(serviceItem.price)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Coverage</p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">{getCoverageLabel(serviceItem)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Home Service</p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.homeServiceAvailable ? 'Available' : 'Not available'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Max bookings/day</p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.maxBookingsPerDay || 'Not set'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Experience</p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.yearsOfExperience > 0 ? `${serviceItem.yearsOfExperience}+ yrs` : 'Not set'}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Weekly Availability</p>
+          <AvailabilityStrip availability={serviceItem.availability} />
+        </div>
+
+        {serviceItem.description && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Description</p>
+            <p className="text-xs md:text-sm text-gray-700">{serviceItem.description}</p>
+          </div>
+        )}
+
+        <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => onEdit(serviceItem)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <Edit className="w-3.5 h-3.5" />
+            Edit service
+          </button>
+          <button
+            onClick={() => onDelete(serviceItem._id)}
+            disabled={isDeleting}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 transition-colors disabled:opacity-50"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ServicesPage() {
   const { secureApiCall } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -136,7 +221,7 @@ export default function ServicesPage() {
   // "Edit" was wired up to nothing.
   const [editingItem, setEditingItem] = useState(null);
   const [deletingItemId, setDeletingItemId] = useState(null);
-  const [expandedServiceId, setExpandedServiceId] = useState(null);
+  const { expandedId: expandedServiceId, mobileDetailItem: mobileDetailService, toggleRow: toggleExpandedService, closeMobileDetail } = useResponsiveRowExpand();
   const [isEditingPriceList, setIsEditingPriceList] = useState(false);
   const [priceListDraft, setPriceListDraft] = useState([]);
   const [priceListError, setPriceListError] = useState('');
@@ -306,10 +391,6 @@ export default function ServicesPage() {
   const clearFilters = () => {
     setSearchTerm('');
     setCategoryFilter('');
-  };
-
-  const toggleExpandedService = (itemId) => {
-    setExpandedServiceId((current) => (current === itemId ? null : itemId));
   };
 
   const getCoverageLabel = (serviceItem) => {
@@ -526,7 +607,7 @@ export default function ServicesPage() {
                   return (
                     <Fragment key={itemId}>
                       <tr
-                        onClick={() => toggleExpandedService(itemId)}
+                        onClick={() => toggleExpandedService(itemId, serviceItem)}
                         className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50/80' : ''}`}
                       >
                         <td className="px-3 md:px-6 py-2.5 md:py-3">
@@ -568,82 +649,15 @@ export default function ServicesPage() {
                       {isExpanded && (
                         <tr>
                           <td colSpan="6" className="px-4 md:px-8 py-5 md:py-6 bg-gray-50/60 border-b border-gray-100">
-                            <div className="flex flex-col sm:flex-row gap-5 md:gap-8">
-                              <div className="w-full sm:w-40 md:w-44 h-40 md:h-44 flex-shrink-0 bg-gradient-to-br from-brand-50 to-brand-100 rounded-xl flex items-center justify-center overflow-hidden mx-auto sm:mx-0">
-                                {hasImage ? (
-                                  <img src={serviceItem.portfolioImages[0]} alt={serviceItem.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <Wrench className="w-12 h-12 text-brand-800" />
-                                )}
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 md:gap-y-4">
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Category</p>
-                                    <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.category || 'Uncategorized'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Sub-category</p>
-                                    <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.subCategory || 'Not set'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Duration</p>
-                                    <p className="text-xs md:text-sm font-medium text-gray-900">{formatDuration(serviceItem.duration, serviceItem.durationUnit)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Price</p>
-                                    <p className="text-xs md:text-sm font-semibold text-gray-900 tabular-nums">{formatCurrency(serviceItem.price)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Coverage</p>
-                                    <p className="text-xs md:text-sm font-medium text-gray-900">{getCoverageLabel(serviceItem)}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Home Service</p>
-                                    <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.homeServiceAvailable ? 'Available' : 'Not available'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Max bookings/day</p>
-                                    <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.maxBookingsPerDay || 'Not set'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Experience</p>
-                                    <p className="text-xs md:text-sm font-medium text-gray-900">{serviceItem.yearsOfExperience > 0 ? `${serviceItem.yearsOfExperience}+ yrs` : 'Not set'}</p>
-                                  </div>
-                                </div>
-
-                                <div className="mt-4 pt-4 border-t border-gray-200">
-                                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Weekly Availability</p>
-                                  <AvailabilityStrip availability={serviceItem.availability} />
-                                </div>
-
-                                {serviceItem.description && (
-                                  <div className="mt-4 pt-4 border-t border-gray-200">
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Description</p>
-                                    <p className="text-xs md:text-sm text-gray-700">{serviceItem.description}</p>
-                                  </div>
-                                )}
-
-                                <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center gap-2">
-                                  <button
-                                    onClick={() => { setEditingItem(serviceItem); setIsAddServiceModalOpen(true); }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                                  >
-                                    <Edit className="w-3.5 h-3.5" />
-                                    Edit service
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(serviceItem._id)}
-                                    disabled={deletingItemId === serviceItem._id}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 transition-colors disabled:opacity-50"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    Delete
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
+                            <ServiceDetailContent
+                              serviceItem={serviceItem}
+                              hasImage={hasImage}
+                              formatCurrency={formatCurrency}
+                              getCoverageLabel={getCoverageLabel}
+                              onEdit={(item) => { setEditingItem(item); setIsAddServiceModalOpen(true); }}
+                              onDelete={handleDelete}
+                              isDeleting={deletingItemId === serviceItem._id}
+                            />
                           </td>
                         </tr>
                       )}
@@ -675,6 +689,26 @@ export default function ServicesPage() {
           existingService={editingItem}
         />
       )}
+
+      {/* Mobile detail sheet — same content the desktop inline row shows */}
+      <Modal
+        isOpen={!!mobileDetailService}
+        onClose={closeMobileDetail}
+        title={mobileDetailService?.name || "Service details"}
+        icon={Wrench}
+      >
+        {mobileDetailService && (
+          <ServiceDetailContent
+            serviceItem={mobileDetailService}
+            hasImage={Array.isArray(mobileDetailService.portfolioImages) && mobileDetailService.portfolioImages.length > 0}
+            formatCurrency={formatCurrency}
+            getCoverageLabel={getCoverageLabel}
+            onEdit={(item) => { closeMobileDetail(); setEditingItem(item); setIsAddServiceModalOpen(true); }}
+            onDelete={(itemId) => { closeMobileDetail(); handleDelete(itemId); }}
+            isDeleting={deletingItemId === mobileDetailService._id}
+          />
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }

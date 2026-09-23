@@ -3,6 +3,8 @@ import { useState, useEffect, Fragment } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import ReceiptModal from "@/components/dashboard/ReceiptModal";
+import Modal from "@/components/ui/Modal";
+import useResponsiveRowExpand from "@/hooks/useResponsiveRowExpand";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Receipt,
@@ -67,6 +69,59 @@ function CompactMetricValue({ value, formatValue, threshold = 1000 }) {
   );
 }
 
+// Shared by the desktop inline expanded row and the mobile detail Modal so
+// the two never drift into different feature sets.
+function SaleDetailContent({ sale, formatCurrency, onViewReceipt }) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+      <div className="lg:col-span-2">
+        <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-2">
+          Items
+        </p>
+        <div className="space-y-2">
+          {sale.items.map((item, idx) => (
+            <div key={idx} className="flex items-center justify-between gap-3 text-xs md:text-sm bg-white border border-gray-200 rounded-lg px-3 py-2">
+              <div className="min-w-0">
+                <span className="font-medium text-gray-900">{item.productName}</span>
+                {item.variant?.hasVariant && item.variant?.size && item.variant?.color && (
+                  <span className="text-brand-800 text-[10px] md:text-xs ml-1.5">
+                    ({item.variant.color} · {item.variant.size})
+                  </span>
+                )}
+                <span className="text-gray-400 text-[10px] md:text-xs ml-1.5">× {item.quantity}</span>
+              </div>
+              <span className="text-gray-900 font-medium whitespace-nowrap">{formatCurrency(item.total)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Amount received</p>
+          <p className="text-xs md:text-sm font-medium text-gray-900">{formatCurrency(sale.amountReceived)}</p>
+        </div>
+        {sale.balance > 0 && (
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Change given</p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">{formatCurrency(sale.balance)}</p>
+          </div>
+        )}
+
+        <div className="pt-3 border-t border-gray-200">
+          <button
+            onClick={(e) => { e.stopPropagation(); onViewReceipt(sale); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium bg-brand-800 text-white hover:bg-brand-900 transition-colors"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            View receipt
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SalesPage() {
   const { secureApiCall } = useAuth();
   const [sales, setSales] = useState([]);
@@ -82,7 +137,7 @@ export default function SalesPage() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [expandedSaleId, setExpandedSaleId] = useState(null);
+  const { expandedId: expandedSaleId, mobileDetailItem: mobileDetailSale, toggleRow: toggleExpanded, closeMobileDetail } = useResponsiveRowExpand();
   const [selectedSale, setSelectedSale] = useState(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
@@ -167,10 +222,6 @@ export default function SalesPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [filterBy, filterValue, dateRange]);
-
-  const toggleExpanded = (saleId) => {
-    setExpandedSaleId(prev => (prev === saleId ? null : saleId));
-  };
 
   // Filter sales based on search and filters
   const getFilteredSales = () => {
@@ -492,7 +543,7 @@ export default function SalesPage() {
                     <Fragment key={sale.id}>
                       {/* Collapsed row — one line per column, click to expand */}
                       <tr
-                        onClick={() => toggleExpanded(sale.id)}
+                        onClick={() => toggleExpanded(sale.id, sale)}
                         className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50/80' : ''}`}
                       >
                         <td className="px-4 lg:px-6 py-3">
@@ -536,52 +587,7 @@ export default function SalesPage() {
                       {isExpanded && (
                         <tr>
                           <td colSpan="6" className="px-4 md:px-8 py-4 md:py-6 bg-gray-50/60 border-b border-gray-100">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-                              <div className="lg:col-span-2">
-                                <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-2">
-                                  Items
-                                </p>
-                                <div className="space-y-2">
-                                  {sale.items.map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between gap-3 text-xs md:text-sm bg-white border border-gray-200 rounded-lg px-3 py-2">
-                                      <div className="min-w-0">
-                                        <span className="font-medium text-gray-900">{item.productName}</span>
-                                        {item.variant?.hasVariant && item.variant?.size && item.variant?.color && (
-                                          <span className="text-brand-800 text-[10px] md:text-xs ml-1.5">
-                                            ({item.variant.color} · {item.variant.size})
-                                          </span>
-                                        )}
-                                        <span className="text-gray-400 text-[10px] md:text-xs ml-1.5">× {item.quantity}</span>
-                                      </div>
-                                      <span className="text-gray-900 font-medium whitespace-nowrap">{formatCurrency(item.total)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="space-y-4">
-                                <div>
-                                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Amount received</p>
-                                  <p className="text-xs md:text-sm font-medium text-gray-900">{formatCurrency(sale.amountReceived)}</p>
-                                </div>
-                                {sale.balance > 0 && (
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Change given</p>
-                                    <p className="text-xs md:text-sm font-medium text-gray-900">{formatCurrency(sale.balance)}</p>
-                                  </div>
-                                )}
-
-                                <div className="pt-3 border-t border-gray-200">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); viewReceipt(sale); }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium bg-brand-800 text-white hover:bg-brand-900 transition-colors"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                    View receipt
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
+                            <SaleDetailContent sale={sale} formatCurrency={formatCurrency} onViewReceipt={viewReceipt} />
                           </td>
                         </tr>
                       )}
@@ -647,6 +653,22 @@ export default function SalesPage() {
         onClose={() => setIsReceiptModalOpen(false)}
         sale={selectedSale}
       />
+
+      {/* Mobile detail sheet — same content the desktop inline row shows */}
+      <Modal
+        isOpen={!!mobileDetailSale}
+        onClose={closeMobileDetail}
+        title={mobileDetailSale?.transactionId || "Sale details"}
+        icon={Receipt}
+      >
+        {mobileDetailSale && (
+          <SaleDetailContent
+            sale={mobileDetailSale}
+            formatCurrency={formatCurrency}
+            onViewReceipt={(sale) => { closeMobileDetail(); viewReceipt(sale); }}
+          />
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }

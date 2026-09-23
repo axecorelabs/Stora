@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import PayoutSettingsModal from "@/components/dashboard/PayoutSettingsModal";
+import Modal from "@/components/ui/Modal";
 import { usePayments } from "@/hooks/usePayments";
+import useResponsiveRowExpand from "@/hooks/useResponsiveRowExpand";
 import {
   Wallet,
   Landmark,
@@ -61,12 +63,73 @@ function getPaymentStatusBadge(paymentStatus) {
   }
 }
 
+// Shared between the desktop inline-expand row and the mobile detail
+// Modal (useResponsiveRowExpand) so both show exactly the same thing.
+function TransactionDetailContent({ tx, formatCurrency, formatDate, onViewOrder }) {
+  const isRefunded = tx.splitStatus === 'reversed';
+  const isSettled = tx.splitStatus === 'settled';
+
+  return (
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Payment method</p>
+          <p className="text-xs md:text-sm font-medium text-gray-900 capitalize">{tx.paymentMethod || '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Reference</p>
+          <p className="text-xs md:text-sm font-medium text-gray-900 truncate">{tx.reference || '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Paid at</p>
+          <p className="text-xs md:text-sm font-medium text-gray-900">{tx.paidAt ? formatDate(tx.paidAt) : '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Commission</p>
+          <p className="text-xs md:text-sm font-medium text-gray-900">
+            {tx.commissionBearer === 'customer'
+              ? `Customer paid it (₦${tx.commissionAmount.toLocaleString('en-NG')} added)`
+              : 'You absorbed it'}
+          </p>
+        </div>
+        {isRefunded && (
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Refunded at</p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">{tx.refundedAt ? formatDate(tx.refundedAt) : '—'}</p>
+          </div>
+        )}
+        {!isRefunded && (
+          <div>
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">
+              {isSettled ? 'Paid out' : 'Est. payout'}
+            </p>
+            <p className="text-xs md:text-sm font-medium text-gray-900">
+              {isSettled
+                ? (tx.settledAt ? formatDate(tx.settledAt) : '—')
+                : (tx.estimatedPayoutDate ? formatShortDate(tx.estimatedPayoutDate) : '—')}
+            </p>
+          </div>
+        )}
+      </div>
+      <div className="pt-4 mt-4 border-t border-gray-200">
+        <button
+          onClick={(e) => { e.stopPropagation(); onViewOrder(tx); }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          View order
+        </button>
+      </div>
+    </>
+  );
+}
+
 export default function PaymentsPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [expandedId, setExpandedId] = useState(null);
+  const { expandedId, mobileDetailItem: mobileDetailTx, toggleRow: toggleExpanded, closeMobileDetail } = useResponsiveRowExpand();
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
 
   const {
@@ -125,7 +188,6 @@ export default function PaymentsPage() {
   const formatDate = (date) =>
     new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  const toggleExpanded = (id) => setExpandedId(prev => (prev === id ? null : id));
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.pages) {
@@ -413,7 +475,7 @@ export default function PaymentsPage() {
                   return (
                     <Fragment key={tx.id}>
                       <tr
-                        onClick={() => toggleExpanded(tx.id)}
+                        onClick={() => toggleExpanded(tx.id, tx)}
                         className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50/80' : ''}`}
                       >
                         <td className="px-4 lg:px-6 py-3">
@@ -473,58 +535,12 @@ export default function PaymentsPage() {
                       {isExpanded && (
                         <tr>
                           <td colSpan="8" className="px-4 md:px-8 py-4 md:py-6 bg-gray-50/60 border-b border-gray-100">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                              <div>
-                                <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Payment method</p>
-                                <p className="text-xs md:text-sm font-medium text-gray-900 capitalize">{tx.paymentMethod || '—'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Reference</p>
-                                <p className="text-xs md:text-sm font-medium text-gray-900 truncate">{tx.reference || '—'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Paid at</p>
-                                <p className="text-xs md:text-sm font-medium text-gray-900">{tx.paidAt ? formatDate(tx.paidAt) : '—'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Commission</p>
-                                <p className="text-xs md:text-sm font-medium text-gray-900">
-                                  {tx.commissionBearer === 'customer'
-                                    ? `Customer paid it (₦${tx.commissionAmount.toLocaleString('en-NG')} added)`
-                                    : 'You absorbed it'}
-                                </p>
-                              </div>
-                              {isRefunded && (
-                                <div>
-                                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Refunded at</p>
-                                  <p className="text-xs md:text-sm font-medium text-gray-900">{tx.refundedAt ? formatDate(tx.refundedAt) : '—'}</p>
-                                </div>
-                              )}
-                              {!isRefunded && (
-                                <div>
-                                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">
-                                    {isSettled ? 'Paid out' : 'Est. payout'}
-                                  </p>
-                                  <p className="text-xs md:text-sm font-medium text-gray-900">
-                                    {isSettled
-                                      ? (tx.settledAt ? formatDate(tx.settledAt) : '—')
-                                      : (tx.estimatedPayoutDate ? formatShortDate(tx.estimatedPayoutDate) : '—')}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                            <div className="pt-4 mt-4 border-t border-gray-200">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/dashboard/orders?search=${encodeURIComponent(tx.orderNumber)}`);
-                                }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                                View order
-                              </button>
-                            </div>
+                            <TransactionDetailContent
+                              tx={tx}
+                              formatCurrency={formatCurrency}
+                              formatDate={formatDate}
+                              onViewOrder={(t) => router.push(`/dashboard/orders?search=${encodeURIComponent(t.orderNumber)}`)}
+                            />
                           </td>
                         </tr>
                       )}
@@ -621,6 +637,24 @@ export default function PaymentsPage() {
         }}
         store={{ bankDetails: payoutAccount?.bankDetails || {} }}
       />
+
+      {/* Mobile row-detail sheet -- same content the desktop inline-expand
+          row shows, see useResponsiveRowExpand's own reasoning. */}
+      <Modal
+        isOpen={!!mobileDetailTx}
+        onClose={closeMobileDetail}
+        title={mobileDetailTx ? `#${mobileDetailTx.orderNumber}` : "Transaction details"}
+        icon={Wallet}
+      >
+        {mobileDetailTx && (
+          <TransactionDetailContent
+            tx={mobileDetailTx}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+            onViewOrder={(t) => { closeMobileDetail(); router.push(`/dashboard/orders?search=${encodeURIComponent(t.orderNumber)}`); }}
+          />
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }

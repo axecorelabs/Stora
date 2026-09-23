@@ -7,6 +7,8 @@ import OrderStatusUpdateModal from "@/components/dashboard/OrderStatusUpdateModa
 import RefundModal from "@/components/dashboard/RefundModal";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import SectionHeader from "@/components/ui/SectionHeader";
+import Modal from "@/components/ui/Modal";
+import useResponsiveRowExpand from "@/hooks/useResponsiveRowExpand";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrders } from "@/hooks/useOrders";
 import { mightBeRefundable } from "@/lib/orderRefund";
@@ -89,6 +91,124 @@ function CompactMetricValue({ value, formatValue, threshold = 1000 }) {
   );
 }
 
+// Shared by the desktop inline expanded row and the mobile detail Modal so
+// the two never drift into different feature sets.
+function OrderDetailContent({ order, formatCurrency, onProcess, onUpdateStatus, onRefund }) {
+  const isActionable = ['pending', 'confirmed'].includes(order.status);
+
+  return (
+    <>
+      {order.admin_notes && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs md:text-sm text-amber-900">
+          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold mb-0.5">Needs review before fulfilling</p>
+            <p className="whitespace-pre-line">{order.admin_notes}</p>
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+        {/* Items */}
+        <div className="lg:col-span-2">
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-2">
+            Items
+          </p>
+          <div className="space-y-2">
+            {order.items.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between gap-3 text-xs md:text-sm bg-white border border-gray-200 rounded-lg px-3 py-2">
+                <div className="min-w-0">
+                  <span className="font-medium text-gray-900">{item.productSnapshot.productName}</span>
+                  {item.variant?.size && item.variant?.color && (
+                    <span className="text-brand-800 text-[10px] md:text-xs ml-1.5">
+                      ({item.variant.color} · {item.variant.size})
+                    </span>
+                  )}
+                  <span className="text-gray-400 text-[10px] md:text-xs ml-1.5">× {item.quantity}</span>
+                </div>
+                <span className="text-gray-900 font-medium whitespace-nowrap">{formatCurrency(item.subtotal)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Contact + payment + actions */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {order.customerSnapshot.phone && (
+              <div>
+                <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Phone</p>
+                <p className="text-xs md:text-sm font-medium text-gray-900 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <span className="truncate">{order.customerSnapshot.phone}</span>
+                </p>
+              </div>
+            )}
+            <div>
+              <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Payment</p>
+              <p className="text-xs md:text-sm font-medium text-gray-900 capitalize">
+                {order.paymentInfo.method.replace('_', ' ')}
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-gray-200 flex flex-wrap items-center gap-2">
+            {isActionable ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onProcess(order); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium bg-brand-800 text-white hover:bg-brand-900 transition-colors"
+              >
+                <Package className="w-3.5 h-3.5" />
+                Process
+              </button>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); onProcess(order); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                View details
+              </button>
+            )}
+
+            {!['delivered', 'cancelled', 'refunded'].includes(order.status) && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onUpdateStatus(order); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                Update status
+              </button>
+            )}
+
+            {mightBeRefundable(order) && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onRefund(order); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                Refund
+              </button>
+            )}
+
+            {order.status === 'shipped' && order.tracking.trackingUrl && (
+              <a
+                href={order.tracking.trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Track package
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function OrdersPageContent() {
   const { secureApiCall } = useAuth();
   const searchParams = useSearchParams();
@@ -102,7 +222,7 @@ function OrdersPageContent() {
   const [isOrderDetailsModalOpen, setIsOrderDetailsModalOpen] = useState(false);
   const [isStatusUpdateModalOpen, setIsStatusUpdateModalOpen] = useState(false);
   const [selectedOrderForUpdate, setSelectedOrderForUpdate] = useState(null);
-  const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const { expandedId: expandedOrderId, mobileDetailItem: mobileDetailOrder, toggleRow: toggleExpanded, closeMobileDetail } = useResponsiveRowExpand();
   const [refundOrder, setRefundOrder] = useState(null);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
 
@@ -177,10 +297,6 @@ function OrdersPageContent() {
       console.error('Error updating order:', error);
       throw error;
     }
-  };
-
-  const toggleExpanded = (orderId) => {
-    setExpandedOrderId(prev => (prev === orderId ? null : orderId));
   };
 
   // Debounced search effect with improved logic
@@ -558,13 +674,12 @@ function OrdersPageContent() {
                   const statusInfo = getStatusInfo(order.status);
                   const StatusIcon = statusInfo.icon;
                   const isExpanded = expandedOrderId === order.id;
-                  const isActionable = ['pending', 'confirmed'].includes(order.status);
 
                   return (
                     <Fragment key={order.id}>
                       {/* Collapsed row — one line per column, click to expand */}
                       <tr
-                        onClick={() => toggleExpanded(order.id)}
+                        onClick={() => toggleExpanded(order.id, order)}
                         className={`hover:bg-gray-50/50 transition-colors cursor-pointer ${isExpanded ? 'bg-gray-50/80' : ''}`}
                       >
                         <td className="px-4 lg:px-6 py-3">
@@ -624,113 +739,13 @@ function OrdersPageContent() {
                       {isExpanded && (
                         <tr>
                           <td colSpan="6" className="px-4 md:px-8 py-4 md:py-6 bg-gray-50/60 border-b border-gray-100">
-                            {order.admin_notes && (
-                              <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs md:text-sm text-amber-900">
-                                <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                                <div>
-                                  <p className="font-semibold mb-0.5">Needs review before fulfilling</p>
-                                  <p className="whitespace-pre-line">{order.admin_notes}</p>
-                                </div>
-                              </div>
-                            )}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-                              {/* Items */}
-                              <div className="lg:col-span-2">
-                                <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-2">
-                                  Items
-                                </p>
-                                <div className="space-y-2">
-                                  {order.items.map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between gap-3 text-xs md:text-sm bg-white border border-gray-200 rounded-lg px-3 py-2">
-                                      <div className="min-w-0">
-                                        <span className="font-medium text-gray-900">{item.productSnapshot.productName}</span>
-                                        {item.variant?.size && item.variant?.color && (
-                                          <span className="text-brand-800 text-[10px] md:text-xs ml-1.5">
-                                            ({item.variant.color} · {item.variant.size})
-                                          </span>
-                                        )}
-                                        <span className="text-gray-400 text-[10px] md:text-xs ml-1.5">× {item.quantity}</span>
-                                      </div>
-                                      <span className="text-gray-900 font-medium whitespace-nowrap">{formatCurrency(item.subtotal)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* Contact + payment + actions */}
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-3">
-                                  {order.customerSnapshot.phone && (
-                                    <div>
-                                      <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Phone</p>
-                                      <p className="text-xs md:text-sm font-medium text-gray-900 flex items-center gap-1">
-                                        <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                        <span className="truncate">{order.customerSnapshot.phone}</span>
-                                      </p>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-0.5">Payment</p>
-                                    <p className="text-xs md:text-sm font-medium text-gray-900 capitalize">
-                                      {order.paymentInfo.method.replace('_', ' ')}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="pt-3 border-t border-gray-200 flex flex-wrap items-center gap-2">
-                                  {isActionable ? (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); viewOrderDetails(order); }}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium bg-brand-800 text-white hover:bg-brand-900 transition-colors"
-                                    >
-                                      <Package className="w-3.5 h-3.5" />
-                                      Process
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); viewOrderDetails(order); }}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                                    >
-                                      <Eye className="w-3.5 h-3.5" />
-                                      View details
-                                    </button>
-                                  )}
-
-                                  {!['delivered', 'cancelled', 'refunded'].includes(order.status) && (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleStatusUpdateClick(order); }}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                                    >
-                                      <Edit className="w-3.5 h-3.5" />
-                                      Update status
-                                    </button>
-                                  )}
-
-                                  {mightBeRefundable(order) && (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleOpenRefund(order); }}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                                    >
-                                      <Undo2 className="w-3.5 h-3.5" />
-                                      Refund
-                                    </button>
-                                  )}
-
-                                  {order.status === 'shipped' && order.tracking.trackingUrl && (
-                                    <a
-                                      href={order.tracking.trackingUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-                                    >
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                      Track package
-                                    </a>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
+                            <OrderDetailContent
+                              order={order}
+                              formatCurrency={formatCurrency}
+                              onProcess={viewOrderDetails}
+                              onUpdateStatus={handleStatusUpdateClick}
+                              onRefund={handleOpenRefund}
+                            />
                           </td>
                         </tr>
                       )}
@@ -872,6 +887,24 @@ function OrdersPageContent() {
         order={refundOrder}
         onRefundComplete={handleRefundComplete}
       />
+
+      {/* Mobile detail sheet — same content the desktop inline row shows */}
+      <Modal
+        isOpen={!!mobileDetailOrder}
+        onClose={closeMobileDetail}
+        title={mobileDetailOrder ? `#${mobileDetailOrder.orderNumber}` : "Order details"}
+        icon={ShoppingBag}
+      >
+        {mobileDetailOrder && (
+          <OrderDetailContent
+            order={mobileDetailOrder}
+            formatCurrency={formatCurrency}
+            onProcess={(order) => { closeMobileDetail(); viewOrderDetails(order); }}
+            onUpdateStatus={(order) => { closeMobileDetail(); handleStatusUpdateClick(order); }}
+            onRefund={(order) => { closeMobileDetail(); handleOpenRefund(order); }}
+          />
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }
