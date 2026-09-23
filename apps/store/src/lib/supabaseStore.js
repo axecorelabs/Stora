@@ -124,6 +124,7 @@ function transformInventoryToProduct(inventory) {
     variants: transformedVariants,
     categoryDetails: inventory.category_details,
     webVisibility: inventory.web_visibility,
+    aiTryonEnabled: inventory.ai_tryon_enabled === true,
     // Preserve batch info if present
     batchInfo: inventory.batchInfo
   };

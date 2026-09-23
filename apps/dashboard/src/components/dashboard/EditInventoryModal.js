@@ -171,6 +171,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
       const existingImgs = (item.images || []).map(img => ({
         url: typeof img === 'string' ? img : img.url,
         colorTag: typeof img === 'object' ? img.colorTag : '',
+        view: typeof img === 'object' ? img.view || '' : '',
         isPrimary: typeof img === 'object' ? img.isPrimary : false,
         existing: true
       }));
@@ -317,6 +318,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
             url: e.target.result,
             file: file,
             colorTag: '',
+            view: '',
             isPrimary: prev.length === 0 && index === 0,
             existing: false
           }];
@@ -345,8 +347,14 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
   };
 
   const updateImageColorTag = (index, color) => {
-    setImagePreviews(prev => prev.map((img, i) => 
+    setImagePreviews(prev => prev.map((img, i) =>
       i === index ? { ...img, colorTag: color } : img
+    ));
+  };
+
+  const updateImageView = (index, view) => {
+    setImagePreviews(prev => prev.map((img, i) =>
+      i === index ? { ...img, view } : img
     ));
   };
 
@@ -547,15 +555,17 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
         .map(img => ({
           url: img.url,
           colorTag: img.colorTag,
+          view: img.view || '',
           isPrimary: img.isPrimary,
           altText: `${formData.productName} - ${img.colorTag || 'Image'}`
         }));
-      
+
       const newImagesData = imagePreviews
         .filter(img => !img.existing)
         .map((preview, index) => ({
           url: uploadedUrls[index],
           colorTag: preview.colorTag,
+          view: preview.view || '',
           isPrimary: preview.isPrimary,
           altText: `${formData.productName} - ${preview.colorTag || 'Image'}`
         }));
@@ -837,6 +847,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
               handleMultiImageSelect={handleMultiImageSelect}
               removeMultiImage={removeMultiImage}
               updateImageColorTag={updateImageColorTag}
+              updateImageView={updateImageView}
               setPrimaryImage={setPrimaryImage}
               onVariantsDetected={handleVariantsDetected}
               errors={errors}

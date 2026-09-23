@@ -5,6 +5,22 @@ import Image from "next/image";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { PRODUCT_COLORS, PRODUCT_COLOR_HEX } from "@/lib/productColors";
 
+// AI Try-On needs to know which of a garment's photos shows the front vs
+// the back -- without this, generation has no way to tell them apart and
+// was guessing (see tryonGeneration.js's own history: it used to tell the
+// model to "adapt" a back-view reference for a front-facing result, which
+// produced back-only print details showing up in the wrong place). Only
+// Clothing/Shoes need this -- Accessories are single-object photos with
+// no front/back to distinguish.
+const VIEW_TAGGING_CATEGORIES = ['Clothing', 'Shoes'];
+const VIEW_OPTIONS = [
+  { value: '', label: 'Not tagged' },
+  { value: 'front', label: 'Front' },
+  { value: 'back', label: 'Back' },
+  { value: 'side', label: 'Side' },
+  { value: 'detail', label: 'Detail' }
+];
+
 export default function ImageUploadSection({
   hasVariants,
   category,
@@ -13,6 +29,7 @@ export default function ImageUploadSection({
   handleMultiImageSelect,
   removeMultiImage,
   updateImageColorTag,
+  updateImageView,
   setPrimaryImage,
   onVariantsDetected, // New prop to notify parent about detected variants
   errors
@@ -40,6 +57,12 @@ export default function ImageUploadSection({
   // than supportsColorTagging just left some of those categories without
   // the in-context explanation for a feature that already worked for them.
   const canEnableVariants = supportsColorTagging;
+  const supportsViewTagging = VIEW_TAGGING_CATEGORIES.includes(category);
+
+  // AI Try-On requires at least a front-tagged image before a vendor can
+  // enable it (enforced server-side too, in the ai-tryon PUT route -- this
+  // is just the in-context nudge while they're already looking at images).
+  const hasFrontTagged = imagePreviews.some(img => img.view === 'front');
 
   // Full color list lives in one place (apps/dashboard/src/lib/productColors.js)
   // now, shared by every screen that offers color tagging -- was a ~30-name
@@ -199,6 +222,13 @@ export default function ImageUploadSection({
                   </div>
                 )}
 
+                {/* View Tag Badge */}
+                {supportsViewTagging && preview.view && (
+                  <div className="absolute bottom-2 right-2 bg-brand-800/90 text-white text-xs px-2 py-1 rounded-md font-medium shadow-sm capitalize">
+                    {preview.view}
+                  </div>
+                )}
+
                 {/* Actions Overlay */}
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   {!preview.isPrimary && (
@@ -235,6 +265,19 @@ export default function ImageUploadSection({
                   />
                 </div>
               )}
+
+              {/* View Tag Selector - front/back/side, gates AI Try-On eligibility */}
+              {supportsViewTagging && (
+                <div className="w-full">
+                  <CustomDropdown
+                    options={VIEW_OPTIONS}
+                    value={preview.view || ''}
+                    onChange={(value) => updateImageView(index, value)}
+                    placeholder="Tag view"
+                    className="text-xs"
+                  />
+                </div>
+              )}
             </div>
           ))}
 
@@ -258,12 +301,25 @@ export default function ImageUploadSection({
               {supportsColorTagging && (
                 <div className="h-[42px]"></div>
               )}
+              {supportsViewTagging && (
+                <div className="h-[42px]"></div>
+              )}
             </div>
           )}
         </div>
 
         {errors.images && (
           <p className="text-red-500 text-xs mt-1">{errors.images}</p>
+        )}
+
+        {/* AI Try-On front-tag nudge */}
+        {supportsViewTagging && imagePreviews.length > 0 && !hasFrontTagged && (
+          <div className="flex items-start space-x-2 p-3 mb-4 bg-brand-50 rounded-lg border border-brand-100">
+            <Sparkles className="w-4 h-4 text-brand-700 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-brand-900/80">
+              Tag one image as <strong>Front</strong> to make this product eligible for AI Try-On. Add a <strong>Back</strong> tag too for a two-view result.
+            </p>
+          </div>
         )}
 
         {/* Helper Text */}
@@ -285,6 +341,9 @@ export default function ImageUploadSection({
                     <li>The first image (marked &quot;Main&quot;) will be the primary display</li>
                     <li>Click the check icon on any image to make it the main image</li>
                   </>
+                )}
+                {supportsViewTagging && (
+                  <li>Tag which image is the Front/Back/Side to enable AI Try-On</li>
                 )}
                 <li>You can upload up to 10 images total</li>
               </ul>

@@ -96,6 +96,14 @@ const authLimiters = {
   // Tighter than plain browsing on purpose -- each request has a real
   // OpenRouter cost behind it on a cache miss, unlike free keyword search.
   '/api/search/ai': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '5 m'), prefix: 'store:rl:search-ai' }),
+  // IP-keyed abuse backstop, distinct from tryonRateLimit.js's
+  // customer-keyed daily quota enforced inside the route itself -- this
+  // one bounds how fast a single IP can hammer the presign/generate
+  // endpoints regardless of which (or how many) customer accounts it's
+  // driving. Generation itself is the expensive call; upload-url is
+  // cheap but gated the same since a flood there is the precursor to one.
+  '/api/tryon/upload-url': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '5 m'), prefix: 'store:rl:tryon-upload' }),
+  '/api/tryon/generate': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '5 m'), prefix: 'store:rl:tryon-generate' }),
 };
 
 // Real navigations, genuine API calls, AND Next.js's own silent <Link>
@@ -367,6 +375,7 @@ export const config = {
     '/api/search/:path*',
     '/api/orders/:path*',
     '/api/cart/:path*',
+    '/api/tryon/:path*',
     // /api/vendors/* has no entry here (a pre-existing gap on the main
     // marketplace, out of scope to fix under this change) -- explicitly
     // not repeating that gap for Biterave's own new routes.

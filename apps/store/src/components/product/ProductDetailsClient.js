@@ -15,6 +15,7 @@ import SignInModal from "@/components/auth/SignInModal";
 import SignUpModal from "@/components/auth/SignUpModal";
 import ForgotPasswordModal from "@/components/auth/ForgotPasswordModal";
 import VariantSelectionModal from "@/components/product/VariantSelectionModal";
+import TryOnModal from "@/components/product/TryOnModal";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import FloatingCartButton from "@/components/ui/FloatingCartButton";
 import Toast from "@/components/ui/Toast";
@@ -115,6 +116,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
+  const [showTryOnModal, setShowTryOnModal] = useState(false);
   const [toast, setToast] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -349,6 +351,14 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
   };
 
   // Handle variants add to cart from modal
+  const handleTryOnClick = () => {
+    if (!isAuthenticated) {
+      setShowSignInModal(true);
+      return;
+    }
+    setShowTryOnModal(true);
+  };
+
   const handleVariantsAddToCart = async (selectedVariants) => {
     setIsAddingToCart(true);
     try {
@@ -1308,6 +1318,18 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                 </div>
               )}
 
+              {initialProduct.aiTryonEnabled && (
+                <button
+                  type="button"
+                  onClick={handleTryOnClick}
+                  className="w-full py-3.5 rounded-xl border-2 border-dashed text-sm font-semibold transition-colors flex items-center justify-center gap-2 mb-6 sm:mb-8 hover:bg-gray-50"
+                  style={{ borderColor: primaryColor, color: primaryColor }}
+                >
+                  <Sparkles className="w-4.5 h-4.5" />
+                  See it on you with AI
+                </button>
+              )}
+
               {/* Total Price and Add to Cart */}
               {!initialProduct.hasVariants && (
                 <div className="bg-brand-50/60 border border-brand-100/70 rounded-xl p-4 sm:p-5 mb-6 sm:mb-8">
@@ -1428,6 +1450,18 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
         product={initialProduct}
         onAddToCart={handleVariantsAddToCart}
         primaryColor={primaryColor}
+      />
+
+      {/* AI Try-On Modal */}
+      <TryOnModal
+        isOpen={showTryOnModal}
+        onClose={() => setShowTryOnModal(false)}
+        product={initialProduct}
+        primaryColor={primaryColor}
+        onAddToCart={initialProduct.hasVariants ? undefined : async () => {
+          await handleAddToCart();
+          setShowTryOnModal(false);
+        }}
       />
 
       {/* Sign In Prompt Modal - Keep this */}

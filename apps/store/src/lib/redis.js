@@ -10,6 +10,12 @@ export const NS = 'store';
 export const sessionKey = (sessionId) => `${NS}:session:${sessionId}`;
 export const failedKey = (email) => `${NS}:failed:${email}`;
 export const lockoutKey = (email) => `${NS}:lockout:${email}`;
+// Generated AI Try-On images live here, not R2 -- a short Redis TTL (see
+// TRYON_RESULT_TTL_SECONDS) auto-expires the result with no cron
+// involvement, and the key is deterministic from generationId alone, so
+// nothing needs to be stored in tryon_generations to find it back.
+export const tryonResultKey = (generationId) => `${NS}:tryon:result:${generationId}`;
+export const TRYON_RESULT_TTL_SECONDS = 60 * 60;
 
 // Bounds worst-case latency so a hung (not just erroring) Redis call can
 // never stall a request -- pairs with try/catch fail-open everywhere.

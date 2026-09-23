@@ -7,7 +7,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 // older than current" directly against this string.
 export const LEGAL_DOCUMENT_VERSIONS = {
   terms_of_service: "2026-09-04",
-  privacy_policy: "2026-09-04"
+  privacy_policy: "2026-09-04",
+  ai_tryon_terms: "2026-09-30"
 };
 
 // Same x-forwarded-for/x-real-ip fallback chain already used for view

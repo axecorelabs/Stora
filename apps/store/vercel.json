@@ -11,6 +11,10 @@
     {
       "path": "/api/payments/sync-settlements",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/tryon-purge",
+      "schedule": "0 7 * * *"
     }
   ]
 }

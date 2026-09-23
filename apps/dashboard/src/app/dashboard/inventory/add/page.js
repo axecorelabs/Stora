@@ -329,6 +329,7 @@ export default function AddInventoryPage() {
             url: e.target.result,
             file: file,
             colorTag: '',
+            view: '',
             isPrimary: prev.length === 0 && index === 0 // First image is primary
           }];
           return newPreviews;
@@ -346,8 +347,14 @@ export default function AddInventoryPage() {
   };
 
   const updateImageColorTag = (index, color) => {
-    setImagePreviews(prev => prev.map((img, i) => 
+    setImagePreviews(prev => prev.map((img, i) =>
       i === index ? { ...img, colorTag: color } : img
+    ));
+  };
+
+  const updateImageView = (index, view) => {
+    setImagePreviews(prev => prev.map((img, i) =>
+      i === index ? { ...img, view } : img
     ));
   };
 
@@ -578,6 +585,7 @@ export default function AddInventoryPage() {
           uploadedImages.push({
             url: response.url,
             colorTag: preview.colorTag || '',
+            view: preview.view || '',
             isPrimary: preview.isPrimary || false
           });
         }
@@ -900,6 +908,7 @@ export default function AddInventoryPage() {
               handleMultiImageSelect={handleMultiImageSelect}
               removeMultiImage={removeMultiImage}
               updateImageColorTag={updateImageColorTag}
+              updateImageView={updateImageView}
               setPrimaryImage={setPrimaryImage}
               onVariantsDetected={handleVariantsDetected}
               errors={errors}
