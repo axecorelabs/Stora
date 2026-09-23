@@ -93,7 +93,7 @@ export default function HomeGardenDetailsSection({
           <label className="block text-sm font-medium text-gray-700 mb-3">
             Dimensions (Optional)
           </label>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <input
               type="text"
               value={homeGardenDetails.dimensions.length}

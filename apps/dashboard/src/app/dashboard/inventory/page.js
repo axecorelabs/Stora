@@ -13,6 +13,7 @@ import Modal from "@/components/ui/Modal";
 import { useInventoryData } from "@/hooks/useInventoryData";
 import useResponsiveRowExpand from "@/hooks/useResponsiveRowExpand";
 import { bentoLastSpanClass } from "@/lib/statsBento";
+import { isMarkedUnavailableToday } from "@stora/shared-constants";
 import {
   Package,
   AlertTriangle,
@@ -84,8 +85,11 @@ function DetailField({ label, value }) {
 // so the two never drift apart into two different feature sets.
 function ItemDetailContent({
   item, margin, hasImage, categoryDetailEntries, formatCurrency, getStatusText,
-  itemStorefrontUrl, store, onEdit, onAdjustStock, onViewFullPage, onToggleVisibility, isTogglingVisibility, onDelete
+  itemStorefrontUrl, store, onEdit, onAdjustStock, onViewFullPage, onToggleVisibility, isTogglingVisibility,
+  onToggleUnavailableToday, isTogglingAvailability, onDelete
 }) {
+  const isFoodItem = item.category === 'Food';
+  const isUnavailableToday = isFoodItem && isMarkedUnavailableToday(item.categoryDetails?.food);
   return (
     <div className="flex flex-col sm:flex-row gap-5 md:gap-8">
       {/* Bigger image */}
@@ -131,6 +135,35 @@ function ItemDetailContent({
           <div className="mt-4 pt-4 border-t border-gray-200">
             <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide mb-1">Description</p>
             <p className="text-xs md:text-sm text-gray-700">{item.description}</p>
+          </div>
+        )}
+
+        {/* Menu items only -- same "ran out today" flag as the Edit
+            Product modal's Food Details tab (FoodDetailsSection.js), now
+            reachable without opening the full form first. */}
+        {isFoodItem && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className={`flex items-center justify-between gap-3 p-3 border rounded-xl ${
+              isUnavailableToday ? 'border-red-200 bg-red-50' : 'border-gray-200'
+            }`}>
+              <div className="min-w-0">
+                <p className="text-xs md:text-sm font-medium text-gray-900">Mark unavailable today</p>
+                <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
+                  Ran out of this dish? Hide it from ordering until tomorrow.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center shrink-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isUnavailableToday}
+                  disabled={isTogglingAvailability}
+                  onChange={(e) => { e.stopPropagation(); onToggleUnavailableToday(item); }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600 peer-disabled:opacity-50"></div>
+              </label>
+            </div>
           </div>
         )}
 
@@ -362,6 +395,7 @@ export default function InventoryPage() {
   const [pageSize, setPageSize] = useState(10);
   const { expandedId: expandedItemId, mobileDetailItem, toggleRow: toggleExpanded, closeMobileDetail } = useResponsiveRowExpand();
   const [togglingVisibilityIds, setTogglingVisibilityIds] = useState(new Set());
+  const [togglingAvailabilityIds, setTogglingAvailabilityIds] = useState(new Set());
 
   // Use TanStack Query for data fetching
   const {
@@ -561,6 +595,40 @@ export default function InventoryPage() {
       alert('Error updating visibility. Please try again.');
     } finally {
       setTogglingVisibilityIds(prev => {
+        const next = new Set(prev);
+        next.delete(item._id);
+        return next;
+      });
+    }
+  };
+
+  // Lets a vendor 86 a dish for the day straight from the row-detail view
+  // (desktop expand or mobile modal) instead of opening the full Edit
+  // Product form just to flip one switch. Same cache-patch approach as
+  // handleToggleWebVisibility above -- avoids a second full GET /api/
+  // inventory round trip just to reflect the one field that changed.
+  const handleToggleUnavailableToday = async (item) => {
+    const currentlyUnavailable = isMarkedUnavailableToday(item.categoryDetails?.food);
+    setTogglingAvailabilityIds(prev => new Set([...prev, item._id]));
+    try {
+      const response = await secureApiCall(`/api/inventory/${item._id}/availability-today`, {
+        method: 'PUT',
+        body: JSON.stringify({ unavailableToday: !currentlyUnavailable })
+      });
+      if (response?.success) {
+        queryClient.setQueryData(['inventory'], (old) =>
+          Array.isArray(old)
+            ? old.map(i => i._id === item._id ? { ...i, categoryDetails: response.data.categoryDetails } : i)
+            : old
+        );
+      } else {
+        alert(response?.message || 'Failed to update availability. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error toggling availability:', error);
+      alert('Error updating availability. Please try again.');
+    } finally {
+      setTogglingAvailabilityIds(prev => {
         const next = new Set(prev);
         next.delete(item._id);
         return next;
@@ -1110,6 +1178,8 @@ export default function InventoryPage() {
                               onViewFullPage={(it) => router.push(`/dashboard/inventory/${it._id}`)}
                               onToggleVisibility={handleToggleWebVisibility}
                               isTogglingVisibility={togglingVisibilityIds.has(item._id)}
+                              onToggleUnavailableToday={handleToggleUnavailableToday}
+                              isTogglingAvailability={togglingAvailabilityIds.has(item._id)}
                               onDelete={openDeleteModal}
                             />
                           </td>
@@ -1236,6 +1306,8 @@ export default function InventoryPage() {
             onViewFullPage={(it) => { closeMobileDetail(); router.push(`/dashboard/inventory/${it._id}`); }}
             onToggleVisibility={handleToggleWebVisibility}
             isTogglingVisibility={togglingVisibilityIds.has(mobileDetailItem._id)}
+            onToggleUnavailableToday={handleToggleUnavailableToday}
+            isTogglingAvailability={togglingAvailabilityIds.has(mobileDetailItem._id)}
             onDelete={(it) => { closeMobileDetail(); openDeleteModal(it); }}
           />
         )}

@@ -702,29 +702,33 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 sm:p-4">
+      {/* Full-screen sheet on mobile (edge-to-edge, no outer margin so the
+          heavy tabbed form gets the whole viewport); the existing centered
+          card look returns at sm: and up. */}
+      <div className="bg-white w-full h-full sm:h-auto sm:rounded-2xl sm:max-w-4xl sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-brand-100 rounded-xl">
-              <Package className="w-6 h-6 text-brand-800" />
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="p-1.5 sm:p-2 bg-brand-100 rounded-xl shrink-0">
+              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-brand-800" />
             </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">Edit Product</h2>
-              <p className="text-sm text-gray-500">Update {item.productName}</p>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-xl font-semibold text-gray-900">Edit Product</h2>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">Update {item.productName}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+            aria-label="Close"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 bg-gray-50">
+        <div className="border-b border-gray-200 bg-gray-50 shrink-0">
           <div className="flex overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -733,7 +737,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-6 py-3 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap transition-colors ${
                     activeTab === tab.id
                       ? 'border-brand-800 text-brand-800 bg-white'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100'
@@ -748,7 +752,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
         </div>
 
         {/* Form */}
-        <form id="edit-inventory-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+        <form id="edit-inventory-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6">
           {errors.submit && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600 text-sm">{errors.submit}</p>
@@ -963,31 +967,38 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
               
               {/* Current Active Batch Info */}
               {activeBatch && (
-                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                  <div className="flex items-start space-x-2">
-                    <Package className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-900">Current Active Batch: {activeBatch.batchCode}</p>
-                      <p className="text-xs text-blue-700 mt-1">
-                        Received: {new Date(activeBatch.dateReceived).toLocaleDateString()} • 
-                        Remaining: {activeBatch.quantityRemaining} {formData.unitOfMeasure}
+                <div className="mb-4 p-4 bg-brand-50 border border-brand-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-brand-100 text-brand-800 shrink-0">
+                      <Package className="w-4.5 h-4.5" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-brand-900">Current Active Batch</p>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-brand-100 text-brand-800 text-[11px] font-mono font-medium">
+                          {activeBatch.batchCode}
+                        </span>
+                      </div>
+                      <p className="text-xs text-brand-700 mt-1">
+                        Received {new Date(activeBatch.dateReceived).toLocaleDateString()} · {activeBatch.quantityRemaining} {formData.unitOfMeasure} remaining
                       </p>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                      <div className="mt-3 grid grid-cols-2 gap-3">
                         <div>
-                          <span className="text-blue-600">Batch Cost:</span>
-                          <span className="ml-1 font-medium text-blue-900">₦{activeBatch.costPrice}</span>
+                          <p className="text-[10px] text-brand-600 uppercase tracking-wide mb-0.5">Batch Cost</p>
+                          <p className="text-sm font-semibold text-brand-900">₦{activeBatch.costPrice}</p>
                         </div>
                         <div>
-                          <span className="text-blue-600">Batch Selling:</span>
-                          <span className="ml-1 font-medium text-blue-900">₦{activeBatch.sellingPrice}</span>
+                          <p className="text-[10px] text-brand-600 uppercase tracking-wide mb-0.5">Batch Selling</p>
+                          <p className="text-sm font-semibold text-brand-900">₦{activeBatch.sellingPrice}</p>
                         </div>
                       </div>
-                      {(parseFloat(formData.costPrice) !== activeBatch.costPrice || 
+                      {(parseFloat(formData.costPrice) !== activeBatch.costPrice ||
                         parseFloat(formData.sellingPrice) !== activeBatch.sellingPrice ||
                         formData.supplier !== activeBatch.supplier ||
                         formData.location !== activeBatch.batchLocation) && (
-                        <div className="mt-2 px-2 py-1 bg-amber-100 border border-amber-300 rounded text-xs text-amber-800">
-                          ⚠️ Updates will also sync to this active batch (prices, supplier, location)
+                        <div className="mt-3 flex items-start gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                          <span aria-hidden="true">⚠️</span>
+                          <span>Updates will also sync to this active batch (prices, supplier, location)</span>
                         </div>
                       )}
                     </div>
@@ -1151,13 +1162,15 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
           )}
         </form>
 
-        {/* Footer - Always visible */}
-        <div className="border-t border-gray-200 p-6 bg-gray-50">
-          <div className="flex items-center justify-end space-x-4">
+        {/* Footer - Always visible. Full-width stacked buttons on mobile
+            (primary action on top for easy thumb reach), side-by-side at
+            sm: and up, matching the shell's other breakpoints above. */}
+        <div className="border-t border-gray-200 p-4 sm:p-6 bg-gray-50 shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 sm:gap-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+              className="w-full sm:w-auto px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
@@ -1165,7 +1178,7 @@ export default function EditInventoryModal({ isOpen, onClose, onSubmit, item }) 
               type="submit"
               form="edit-inventory-form"
               disabled={isSubmitting || isUploadingImage}
-              className="px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+              className="w-full sm:w-auto px-6 py-3 bg-brand-800 text-white rounded-xl hover:bg-brand-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             >
               {isSubmitting ? 'Updating...' : 'Update Product'}
             </button>
