@@ -266,16 +266,29 @@ export default function ImageUploadSection({
                 </div>
               )}
 
-              {/* View Tag Selector - front/back/side, gates AI Try-On eligibility */}
+              {/* View Tag Selector - front/back/side, gates AI Try-On
+                  eligibility. A 2x2 tap-once grid instead of a dropdown --
+                  4 fixed options don't need an open/scroll/select
+                  interaction, especially per-thumbnail on a narrow mobile
+                  screen where opening a dropdown for every single image is
+                  real friction. Tapping the already-selected option clears
+                  it back to untagged. */}
               {supportsViewTagging && (
-                <div className="w-full">
-                  <CustomDropdown
-                    options={VIEW_OPTIONS}
-                    value={preview.view || ''}
-                    onChange={(value) => updateImageView(index, value)}
-                    placeholder="Tag view"
-                    className="text-xs"
-                  />
+                <div className="grid grid-cols-2 gap-1">
+                  {VIEW_OPTIONS.filter((opt) => opt.value).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => updateImageView(index, preview.view === opt.value ? '' : opt.value)}
+                      className={`text-[11px] font-medium py-1.5 rounded-lg transition-colors ${
+                        preview.view === opt.value
+                          ? 'bg-brand-800 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -302,7 +315,7 @@ export default function ImageUploadSection({
                 <div className="h-[42px]"></div>
               )}
               {supportsViewTagging && (
-                <div className="h-[42px]"></div>
+                <div className="h-[60px]"></div>
               )}
             </div>
           )}

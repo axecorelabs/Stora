@@ -36,10 +36,15 @@ import {
   ChevronRight,
   Trash2,
   Loader2,
-  Info
+  Info,
+  Lock,
+  Sparkles
 } from "lucide-react";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
+
+// Sibling of WebsiteInventoryView.js's own copy -- keep in sync.
+const AI_TRYON_ELIGIBLE_CATEGORIES = ['Clothing', 'Shoes', 'Accessories'];
 
 const getCostPrice = (item) => item.currentCostPrice ?? item.costPrice ?? 0;
 const getSellPrice = (item) => item.currentSellingPrice ?? item.sellingPrice ?? 0;
@@ -86,7 +91,8 @@ function DetailField({ label, value }) {
 function ItemDetailContent({
   item, margin, hasImage, categoryDetailEntries, formatCurrency, getStatusText,
   itemStorefrontUrl, store, onEdit, onAdjustStock, onViewFullPage, onToggleVisibility, isTogglingVisibility,
-  onToggleUnavailableToday, isTogglingAvailability, onDelete
+  onToggleUnavailableToday, isTogglingAvailability,
+  onToggleAiTryon, isTogglingAiTryon, onDelete
 }) {
   const isFoodItem = item.category === 'Food';
   const isUnavailableToday = isFoodItem && isMarkedUnavailableToday(item.categoryDetails?.food);
@@ -163,6 +169,55 @@ function ItemDetailContent({
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600 peer-disabled:opacity-50"></div>
               </label>
+            </div>
+          </div>
+        )}
+
+        {/* AI Try-On -- exact sibling of WebsiteInventoryView.js's own
+            toggle, surfaced here too since this row-detail view is the
+            other place vendors manage a single product's settings. */}
+        {AI_TRYON_ELIGIBLE_CATEGORIES.includes(item.category) && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between gap-3 p-3 border border-gray-200 rounded-xl">
+              <div className="min-w-0">
+                <p className="text-xs md:text-sm font-medium text-gray-900">AI Try-On</p>
+                <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
+                  Let customers see themselves wearing or using this product.
+                </p>
+              </div>
+              {!store?.isPartner ? (
+                <div className="flex items-center gap-1.5 text-xs text-gray-400 shrink-0" title="AI Try-On is currently a partner-only feature. Contact Stora to become a partner.">
+                  <Lock className="w-3.5 h-3.5" />
+                  Partners only
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 shrink-0">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(item.aiTryonEnabled)}
+                      disabled={isTogglingAiTryon}
+                      onChange={(e) => { e.stopPropagation(); onToggleAiTryon(item); }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gold-300 transition-all ${
+                      Boolean(item.aiTryonEnabled)
+                        ? 'bg-gold-500 peer-checked:after:translate-x-full'
+                        : 'bg-gray-200'
+                    } peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                      isTogglingAiTryon ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}></div>
+                  </label>
+                  {isTogglingAiTryon ? (
+                    <div className="w-4 h-4">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gold-600"></div>
+                    </div>
+                  ) : Boolean(item.aiTryonEnabled) && (
+                    <Sparkles className="w-4 h-4 text-gold-600" />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -396,6 +451,7 @@ export default function InventoryPage() {
   const { expandedId: expandedItemId, mobileDetailItem, toggleRow: toggleExpanded, closeMobileDetail } = useResponsiveRowExpand();
   const [togglingVisibilityIds, setTogglingVisibilityIds] = useState(new Set());
   const [togglingAvailabilityIds, setTogglingAvailabilityIds] = useState(new Set());
+  const [togglingAiTryonIds, setTogglingAiTryonIds] = useState(new Set());
 
   // Use TanStack Query for data fetching
   const {
@@ -629,6 +685,38 @@ export default function InventoryPage() {
       alert('Error updating availability. Please try again.');
     } finally {
       setTogglingAvailabilityIds(prev => {
+        const next = new Set(prev);
+        next.delete(item._id);
+        return next;
+      });
+    }
+  };
+
+  // Same row-detail convenience as handleToggleUnavailableToday above --
+  // the real eligibility gates (partner-only, front-image-tagged) are
+  // still enforced server-side in the ai-tryon route; this just surfaces
+  // whatever it returns rather than duplicating that logic here.
+  const handleToggleAiTryon = async (item) => {
+    setTogglingAiTryonIds(prev => new Set([...prev, item._id]));
+    try {
+      const response = await secureApiCall(`/api/inventory/${item._id}/ai-tryon`, {
+        method: 'PUT',
+        body: JSON.stringify({ aiTryonEnabled: !item.aiTryonEnabled })
+      });
+      if (response?.success) {
+        queryClient.setQueryData(['inventory'], (old) =>
+          Array.isArray(old)
+            ? old.map(i => i._id === item._id ? { ...i, aiTryonEnabled: response.data.aiTryonEnabled } : i)
+            : old
+        );
+      } else {
+        alert(response?.message || 'Failed to update AI Try-On setting. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error toggling AI Try-On:', error);
+      alert('Error updating AI Try-On setting. Please try again.');
+    } finally {
+      setTogglingAiTryonIds(prev => {
         const next = new Set(prev);
         next.delete(item._id);
         return next;
@@ -1180,6 +1268,8 @@ export default function InventoryPage() {
                               isTogglingVisibility={togglingVisibilityIds.has(item._id)}
                               onToggleUnavailableToday={handleToggleUnavailableToday}
                               isTogglingAvailability={togglingAvailabilityIds.has(item._id)}
+                              onToggleAiTryon={handleToggleAiTryon}
+                              isTogglingAiTryon={togglingAiTryonIds.has(item._id)}
                               onDelete={openDeleteModal}
                             />
                           </td>
@@ -1308,6 +1398,8 @@ export default function InventoryPage() {
             isTogglingVisibility={togglingVisibilityIds.has(mobileDetailItem._id)}
             onToggleUnavailableToday={handleToggleUnavailableToday}
             isTogglingAvailability={togglingAvailabilityIds.has(mobileDetailItem._id)}
+            onToggleAiTryon={handleToggleAiTryon}
+            isTogglingAiTryon={togglingAiTryonIds.has(mobileDetailItem._id)}
             onDelete={(it) => { closeMobileDetail(); openDeleteModal(it); }}
           />
         )}
