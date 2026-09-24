@@ -122,6 +122,10 @@ function transformStore(store) {
     isActive: store.is_active,
     isVerified: store.is_verified,
     verificationStatus: store.verification_status,
+    // Staff-designated only (see stores/[storeId] admin route and
+    // partnership/[contractId]/respond) -- gates the AI Try-On feature,
+    // not something a vendor can set themselves.
+    isPartner: !!store.is_partner,
     // Separate from isVerified -- see stores/[storeId] admin route and
     // business_verified_at's own comments for that split. This one just
     // means "has this vendor linked a Telegram chat" (see

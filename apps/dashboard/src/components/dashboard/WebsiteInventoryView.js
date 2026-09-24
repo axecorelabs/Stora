@@ -13,7 +13,8 @@ import {
   XCircle,
   AlertCircle,
   Settings,
-  Sparkles
+  Sparkles,
+  Lock
 } from "lucide-react";
 
 // Try-on only makes sense for wearables -- gating the toggle to these
@@ -136,7 +137,7 @@ export default function WebsiteInventoryView({ onBack, store }) {
         );
       } else {
         console.error('Failed to toggle AI try-on:', response.message);
-        alert('Failed to update AI try-on setting. Please try again.');
+        alert(response.message || 'Failed to update AI try-on setting. Please try again.');
       }
     } catch (error) {
       console.error('Error toggling AI try-on:', error);
@@ -500,7 +501,14 @@ export default function WebsiteInventoryView({ onBack, store }) {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {AI_TRYON_ELIGIBLE_CATEGORIES.includes(item.category) ? (
+                      {!AI_TRYON_ELIGIBLE_CATEGORIES.includes(item.category) ? (
+                        <span className="text-xs text-gray-400">Not applicable</span>
+                      ) : !store?.isPartner ? (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400" title="AI Try-On is currently a partner-only feature. Contact Stora to become a partner.">
+                          <Lock className="w-3.5 h-3.5" />
+                          Partners only
+                        </div>
+                      ) : (
                         <div className="flex items-center space-x-2">
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input
@@ -526,8 +534,6 @@ export default function WebsiteInventoryView({ onBack, store }) {
                             <Sparkles className="w-4 h-4 text-gold-600" />
                           )}
                         </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">Not applicable</span>
                       )}
                     </td>
                   </tr>

@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart, ShoppingCart, Check, Package } from 'lucide-react';
+import { Heart, ShoppingCart, Check, Package, Sparkles } from 'lucide-react';
 import { normalizeExtraDefinitions } from '@stora/shared-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -148,6 +148,18 @@ export default function ProductCardMobile({ product, primaryColor, secondaryColo
           {isLowStock && !isOutOfStock && (
             <div className="absolute top-2 left-2 bg-gold-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
               Low stock
+            </div>
+          )}
+
+          {/* AI Try-On badge -- bottom-left, clear of the top-left stock
+              badges and top-right wishlist heart. */}
+          {product.aiTryonEnabled && (
+            <div
+              className="absolute bottom-2 left-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm"
+              style={{ color: primaryColor }}
+            >
+              <Sparkles className="w-3 h-3" />
+              Try-on
             </div>
           )}
 

@@ -44,13 +44,31 @@ export async function PUT(req, { params }) {
     if (aiTryonEnabled) {
       const { data: existing, error: fetchError } = await supabaseAdmin
         .from('inventory')
-        .select('id, category, images')
+        .select('id, category, images, store_id')
         .eq('id', id)
         .eq('user_id', user.id)
         .single();
 
       if (fetchError || !existing) {
         return NextResponse.json({ success: false, message: 'Inventory item not found' }, { status: 404 });
+      }
+
+      // AI Try-On is a partner-only feature -- staff-designated
+      // (stores.is_partner, see partnership/[contractId]/respond), not
+      // something any vendor can flip on for themselves. Checked here,
+      // not just hinted at in the UI, since a direct API call must not be
+      // able to bypass it.
+      const { data: store, error: storeError } = await supabaseAdmin
+        .from('stores')
+        .select('is_partner')
+        .eq('id', existing.store_id)
+        .single();
+
+      if (storeError || !store?.is_partner) {
+        return NextResponse.json(
+          { success: false, message: 'AI Try-On is currently a partner-only feature' },
+          { status: 403 }
+        );
       }
 
       if (VIEW_TAGGING_CATEGORIES.has(existing.category)) {

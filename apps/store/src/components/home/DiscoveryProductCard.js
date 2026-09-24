@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Package, Heart, Clock } from "lucide-react";
+import { Package, Heart, Clock, Sparkles } from "lucide-react";
 import { isStoreOpenNow, isMarkedUnavailableToday } from "@stora/shared-constants";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsInWishlist, useWishlistMutations } from "@/hooks/useWishlist";
@@ -91,6 +91,18 @@ export default function DiscoveryProductCard({ product }) {
               Unavailable today
             </div>
           ) : null}
+
+          {/* AI Try-On badge -- bottom-left, clear of the top-left status
+              badge and top-right wishlist heart. */}
+          {product.aiTryonEnabled && (
+            <div
+              className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full shadow-sm z-10"
+              style={{ color: accentColor }}
+            >
+              <Sparkles className="w-3 h-3" />
+              Try-on
+            </div>
+          )}
 
           {/* Wishlist -- same top-right placement/behavior as
               store/ProductCard.js's heart, just cross-vendor. Only shown

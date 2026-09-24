@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart, ShoppingCart, Check, Package, Clock } from 'lucide-react';
+import { Heart, ShoppingCart, Check, Package, Clock, Sparkles } from 'lucide-react';
 import { normalizeExtraDefinitions, isStoreOpenNow, isMarkedUnavailableToday } from '@stora/shared-constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -232,6 +232,18 @@ export default function ProductCard({ product, primaryColor, secondaryColor, onN
               Low stock
             </div>
           ) : null}
+
+          {/* AI Try-On badge -- bottom-left, the one corner never claimed by
+              a stock badge (top-left) or the wishlist heart (top-right). */}
+          {product.aiTryonEnabled && (
+            <div
+              className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full shadow-sm"
+              style={{ color: primaryColor }}
+            >
+              <Sparkles className="w-3 h-3" />
+              Try-on
+            </div>
+          )}
 
           {/* Wishlist Button - Only show if user is authenticated */}
           {isAuthenticated && (
