@@ -304,7 +304,10 @@ export default function SubscriptionPage() {
           <div className="bg-white border border-gray-100 rounded-2xl p-6">
             <h3 className="text-sm font-semibold text-gray-900 mb-1">Upgrade to a full store</h3>
             <p className="text-xs text-gray-500 mb-4">
-              List products, accept orders, and use Stora&apos;s full commerce platform. Commission-based — no fixed monthly fee.
+              List products, accept orders, and use Stora&apos;s full commerce platform
+              {Number.isFinite(sub?.fullStoreSubscriptionAmountKobo)
+                ? ` for a fixed ₦${(sub.fullStoreSubscriptionAmountKobo / 100).toLocaleString()}/month.`
+                : '.'}
             </p>
             {isUpgrade ? (
               <div className="space-y-3">
