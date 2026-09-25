@@ -1,6 +1,9 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import { Loader2, Search, Store, CheckCircle2, Globe, LayoutList } from "lucide-react";
+import { Suspense, useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Loader2, Search, Store, CheckCircle2, Globe, LayoutList, Plus, Lightbulb } from "lucide-react";
+import { BUSINESS_CATEGORY_VALUES, NIGERIAN_STATES } from "@stora/shared-constants";
 import { useAuth } from "@/contexts/AuthContext";
 import AdminLayout from "@/components/AdminLayout";
 import StatStrip from "@/components/StatStrip";
@@ -32,6 +35,28 @@ const PLATFORM_MODE_OPTIONS = [
   { value: "listing", label: "Listings only" }
 ];
 
+// A third, distinct dimension from is_verified/businessVerified above --
+// this is about OWNERSHIP (has a real vendor claimed this row at all),
+// not trust. See stores.claim_status.
+const CLAIM_STATUS_OPTIONS = [
+  { value: "", label: "All listings" },
+  { value: "unclaimed", label: "Unclaimed" },
+  { value: "claimed", label: "Claimed" }
+];
+
+const CATEGORY_OPTIONS = [
+  { value: "", label: "No category yet" },
+  ...BUSINESS_CATEGORY_VALUES.map((value) => ({
+    value,
+    label: value.charAt(0).toUpperCase() + value.slice(1)
+  }))
+];
+
+const STATE_OPTIONS = [
+  { value: "", label: "No state yet" },
+  ...NIGERIAN_STATES
+];
+
 function formatNaira(kobo) {
   if (!Number.isFinite(kobo)) return "-";
   return `₦${(kobo / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -49,6 +74,7 @@ function formatDateTimeLocal(date = new Date()) {
 
 function StoresPageContent() {
   const { secureApiCall } = useAuth();
+  const searchParams = useSearchParams();
   const [stores, setStores] = useState([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
@@ -57,8 +83,26 @@ function StoresPageContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [verifiedFilter, setVerifiedFilter] = useState("");
   const [platformModeFilter, setPlatformModeFilter] = useState("");
+  const [claimStatusFilter, setClaimStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [loadingKey, setLoadingKey] = useState(null);
+  // Arriving from the suggestions review queue (/stores/suggestions'
+  // "Create listing" link) pre-fills and opens the modal directly, so
+  // staff don't have to retype what a visitor already told us. Lazy
+  // initial state (not an effect) since this only ever matters once, on
+  // the first render -- this page's own filter changes never touch these
+  // params again.
+  const [createModalOpen, setCreateModalOpen] = useState(() => Boolean(searchParams.get("prefillName")));
+  const [createForm, setCreateForm] = useState(() => ({
+    storeName: searchParams.get("prefillName") || "",
+    businessCategory: "",
+    state: "",
+    storePhone: "",
+    addressStreet: searchParams.get("prefillLocation") || "",
+    storeDescription: ""
+  }));
+  const [createFormError, setCreateFormError] = useState("");
+  const [pendingSuggestionId, setPendingSuggestionId] = useState(() => searchParams.get("suggestionId") || null);
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [manualStore, setManualStore] = useState(null);
   const [manualForm, setManualForm] = useState({
@@ -74,9 +118,9 @@ function StoresPageContent() {
   // "adjusting state when a prop changes" pattern (setState during render,
   // guarded by a prev-value comparison) rather than an effect -- avoids a
   // second render pass just to reset a page number.
-  const [prevFilters, setPrevFilters] = useState({ query, statusFilter, verifiedFilter, platformModeFilter });
-  if (query !== prevFilters.query || statusFilter !== prevFilters.statusFilter || verifiedFilter !== prevFilters.verifiedFilter || platformModeFilter !== prevFilters.platformModeFilter) {
-    setPrevFilters({ query, statusFilter, verifiedFilter, platformModeFilter });
+  const [prevFilters, setPrevFilters] = useState({ query, statusFilter, verifiedFilter, platformModeFilter, claimStatusFilter });
+  if (query !== prevFilters.query || statusFilter !== prevFilters.statusFilter || verifiedFilter !== prevFilters.verifiedFilter || platformModeFilter !== prevFilters.platformModeFilter || claimStatusFilter !== prevFilters.claimStatusFilter) {
+    setPrevFilters({ query, statusFilter, verifiedFilter, platformModeFilter, claimStatusFilter });
     setPage(1);
   }
 
@@ -88,6 +132,7 @@ function StoresPageContent() {
       if (params.status) search.set("status", params.status);
       if (params.verified) search.set("verified", params.verified);
       if (params.platformMode) search.set("platform_mode", params.platformMode);
+      if (params.claimStatus) search.set("claim_status", params.claimStatus);
       search.set("offset", String((params.page - 1) * PAGE_SIZE));
       const data = await secureApiCall(`/api/stores?${search.toString()}`);
       if (data.success) {
@@ -103,9 +148,9 @@ function StoresPageContent() {
   }, [secureApiCall]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => load({ q: query, status: statusFilter, verified: verifiedFilter, platformMode: platformModeFilter, page }), 300);
+    const timeout = setTimeout(() => load({ q: query, status: statusFilter, verified: verifiedFilter, platformMode: platformModeFilter, claimStatus: claimStatusFilter, page }), 300);
     return () => clearTimeout(timeout);
-  }, [query, statusFilter, verifiedFilter, platformModeFilter, page, load]);
+  }, [query, statusFilter, verifiedFilter, platformModeFilter, claimStatusFilter, page, load]);
 
   const handleToggleStorefront = async (store, nextValue) => {
     setLoadingKey(`storefront-${store.id}`);
@@ -185,6 +230,63 @@ function StoresPageContent() {
       }
     } catch (error) {
       console.error("Error updating account status:", error);
+    } finally {
+      setLoadingKey(null);
+    }
+  };
+
+  const openCreateModal = () => {
+    setCreateForm({ storeName: "", businessCategory: "", state: "", storePhone: "", addressStreet: "", storeDescription: "" });
+    setCreateFormError("");
+    setCreateModalOpen(true);
+  };
+
+  const closeCreateModal = () => {
+    if (loadingKey === "create-listing") return;
+    setCreateModalOpen(false);
+    setCreateFormError("");
+  };
+
+  const handleCreateFormChange = (field, value) => {
+    setCreateForm((prev) => ({ ...prev, [field]: value }));
+    if (createFormError) setCreateFormError("");
+  };
+
+  const handleCreateListing = async (event) => {
+    event.preventDefault();
+    if (!createForm.storeName.trim()) {
+      setCreateFormError("Business name is required.");
+      return;
+    }
+
+    setLoadingKey("create-listing");
+    try {
+      const data = await secureApiCall("/api/stores", {
+        method: "POST",
+        body: JSON.stringify({
+          storeName: createForm.storeName.trim(),
+          businessCategory: createForm.businessCategory || null,
+          state: createForm.state || null,
+          storePhone: createForm.storePhone.trim() || null,
+          addressStreet: createForm.addressStreet.trim() || null,
+          storeDescription: createForm.storeDescription.trim() || null
+        })
+      });
+
+      if (data.success) {
+        setCreateModalOpen(false);
+        if (pendingSuggestionId) {
+          secureApiCall(`/api/business-suggestions/${pendingSuggestionId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: "actioned" })
+          }).catch((err) => console.error("Error marking suggestion actioned:", err));
+          setPendingSuggestionId(null);
+        }
+        await load({ q: query, status: statusFilter, verified: verifiedFilter, platformMode: platformModeFilter, claimStatus: claimStatusFilter, page });
+      }
+    } catch (error) {
+      console.error("Error creating unclaimed listing:", error);
+      setCreateFormError(error?.message || "Failed to create listing.");
     } finally {
       setLoadingKey(null);
     }
@@ -303,6 +405,24 @@ function StoresPageContent() {
         <CustomDropdown options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} className="w-full sm:w-44" />
         <CustomDropdown options={VERIFIED_OPTIONS} value={verifiedFilter} onChange={setVerifiedFilter} className="w-full sm:w-44" />
         <CustomDropdown options={PLATFORM_MODE_OPTIONS} value={platformModeFilter} onChange={setPlatformModeFilter} className="w-full sm:w-44" />
+        <CustomDropdown options={CLAIM_STATUS_OPTIONS} value={claimStatusFilter} onChange={setClaimStatusFilter} className="w-full sm:w-44" />
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <Link
+            href="/stores/suggestions"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Lightbulb className="w-4 h-4" />
+            Suggestions
+          </Link>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-800 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-900"
+          >
+            <Plus className="w-4 h-4" />
+            New unclaimed listing
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -339,13 +459,18 @@ function StoresPageContent() {
                       <div className="flex items-center gap-2.5">
                         <StoreLogo logoUrl={store.logoUrl} />
                         <div className="min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{store.storeName}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium text-gray-900 truncate">{store.storeName}</p>
+                            {store.claimStatus === "unclaimed" && (
+                              <span className="shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">Unclaimed</span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-400 truncate">{store.storeSlug}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-gray-700">{store.owner?.name || "—"}</p>
+                      <p className="text-gray-700">{store.owner?.name || (store.claimStatus === "unclaimed" ? "No owner yet" : "—")}</p>
                       <p className="text-xs text-gray-400">{store.owner?.email}</p>
                     </td>
                     <td className="px-4 py-3">
@@ -547,6 +672,115 @@ function StoresPageContent() {
           </div>
         </div>
       )}
+
+      {createModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+          <button
+            type="button"
+            onClick={closeCreateModal}
+            className="absolute inset-0 bg-black/45"
+            aria-label="Close new listing form"
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">New Unclaimed Listing</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Seeds a listing for a real business that hasn&apos;t signed up yet. It stays hidden from customers until claimed.
+              </p>
+            </div>
+
+            <form className="space-y-4" onSubmit={handleCreateListing}>
+              <label className="space-y-1 block">
+                <span className="text-xs font-medium text-gray-600">Business Name</span>
+                <input
+                  type="text"
+                  value={createForm.storeName}
+                  onChange={(e) => handleCreateFormChange("storeName", e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-700"
+                  placeholder="Bella's Cakes"
+                  required
+                />
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-gray-600">Category</span>
+                  <CustomDropdown
+                    options={CATEGORY_OPTIONS}
+                    value={createForm.businessCategory}
+                    onChange={(v) => handleCreateFormChange("businessCategory", v)}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-gray-600">State</span>
+                  <CustomDropdown
+                    options={STATE_OPTIONS}
+                    value={createForm.state}
+                    onChange={(v) => handleCreateFormChange("state", v)}
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-gray-600">Phone (Optional)</span>
+                  <input
+                    type="text"
+                    value={createForm.storePhone}
+                    onChange={(e) => handleCreateFormChange("storePhone", e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-700"
+                    placeholder="0803 xxx xxxx"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-gray-600">Address (Optional)</span>
+                  <input
+                    type="text"
+                    value={createForm.addressStreet}
+                    onChange={(e) => handleCreateFormChange("addressStreet", e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-700"
+                    placeholder="Street address"
+                  />
+                </label>
+              </div>
+
+              <label className="space-y-1 block">
+                <span className="text-xs font-medium text-gray-600">Description (Optional)</span>
+                <textarea
+                  value={createForm.storeDescription}
+                  onChange={(e) => handleCreateFormChange("storeDescription", e.target.value)}
+                  className="w-full min-h-[70px] rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-700 resize-y"
+                  placeholder="What this business sells/does"
+                  maxLength={500}
+                />
+              </label>
+
+              {createFormError && (
+                <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{createFormError}</p>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closeCreateModal}
+                  disabled={loadingKey === "create-listing"}
+                  className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingKey === "create-listing"}
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand-800 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-900 disabled:opacity-60"
+                >
+                  {loadingKey === "create-listing" ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Create Listing
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -554,7 +788,9 @@ function StoresPageContent() {
 export default function StoresPage() {
   return (
     <AdminLayout title="Vendors" subtitle="Every store on Stora — status, totals, and account control.">
-      <StoresPageContent />
+      <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="w-5 h-5 text-brand-700 animate-spin" /></div>}>
+        <StoresPageContent />
+      </Suspense>
     </AdminLayout>
   );
 }

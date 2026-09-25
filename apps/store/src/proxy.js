@@ -104,6 +104,10 @@ const authLimiters = {
   // cheap but gated the same since a flood there is the precursor to one.
   '/api/tryon/upload-url': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '5 m'), prefix: 'store:rl:tryon-upload' }),
   '/api/tryon/generate': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '5 m'), prefix: 'store:rl:tryon-generate' }),
+  // Fully public, unauthenticated write -- no customer account to key a
+  // second layer off, unlike tryon above. Sized like forgot-password: a
+  // low-frequency, high-abuse-value action for an anonymous visitor.
+  '/api/business-suggestions': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 h'), prefix: 'store:rl:business-suggestions' }),
 };
 
 // Real navigations, genuine API calls, AND Next.js's own silent <Link>
@@ -376,6 +380,7 @@ export const config = {
     '/api/orders/:path*',
     '/api/cart/:path*',
     '/api/tryon/:path*',
+    '/api/business-suggestions/:path*',
     // /api/vendors/* has no entry here (a pre-existing gap on the main
     // marketplace, out of scope to fix under this change) -- explicitly
     // not repeating that gap for Biterave's own new routes.
@@ -388,6 +393,6 @@ export const config = {
     // favicon\\.ico is now redundant under that broader rule but left in
     // place; removing it isn't worth the risk of relying on regex
     // ordering to keep it excluded.
-    '/((?!api|_next/static|_next/image|favicon\\.ico|cart|wishlist|orders|reset-password|.*\\..*).*)',
+    '/((?!api|_next/static|_next/image|favicon\\.ico|cart|wishlist|orders|reset-password|suggest-a-business|.*\\..*).*)',
   ],
 };
