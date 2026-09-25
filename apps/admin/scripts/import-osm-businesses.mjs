@@ -116,6 +116,20 @@ function normalizePhone(raw) {
   return first ? first.slice(0, 20) : null;
 }
 
+// Nodes carry lat/lon directly; ways/relations only get one because the
+// query uses `out center;`, which adds a synthesized `center` object
+// instead. Real, free coordinates OSM already computed -- no geocoding
+// needed, just reading what's already in the response we were discarding.
+function getCoordinates(el) {
+  if (typeof el.lat === "number" && typeof el.lon === "number") {
+    return { latitude: el.lat, longitude: el.lon };
+  }
+  if (el.center && typeof el.center.lat === "number" && typeof el.center.lon === "number") {
+    return { latitude: el.center.lat, longitude: el.center.lon };
+  }
+  return { latitude: null, longitude: null };
+}
+
 function buildAddress(tags) {
   const address = {};
   if (tags["addr:street"]) address.street = tags["addr:street"];
@@ -168,7 +182,8 @@ async function run() {
       businessCategory: category,
       storePhone: normalizePhone(el.tags.phone || el.tags["contact:phone"]),
       storeEmail: el.tags.email || el.tags["contact:email"] || null,
-      address: buildAddress(el.tags)
+      address: buildAddress(el.tags),
+      ...getCoordinates(el)
     });
   }
 
@@ -208,7 +223,9 @@ async function run() {
             address: item.address,
             business_category: item.businessCategory,
             platform_mode: "listing",
-            website: { status: "active", isEnabled: true }
+            website: { status: "active", isEnabled: true },
+            latitude: item.latitude,
+            longitude: item.longitude
           })
           .eq("id", existingRow.id);
         if (updateError) {
@@ -235,7 +252,9 @@ async function run() {
         is_active: true,
         website: { status: "active", isEnabled: true },
         external_source: "osm",
-        external_id: item.externalId
+        external_id: item.externalId,
+        latitude: item.latitude,
+        longitude: item.longitude
       });
       if (insertError) {
         console.error(`Failed to insert "${item.storeName}" (${item.externalId}):`, insertError.message);

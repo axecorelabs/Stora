@@ -107,7 +107,11 @@ function normalizeSearchQuery(q) {
 export const cacheKey = {
   // TTL-only -- see comment above.
   storeBySlug: (slug) => `${NS}:cache:store:${slug}`,
-  featuredStores: (limit) => `${NS}:cache:featured:${limit}`,
+  // buyerState is now a ranking input (proximity boost), not just a
+  // display concern -- keyed into the cache too, or the first visitor's
+  // state would get baked into the shared 300s cache and served to
+  // everyone else regardless of their own location.
+  featuredStores: (limit, buyerState) => `${NS}:cache:featured:${limit}:${buyerState || '_'}`,
   discover: (category, search, sort, limit) =>
     `${NS}:cache:discover:${category || '_'}:${search || '_'}:${sort}:${limit}`,
   // The /products search page's default landing view (no query, no

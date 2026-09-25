@@ -163,6 +163,8 @@ function transformStoreFields(store) {
     state: store.state,
     deliveryStates: store.delivery_states && store.delivery_states.length > 0 ? store.delivery_states : null,
     address: store.address,
+    latitude: typeof store.latitude === 'number' ? store.latitude : null,
+    longitude: typeof store.longitude === 'number' ? store.longitude : null,
     onlineStoreInfo: store.online_store_info,
     settings: store.settings,
     branding: store.branding,
@@ -439,10 +441,11 @@ export async function findStoreByWebsitePath(websitePath) {
 // being newest. Deliberately not gated on business_verified_at (the
 // "Verified by Stora" badge): none of the real stores in production carry
 // that flag yet, so requiring it here would silently empty the section.
-export async function findFeaturedStores({ limit = 12 } = {}) {
+export async function findFeaturedStores({ limit = 12, buyerState } = {}) {
   const { data, error } = await supabaseAdmin.rpc('search_vendors', {
     p_sort: 'featured',
-    p_limit: limit
+    p_limit: limit,
+    p_buyer_state: buyerState || null
   });
 
   if (error) {
@@ -1448,6 +1451,8 @@ export function buildPublicStoreData(store) {
     state: store.state,
     deliveryStates: store.delivery_states && store.delivery_states.length > 0 ? store.delivery_states : null,
     address: store.address,
+    latitude: typeof store.latitude === 'number' ? store.latitude : null,
+    longitude: typeof store.longitude === 'number' ? store.longitude : null,
     onlineStoreInfo: store.online_store_info,
     settings: store.settings,
     branding: store.branding,

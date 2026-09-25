@@ -11,9 +11,15 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const limitParam = parseInt(searchParams.get("limit"), 10);
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 24) : 12;
+    // Same cookie DeliveryStateContext.js maintains client-side (an
+    // explicit pick, a signed-in customer's saved preference, or
+    // proxy.js's own IP-geo guess as a last resort) -- read directly here
+    // rather than requiring the client to pass it, so this route ranks by
+    // proximity even on a visitor's very first request.
+    const buyerState = request.cookies.get("stora_deliver_state")?.value || null;
 
-    const stores = await cached(`${cacheKey.featuredStores(limit)}:visibility-v2`, 300, async () => {
-      const found = await findFeaturedStores({ limit });
+    const stores = await cached(`${cacheKey.featuredStores(limit, buyerState)}:visibility-v2`, 300, async () => {
+      const found = await findFeaturedStores({ limit, buyerState });
       return found.map(buildPublicStoreData);
     });
 

@@ -241,10 +241,13 @@ function VendorsPageInner() {
       if (businessSubcategory) params.set("businessSubcategory", businessSubcategory);
       if (businessSubcategories.length) params.set("businessSubcategories", businessSubcategories.join(","));
       if (state) params.set("state", state);
-      // buyerState powers both "nearest" (soft, reorders only) and
-      // deliverableOnly (hard filter) -- either needs it sent regardless
-      // of which triggered it.
-      if ((sort === "nearest" || deliverableOnly) && deliveryState) params.set("buyerState", deliveryState);
+      // buyerState powers "nearest" (soft, reorders only), deliverableOnly
+      // (hard filter), and now also the default 'featured' sort (a second
+      // tier ranking signal behind profile completeness/paid status --
+      // see fn_store_ranking_boost + 20260930000009) -- send it whenever
+      // it's known, not just when a customer explicitly asked for
+      // "nearest". 'name'/'newest' ignore it either way.
+      if (deliveryState) params.set("buyerState", deliveryState);
       if (deliverableOnly && deliveryState) params.set("deliverableOnly", "true");
       const res = await fetch(`/api/vendors/search?${params}`);
       const data = await res.json();

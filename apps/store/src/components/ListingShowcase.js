@@ -4,10 +4,16 @@ import BusinessProfileReviews from '@/components/listing/BusinessProfileReviews'
 import ListingDescription from '@/components/listing/ListingDescription';
 import ViewBeacon from '@/components/analytics/ViewBeacon';
 import { findGalleryByStoreId } from '@/lib/supabaseStore';
+import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, VENDOR_CARD_PLACEHOLDER_BANNER } from '@/lib/vendorCardPlaceholders';
 import { DAYS_OF_WEEK, formatDayHours } from '@stora/shared-constants';
 import { ChevronLeft, ExternalLink, Mail, MapPin, MessageCircle, MoreHorizontal, Phone, ShieldCheck, Tag } from 'lucide-react';
 
-function ShowcaseLogo({ branding, storeName }) {
+// No logo: a category-matched icon in the store's rotated fallback color
+// instead of a bare initial letter -- same treatment as the vendor cards
+// on /vendors and the products page (vendorCardPlaceholders.js), so an
+// unbranded business looks consistent everywhere it appears, not just on
+// its own profile page.
+function ShowcaseLogo({ branding, storeName, businessCategory, fallbackColor }) {
   if (branding.logo) {
     return (
       <Image
@@ -21,9 +27,11 @@ function ShowcaseLogo({ branding, storeName }) {
     );
   }
 
+  const CategoryIcon = CATEGORY_ICONS[businessCategory] || DEFAULT_VENDOR_ICON;
+
   return (
-    <div className="grid h-full w-full place-items-center bg-white text-2xl font-black text-brand-900 sm:text-4xl">
-      {storeName?.charAt(0)?.toUpperCase() || 'S'}
+    <div className="grid h-full w-full place-items-center bg-white" style={{ color: fallbackColor }}>
+      <CategoryIcon className="h-7 w-7 sm:h-12 sm:w-12" strokeWidth={1.75} />
     </div>
   );
 }
@@ -273,11 +281,19 @@ function getTodayHoursSummary(hours) {
   return formatted === 'Closed' ? 'Today: Closed' : `Today: Open ${formatted}`;
 }
 
-function MapPreviewCard({ addressText }) {
-  if (!addressText) return null;
+// A real lat/lon (free from OpenStreetMap for seeded listings) drops an
+// exact pin -- otherwise Google has to geocode the address TEXT itself,
+// which for a bare "Oyo" (state only, no street) centers on the whole
+// state rather than the actual spot.
+function MapPreviewCard({ addressText, latitude, longitude }) {
+  const hasCoordinates = typeof latitude === 'number' && typeof longitude === 'number';
+  if (!addressText && !hasCoordinates) return null;
 
-  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`;
-  const embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(addressText)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+  const query = hasCoordinates ? `${latitude},${longitude}` : addressText;
+  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  const embedUrl = hasCoordinates
+    ? `https://maps.google.com/maps?q=${latitude},${longitude}&t=&z=16&ie=UTF8&iwloc=&output=embed`
+    : `https://maps.google.com/maps?q=${encodeURIComponent(addressText)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
 
   return (
     <section className="mt-4 overflow-hidden rounded-2xl border border-gray-100">
@@ -307,21 +323,32 @@ function MapPreviewCard({ addressText }) {
   );
 }
 
-// Precise address/map is a premium feature -- a free listing always shows
-// the generic state-only fallback, even when a real street address is on
-// file, until the business subscribes.
-function ShowcaseMapSection({ fullAddress, stateLabel, isPremium }) {
+// Precise address/map is free even for an unclaimed or unsubscribed
+// listing -- real, findable location is worth more to a business showing
+// up on Stora for the first time than it costs Stora to show it, so it's
+// the one thing given away as a concrete reason to stick around.
+// Everything else premium-gated on this page (reviews, gallery, WhatsApp
+// contact) stays gated.
+function ShowcaseMapSection({ fullAddress, stateLabel, latitude, longitude }) {
+  // A precise pin doesn't need a formatted street address to be worth
+  // showing -- many OSM-seeded businesses have real coordinates but never
+  // got an addr:street tag. Show the map whenever either is available;
+  // the text line above it only prints when there's real address text.
+  const hasCoordinates = typeof latitude === 'number' && typeof longitude === 'number';
+
   return (
     <section className="pt-8 sm:pt-10">
       <h2 className="text-sm font-semibold text-gray-900 sm:text-base">Location</h2>
 
-      {isPremium && fullAddress ? (
+      {fullAddress || hasCoordinates ? (
         <>
-          <div className="mt-3 flex items-center gap-3 text-gray-500">
-            <MapPin className="h-4 w-4 shrink-0 stroke-brand-900 stroke-[2.6] sm:h-5 sm:w-5" />
-            <p className="min-w-0 text-[13px] font-medium leading-snug sm:text-lg">{fullAddress}</p>
-          </div>
-          <MapPreviewCard addressText={fullAddress} />
+          {fullAddress && (
+            <div className="mt-3 flex items-center gap-3 text-gray-500">
+              <MapPin className="h-4 w-4 shrink-0 stroke-brand-900 stroke-[2.6] sm:h-5 sm:w-5" />
+              <p className="min-w-0 text-[13px] font-medium leading-snug sm:text-lg">{fullAddress}</p>
+            </div>
+          )}
+          <MapPreviewCard addressText={fullAddress} latitude={latitude} longitude={longitude} />
         </>
       ) : (
         <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
@@ -419,15 +446,16 @@ export default async function ListingShowcase({ store }) {
   const branding = store.branding || {};
   const address = store.address;
   const isPremium = store.subscriptionStatus === 'active';
-  // Precise address is premium -- gated HERE, once, rather than at each of
-  // the several places (TopMenu, ListingFooter, StickyMobileCta,
-  // ShowcaseMapSection) that render a "get directions" link from it, so a
-  // free listing can't leak its exact address through any of them.
-  const fullAddress = isPremium && address
+  // Precise address is free on this page (even unclaimed/unsubscribed) --
+  // computed HERE, once, and threaded through to every place that renders
+  // a "get directions" link from it (TopMenu, ListingFooter,
+  // StickyMobileCta, ShowcaseMapSection), so they all agree.
+  const fullAddress = address
     ? [address.street, address.city, address.state || store.state].filter(Boolean).join(', ')
     : null;
   const stateLabel = store.state || address?.state;
   const heroImage = branding.banner || gallery[0]?.image_url || branding.logo;
+  const fallbackColor = getVendorFallbackColor(store.id);
   const trustChips = buildTrustChips(store);
 
   return (
@@ -437,7 +465,7 @@ export default async function ListingShowcase({ store }) {
       {/* Wrapper keeps the overlay controls in normal flow, outside overflow-hidden */}
       <div className="relative">
         <section className="relative h-[135px] overflow-hidden bg-gray-200 sm:h-[320px] lg:h-[420px]">
-          {heroImage && (
+          {heroImage ? (
             <Image
               src={heroImage}
               alt=""
@@ -447,6 +475,20 @@ export default async function ListingShowcase({ store }) {
               className="object-cover"
               unoptimized
             />
+          ) : (
+            <>
+              <Image
+                src={VENDOR_CARD_PLACEHOLDER_BANNER}
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover"
+                style={{ opacity: 0.3 }}
+                unoptimized
+              />
+              <div className="absolute inset-0" style={{ backgroundColor: fallbackColor, opacity: 0.55 }} />
+            </>
           )}
         </section>
 
@@ -469,7 +511,7 @@ export default async function ListingShowcase({ store }) {
         <section className="relative">
           <div className="-mt-4 flex items-start gap-4 sm:-mt-14 sm:items-end sm:gap-6">
             <div className="relative grid h-[65px] w-[65px] shrink-0 overflow-hidden rounded-xl bg-white shadow-[0_9px_25px_rgba(15,42,32,0.14)] sm:h-32 sm:w-32 sm:rounded-3xl sm:shadow-[0_12px_30px_rgba(15,42,32,0.16)]">
-              <ShowcaseLogo branding={branding} storeName={store.storeName} />
+              <ShowcaseLogo branding={branding} storeName={store.storeName} businessCategory={store.businessCategory} fallbackColor={fallbackColor} />
             </div>
             <div className="min-w-0 pt-6 sm:pb-4 sm:pt-0">
               <h1 className="truncate text-[19px] font-black leading-[1.05] tracking-normal text-black sm:text-5xl sm:leading-tight">
@@ -530,7 +572,7 @@ export default async function ListingShowcase({ store }) {
           </section>
         )}
 
-        <ShowcaseMapSection fullAddress={fullAddress} stateLabel={stateLabel} isPremium={isPremium} />
+        <ShowcaseMapSection fullAddress={fullAddress} stateLabel={stateLabel} latitude={store.latitude} longitude={store.longitude} />
 
         {isPremium && (
           <BusinessProfileReviews

@@ -121,16 +121,15 @@ export default async function StorePage({ params }) {
     // ever filled in -- common for an unclaimed listing seeded with only
     // a name/category/state) is truthy in JS, so the old `store.address
     // ? {...}` guard emitted an empty/malformed address block for those.
-    // Precise street address is a premium listing feature (see
-    // ListingShowcase.js's own fullAddress gate) -- state/locality alone
-    // is free. Full stores (platformMode !== 'listing') are unrestricted.
+    // Precise street address is free even for an unclaimed/unsubscribed
+    // listing -- matches ListingShowcase.js's own fullAddress (no longer
+    // premium-gated there either), so the visible page and its structured
+    // data never contradict each other.
     address: (store.address?.street || store.state)
       ? {
           '@type': 'PostalAddress',
           addressLocality: store.state || undefined,
-          streetAddress: (store.platformMode !== 'listing' || store.subscriptionStatus === 'active')
-            ? (store.address?.street || undefined)
-            : undefined,
+          streetAddress: store.address?.street || undefined,
           addressCountry: 'NG',
         }
       : undefined,
