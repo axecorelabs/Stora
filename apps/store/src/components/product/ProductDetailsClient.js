@@ -1017,14 +1017,14 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
       </div>
 
       {/* Product Details */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 lg:py-12">
-        <div className="-mx-4 sm:mx-0 bg-white rounded-none sm:rounded-3xl shadow-[0_1px_3px_rgba(11,59,46,0.06)] border border-gray-100 overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-4 sm:py-8 lg:py-12">
+        <div className="-mx-4 sm:mx-0 bg-white rounded-none sm:rounded-3xl sm:shadow-[0_1px_3px_rgba(11,59,46,0.06)] border-0 sm:border sm:border-gray-100 overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-            
+
             {/* Image Section */}
-            <div className="p-4 sm:p-8 lg:p-12 bg-gradient-to-br from-gray-50 to-white">
-              <div 
-                className="relative w-full aspect-square rounded-xl sm:rounded-2xl overflow-hidden shadow-lg mb-4 sm:mb-6 group"
+            <div className="p-0 sm:p-8 lg:p-12 bg-gradient-to-br from-gray-50 to-white">
+              <div
+                className="relative w-full aspect-square rounded-none sm:rounded-2xl overflow-hidden mb-4 sm:mb-6 group"
                 style={{ backgroundColor: secondaryColor }}
               >
                 {currentImage?.url ? (
@@ -1125,17 +1125,41 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                 </div>
               </div>
 
-              {/* Thumbnail Gallery */}
+              {/* Warms Next's image-optimizer cache for every OTHER photo at
+                  the same size the main view actually renders at (600x600)
+                  -- clicking a thumbnail swaps the visible <Image>'s src to
+                  a URL that's already been resized/cached in the background,
+                  instead of only then triggering that resize (a real,
+                  noticeable delay on a cold cache -- confirmed root cause).
+                  Rendered as real <Image> tags (not hand-built URLs) so
+                  Next's own srcset/sizing logic generates the exact same
+                  request the visible image will later make. loading="eager"
+                  bypasses lazy-loading's IntersectionObserver, which would
+                  otherwise never fire for an element hidden via display:none. */}
               {productImages.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+                <div className="hidden" aria-hidden="true">
+                  {productImages.map((img, idx) => (
+                    idx !== currentImageIndex && (
+                      <Image key={img.url} src={img.url} alt="" width={600} height={600} loading="eager" />
+                    )
+                  ))}
+                </div>
+              )}
+
+              {/* Thumbnail Gallery -- a continuous strip flush with the
+                  full-bleed image above on mobile (small edge inset so the
+                  first/last thumbnail isn't flush against the true
+                  viewport edge), inset like everything else on desktop. */}
+              {productImages.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto px-4 sm:px-0 pb-2 mb-4">
                   {productImages.map((img, idx) => (
                     <button
                       key={idx}
                       onClick={() => setCurrentImageIndex(idx)}
-                      className={`relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                        currentImageIndex === idx 
-                          ? 'border-gray-900 scale-105 shadow-lg' 
-                          : 'border-gray-200 hover:border-gray-400'
+                      className={`relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border-2 border-gray-200 transition-all ${
+                        currentImageIndex === idx
+                          ? 'scale-105 shadow-lg'
+                          : 'hover:border-gray-400'
                       }`}
                     >
                       <Image
