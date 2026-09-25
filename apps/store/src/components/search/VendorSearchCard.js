@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { BadgeCheck, MapPin, MessageCircle, ArrowRight, LayoutList, Store as StoreIcon } from "lucide-react";
 import PrefetchLink from "@/components/ui/PrefetchLink";
+import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, VENDOR_CARD_PLACEHOLDER_BANNER } from "@/lib/vendorCardPlaceholders";
 
 // Distinct from home/VendorCard.js -- that one is sized for a dense,
 // horizontal-scroll teaser (5+ per row); this one is built for the
@@ -12,8 +13,8 @@ import PrefetchLink from "@/components/ui/PrefetchLink";
 export default function VendorSearchCard({ store }) {
   const [logoLoaded, setLogoLoaded] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
-  const primaryColor = store.branding?.primaryColor || "#145C41";
-  const initial = (store.storeName || "?").trim().charAt(0).toUpperCase();
+  const primaryColor = store.branding?.primaryColor || getVendorFallbackColor(store.id);
+  const CategoryIcon = CATEGORY_ICONS[store.businessCategory] || DEFAULT_VENDOR_ICON;
   const location = [store.address?.city, store.state || store.address?.state].filter(Boolean).join(", ");
   const hasWhatsapp = !!store.onlineStoreInfo?.socialMedia?.whatsapp;
   const showLogoImage = store.branding?.logo && !logoErrored;
@@ -28,7 +29,7 @@ export default function VendorSearchCard({ store }) {
       className="group flex flex-col bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_8px_24px_rgba(11,59,46,0.10)] hover:-translate-y-0.5 transition-all duration-200"
     >
       <div className="h-28 sm:h-36 relative" style={{ backgroundColor: primaryColor }}>
-        {store.branding?.banner && (
+        {store.branding?.banner ? (
           <>
             <img
               src={store.branding.banner}
@@ -42,6 +43,16 @@ export default function VendorSearchCard({ store }) {
                 grid reads as one consistent design regardless of what a
                 given vendor uploaded. */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-black/0" />
+          </>
+        ) : (
+          <>
+            <img
+              src={VENDOR_CARD_PLACEHOLDER_BANNER}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ opacity: 0.3 }}
+            />
+            <div className="absolute inset-0" style={{ backgroundColor: primaryColor, opacity: 0.55 }} />
           </>
         )}
       </div>
@@ -65,7 +76,7 @@ export default function VendorSearchCard({ store }) {
               />
             </>
           ) : (
-            <span className="font-display text-2xl font-bold">{initial}</span>
+            <CategoryIcon className="w-7 h-7" strokeWidth={1.75} />
           )}
         </div>
 

@@ -1,14 +1,15 @@
 "use client";
 import { Store, BadgeCheck, LayoutList } from "lucide-react";
 import PrefetchLink from "@/components/ui/PrefetchLink";
+import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, VENDOR_CARD_PLACEHOLDER_BANNER } from "@/lib/vendorCardPlaceholders";
 
 // Each vendor's own brand color shows through as a swatch inside Stora's
 // frame -- the two-layer brand rule made visible: many identities, one
 // accountable structure. Never Stora-brand-colored itself (that would
 // misrepresent one specific vendor as if it were platform chrome).
 export default function VendorCard({ store }) {
-  const primaryColor = store.branding?.primaryColor || "#145C41";
-  const initial = (store.storeName || "?").trim().charAt(0).toUpperCase();
+  const primaryColor = store.branding?.primaryColor || getVendorFallbackColor(store.id);
+  const CategoryIcon = CATEGORY_ICONS[store.businessCategory] || DEFAULT_VENDOR_ICON;
   const isListing = store.platformMode === 'listing';
   const profileTag = isListing
     ? { label: 'Business', Icon: LayoutList }
@@ -23,13 +24,23 @@ export default function VendorCard({ store }) {
         className="h-20 relative"
         style={{ backgroundColor: primaryColor }}
       >
-        {store.branding?.banner && (
+        {store.branding?.banner ? (
           <img
             src={store.branding.banner}
             alt=""
             className="absolute inset-0 w-full h-full object-cover"
             style={{ opacity: 0.35 }}
           />
+        ) : (
+          <>
+            <img
+              src={VENDOR_CARD_PLACEHOLDER_BANNER}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ opacity: 0.3 }}
+            />
+            <div className="absolute inset-0" style={{ backgroundColor: primaryColor, opacity: 0.55 }} />
+          </>
         )}
       </div>
       <div className="p-4 -mt-8 relative">
@@ -40,7 +51,7 @@ export default function VendorCard({ store }) {
           {store.branding?.logo ? (
             <img src={store.branding.logo} alt="" className="w-full h-full object-cover" />
           ) : (
-            <span className="font-display text-xl font-bold">{initial}</span>
+            <CategoryIcon className="w-6 h-6" strokeWidth={1.75} />
           )}
         </div>
 
