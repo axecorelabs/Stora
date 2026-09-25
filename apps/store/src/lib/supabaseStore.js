@@ -195,7 +195,7 @@ function transformStoreFields(store) {
   };
 }
 
-function isWebsiteEnabled(website) {
+export function isWebsiteEnabled(website) {
   if (!website) return false;
   if (typeof website === 'string') {
     try {
@@ -247,17 +247,21 @@ function isFullStoreAccessAllowed(store, nowMs = Date.now()) {
 }
 
 // Server-side public-visibility gate shared by storefront reads.
-// Full stores: active + website enabled.
-// Listing stores: active + website enabled + paid subscription.
-function isPubliclyVisibleStore(store) {
+// Full stores: active + website enabled (subject to a full-store
+// subscription grace period, see isFullStoreAccessAllowed).
+// Listing stores: active + website enabled -- same base rule, no
+// subscription required to EXIST. A listing's subscription_status instead
+// gates specific premium features within the page itself (reviews,
+// gallery, WhatsApp contact, precise map/address -- see
+// ListingShowcase.js), not whether the listing is visible at all. This
+// lets an unclaimed (or freshly claimed, not-yet-subscribed) business
+// show up for free -- the whole point of the claim-your-business growth
+// loop -- while the paid tier stays a real upgrade.
+export function isPubliclyVisibleStore(store) {
   if (!store || store.is_active !== true) return false;
   if (!isWebsiteEnabled(store.website)) return false;
 
   const platformMode = store.platform_mode || 'store';
-  if (platformMode === 'listing') {
-    return store.subscription_status === 'active';
-  }
-
   if (platformMode === 'store') {
     return isFullStoreAccessAllowed(store);
   }
@@ -423,23 +427,23 @@ export async function findStoreByWebsitePath(websitePath) {
 }
 
 // Cross-vendor listing for the homepage's vendor showcase -- every other
-// store lookup in this file is scoped to one known store. Ordered by
-// total_orders/average_rating first (real differentiators once the
-// platform has volume), falling back to newest-first, since on a young
-// platform most stores are still tied at zero on both. Deliberately not
-// gated on business_verified_at (the "Verified by Stora" badge): none of
-// the real stores in production carry that flag yet, so requiring it here
-// would silently empty the whole section.
+// store lookup in this file is scoped to one known store. Delegates to the
+// same search_vendors RPC /vendors uses (p_sort:'featured', no filters)
+// instead of a second hand-rolled query, so this section and /vendors'
+// own default sort can never drift apart. That sort ranks a complete
+// profile + active subscription first (fn_store_ranking_boost -- see
+// 20260930000008_rank_complete_paid_listings_higher.sql), then
+// total_orders/average_rating, then newest-first -- without the boost,
+// the many freshly-seeded unclaimed listings (all tied at zero orders/
+// rating) would out-rank real, complete, paying businesses purely by
+// being newest. Deliberately not gated on business_verified_at (the
+// "Verified by Stora" badge): none of the real stores in production carry
+// that flag yet, so requiring it here would silently empty the section.
 export async function findFeaturedStores({ limit = 12 } = {}) {
-  const { data, error } = await supabaseAdmin
-    .from('stores')
-    .select('*')
-    .eq('is_active', true)
-    .eq('website->>isEnabled', 'true')
-    .order('total_orders', { ascending: false })
-    .order('average_rating', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  const { data, error } = await supabaseAdmin.rpc('search_vendors', {
+    p_sort: 'featured',
+    p_limit: limit
+  });
 
   if (error) {
     console.error('Error finding featured stores:', error);
@@ -447,6 +451,7 @@ export async function findFeaturedStores({ limit = 12 } = {}) {
   }
 
   return (data || [])
+    .map((row) => row.vendor)
     .filter(isPubliclyVisibleStore)
     .map(transformStoreFields);
 }

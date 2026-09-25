@@ -192,12 +192,17 @@ function ListingFooter({ store, addressText }) {
   );
 }
 
+// phone/email are the free tier (visible for any listing, claimed or not).
+// whatsapp/social is a premium feature -- only surfaced for an actively
+// subscribed listing. See isPubliclyVisibleStore() in supabaseStore.js for
+// why the page itself no longer requires a subscription to exist at all.
 function getContactChannels(store) {
   const info = store.onlineStoreInfo || {};
+  const isPremium = store.subscriptionStatus === 'active';
   return {
     phone: store.storePhone || info.phone || null,
     email: store.storeEmail || info.email || null,
-    whatsapp: info.whatsapp || info?.socialMedia?.whatsapp || null
+    whatsapp: isPremium ? (info.whatsapp || info?.socialMedia?.whatsapp || null) : null
   };
 }
 
@@ -302,12 +307,15 @@ function MapPreviewCard({ addressText }) {
   );
 }
 
-function ShowcaseMapSection({ fullAddress, stateLabel }) {
+// Precise address/map is a premium feature -- a free listing always shows
+// the generic state-only fallback, even when a real street address is on
+// file, until the business subscribes.
+function ShowcaseMapSection({ fullAddress, stateLabel, isPremium }) {
   return (
     <section className="pt-8 sm:pt-10">
       <h2 className="text-sm font-semibold text-gray-900 sm:text-base">Location</h2>
 
-      {fullAddress ? (
+      {isPremium && fullAddress ? (
         <>
           <div className="mt-3 flex items-center gap-3 text-gray-500">
             <MapPin className="h-4 w-4 shrink-0 stroke-brand-900 stroke-[2.6] sm:h-5 sm:w-5" />
@@ -410,7 +418,12 @@ export default async function ListingShowcase({ store }) {
   const gallery = await findGalleryByStoreId(store.id);
   const branding = store.branding || {};
   const address = store.address;
-  const fullAddress = address
+  const isPremium = store.subscriptionStatus === 'active';
+  // Precise address is premium -- gated HERE, once, rather than at each of
+  // the several places (TopMenu, ListingFooter, StickyMobileCta,
+  // ShowcaseMapSection) that render a "get directions" link from it, so a
+  // free listing can't leak its exact address through any of them.
+  const fullAddress = isPremium && address
     ? [address.street, address.city, address.state || store.state].filter(Boolean).join(', ')
     : null;
   const stateLabel = store.state || address?.state;
@@ -497,25 +510,36 @@ export default async function ListingShowcase({ store }) {
 
         <PriceListSection store={store} />
 
-        {gallery.length > 0 ? (
-          <ListingGallery items={gallery} />
+        {isPremium ? (
+          gallery.length > 0 ? (
+            <ListingGallery items={gallery} />
+          ) : (
+            <section className="pt-8 sm:pt-10">
+              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center sm:p-8">
+                <p className="text-sm font-semibold text-gray-700">No photos yet</p>
+                <p className="mt-1 text-xs text-gray-500">This business will add gallery photos soon.</p>
+              </div>
+            </section>
+          )
         ) : (
           <section className="pt-8 sm:pt-10">
             <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center sm:p-8">
-              <p className="text-sm font-semibold text-gray-700">No photos yet</p>
-              <p className="mt-1 text-xs text-gray-500">This business will add gallery photos soon.</p>
+              <p className="text-sm font-semibold text-gray-700">Gallery not available yet</p>
+              <p className="mt-1 text-xs text-gray-500">Photos are available once this business completes its Stora profile.</p>
             </div>
           </section>
         )}
 
-        <ShowcaseMapSection fullAddress={fullAddress} stateLabel={stateLabel} />
+        <ShowcaseMapSection fullAddress={fullAddress} stateLabel={stateLabel} isPremium={isPremium} />
 
-        <BusinessProfileReviews
-          storeId={store.id}
-          initialAverageRating={store.averageRating}
-          initialTotalReviews={store.totalReviews}
-          mobileFullBleed
-        />
+        {isPremium && (
+          <BusinessProfileReviews
+            storeId={store.id}
+            initialAverageRating={store.averageRating}
+            initialTotalReviews={store.totalReviews}
+            mobileFullBleed
+          />
+        )}
 
         <ListingFooter store={store} addressText={fullAddress} />
       </div>

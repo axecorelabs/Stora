@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase';
+import { isPubliclyVisibleStore } from '@/lib/supabaseStore';
 
 const SITE_URL = 'https://stora.com.ng';
 
@@ -15,19 +16,6 @@ const STATIC_ROUTES = [
   { path: '/refund-policy', changeFrequency: 'monthly', priority: 0.3 },
 ];
 
-function isWebsiteEnabled(website) {
-  if (!website) return false;
-  if (typeof website === 'string') {
-    try {
-      const parsed = JSON.parse(website);
-      return !!parsed?.isEnabled;
-    } catch {
-      return false;
-    }
-  }
-  return !!website?.isEnabled;
-}
-
 function resolveWebsitePath(store) {
   if (!store) return null;
   const website = store.website;
@@ -43,33 +31,6 @@ function resolveWebsitePath(store) {
     }
   }
   return store.store_slug || null;
-}
-
-function isPubliclyVisibleStore(store) {
-  if (!store || store.is_active !== true) return false;
-  if (!isWebsiteEnabled(store.website)) return false;
-  const platformMode = store.platform_mode || 'store';
-  if (platformMode === 'listing') {
-    return store.subscription_status === 'active';
-  }
-  if (platformMode === 'store') {
-    const enforcementStartRaw = process.env.FULL_STORE_SUBSCRIPTION_ENFORCEMENT_START || '2026-09-30T00:00:00Z';
-    const enforcementStartMs = new Date(enforcementStartRaw).getTime();
-    if (Number.isFinite(enforcementStartMs) && Date.now() < enforcementStartMs) {
-      return true;
-    }
-
-    const status = store.full_store_subscription_status || 'none';
-    if (status === 'active' || status === 'none') return true;
-    if (status === 'past_due') {
-      const graceEndsAt = store.full_store_subscription_grace_ends_at;
-      if (!graceEndsAt) return true;
-      const graceExpiryMs = new Date(graceEndsAt).getTime();
-      return Number.isFinite(graceExpiryMs) && graceExpiryMs > Date.now();
-    }
-    return false;
-  }
-  return true;
 }
 
 async function getStoreUrls() {

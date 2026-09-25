@@ -11,7 +11,7 @@ export async function GET(request) {
 
   const { data: campaigns, error } = await supabaseAdmin
     .from("campaigns")
-    .select("id, title, config, banner_url, created_at, campaign_stores(store_id, stores(is_partner, is_active))")
+    .select("id, title, config, banner_url, created_at, campaign_stores(store_id, stores(is_partner, is_active, platform_mode))")
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -22,7 +22,7 @@ export async function GET(request) {
   }
 
   const active = (campaigns || [])
-    .filter((c) => (c.campaign_stores || []).some((cs) => cs.stores?.is_partner && cs.stores?.is_active))
+    .filter((c) => (c.campaign_stores || []).some((cs) => cs.stores?.is_partner && cs.stores?.is_active && cs.stores?.platform_mode !== 'listing'))
     .map((c) => ({
       id: c.id,
       title: c.title,

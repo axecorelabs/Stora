@@ -115,11 +115,22 @@ export default async function StorePage({ params }) {
     description: store.storeDescription || `Discover ${store.storeName} on Stora.`,
     telephone: store.storePhone || undefined,
     email: store.storeEmail || undefined,
-    address: store.address
+    // store.address is the {street, city, state, ...} object a vendor
+    // fills in -- was previously assigned whole into streetAddress
+    // (schema.org expects Text there), and an empty {} (no street/city
+    // ever filled in -- common for an unclaimed listing seeded with only
+    // a name/category/state) is truthy in JS, so the old `store.address
+    // ? {...}` guard emitted an empty/malformed address block for those.
+    // Precise street address is a premium listing feature (see
+    // ListingShowcase.js's own fullAddress gate) -- state/locality alone
+    // is free. Full stores (platformMode !== 'listing') are unrestricted.
+    address: (store.address?.street || store.state)
       ? {
           '@type': 'PostalAddress',
           addressLocality: store.state || undefined,
-          streetAddress: store.address,
+          streetAddress: (store.platformMode !== 'listing' || store.subscriptionStatus === 'active')
+            ? (store.address?.street || undefined)
+            : undefined,
           addressCountry: 'NG',
         }
       : undefined,
@@ -136,11 +147,14 @@ export default async function StorePage({ params }) {
       : undefined,
   };
 
-  // Listing-mode stores: active subscription required to be publicly visible.
+  // Listing-mode stores: same base visibility rule as full stores
+  // (is_active + website.isEnabled, already enforced upstream by
+  // findStoreBySlug/isPubliclyVisibleStore) -- an active subscription
+  // gates specific premium features inside ListingShowcase itself
+  // (reviews, gallery, WhatsApp contact, precise map), not whether the
+  // page exists at all. Lets an unclaimed or freshly-claimed business
+  // show up for free.
   if (store.platformMode === 'listing') {
-    if (store.subscriptionStatus !== 'active') {
-      notFound();
-    }
     return (
       <>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(storeSchema) }} />

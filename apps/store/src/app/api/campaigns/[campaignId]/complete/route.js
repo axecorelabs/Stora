@@ -37,7 +37,7 @@ export async function POST(request, { params }) {
   const memberStoreIds = (memberRows || []).map((r) => r.store_id);
 
   const { data: stores } = memberStoreIds.length
-    ? await supabaseAdmin.from("stores").select("id, store_name, store_slug, is_partner, is_active").in("id", memberStoreIds)
+    ? await supabaseAdmin.from("stores").select("id, store_name, store_slug, is_partner, is_active, platform_mode").in("id", memberStoreIds)
     : { data: [] };
 
   // Defensive re-check -- a campaign left 'active' after every one of its
@@ -45,7 +45,9 @@ export async function POST(request, { params }) {
   // attributions, even though computePaymentSplit would also
   // independently reject the rate at checkout time. Catching it here
   // means the customer isn't sent through a whole quiz for nothing.
-  const eligibleStores = (stores || []).filter((s) => s.is_partner && s.is_active);
+  // platform_mode='listing' excluded: a showcase-only store has no
+  // purchasable inventory and can't fulfill a campaign-driven order.
+  const eligibleStores = (stores || []).filter((s) => s.is_partner && s.is_active && s.platform_mode !== 'listing');
   if (eligibleStores.length === 0) {
     return NextResponse.json({ success: false, message: "This campaign is no longer available" }, { status: 404 });
   }
