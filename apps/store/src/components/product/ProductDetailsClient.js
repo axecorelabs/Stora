@@ -1158,7 +1158,7 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
                       onClick={() => setCurrentImageIndex(idx)}
                       className={`relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border-2 border-gray-200 transition-all ${
                         currentImageIndex === idx
-                          ? 'scale-105 shadow-lg'
+                          ? 'scale-105'
                           : 'hover:border-gray-400'
                       }`}
                     >
