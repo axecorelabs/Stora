@@ -168,6 +168,8 @@ export default function AIHeroSearch() {
         </div>
       </div>
 
+      {/* "Just browsing" / "Looking for a business?" pills -- commented out
+          for now, not deleted. Re-enable by uncommenting.
       <div className="flex items-center justify-center gap-4 mb-10">
         <PrefetchLink
           href="/products"
@@ -186,6 +188,7 @@ export default function AIHeroSearch() {
           <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
         </PrefetchLink>
       </div>
+      */}
     </div>
   );
 }
