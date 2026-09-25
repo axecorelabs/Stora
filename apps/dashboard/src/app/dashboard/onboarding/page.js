@@ -13,6 +13,7 @@ import FindBusinessStep from "@/components/dashboard/FindBusinessStep";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import VerificationForm from "@/components/dashboard/VerificationForm";
 import TelegramForm from "@/components/dashboard/TelegramForm";
+import ListingPlanPicker from "@/components/dashboard/ListingPlanPicker";
 import Button from "@/components/ui/Button";
 
 const GOOGLE_FALLBACK_NAMES = new Set(['Google', 'User']);
@@ -66,6 +67,8 @@ export default function OnboardingPage() {
   const [websiteError, setWebsiteError] = useState(null);
   const [subscriptionError, setSubscriptionError] = useState('');
   const [isStartingSubscription, setIsStartingSubscription] = useState(false);
+  const [listingPlans, setListingPlans] = useState(null);
+  const [selectedCycle, setSelectedCycle] = useState('monthly');
   const [preferredIntent, setPreferredIntent] = useState(null);
   // Only set when preferredIntent === 'claim' -- the store being claimed,
   // carried across the signup/verification redirect the same way `intent`
@@ -140,6 +143,22 @@ export default function OnboardingPage() {
       router.push('/dashboard/overview');
     }
   }, [loading, step, user, router]);
+
+  // Fetched once the vendor actually reaches this step -- listingPlans
+  // carries per-cycle pricing/savings from one server-computed source
+  // (GET /api/subscription) rather than hardcoding percentages here.
+  useEffect(() => {
+    if (step !== 'subscribe' || listingPlans) return;
+    (async () => {
+      try {
+        const response = await secureApiCall('/api/subscription');
+        if (response?.success) setListingPlans(response.data.listingPlans);
+      } catch {
+        // Silent -- the step still works with just the monthly price
+        // hardcoded below if this fetch fails.
+      }
+    })();
+  }, [step, listingPlans, secureApiCall]);
 
   if (loading || !isAuthenticated || !user || (step === 'name' && user.onboardingCompletedAt)) {
     return null;
@@ -236,7 +255,10 @@ export default function OnboardingPage() {
     setSubscriptionError('');
     setIsStartingSubscription(true);
     try {
-      const response = await secureApiCall('/api/subscription', { method: 'POST' });
+      const response = await secureApiCall('/api/subscription', {
+        method: 'POST',
+        body: JSON.stringify({ cycle: selectedCycle })
+      });
       if (response?.authorizationUrl) {
         window.location.href = response.authorizationUrl;
         return;
@@ -515,11 +537,15 @@ export default function OnboardingPage() {
               <LayoutList className="w-7 h-7 text-brand-800" />
             </div>
             <h1 className="text-lg font-semibold text-gray-900 mb-1.5">Activate your listing</h1>
-            <p className="text-sm text-gray-500 mb-2">
-              Your showcase page is ready. Subscribe to make it live.
+            <p className="text-sm text-gray-500 mb-5">
+              Your showcase page is ready. Here&apos;s what subscribing actually unlocks:
             </p>
-            <p className="text-2xl font-bold text-gray-900 mb-1">₦500<span className="text-sm font-normal text-gray-500">/month</span></p>
-            <p className="text-xs text-gray-500 mb-6">Cancel anytime from your dashboard.</p>
+            {listingPlans ? (
+              <ListingPlanPicker listingPlans={listingPlans} selectedCycle={selectedCycle} onSelectCycle={setSelectedCycle} />
+            ) : (
+              <p className="text-2xl font-bold text-gray-900 mb-1">₦500<span className="text-sm font-normal text-gray-500">/month</span></p>
+            )}
+            <p className="text-xs text-gray-500 mt-4 mb-6">Cancel anytime from your dashboard.</p>
             {subscriptionError && (
               <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 flex items-start gap-2 text-left">
                 <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />

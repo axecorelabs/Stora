@@ -48,6 +48,7 @@ export async function upsertListingSubscription({
   currentPeriodEnd = null,
   nextPaymentDate = null,
   cancelledAt = null,
+  billingCycle = null,
   metadata = null
 }) {
   const payload = {
@@ -62,6 +63,7 @@ export async function upsertListingSubscription({
     current_period_end: currentPeriodEnd,
     next_payment_date: nextPaymentDate,
     cancelled_at: cancelledAt,
+    billing_cycle: billingCycle,
     metadata,
     updated_at: new Date().toISOString()
   };
@@ -84,6 +86,7 @@ export async function upsertSubscriptionTransaction({
   providerCustomerCode = null,
   providerPlanCode = null,
   paidAt = null,
+  billingCycle = null,
   verificationPayload = null
 }) {
   if (!reference) return;
@@ -101,6 +104,7 @@ export async function upsertSubscriptionTransaction({
     currency,
     status,
     paid_at: paidAt,
+    billing_cycle: billingCycle,
     authorization_url: authorizationUrl,
     verification_payload: verificationPayload,
     updated_at: new Date().toISOString()
@@ -147,6 +151,7 @@ export async function applyListingActiveState({
   customerCode = null,
   planCode = null,
   paidAt = null,
+  billingCycle = null,
   raw = null
 }) {
   await supabaseAdmin
@@ -154,7 +159,8 @@ export async function applyListingActiveState({
     .update({
       subscription_status: 'active',
       subscription_paystack_code: subscriptionCode,
-      subscription_next_payment_date: nextPaymentDate
+      subscription_next_payment_date: nextPaymentDate,
+      subscription_billing_cycle: billingCycle
     })
     .eq('id', storeId)
     .eq('platform_mode', 'listing');
@@ -167,6 +173,7 @@ export async function applyListingActiveState({
     providerSubscriptionCode: subscriptionCode,
     providerPlanCode: planCode,
     nextPaymentDate,
+    billingCycle,
     metadata: raw
   });
 
@@ -185,6 +192,7 @@ export async function applyListingActiveState({
       providerCustomerCode: customerCode,
       providerPlanCode: planCode,
       paidAt,
+      billingCycle,
       verificationPayload: raw
     });
   }
@@ -200,7 +208,7 @@ export async function applyListingInactiveState({
 }) {
   await supabaseAdmin
     .from('stores')
-    .update({ subscription_status: status })
+    .update({ subscription_status: status, subscription_billing_cycle: null })
     .eq('id', storeId)
     .eq('platform_mode', 'listing');
 

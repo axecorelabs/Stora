@@ -14,6 +14,7 @@ import {
   resolveFullStoreByOwner,
   upsertFullStoreSubscriptionTransaction
 } from '@/lib/fullStoreSubscription';
+import { resolveListingCycleFromPlanCode, addBillingCycle } from '@/lib/listingSubscriptionPlans';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
@@ -80,8 +81,11 @@ export async function POST(req) {
     const tx = await paystackRequest(`/transaction/verify/${encodeURIComponent(reference)}`);
     const paid = tx?.status === 'success';
     const planCode = tx?.plan_object?.plan_code || tx?.plan?.plan_code || null;
+    // Listing now has 3 valid plan codes (one per cycle) instead of 1 --
+    // this resolves both "is it a listing plan" and which cycle at once.
+    const listingCycle = resolveListingCycleFromPlanCode(planCode);
     const expectedPlanCode = isListing
-      ? process.env.PAYSTACK_LISTING_PLAN_CODE
+      ? null // checked via listingCycle below instead of a single flat code
       : process.env.PAYSTACK_FULL_STORE_PLAN_CODE;
     const purpose = tx?.metadata?.purpose;
     const metadataStoreId = tx?.metadata?.store_id;
@@ -112,7 +116,9 @@ export async function POST(req) {
     }
 
     const expectedPurpose = isListing ? 'listing_subscription' : 'full_store_subscription';
-    const planMatches = expectedPlanCode ? planCode === expectedPlanCode : purpose === expectedPurpose;
+    const planMatches = isListing
+      ? (listingCycle ? true : purpose === expectedPurpose)
+      : (expectedPlanCode ? planCode === expectedPlanCode : purpose === expectedPurpose);
     if (!planMatches) {
       return NextResponse.json({ success: false, message: 'Payment does not match store subscription plan' }, { status: 409 });
     }
@@ -121,8 +127,9 @@ export async function POST(req) {
       return NextResponse.json({ success: false, message: 'Payment reference does not belong to this store' }, { status: 403 });
     }
 
+    const resolvedListingCycle = listingCycle || tx?.metadata?.billing_cycle || 'monthly';
     const nextPaymentDate = tx?.paid_at
-      ? new Date(new Date(tx.paid_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      ? (isListing ? addBillingCycle(new Date(tx.paid_at), resolvedListingCycle) : new Date(new Date(tx.paid_at).getTime() + 30 * 24 * 60 * 60 * 1000)).toISOString()
       : null;
 
     const activePayload = {
@@ -137,7 +144,7 @@ export async function POST(req) {
     };
 
     if (isListing) {
-      await applyListingActiveState(activePayload);
+      await applyListingActiveState({ ...activePayload, billingCycle: resolvedListingCycle });
     } else {
       await applyFullStoreActiveState(activePayload);
     }

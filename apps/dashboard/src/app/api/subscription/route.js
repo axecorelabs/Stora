@@ -8,14 +8,11 @@ import {
   resolveFullStoreByOwner,
   upsertFullStoreSubscriptionTransaction
 } from '@/lib/fullStoreSubscription';
+import { LISTING_PLAN_CONFIG, isValidListingCycle, listingCycleSavingsPercent } from '@/lib/listingSubscriptionPlans';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
-// Plan code for the ₦500/month listing subscription -- create this once in
-// the Paystack dashboard and store the resulting plan_code here.
-const LISTING_PLAN_CODE = process.env.PAYSTACK_LISTING_PLAN_CODE;
 const FULL_STORE_PLAN_CODE = process.env.PAYSTACK_FULL_STORE_PLAN_CODE;
 const FULL_STORE_DEFAULT_AMOUNT_KOBO = Number(process.env.PAYSTACK_FULL_STORE_AMOUNT_KOBO || 0) || null;
-const LISTING_DEFAULT_AMOUNT_KOBO = 50000;
 
 async function paystackRequest(path, { method = 'GET', body } = {}) {
   const res = await fetch(`${PAYSTACK_BASE_URL}${path}`, {
@@ -62,20 +59,25 @@ export async function POST(req) {
         return NextResponse.json({ success: false, message: 'Already subscribed' }, { status: 409 });
       }
 
-      if (!LISTING_PLAN_CODE) {
-        return NextResponse.json({ success: false, message: 'Listing subscription plan not configured -- contact support' }, { status: 503 });
+      const body = await req.json().catch(() => ({}));
+      const cycle = isValidListingCycle(body.cycle) ? body.cycle : 'monthly';
+      const plan = LISTING_PLAN_CONFIG[cycle];
+
+      if (!plan.planCode || !plan.amountKobo) {
+        return NextResponse.json({ success: false, message: 'This billing option is not available yet -- contact support' }, { status: 503 });
       }
 
       const result = await paystackRequest('/transaction/initialize', {
         method: 'POST',
         body: {
           email: user.email,
-          amount: 50000, // ₦500 in kobo -- Paystack creates the subscription on success
-          plan: LISTING_PLAN_CODE,
+          amount: plan.amountKobo,
+          plan: plan.planCode,
           metadata: {
             store_id: store.id,
             user_id: user.id,
-            purpose: 'listing_subscription'
+            purpose: 'listing_subscription',
+            billing_cycle: cycle
           },
           callback_url: `${appUrl}/dashboard/subscription?status=success`
         }
@@ -86,16 +88,18 @@ export async function POST(req) {
         ownerId: user.id,
         reference: result.reference,
         status: 'initialized',
-        amountKobo: 50000,
+        amountKobo: plan.amountKobo,
         currency: 'NGN',
         authorizationUrl: result.authorization_url,
-        providerPlanCode: LISTING_PLAN_CODE
+        providerPlanCode: plan.planCode,
+        billingCycle: cycle
       });
 
       await captureServerEvent(user.id, 'subscription_initialize', {
         subscriptionMode: 'listing',
         storeId: store.id,
-        planCode: LISTING_PLAN_CODE,
+        planCode: plan.planCode,
+        billingCycle: cycle,
         reference: result.reference || null
       });
 
@@ -169,7 +173,7 @@ export async function GET(req) {
 
     const { data: store } = await supabaseAdmin
       .from('stores')
-      .select('id, platform_mode, subscription_status, subscription_paystack_code, subscription_next_payment_date, full_store_subscription_status, full_store_subscription_paystack_code, full_store_subscription_next_payment_date, full_store_subscription_grace_ends_at, full_store_subscription_locked_at')
+      .select('id, platform_mode, subscription_status, subscription_paystack_code, subscription_next_payment_date, subscription_billing_cycle, full_store_subscription_status, full_store_subscription_paystack_code, full_store_subscription_next_payment_date, full_store_subscription_grace_ends_at, full_store_subscription_locked_at')
       .eq('owner_id', user.id)
       .single();
 
@@ -183,6 +187,20 @@ export async function GET(req) {
     const currentStatus = isListing ? store.subscription_status : store.full_store_subscription_status;
     const currentPaystackCode = isListing ? store.subscription_paystack_code : store.full_store_subscription_paystack_code;
     const currentNextPaymentDate = isListing ? store.subscription_next_payment_date : store.full_store_subscription_next_payment_date;
+    // A listing subscriber can be on any of 3 cycles -- report what they're
+    // actually billed, not always the monthly figure.
+    const activeListingCycle = store.subscription_billing_cycle || 'monthly';
+    const currentListingAmountKobo = LISTING_PLAN_CONFIG[activeListingCycle]?.amountKobo || LISTING_PLAN_CONFIG.monthly.amountKobo;
+
+    // One server-computed source for pricing/savings -- both the onboarding
+    // wizard's subscribe step and /dashboard/subscription render their cycle
+    // picker from this instead of hardcoding percentages in two places.
+    const listingPlans = Object.fromEntries(
+      Object.entries(LISTING_PLAN_CONFIG).map(([cycle, plan]) => [
+        cycle,
+        { amountKobo: plan.amountKobo, label: plan.label, savingsPercent: listingCycleSavingsPercent(cycle), available: !!(plan.planCode && plan.amountKobo) }
+      ])
+    );
 
     return NextResponse.json({
       success: true,
@@ -191,10 +209,12 @@ export async function GET(req) {
         subscriptionStatus: currentStatus,
         subscriptionPaystackCode: currentPaystackCode,
         subscriptionNextPaymentDate: currentNextPaymentDate,
-        subscriptionAmountKobo: isListing ? LISTING_DEFAULT_AMOUNT_KOBO : FULL_STORE_DEFAULT_AMOUNT_KOBO,
+        subscriptionAmountKobo: isListing ? currentListingAmountKobo : FULL_STORE_DEFAULT_AMOUNT_KOBO,
+        billingCycle: isListing ? store.subscription_billing_cycle : null,
+        listingPlans,
         listingSubscriptionStatus: store.subscription_status,
         listingSubscriptionNextPaymentDate: store.subscription_next_payment_date,
-        listingSubscriptionAmountKobo: LISTING_DEFAULT_AMOUNT_KOBO,
+        listingSubscriptionAmountKobo: currentListingAmountKobo,
         fullStoreSubscriptionStatus: store.full_store_subscription_status,
         fullStoreSubscriptionNextPaymentDate: store.full_store_subscription_next_payment_date,
         fullStoreSubscriptionAmountKobo: FULL_STORE_DEFAULT_AMOUNT_KOBO,

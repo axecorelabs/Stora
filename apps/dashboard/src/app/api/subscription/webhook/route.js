@@ -19,6 +19,7 @@ import {
   resolveFullStoreByCustomerEmail,
   upsertFullStoreSubscriptionTransaction
 } from '@/lib/fullStoreSubscription';
+import { resolveListingCycleFromPlanCode, addBillingCycle } from '@/lib/listingSubscriptionPlans';
 
 // Paystack sends this header; we verify it with HMAC-SHA512 of the raw body
 // using our secret key -- same pattern as store app's order webhook.
@@ -75,10 +76,12 @@ export async function POST(req) {
     const subscriptionCode = data?.subscription_code || data?.subscription?.subscription_code || null;
     const planCode = data?.plan?.plan_code || data?.plan_object?.plan_code
       || data?.subscription?.plan?.plan_code || data?.subscription?.plan_object?.plan_code || null;
-    const listingPlanCode = process.env.PAYSTACK_LISTING_PLAN_CODE;
     const fullStorePlanCode = process.env.PAYSTACK_FULL_STORE_PLAN_CODE;
+    // A match here tells us both "this is a listing payment" (any cycle)
+    // and which cycle -- replaces the old flat === check against one code.
+    const listingCycle = resolveListingCycleFromPlanCode(planCode);
 
-    if (listingPlanCode && planCode === listingPlanCode) subscriptionKind = 'listing';
+    if (listingCycle) subscriptionKind = 'listing';
     if (fullStorePlanCode && planCode === fullStorePlanCode) subscriptionKind = 'full_store';
     if (!subscriptionKind && data?.metadata?.purpose === 'listing_subscription') subscriptionKind = 'listing';
     if (!subscriptionKind && data?.metadata?.purpose === 'full_store_subscription') subscriptionKind = 'full_store';
@@ -195,13 +198,13 @@ export async function POST(req) {
       if (subscriptionKind === 'full_store') {
         await applyFullStoreActiveState(activePayload);
       } else {
-        await applyListingActiveState(activePayload);
+        await applyListingActiveState({ ...activePayload, billingCycle: listingCycle });
       }
     }
 
     // charge.success: captures successful one-off and recurring subscription charges.
     if (eventType === 'charge.success') {
-      const isListingPlan = listingPlanCode ? planCode === listingPlanCode : data?.metadata?.purpose === 'listing_subscription';
+      const isListingPlan = listingCycle ? true : data?.metadata?.purpose === 'listing_subscription';
       const isFullStorePlan = fullStorePlanCode ? planCode === fullStorePlanCode : data?.metadata?.purpose === 'full_store_subscription';
 
       if (!subscriptionKind) {
@@ -222,6 +225,7 @@ export async function POST(req) {
           providerCustomerCode: data?.customer?.customer_code || null,
           providerPlanCode: planCode,
           paidAt: data?.paid_at || null,
+          billingCycle: listingCycle,
           verificationPayload: data
         };
 
@@ -233,8 +237,9 @@ export async function POST(req) {
       }
 
       if (isListingPlan && storeContext) {
+        const resolvedCycle = listingCycle || 'monthly';
         const nextPaymentDate = data?.paid_at
-          ? new Date(new Date(data.paid_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+          ? addBillingCycle(new Date(data.paid_at), resolvedCycle).toISOString()
           : null;
 
         await applyListingActiveState({
@@ -245,6 +250,7 @@ export async function POST(req) {
           customerCode: data?.customer?.customer_code || null,
           planCode,
           paidAt: data?.paid_at || null,
+          billingCycle: resolvedCycle,
           raw: data
         });
 

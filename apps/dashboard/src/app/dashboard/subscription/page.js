@@ -5,7 +5,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Button from "@/components/ui/Button";
+import ListingPlanPicker from "@/components/dashboard/ListingPlanPicker";
 import { CheckCircle2, AlertCircle, Clock, ArrowUpRight, Loader2 } from "lucide-react";
+
+const CYCLE_UNIT_LABEL = { monthly: '/month', '6month': '/6 months', annual: '/year' };
 
 function formatGraceDate(iso) {
   return new Date(iso).toLocaleDateString('en-NG', {
@@ -95,6 +98,7 @@ export default function SubscriptionPage() {
   const [hasTriggeredConfirm, setHasTriggeredConfirm] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [confirmDowngrade, setConfirmDowngrade] = useState(false);
+  const [selectedCycle, setSelectedCycle] = useState('monthly');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -123,7 +127,10 @@ export default function SubscriptionPage() {
   }, [sub?.subscriptionStatus]);
 
   const subscribeMutation = useMutation({
-    mutationFn: () => secureApiCall('/api/subscription', { method: 'POST' }),
+    mutationFn: () => secureApiCall('/api/subscription', {
+      method: 'POST',
+      body: JSON.stringify({ cycle: selectedCycle })
+    }),
     onSuccess: (data) => {
       if (data?.authorizationUrl) {
         window.location.href = data.authorizationUrl;
@@ -192,8 +199,11 @@ export default function SubscriptionPage() {
   const isListing = sub?.platformMode === 'listing';
   const amountKobo = Number.isFinite(sub?.subscriptionAmountKobo) ? sub.subscriptionAmountKobo : null;
   const amountLabel = amountKobo ? `₦${(amountKobo / 100).toLocaleString()}` : 'Plan rate';
+  const cycleUnitLabel = isListing ? (CYCLE_UNIT_LABEL[sub?.billingCycle] || '/month') : '/month';
   const planName = isListing ? 'Business Listing' : 'Full Store';
   const awaitingConfirmation = Boolean(justPaid && isListing && !isActive);
+  const selectedPlan = sub?.listingPlans?.[selectedCycle];
+  const selectedPlanLabel = selectedPlan ? `₦${(selectedPlan.amountKobo / 100).toLocaleString()}${CYCLE_UNIT_LABEL[selectedCycle]}` : `${amountLabel}/month`;
 
   return (
     <DashboardLayout title="Subscription" subtitle={isListing ? 'Manage your listing subscription' : 'Manage your full-store subscription'}>
@@ -218,10 +228,12 @@ export default function SubscriptionPage() {
                   : 'Products, checkout, and full commerce tools'}
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-xl font-bold text-gray-900">{amountLabel}</p>
-              <p className="text-xs text-gray-500">/ month</p>
-            </div>
+            {!(isListing && !isActive) && (
+              <div className="text-right">
+                <p className="text-xl font-bold text-gray-900">{amountLabel}</p>
+                <p className="text-xs text-gray-500">{cycleUnitLabel.replace('/', '/ ')}</p>
+              </div>
+            )}
           </div>
 
           {sub?.subscriptionNextPaymentDate && isActive && (
@@ -232,26 +244,30 @@ export default function SubscriptionPage() {
             </p>
           )}
 
-          <ul className="text-sm text-gray-600 space-y-1.5">
-            {(isListing
-              ? [
-                  'Public showcase page at your subdomain',
-                  'Gallery of up to 10 images',
-                  'Contact button (phone, WhatsApp, email)',
-                  'Listed in Stora browse and search'
-                ]
-              : [
-                  'Sell products with full storefront',
-                  'Accept and manage customer orders',
-                  'Delivery fee and inventory tools',
-                  'Commerce analytics in dashboard'
-                ]).map(f => (
-              <li key={f} className="flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                {f}
-              </li>
-            ))}
-          </ul>
+          {isListing && !isActive && !awaitingConfirmation ? (
+            <ListingPlanPicker listingPlans={sub?.listingPlans} selectedCycle={selectedCycle} onSelectCycle={setSelectedCycle} />
+          ) : (
+            <ul className="text-sm text-gray-600 space-y-1.5">
+              {(isListing
+                ? [
+                    'Public showcase page at your subdomain',
+                    'Gallery of up to 10 images',
+                    'Contact button (phone, WhatsApp, email)',
+                    'Listed in Stora browse and search'
+                  ]
+                : [
+                    'Sell products with full storefront',
+                    'Accept and manage customer orders',
+                    'Delivery fee and inventory tools',
+                    'Commerce analytics in dashboard'
+                  ]).map(f => (
+                <li key={f} className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          )}
 
           {!isActive && !awaitingConfirmation && (
             <Button
@@ -261,7 +277,7 @@ export default function SubscriptionPage() {
               className="w-full flex items-center justify-center gap-2"
             >
               {subscribeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {subscribeMutation.isPending ? 'Redirecting…' : `Subscribe — ${amountLabel}/month`}
+              {subscribeMutation.isPending ? 'Redirecting…' : `Subscribe — ${isListing ? selectedPlanLabel : `${amountLabel}/month`}`}
             </Button>
           )}
 
