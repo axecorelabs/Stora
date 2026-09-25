@@ -8,6 +8,8 @@ import { useWebsiteData } from "@/hooks/useWebsiteData";
 import { useVerificationEnabled } from "@/hooks/useVerificationEnabled";
 import { useTelegramEnabled } from "@/hooks/useTelegramEnabled";
 import CreateBusinessModal from "@/components/dashboard/CreateBusinessModal";
+import ClaimBusinessStep from "@/components/dashboard/ClaimBusinessStep";
+import FindBusinessStep from "@/components/dashboard/FindBusinessStep";
 import StoreBrandingModal from "@/components/dashboard/StoreBrandingModal";
 import VerificationForm from "@/components/dashboard/VerificationForm";
 import TelegramForm from "@/components/dashboard/TelegramForm";
@@ -15,6 +17,7 @@ import Button from "@/components/ui/Button";
 
 const GOOGLE_FALLBACK_NAMES = new Set(['Google', 'User']);
 const ONBOARDING_INTENT_KEY = 'stora-onboarding-intent';
+const ONBOARDING_CLAIM_STORE_ID_KEY = 'stora-onboarding-claim-store-id';
 
 // Own minimal shell, not wrapped in DashboardLayout -- both because this
 // is a distinct first-run experience (no sidebar/nav clutter) and to
@@ -64,15 +67,28 @@ export default function OnboardingPage() {
   const [subscriptionError, setSubscriptionError] = useState('');
   const [isStartingSubscription, setIsStartingSubscription] = useState(false);
   const [preferredIntent, setPreferredIntent] = useState(null);
+  // Only set when preferredIntent === 'claim' -- the store being claimed,
+  // carried across the signup/verification redirect the same way `intent`
+  // itself is (see apps/dashboard/src/app/page.js's bridge).
+  const [claimStoreId, setClaimStoreId] = useState(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const fromQuery = new URLSearchParams(window.location.search).get('intent');
+    const query = new URLSearchParams(window.location.search);
+    const fromQuery = query.get('intent');
     if (fromQuery === 'store' || fromQuery === 'listing') {
       setPreferredIntent(fromQuery);
       setPlatformIntent(fromQuery);
       return;
+    }
+    if (fromQuery === 'claim') {
+      const storeId = query.get('storeId');
+      if (storeId) {
+        setPreferredIntent('claim');
+        setClaimStoreId(storeId);
+        return;
+      }
     }
 
     const fromStorage = localStorage.getItem(ONBOARDING_INTENT_KEY);
@@ -81,6 +97,14 @@ export default function OnboardingPage() {
       localStorage.removeItem(ONBOARDING_INTENT_KEY);
       setPreferredIntent(fromStorage);
       setPlatformIntent(fromStorage);
+    } else if (fromStorage === 'claim') {
+      const storeId = localStorage.getItem(ONBOARDING_CLAIM_STORE_ID_KEY);
+      if (storeId) {
+        localStorage.removeItem(ONBOARDING_INTENT_KEY);
+        localStorage.removeItem(ONBOARDING_CLAIM_STORE_ID_KEY);
+        setPreferredIntent('claim');
+        setClaimStoreId(storeId);
+      }
     }
   }, []);
 
@@ -136,7 +160,7 @@ export default function OnboardingPage() {
       });
       if (response?.success) {
         await checkAuth();
-        setStep(preferredIntent ? 'business' : 'intent');
+        setStep(preferredIntent === 'claim' ? 'claim' : preferredIntent ? 'business' : 'intent');
       } else {
         setNameError(response?.message || 'Could not save -- try again');
       }
@@ -162,6 +186,18 @@ export default function OnboardingPage() {
     // page's own useWebsiteData call, and possibly other dashboard pages
     // visited earlier in the session) must not be left for Overview to
     // read once this wizard finishes.
+    queryClient.invalidateQueries({ queryKey: ['store'] });
+    setStep('branding');
+  };
+
+  // Same shape/purpose as handleStoreCreated above, for the claim track --
+  // the difference is platformIntent comes from the CLAIMED store's own
+  // platform_mode (already decided by whoever originally listed it),
+  // not a choice this visitor makes, since there's no 'intent' step here.
+  const handleClaimed = async (store) => {
+    setCreatedStore(store);
+    setPlatformIntent(store.platformMode === 'store' ? 'store' : 'listing');
+    await checkAuth();
     queryClient.invalidateQueries({ queryKey: ['store'] });
     setStep('branding');
   };
@@ -220,14 +256,15 @@ export default function OnboardingPage() {
   // are on (see useVerificationEnabled/useTelegramEnabled above), so the
   // "planned" list has to account for that or the count would be wrong for
   // however many vendors don't see those steps.
+  const businessStepName = preferredIntent === 'claim' ? 'claim' : 'business';
   const storeTrackSteps = [
-    'name', 'intent', 'business', 'branding',
+    'name', 'intent', 'find-business', businessStepName, 'branding',
     ...(verificationEnabled === true ? ['verification'] : []),
     'website',
     ...(telegramEnabled === true ? ['telegram'] : []),
     'done'
   ];
-  const listingTrackSteps = ['name', 'intent', 'business', 'branding', 'subscribe', 'done'];
+  const listingTrackSteps = ['name', 'intent', 'find-business', businessStepName, 'branding', 'subscribe', 'done'];
   const activeTrackSteps = platformIntent === 'listing' ? listingTrackSteps : storeTrackSteps;
   const stepIndex = activeTrackSteps.indexOf(step);
   const showProgress = step !== 'done' && stepIndex > -1;
@@ -301,7 +338,7 @@ export default function OnboardingPage() {
             </p>
             <div className="space-y-3">
               <button
-                onClick={() => { setPlatformIntent('listing'); setStep('business'); }}
+                onClick={() => { setPlatformIntent('listing'); setStep('find-business'); }}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-brand-800 hover:bg-brand-50 transition-colors group"
               >
                 <div className="flex items-start gap-3">
@@ -315,7 +352,7 @@ export default function OnboardingPage() {
                 </div>
               </button>
               <button
-                onClick={() => { setPlatformIntent('store'); setStep('business'); }}
+                onClick={() => { setPlatformIntent('store'); setStep('find-business'); }}
                 className="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-brand-800 hover:bg-brand-50 transition-colors group"
               >
                 <div className="flex items-start gap-3">
@@ -332,13 +369,26 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {step === 'find-business' && (
+          <FindBusinessStep
+            onFound={(storeId) => { setClaimStoreId(storeId); setPreferredIntent('claim'); setStep('claim'); }}
+            onSkip={() => setStep('business')}
+            onBack={() => setStep('intent')}
+          />
+        )}
+
         {step === 'business' && (
           <div>
             {/* Safe to always offer here -- nothing has been created yet,
                 unlike the steps after 'branding' where the store already
-                exists and a plain step-back can't undo that. */}
+                exists and a plain step-back can't undo that. 'find-business'
+                is always the step immediately before this one in the
+                organic flow now, so a plain "Back" returns there; only a
+                pre-set preferredIntent (external ?intent=store|listing
+                link, which skips both 'intent' and 'find-business'
+                entirely) still resets all the way via handleChangeSetupType. */}
             <button
-              onClick={handleChangeSetupType}
+              onClick={preferredIntent ? handleChangeSetupType : () => setStep('find-business')}
               className="mb-4 flex items-center gap-1.5 text-sm font-medium text-brand-800 hover:text-brand-700"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -346,6 +396,10 @@ export default function OnboardingPage() {
             </button>
             <CreateBusinessModal isOpen={true} onStoreCreated={handleStoreCreated} embedded platformMode={platformIntent} />
           </div>
+        )}
+
+        {step === 'claim' && claimStoreId && (
+          <ClaimBusinessStep storeId={claimStoreId} onClaimed={handleClaimed} />
         )}
 
         {step === 'branding' && (

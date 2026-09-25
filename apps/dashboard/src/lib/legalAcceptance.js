@@ -13,7 +13,8 @@ export const LEGAL_DOCUMENT_VERSIONS = {
   terms_of_service: "2026-09-04",
   privacy_policy: "2026-09-04",
   vendor_agreement: "2026-09-04",
-  vendor_kyc_policy: "2026-09-04"
+  vendor_kyc_policy: "2026-09-04",
+  business_claim_attestation: "2026-09-30"
 };
 
 // Same x-forwarded-for/x-real-ip fallback chain used elsewhere in this

@@ -6,6 +6,7 @@ import SignIn from "../components/SignIn";
 import SignUp from "../components/SignUp";
 
 const ONBOARDING_INTENT_KEY = 'stora-onboarding-intent';
+const ONBOARDING_CLAIM_STORE_ID_KEY = 'stora-onboarding-claim-store-id';
 
 function HomeInner() {
   const searchParams = useSearchParams();
@@ -21,6 +22,11 @@ function HomeInner() {
     if (!intent || typeof window === 'undefined') return;
     if (intent === 'store' || intent === 'listing') {
       localStorage.setItem(ONBOARDING_INTENT_KEY, intent);
+    } else if (intent === 'claim') {
+      const storeId = searchParams.get('storeId');
+      if (!storeId) return;
+      localStorage.setItem(ONBOARDING_INTENT_KEY, intent);
+      localStorage.setItem(ONBOARDING_CLAIM_STORE_ID_KEY, storeId);
     }
   }, [searchParams]);
 

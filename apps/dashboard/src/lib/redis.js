@@ -13,6 +13,11 @@ export const lockoutKey = (email) => `${NS}:lockout:${email}`;
 // Telegram account-linking code -> storeId, single-use, short TTL (see
 // POST /api/telegram/link and the webhook handler that redeems it).
 export const telegramLinkKey = (code) => `${NS}:telegram-link:${code}`;
+// Business-claim email-OTP code, keyed by the store being claimed (not by
+// user -- the code verifies control of the STORE's own listed email, not
+// the claimant's account). Overwritten on every "send code" request, so
+// requesting a new one invalidates the last, same UX as any other OTP.
+export const claimCodeKey = (storeId) => `${NS}:claim-code:${storeId}`;
 
 // Bounds worst-case latency so a hung (not just erroring) Redis call can
 // never stall a request -- pairs with try/catch fail-open everywhere.
@@ -52,6 +57,22 @@ export const telegramLinkLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(10, '1 h'),
   prefix: 'dashboard:rl:telegram-link'
+});
+
+// Claim flow limiters -- keyed by the authenticated claimant's user id
+// (post-auth, same reasoning as verificationLimiter above: IP-keying would
+// be the wrong scope here). Separate limiters for send-code (bounds email
+// spam to a business's inbox) and verify (bounds brute-forcing a 6-digit
+// code against the send-code limiter's own pace).
+export const claimSendCodeLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '10 m'),
+  prefix: 'dashboard:rl:claim-send-code'
+});
+export const claimVerifyLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '10 m'),
+  prefix: 'dashboard:rl:claim-verify'
 });
 
 export async function invalidateStorefrontCache(slug) {

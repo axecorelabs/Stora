@@ -3,6 +3,7 @@ import { getOrderProcessedTemplate } from './email/templates/orderProcessed.js';
 import { getSaleReceiptTemplate } from './email/templates/saleReceipt.js';
 import { getDeliveryScheduledTemplate } from './email/templates/deliveryScheduled.js';
 import { getVerificationEmailTemplate } from './email/templates/verification.js';
+import { getBusinessClaimEmailTemplate } from './email/templates/businessClaim.js';
 import { getWelcomeEmailTemplate } from './email/templates/welcome.js';
 import { getPasswordResetTemplate } from './email/templates/passwordReset.js';
 import { getSubscriptionUpdateTemplate } from './email/templates/subscription.js';
@@ -149,6 +150,14 @@ const sendEmail = async (to, subject, html, text = '', retries = 2) => {
 // Send verification email
 export const sendVerificationEmail = async (email, verificationCode, firstName) => {
   const { html, text, subject } = getVerificationEmailTemplate(verificationCode, firstName, email);
+  return await sendEmail(email, subject, html, text);
+};
+
+// Sent to the business's own listed email during a claim attempt -- see
+// getBusinessClaimEmailTemplate's own comment on why this is a different
+// recipient/purpose than sendVerificationEmail above.
+export const sendBusinessClaimEmail = async (email, verificationCode, storeName) => {
+  const { html, text, subject } = getBusinessClaimEmailTemplate(verificationCode, storeName, email);
   return await sendEmail(email, subject, html, text);
 };
 

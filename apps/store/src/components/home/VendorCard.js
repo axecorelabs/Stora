@@ -1,7 +1,7 @@
 "use client";
 import { Store, BadgeCheck, LayoutList } from "lucide-react";
 import PrefetchLink from "@/components/ui/PrefetchLink";
-import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, VENDOR_CARD_PLACEHOLDER_BANNER } from "@/lib/vendorCardPlaceholders";
+import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, getVendorPlaceholderBanner } from "@/lib/vendorCardPlaceholders";
 
 // Each vendor's own brand color shows through as a swatch inside Stora's
 // frame -- the two-layer brand rule made visible: many identities, one
@@ -10,6 +10,7 @@ import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, VENDOR_CAR
 export default function VendorCard({ store }) {
   const primaryColor = store.branding?.primaryColor || getVendorFallbackColor(store.id);
   const CategoryIcon = CATEGORY_ICONS[store.businessCategory] || DEFAULT_VENDOR_ICON;
+  const placeholderBanner = getVendorPlaceholderBanner(store.id, store.businessCategory);
   const isListing = store.platformMode === 'listing';
   const profileTag = isListing
     ? { label: 'Business', Icon: LayoutList }
@@ -21,7 +22,7 @@ export default function VendorCard({ store }) {
       className="group flex-shrink-0 w-[220px] sm:w-auto bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_4px_16px_rgba(11,59,46,0.08)] hover:-translate-y-0.5 transition-all duration-200"
     >
       <div
-        className="h-20 relative"
+        className="h-20 relative overflow-hidden"
         style={{ backgroundColor: primaryColor }}
       >
         {store.branding?.banner ? (
@@ -34,10 +35,10 @@ export default function VendorCard({ store }) {
         ) : (
           <>
             <img
-              src={VENDOR_CARD_PLACEHOLDER_BANNER}
+              src={placeholderBanner.src}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
-              style={{ opacity: 0.3 }}
+              style={{ opacity: 0.3, objectPosition: placeholderBanner.position, transform: `scale(${placeholderBanner.scale})` }}
             />
             <div className="absolute inset-0" style={{ backgroundColor: primaryColor, opacity: 0.55 }} />
           </>

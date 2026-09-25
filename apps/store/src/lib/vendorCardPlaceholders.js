@@ -40,7 +40,59 @@ export function getVendorFallbackColor(storeId) {
   return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
 }
 
-// Same photo as the landing page hero (apps/store/src/app/page.js) --
-// reused here so an unbranded business's card still feels like part of
-// Stora's own visual identity instead of a flat, empty rectangle.
-export const VENDOR_CARD_PLACEHOLDER_BANNER = "/IMG_6315%202.webp";
+// Same photo library CategoryDiscovery.js already uses for the homepage's
+// "Shop by category" tiles (apps/store/public/*.webp) -- reused here so an
+// unbranded business's banner varies by what it actually is instead of
+// every business with no photo of its own showing the exact same one
+// image. Bucketed by the coarse business_category (the one field every
+// seeded business reliably has), with `restaurant` mapped to the one
+// unambiguous match and everything else split across the general-retail
+// set for variety.
+const RESTAURANT_BANNERS = ["/food.webp"];
+const SERVICES_BANNERS = ["/Healthandbeauty.webp", "/Automotive.webp"];
+const RETAIL_BANNERS = [
+  "/Accessories.webp", "/Clothing.webp", "/Electronics.webp", "/Shoes.webp",
+  "/Wigsandhair.webp", "/HomeandGarden.webp", "/Beverages.webp", "/Books.webp",
+  "/perfumes.webp", "/Sports.webp"
+];
+const CATEGORY_BANNERS = {
+  restaurant: RESTAURANT_BANNERS,
+  services: SERVICES_BANNERS,
+  retail: RETAIL_BANNERS,
+  hybrid: RETAIL_BANNERS,
+  other: RETAIL_BANNERS
+};
+
+// These source photos share one template (confirmed by opening several):
+// cream background, the product centered roughly 15%-75% down the frame,
+// and a text caption sitting on plain background in the bottom ~15%. A
+// vendor banner is a much wider/shorter box than CategoryDiscovery's own
+// near-square tiles -- object-fit:cover already crops these portrait-ish
+// images down to a thin ~30% vertical slice before any extra zoom even
+// applies, so anchoring that slice with object-position is what actually
+// matters here (CategoryDiscovery's own tile-crop numbers, tuned for a
+// much less extreme aspect ratio, don't transfer -- reusing them was the
+// bug: "center top" picked a slice that was almost entirely empty
+// background, showing only the very top edge of the product). Centering
+// on the product band avoids both the top whitespace and the bottom
+// caption without needing a per-image override.
+const DEFAULT_BANNER_SCALE = 1.12;
+const DEFAULT_BANNER_CROP = { position: "center 42%" };
+
+function hashString(value) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+// Deterministic (hashed from the store's own id) so a given business keeps
+// the same banner across renders/pages, same rationale as
+// getVendorFallbackColor above. Returns the crop transform pre-computed
+// too, so every call site just spreads it into one style object.
+export function getVendorPlaceholderBanner(storeId, businessCategory) {
+  const bucket = CATEGORY_BANNERS[businessCategory] || RETAIL_BANNERS;
+  const src = bucket[hashString(storeId || "") % bucket.length];
+  return { src, scale: DEFAULT_BANNER_SCALE, position: DEFAULT_BANNER_CROP.position };
+}

@@ -6,6 +6,7 @@ import { BUSINESS_CATEGORY_VALUES, isValidNigerianState } from '@stora/shared-co
 import { embedStoreById } from '@/lib/openrouter';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { RESERVED_SUBDOMAINS } from '@/lib/websitePath';
+import { transformStore } from '@/lib/transformStore';
 
 function normalizeBusinessCategory(value) {
   if (value === undefined) return undefined;
@@ -60,106 +61,6 @@ function inferBusinessCategory({ restaurantMode, sellsProducts, offersServices }
   if (offersServices) return 'services';
   if (sellsProducts) return 'retail';
   return 'other';
-}
-
-// Helper to transform store data for response
-function transformStore(store) {
-  if (!store) return null;
-
-  const websiteData = typeof store.website === 'string' ? JSON.parse(store.website) : store.website;
-  const websitePath = websiteData?.websitePath || store.store_slug;
-  const storeBaseUrl = process.env.NEXT_PUBLIC_STORE_URL || 'https://stora.com.ng';
-  const parsedAddress = typeof store.address === 'string' ? JSON.parse(store.address) : store.address;
-
-  return {
-    id: store.id,
-    mongoId: store.mongo_id,
-    userId: store.owner_id,
-    storeName: store.store_name,
-    storeSlug: store.store_slug,
-    storeDescription: store.store_description,
-    storeType: store.store_type,
-    storePhone: store.store_phone,
-    storeEmail: store.store_email,
-    state: store.state,
-    // Distinct from `state` (where the vendor is based) -- this is which
-    // states they'll actually ship to. NULL/empty stored value means
-    // nationwide; deliveryNationwide is derived here so the dashboard UI
-    // doesn't need to re-derive the same null-check itself.
-    deliveryStates: store.delivery_states && store.delivery_states.length > 0 ? store.delivery_states : null,
-    deliveryNationwide: !store.delivery_states || store.delivery_states.length === 0,
-    // Flat fee per destination state (keyed by NIGERIAN_STATES value), and
-    // who collects it -- 'pay_on_delivery' carves only the delivery-fee
-    // portion out of the Paystack charge, merchandise payment is untouched.
-    deliveryFees: (typeof store.delivery_fees === 'string' ? JSON.parse(store.delivery_fees) : store.delivery_fees) || {},
-    fulfillmentMethod: store.fulfillment_method === 'pay_on_delivery' ? 'pay_on_delivery' : 'platform_collected',
-    restaurantMode: !!store.restaurant_mode,
-    // Non-exclusive -- a business can be any combination of these three,
-    // set together at business-creation time (CreateBusinessModal.js).
-    sellsProducts: !!store.sells_products,
-    offersServices: !!store.offers_services,
-    businessCategory: store.business_category || null,
-    businessSubcategory: store.business_subcategory || null,
-    businessSubcategories: Array.isArray(store.business_subcategories)
-      ? store.business_subcategories
-      : (store.business_subcategory ? [store.business_subcategory] : []),
-    businessTags: Array.isArray(store.business_tags) ? store.business_tags : [],
-    address: parsedAddress,
-    // Flat display string a few screens read directly (POS's store-info
-    // header, the website settings page, ReceiptModal) -- was never
-    // actually computed here, so every one of them always fell back to
-    // "No address set"/blank regardless of whether the vendor had a real
-    // address on file. Built from the same fields AddPhysicalStoreModal/
-    // StoreLocationTab write into `address`.
-    fullAddress: parsedAddress
-      ? [parsedAddress.street, parsedAddress.city, parsedAddress.state, parsedAddress.postalCode, parsedAddress.country].filter(Boolean).join(', ')
-      : '',
-    onlineStoreInfo: typeof store.online_store_info === 'string' ? JSON.parse(store.online_store_info) : store.online_store_info,
-    branding: typeof store.branding === 'string' ? JSON.parse(store.branding) : store.branding,
-    businessHours: typeof store.business_hours === 'string' ? JSON.parse(store.business_hours) : store.business_hours,
-    settings: typeof store.settings === 'string' ? JSON.parse(store.settings) : store.settings,
-    bankDetails: typeof store.bank_details === 'string' ? JSON.parse(store.bank_details) : store.bank_details,
-    isActive: store.is_active,
-    isVerified: store.is_verified,
-    verificationStatus: store.verification_status,
-    // Staff-designated only (see stores/[storeId] admin route and
-    // partnership/[contractId]/respond) -- gates the AI Try-On feature,
-    // not something a vendor can set themselves.
-    isPartner: !!store.is_partner,
-    // Separate from isVerified -- see stores/[storeId] admin route and
-    // business_verified_at's own comments for that split. This one just
-    // means "has this vendor linked a Telegram chat" (see
-    // /api/telegram/status), used by SetupChecklist to nudge toward it.
-    telegramConnected: !!store.telegram_chat_id,
-    // Vendor's explicit opt-in to the morning delivery-digest Telegram
-    // message (api/cron/delivery-digest) -- separate from telegramConnected
-    // itself, see api/stores/delivery-digest's own comment.
-    deliveryDigestEnabled: !!store.delivery_digest_enabled,
-    // Manual "closed right now" override -- see api/stores/temporarily-closed
-    // and isStoreOpenNow (@stora/shared-constants) for how this combines
-    // with the weekly businessHours schedule.
-    temporarilyClosed: !!store.temporarily_closed,
-    totalSales: parseFloat(store.total_sales) || 0,
-    totalOrders: store.total_orders || 0,
-    averageRating: parseFloat(store.average_rating) || 0,
-    totalReviews: store.total_reviews || 0,
-    website: websiteData,
-    websitePath,
-    // Shown to the vendor as their storefront's real address -- the
-    // wildcard vendor subdomain (see workers/subdomain-router), not the
-    // internal storeBaseUrl/slug path the marketplace itself still uses
-    // for in-app navigation between stores.
-    websiteUrl: websitePath ? `https://${websitePath}.${storeBaseUrl.replace(/^https?:\/\//, '')}` : null,
-    websiteFullPath: websitePath ? `${websitePath}.${storeBaseUrl.replace(/^https?:\/\//, '')}` : null,
-    // 'store' (full commerce) or 'listing' (showcase-only, paid monthly).
-    // Distinct from store_type which is 'physical'/'online'.
-    platformMode: store.platform_mode || 'store',
-    subscriptionStatus: store.subscription_status || 'none',
-    subscriptionPaystackCode: store.subscription_paystack_code || null,
-    subscriptionNextPaymentDate: store.subscription_next_payment_date || null,
-    createdAt: store.created_at,
-    updatedAt: store.updated_at
-  };
 }
 
 // store_slug is UNIQUE at the DB level (see the initial schema migration),

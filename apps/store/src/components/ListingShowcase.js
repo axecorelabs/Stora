@@ -4,9 +4,15 @@ import BusinessProfileReviews from '@/components/listing/BusinessProfileReviews'
 import ListingDescription from '@/components/listing/ListingDescription';
 import ViewBeacon from '@/components/analytics/ViewBeacon';
 import { findGalleryByStoreId } from '@/lib/supabaseStore';
-import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, VENDOR_CARD_PLACEHOLDER_BANNER } from '@/lib/vendorCardPlaceholders';
+import ReportListingLink from '@/components/listing/ReportListingLink';
+import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, getVendorPlaceholderBanner } from '@/lib/vendorCardPlaceholders';
 import { DAYS_OF_WEEK, formatDayHours } from '@stora/shared-constants';
-import { ChevronLeft, ExternalLink, Mail, MapPin, MessageCircle, MoreHorizontal, Phone, ShieldCheck, Tag } from 'lucide-react';
+import { Building2, ChevronLeft, ExternalLink, Mail, MapPin, MessageCircle, MoreHorizontal, Phone, ShieldCheck, Tag } from 'lucide-react';
+
+// Same cross-app linking convention as apps/store/src/app/sell/page.js's
+// signup CTAs, extended with a storeId so the dashboard's onboarding wizard
+// knows which listing to claim (see ClaimBusinessStep.js there).
+const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.stora.com.ng";
 
 // No logo: a category-matched icon in the store's rotated fallback color
 // instead of a bare initial letter -- same treatment as the vendor cards
@@ -33,6 +39,27 @@ function ShowcaseLogo({ branding, storeName, businessCategory, fallbackColor }) 
     <div className="grid h-full w-full place-items-center bg-white" style={{ color: fallbackColor }}>
       <CategoryIcon className="h-7 w-7 sm:h-12 sm:w-12" strokeWidth={1.75} />
     </div>
+  );
+}
+
+// Shown only for an unclaimed listing that has a real store_email on file
+// -- claiming is email-OTP only for now (see Part G plan), so a listing
+// with no email simply doesn't get this CTA rather than a dead-end flow.
+function ClaimBanner({ storeId }) {
+  const claimUrl = `${DASHBOARD_URL}?mode=signup&intent=claim&storeId=${storeId}`;
+  return (
+    <a
+      href={claimUrl}
+      className="mt-5 flex items-center gap-3 rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 transition hover:bg-brand-100 sm:mt-6"
+    >
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-brand-800">
+        <Building2 className="h-4.5 w-4.5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-brand-900">Is this your business?</p>
+        <p className="text-xs text-brand-700">Claim it for free to manage your listing.</p>
+      </div>
+    </a>
   );
 }
 
@@ -187,6 +214,10 @@ function ListingFooter({ store, addressText }) {
         )}
       </div>
 
+      {store.claimStatus === 'unclaimed' && (
+        <ClaimBanner storeId={store.id} />
+      )}
+
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-gray-500">
         <a href="/terms" className="hover:text-brand-800">Terms</a>
         <a href="/privacy" className="hover:text-brand-800">Privacy</a>
@@ -195,6 +226,7 @@ function ListingFooter({ store, addressText }) {
           Powered by Stora
           <ExternalLink className="h-3 w-3" />
         </a>
+        {store.claimStatus === 'claimed' && <ReportListingLink storeId={store.id} />}
       </div>
     </footer>
   );
@@ -456,6 +488,7 @@ export default async function ListingShowcase({ store }) {
   const stateLabel = store.state || address?.state;
   const heroImage = branding.banner || gallery[0]?.image_url || branding.logo;
   const fallbackColor = getVendorFallbackColor(store.id);
+  const placeholderBanner = getVendorPlaceholderBanner(store.id, store.businessCategory);
   const trustChips = buildTrustChips(store);
 
   return (
@@ -478,13 +511,13 @@ export default async function ListingShowcase({ store }) {
           ) : (
             <>
               <Image
-                src={VENDOR_CARD_PLACEHOLDER_BANNER}
+                src={placeholderBanner.src}
                 alt=""
                 fill
                 priority
                 sizes="100vw"
                 className="object-cover"
-                style={{ opacity: 0.3 }}
+                style={{ opacity: 0.3, objectPosition: placeholderBanner.position, transform: `scale(${placeholderBanner.scale})` }}
                 unoptimized
               />
               <div className="absolute inset-0" style={{ backgroundColor: fallbackColor, opacity: 0.55 }} />

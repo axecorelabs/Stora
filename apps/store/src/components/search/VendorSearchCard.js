@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { BadgeCheck, MapPin, MessageCircle, ArrowRight, LayoutList, Store as StoreIcon } from "lucide-react";
 import PrefetchLink from "@/components/ui/PrefetchLink";
-import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, VENDOR_CARD_PLACEHOLDER_BANNER } from "@/lib/vendorCardPlaceholders";
+import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, getVendorPlaceholderBanner } from "@/lib/vendorCardPlaceholders";
 
 // Distinct from home/VendorCard.js -- that one is sized for a dense,
 // horizontal-scroll teaser (5+ per row); this one is built for the
@@ -15,6 +15,7 @@ export default function VendorSearchCard({ store }) {
   const [logoErrored, setLogoErrored] = useState(false);
   const primaryColor = store.branding?.primaryColor || getVendorFallbackColor(store.id);
   const CategoryIcon = CATEGORY_ICONS[store.businessCategory] || DEFAULT_VENDOR_ICON;
+  const placeholderBanner = getVendorPlaceholderBanner(store.id, store.businessCategory);
   const location = [store.address?.city, store.state || store.address?.state].filter(Boolean).join(", ");
   const hasWhatsapp = !!store.onlineStoreInfo?.socialMedia?.whatsapp;
   const showLogoImage = store.branding?.logo && !logoErrored;
@@ -28,7 +29,7 @@ export default function VendorSearchCard({ store }) {
       href={`/${store.publicSlug || store.storeSlug}`}
       className="group flex flex-col bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_8px_24px_rgba(11,59,46,0.10)] hover:-translate-y-0.5 transition-all duration-200"
     >
-      <div className="h-28 sm:h-36 relative" style={{ backgroundColor: primaryColor }}>
+      <div className="h-28 sm:h-36 relative overflow-hidden" style={{ backgroundColor: primaryColor }}>
         {store.branding?.banner ? (
           <>
             <img
@@ -47,10 +48,10 @@ export default function VendorSearchCard({ store }) {
         ) : (
           <>
             <img
-              src={VENDOR_CARD_PLACEHOLDER_BANNER}
+              src={placeholderBanner.src}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
-              style={{ opacity: 0.3 }}
+              style={{ opacity: 0.3, objectPosition: placeholderBanner.position, transform: `scale(${placeholderBanner.scale})` }}
             />
             <div className="absolute inset-0" style={{ backgroundColor: primaryColor, opacity: 0.55 }} />
           </>

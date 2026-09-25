@@ -2,7 +2,7 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Search, Store, CheckCircle2, Globe, LayoutList, Plus, Lightbulb } from "lucide-react";
+import { Loader2, Search, Store, CheckCircle2, Globe, LayoutList, Plus, Lightbulb, ShieldAlert } from "lucide-react";
 import { BUSINESS_CATEGORY_VALUES, NIGERIAN_STATES } from "@stora/shared-constants";
 import { useAuth } from "@/contexts/AuthContext";
 import AdminLayout from "@/components/AdminLayout";
@@ -413,6 +413,13 @@ function StoresPageContent() {
           >
             <Lightbulb className="w-4 h-4" />
             Suggestions
+          </Link>
+          <Link
+            href="/stores/disputes"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <ShieldAlert className="w-4 h-4" />
+            Reports
           </Link>
           <button
             type="button"

@@ -110,6 +110,14 @@ const authLimiters = {
   '/api/business-suggestions': new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 h'), prefix: 'store:rl:business-suggestions' }),
 };
 
+// Fully public, unauthenticated write with a dynamic storeId segment --
+// authLimiters above is a plain exact-pathname map (no existing entry has
+// ever needed a dynamic segment), so a static key can't match
+// /api/listings/<id>/report. Sized the same as business-suggestions (same
+// abuse shape: low-frequency, high-abuse-value anonymous write).
+const REPORT_LISTING_PATH_RE = /^\/api\/listings\/[^/]+\/report$/;
+const reportListingLimiter = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 h'), prefix: 'store:rl:report-listing' });
+
 // Real navigations, genuine API calls, AND Next.js's own silent <Link>
 // prefetching (which fires for every link in the viewport, well before a
 // visitor clicks anything -- the homepage alone renders up to 10 vendor
@@ -311,7 +319,7 @@ export async function proxy(req) {
     }
   }
 
-  const limiter = authLimiters[path] || browseLimiter;
+  const limiter = authLimiters[path] || (REPORT_LISTING_PATH_RE.test(path) ? reportListingLimiter : null) || browseLimiter;
 
   // The Worker in front of every vendor-subdomain request (see
   // workers/subdomain-router/src/index.js) already enforces this exact
@@ -381,6 +389,7 @@ export const config = {
     '/api/cart/:path*',
     '/api/tryon/:path*',
     '/api/business-suggestions/:path*',
+    '/api/listings/:path*',
     // /api/vendors/* has no entry here (a pre-existing gap on the main
     // marketplace, out of scope to fix under this change) -- explicitly
     // not repeating that gap for Biterave's own new routes.

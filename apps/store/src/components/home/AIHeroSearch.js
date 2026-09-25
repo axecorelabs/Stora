@@ -51,12 +51,14 @@ const AI_PLACEHOLDER_EXAMPLES = [
 // Replaces the plain HeroSearch keyword box on the homepage hero -- the
 // question this whole box is really asking is "what are you looking for
 // today?", so that's the AI input's own placeholder rather than a generic
-// one. "Just browsing" and "Need a service?" cover the two people who'd
-// rather not type a sentence: one wants the same /products catalog
-// HeroSearch always defaulted to with no filter, the other wants
-// /vendors' own scope=services toggle (see the search-consolidation
-// work) rather than a product search that could never have surfaced a
-// service provider anyway.
+// one. "Just browsing" and "Looking for a business?" cover the two people
+// who'd rather not type a sentence: one wants the same /products catalog
+// HeroSearch always defaulted to with no filter, the other wants the full,
+// unscoped /vendors listing rather than a product search that could never
+// have surfaced a business anyway. Deliberately unscoped (not
+// ?scope=services) -- the label promises businesses in general, not
+// specifically service providers, and scoping it silently filtered out
+// every retail/restaurant vendor.
 //
 // Hero text is tuned for a dark-green backdrop on the homepage.
 export default function AIHeroSearch() {
@@ -176,7 +178,7 @@ export default function AIHeroSearch() {
           <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
         </PrefetchLink>
         <PrefetchLink
-          href="/vendors?scope=services"
+          href="/vendors"
           className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 rounded-full text-xs sm:text-sm font-medium bg-white/95 text-brand-900 hover:bg-white transition-colors"
         >
           <Wrench className="w-3.5 h-3.5 text-brand-700" />

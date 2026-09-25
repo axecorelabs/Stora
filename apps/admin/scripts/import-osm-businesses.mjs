@@ -92,6 +92,32 @@ function mapCategory(tags) {
   return "other";
 }
 
+// OSM's own free-text description tag exists but is genuinely rare
+// (confirmed live: ~1 in 20 elements in a real sample) -- not something
+// worth relying on alone. When absent, generate a short, real one from
+// data every element DOES have: the specific raw tag value (finer-grained
+// than our own broad business_category -- "supermarket"/"hairdresser"/
+// "fast_food", not just "retail"/"services") plus city/state. Beats a
+// single hardcoded string repeated across every unbranded card -- still
+// a placeholder, corrected once the eventual claimant writes their own,
+// same as every other seeded field.
+function prettifyTagValue(value) {
+  return value.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+function buildDescription(tags, city, state) {
+  if (tags.description?.trim()) {
+    const text = tags.description.trim();
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  const kind = tags.shop || tags.amenity || tags.office || tags.craft || tags.healthcare || tags.tourism;
+  const location = [city, state].filter(Boolean).join(", ");
+  if (!kind) return location ? `A business in ${location}.` : null;
+
+  return location ? `${prettifyTagValue(kind)} in ${location}.` : `${prettifyTagValue(kind)}.`;
+}
+
 // GNS (US NGA GEOnet Names Server) bulk-imported thousands of geographic
 // features -- shoals, sandbanks, ridges -- into OSM years ago, some
 // mistagged with office=company/etc. Confirmed live during planning:
@@ -176,13 +202,15 @@ async function run() {
     counts.byCategory[category] = (counts.byCategory[category] || 0) + 1;
     if (sample.length < 15) sample.push(`${name} [${category}]`);
 
+    const address = buildAddress(el.tags);
     toInsert.push({
       externalId,
       storeName: name,
       businessCategory: category,
       storePhone: normalizePhone(el.tags.phone || el.tags["contact:phone"]),
       storeEmail: el.tags.email || el.tags["contact:email"] || null,
-      address: buildAddress(el.tags),
+      address,
+      storeDescription: buildDescription(el.tags, address.city, stateArg),
       ...getCoordinates(el)
     });
   }
@@ -221,6 +249,7 @@ async function run() {
             store_phone: item.storePhone,
             store_email: item.storeEmail,
             address: item.address,
+            store_description: item.storeDescription,
             business_category: item.businessCategory,
             platform_mode: "listing",
             website: { status: "active", isEnabled: true },
@@ -247,6 +276,7 @@ async function run() {
         store_email: item.storeEmail,
         state: stateArg,
         address: item.address,
+        store_description: item.storeDescription,
         business_category: item.businessCategory,
         platform_mode: "listing",
         is_active: true,
