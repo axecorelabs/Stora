@@ -63,6 +63,21 @@ const CATEGORY_BANNERS = {
   other: RETAIL_BANNERS
 };
 
+// 'services' is a grab-bag -- OSM's own import script (apps/admin/scripts/
+// import-osm-businesses.mjs's SERVICE_AMENITIES) lumps pharmacies, banks,
+// clinics, hospitals, dentists and vets into it alongside salons and
+// repair shops, so the 2-image SERVICES_BANNERS rotation above can land a
+// hospital on Automotive.webp -- confirmed live, makes no sense. Every one
+// of those healthcare tags gets written verbatim into store_description
+// by that same script's buildDescription ("Hospital in Osogbo, Osun."),
+// so it's a reliable signal to route them to the one image that's at
+// least not actively wrong, instead of leaving it to the random rotation.
+const HEALTHCARE_KEYWORDS = /\b(hospital|clinic|dentist|veterinary|pharmacy|healthcare)\b/i;
+
+function isHealthcareDescription(storeDescription) {
+  return !!storeDescription && HEALTHCARE_KEYWORDS.test(storeDescription);
+}
+
 // These source photos share one template (confirmed by opening several):
 // cream background, the product centered roughly 15%-75% down the frame,
 // and a text caption sitting on plain background in the bottom ~15%. A
@@ -91,8 +106,13 @@ function hashString(value) {
 // the same banner across renders/pages, same rationale as
 // getVendorFallbackColor above. Returns the crop transform pre-computed
 // too, so every call site just spreads it into one style object.
-export function getVendorPlaceholderBanner(storeId, businessCategory) {
-  const bucket = CATEGORY_BANNERS[businessCategory] || RETAIL_BANNERS;
-  const src = bucket[hashString(storeId || "") % bucket.length];
+export function getVendorPlaceholderBanner(storeId, businessCategory, storeDescription) {
+  let src;
+  if (isHealthcareDescription(storeDescription)) {
+    src = "/Healthandbeauty.webp";
+  } else {
+    const bucket = CATEGORY_BANNERS[businessCategory] || RETAIL_BANNERS;
+    src = bucket[hashString(storeId || "") % bucket.length];
+  }
   return { src, scale: DEFAULT_BANNER_SCALE, position: DEFAULT_BANNER_CROP.position };
 }

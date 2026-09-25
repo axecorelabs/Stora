@@ -15,7 +15,7 @@ export default function VendorSearchCard({ store }) {
   const [logoErrored, setLogoErrored] = useState(false);
   const primaryColor = store.branding?.primaryColor || getVendorFallbackColor(store.id);
   const CategoryIcon = CATEGORY_ICONS[store.businessCategory] || DEFAULT_VENDOR_ICON;
-  const placeholderBanner = getVendorPlaceholderBanner(store.id, store.businessCategory);
+  const placeholderBanner = getVendorPlaceholderBanner(store.id, store.businessCategory, store.storeDescription);
   const location = [store.address?.city, store.state || store.address?.state].filter(Boolean).join(", ");
   const hasWhatsapp = !!store.onlineStoreInfo?.socialMedia?.whatsapp;
   const showLogoImage = store.branding?.logo && !logoErrored;

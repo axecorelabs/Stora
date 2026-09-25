@@ -10,7 +10,7 @@ import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, getVendorP
 export default function VendorCard({ store }) {
   const primaryColor = store.branding?.primaryColor || getVendorFallbackColor(store.id);
   const CategoryIcon = CATEGORY_ICONS[store.businessCategory] || DEFAULT_VENDOR_ICON;
-  const placeholderBanner = getVendorPlaceholderBanner(store.id, store.businessCategory);
+  const placeholderBanner = getVendorPlaceholderBanner(store.id, store.businessCategory, store.storeDescription);
   const isListing = store.platformMode === 'listing';
   const profileTag = isListing
     ? { label: 'Business', Icon: LayoutList }

@@ -5,9 +5,10 @@ import ListingDescription from '@/components/listing/ListingDescription';
 import ViewBeacon from '@/components/analytics/ViewBeacon';
 import { findGalleryByStoreId } from '@/lib/supabaseStore';
 import ReportListingLink from '@/components/listing/ReportListingLink';
+import ShowcaseBackButton from '@/components/listing/ShowcaseBackButton';
 import { CATEGORY_ICONS, DEFAULT_VENDOR_ICON, getVendorFallbackColor, getVendorPlaceholderBanner } from '@/lib/vendorCardPlaceholders';
 import { DAYS_OF_WEEK, formatDayHours } from '@stora/shared-constants';
-import { Building2, ChevronLeft, ExternalLink, Mail, MapPin, MessageCircle, MoreHorizontal, Phone, ShieldCheck, Tag } from 'lucide-react';
+import { Building2, ExternalLink, Mail, MapPin, MessageCircle, MoreHorizontal, Phone, ShieldCheck, Tag } from 'lucide-react';
 
 // Same cross-app linking convention as apps/store/src/app/sell/page.js's
 // signup CTAs, extended with a storeId so the dashboard's onboarding wizard
@@ -488,7 +489,7 @@ export default async function ListingShowcase({ store }) {
   const stateLabel = store.state || address?.state;
   const heroImage = branding.banner || gallery[0]?.image_url || branding.logo;
   const fallbackColor = getVendorFallbackColor(store.id);
-  const placeholderBanner = getVendorPlaceholderBanner(store.id, store.businessCategory);
+  const placeholderBanner = getVendorPlaceholderBanner(store.id, store.businessCategory, store.storeDescription);
   const trustChips = buildTrustChips(store);
 
   return (
@@ -527,13 +528,7 @@ export default async function ListingShowcase({ store }) {
 
         {/* Controls sit outside overflow-hidden so the dropdown is never clipped */}
         <div className="pointer-events-none absolute inset-x-0 top-4 mx-auto flex w-full max-w-6xl items-center justify-between px-5 sm:top-8 sm:px-8">
-          <a
-            href="https://stora.com.ng/"
-            aria-label="Back to Stora home"
-            className="pointer-events-auto grid h-8 w-8 place-items-center rounded-full bg-white/90 text-black shadow-sm backdrop-blur transition hover:bg-white sm:h-12 sm:w-12"
-          >
-            <ChevronLeft className="h-4 w-4 stroke-[3] sm:h-6 sm:w-6" />
-          </a>
+          <ShowcaseBackButton />
           <div className="pointer-events-auto">
             <TopMenu store={store} addressText={fullAddress} />
           </div>
