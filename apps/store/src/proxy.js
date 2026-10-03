@@ -171,12 +171,30 @@ function getClientIp(req) {
 // Vercel) is shared with any Route Handler that needs it -- see
 // lib/vendorHost.js for why X-Stora-Vendor-Host, verified, wins over Host.
 //
+// Top-level routes that exist only on the main app, never under any
+// vendor's own slug -- same reasoning BITERAVE_HOST_RESERVED_PATHS below
+// documents for the Biterave-specific case, generalized to every ordinary
+// vendor subdomain. Without this, a vendor subdomain visiting one of these
+// gets rewritten to a nonexistent /<slug>/... route and 404s. Most
+// critically /auth/review-and-accept: google/start/route.js's
+// newUserCallbackURL sends a brand-new Google signup there on whatever
+// host they started from, including a vendor's own subdomain -- confirmed
+// live, a customer signing up with Google from a vendor's storefront never
+// saw Terms/Privacy at all, landing on a 404 instead of the one screen
+// that gates them on accepting it. /auth/ is a prefix (not an exact path,
+// unlike the others) since it's a whole route tree, not a single page.
+const VENDOR_HOST_RESERVED_PATHS = new Set(['/terms', '/privacy', '/refund-policy', '/delivery-policy']);
+
+function isVendorHostReservedPath(pathname) {
+  return VENDOR_HOST_RESERVED_PATHS.has(pathname) || pathname.startsWith('/auth/');
+}
+
 // Returns { rewriteUrl } when the request is for a real vendor subdomain,
 // { notFound: true } for a malformed/unrecognized one that still matched
-// the apex suffix, or null when there's nothing to do (apex/www, or a host
+// the apex suffix, or null when there's nothing to do (apex/www, a host
 // that isn't under this domain at all -- a raw *.vercel.app request, a
-// misconfigured DNS entry -- left to resolve exactly as it would with no
-// rewrite at all).
+// misconfigured DNS entry -- or a reserved main-app path above, all left
+// to resolve exactly as they would with no rewrite at all).
 function resolveVendorSubdomainRewrite(req) {
   const hostname = resolveRequestHost(req);
 
@@ -186,6 +204,8 @@ function resolveVendorSubdomainRewrite(req) {
 
   const slug = hostname.slice(0, -apexSuffix.length);
   if (slug.includes('.') || !VALID_SUBDOMAIN_LABEL.test(slug)) return { notFound: true };
+
+  if (isVendorHostReservedPath(req.nextUrl.pathname)) return null;
 
   const rewriteUrl = req.nextUrl.clone();
   rewriteUrl.pathname = `/${slug}${req.nextUrl.pathname}`;
