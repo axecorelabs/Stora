@@ -737,9 +737,6 @@ export default function ProductDetailsClient({ store, product: initialProduct, s
             {food.deliveryTime && (
               <DetailRow label="Delivery Time" value={`${food.deliveryTime.value} ${food.deliveryTime.unit}`} />
             )}
-            {food.maxOrdersPerDay && (
-              <DetailRow label="Max Orders Per Day" value={food.maxOrdersPerDay} />
-            )}
           </div>
         </div>
       );
