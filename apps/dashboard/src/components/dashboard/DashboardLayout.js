@@ -6,6 +6,7 @@ import DashboardSidebar from "./DashboardSidebar";
 import DashboardHeader from "./DashboardHeader";
 import MobileBottomNav from "./MobileBottomNav";
 import PartnershipProposalModal from "./PartnershipProposalModal";
+import FullStoreEnforcementReminderModal from "./FullStoreEnforcementReminderModal";
 
 const SIDEBAR_COLLAPSED_KEY = "stora-sidebar-collapsed";
 const ONBOARDING_INTENT_KEY = 'stora-onboarding-intent';
@@ -138,6 +139,7 @@ export default function DashboardLayout({ children, title, subtitle }) {
       {/* Mounted here (not per-page) so a pending partnership proposal
           surfaces regardless of which page the vendor lands on first. */}
       <PartnershipProposalModal />
+      <FullStoreEnforcementReminderModal />
     </div>
   );
 }

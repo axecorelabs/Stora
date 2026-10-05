@@ -6,7 +6,8 @@ import { resolveListingStoreByOwner, upsertSubscriptionTransaction, getLatestPen
 import {
   getLatestPendingFullStoreTransactionReference,
   resolveFullStoreByOwner,
-  upsertFullStoreSubscriptionTransaction
+  upsertFullStoreSubscriptionTransaction,
+  getFullStoreEnforcementStartMs
 } from '@/lib/fullStoreSubscription';
 import { LISTING_PLAN_CONFIG, isValidListingCycle, listingCycleSavingsPercent } from '@/lib/listingSubscriptionPlans';
 import { FULL_STORE_PLAN_CONFIG, isValidFullStoreCycle, fullStoreCycleSavingsPercent } from '@/lib/fullStoreSubscriptionPlans';
@@ -234,6 +235,11 @@ export async function GET(req) {
         fullStoreSubscriptionNextPaymentDate: store.full_store_subscription_next_payment_date,
         fullStoreSubscriptionAmountKobo: currentFullStoreAmountKobo,
         fullStoreSubscriptionBillingCycle: store.full_store_subscription_billing_cycle,
+        // Single source of truth for the enforcement date -- read from
+        // here (not hardcoded a second time) by the login-time reminder
+        // modal, so it can never drift from fullStoreSubscription.js's
+        // own real enforcement logic.
+        fullStoreEnforcementStartsAt: new Date(getFullStoreEnforcementStartMs()).toISOString(),
         fullStoreSubscriptionGraceEndsAt: store.full_store_subscription_grace_ends_at,
         fullStoreSubscriptionLockedAt: store.full_store_subscription_locked_at,
         pendingReference

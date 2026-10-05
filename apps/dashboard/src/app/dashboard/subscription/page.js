@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -152,6 +152,20 @@ export default function SubscriptionPage() {
 
   const sub = subData?.data;
   const pendingReference = sub?.pendingReference || null;
+
+  // Defaults full-store vendors onto the 3-month tier (listing has no
+  // 3-month option, so it keeps the flat 'monthly' default) -- a ref guard
+  // runs this exactly once, the moment platformMode is first known, so it
+  // never overrides a cycle the vendor has since picked themselves.
+  const hasSetDefaultCycleRef = useRef(false);
+  useEffect(() => {
+    if (hasSetDefaultCycleRef.current || !sub?.platformMode) return;
+    hasSetDefaultCycleRef.current = true;
+    if (sub.platformMode === 'store') {
+      const raf = requestAnimationFrame(() => setSelectedCycle('3month'));
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [sub?.platformMode]);
 
   useEffect(() => {
     if (sub?.subscriptionStatus === 'active') {
