@@ -633,11 +633,27 @@ function VendorsPageInner() {
             <p className="text-gray-500 text-sm">Describe what you&apos;re looking for above to get AI-matched businesses.</p>
           </div>
         ) : loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[320px] rounded-2xl bg-gray-50 border border-gray-100 animate-pulse" />
-            ))}
-          </div>
+          view === "list" ? (
+            <div className="divide-y divide-gray-100 border-y border-gray-100">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="py-3 sm:py-3.5 flex items-start gap-3 sm:gap-3.5 animate-pulse">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-gray-100 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="h-4 w-40 max-w-[62%] rounded bg-gray-100" />
+                    <div className="h-3 w-28 rounded bg-gray-100" />
+                    <div className="h-3 w-full rounded bg-gray-100" />
+                    <div className="h-3 w-3/5 rounded bg-gray-100" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-[320px] rounded-2xl bg-gray-50 border border-gray-100 animate-pulse" />
+              ))}
+            </div>
+          )
         ) : vendors.length === 0 ? (
           <div className="text-center py-20">
             <Store className="w-10 h-10 text-gray-300 mx-auto mb-3" strokeWidth={1.5} />
@@ -674,7 +690,7 @@ function VendorsPageInner() {
               </div>
             )}
 
-            <div className={view === "list" ? "space-y-4" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"}>
+            <div className={view === "list" ? "divide-y divide-gray-100 border-y border-gray-100" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"}>
               {vendors.map((store) => (
                 <VendorSearchCard key={store.id} store={store} view={view} />
               ))}

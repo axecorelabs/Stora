@@ -28,110 +28,101 @@ export default function VendorSearchCard({ store, view = "gallery" }) {
     return (
       <PrefetchLink
         href={`/${store.publicSlug || store.storeSlug}`}
-        className="group block bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-[0_8px_24px_rgba(11,59,46,0.10)] transition-shadow duration-200"
+        className="group block hover:bg-gray-50/60 transition-colors"
       >
-        <div className="flex flex-col sm:flex-row">
-          <div className="w-full h-36 sm:h-auto sm:w-52 relative overflow-hidden" style={{ backgroundColor: primaryColor }}>
-            {store.branding?.banner ? (
-              <>
-                <img
-                  src={store.branding.banner}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
-                  style={{ opacity: 0.35 }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-black/0" />
-              </>
-            ) : (
-              <>
-                <img
-                  src={placeholderBanner.src}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
-                  style={{ opacity: 0.3, objectPosition: placeholderBanner.position, transform: `scale(${placeholderBanner.scale})` }}
-                />
-                <div className="absolute inset-0" style={{ backgroundColor: primaryColor, opacity: 0.55 }} />
-              </>
-            )}
-          </div>
+        <div className="py-3 sm:py-3.5">
+          <div className="flex items-start gap-3 sm:gap-3.5">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden relative flex-shrink-0" style={{ backgroundColor: primaryColor }}>
+              {store.branding?.banner ? (
+                <>
+                  <img
+                    src={store.branding.banner}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{ opacity: 0.35 }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-black/0" />
+                </>
+              ) : (
+                <>
+                  <img
+                    src={placeholderBanner.src}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{ opacity: 0.3, objectPosition: placeholderBanner.position, transform: `scale(${placeholderBanner.scale})` }}
+                  />
+                  <div className="absolute inset-0" style={{ backgroundColor: primaryColor, opacity: 0.55 }} />
+                </>
+              )}
+            </div>
 
-          <div className="flex-1 p-4 sm:p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div
-                    className="w-12 h-12 rounded-xl border border-white shadow-sm flex items-center justify-center overflow-hidden bg-white flex-shrink-0 relative"
-                    style={{ color: primaryColor }}
-                  >
-                    {showLogoImage ? (
-                      <>
-                        {!logoLoaded && <div className="absolute inset-0 bg-gray-100 animate-pulse" />}
-                        <img
-                          src={store.branding.logo}
-                          alt=""
-                          className={`w-full h-full object-cover transition-opacity duration-300 ${
-                            logoLoaded ? "opacity-100" : "opacity-0"
-                          }`}
-                          onLoad={() => setLogoLoaded(true)}
-                          onError={() => setLogoErrored(true)}
-                        />
-                      </>
-                    ) : (
-                      <CategoryIcon className="w-5 h-5" strokeWidth={1.75} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h3 className="font-display text-base sm:text-[1.02rem] font-bold text-gray-900 truncate">{store.storeName}</h3>
+                    {store.businessVerified && (
+                      <BadgeCheck className="w-4 h-4 text-gold-600 flex-shrink-0" strokeWidth={2} />
                     )}
                   </div>
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <h3 className="font-display text-lg font-bold text-gray-900 truncate">{store.storeName}</h3>
-                      {store.businessVerified && (
-                        <BadgeCheck className="w-4 h-4 text-gold-600 flex-shrink-0" strokeWidth={2} />
-                      )}
-                    </div>
-                    <span className="inline-flex mt-1 items-center gap-1 text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
                       <profileTag.Icon className="w-2.5 h-2.5" /> {profileTag.label}
                     </span>
+                    {location && (
+                      <span className="inline-flex items-center gap-1 text-xs text-gray-400 min-w-0">
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{location}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {location && (
-                  <p className="flex items-center gap-1 text-xs text-gray-400 mt-3">
-                    <MapPin className="w-3 h-3 flex-shrink-0" />
-                    {location}
-                  </p>
-                )}
+                <div
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg border border-white shadow-sm flex items-center justify-center overflow-hidden bg-white flex-shrink-0 relative"
+                  style={{ color: primaryColor }}
+                >
+                  {showLogoImage ? (
+                    <>
+                      {!logoLoaded && <div className="absolute inset-0 bg-gray-100 animate-pulse" />}
+                      <img
+                        src={store.branding.logo}
+                        alt=""
+                        className={`w-full h-full object-cover transition-opacity duration-300 ${
+                          logoLoaded ? "opacity-100" : "opacity-0"
+                        }`}
+                        onLoad={() => setLogoLoaded(true)}
+                        onError={() => setLogoErrored(true)}
+                      />
+                    </>
+                  ) : (
+                    <CategoryIcon className="w-4.5 h-4.5" strokeWidth={1.75} />
+                  )}
+                </div>
               </div>
 
-              <span
-                className="hidden sm:inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-white rounded-full pl-3 pr-2.5 py-1.5 flex-shrink-0"
-                style={{ backgroundColor: primaryColor }}
-              >
-                {isListing ? 'Contact' : 'Visit store'}
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </span>
-            </div>
+              <p className="text-sm text-gray-600 mt-1.5 sm:line-clamp-1 line-clamp-2">
+                {store.storeDescription || "A vendor on Stora."}
+              </p>
 
-            <p className="text-sm text-gray-600 mt-3 line-clamp-2">
-              {store.storeDescription || "A vendor on Stora."}
-            </p>
+              <div className="mt-2.5 flex items-center justify-between gap-3">
+                {hasWhatsapp && !isListing ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 min-w-0">
+                    <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="truncate">Reachable on WhatsApp</span>
+                  </span>
+                ) : (
+                  <span />
+                )}
 
-            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-3">
-              {hasWhatsapp && !isListing ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 min-w-0">
-                  <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="truncate">Reachable on WhatsApp</span>
+                <span
+                  className="inline-flex items-center gap-1 text-xs sm:text-[13px] font-semibold text-brand-900"
+                >
+                  {isListing ? 'Contact' : 'Visit store'}
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" style={{ color: primaryColor }} />
                 </span>
-              ) : (
-                <span />
-              )}
-
-              <span
-                className="inline-flex sm:hidden items-center gap-1 text-xs font-semibold text-white rounded-full pl-3 pr-2.5 py-1.5 flex-shrink-0"
-                style={{ backgroundColor: primaryColor }}
-              >
-                {isListing ? 'Contact' : 'Visit store'}
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </span>
+              </div>
             </div>
           </div>
         </div>
