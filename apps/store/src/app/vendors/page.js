@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Store, Loader2, Truck, Sparkles } from "lucide-react";
+import { Store, Loader2, Truck, Sparkles, Grid2X2, List } from "lucide-react";
 import SiteHeader from "@/components/home/SiteHeader";
 import SiteFooter from "@/components/home/SiteFooter";
 import SearchModeTabs from "@/components/search/SearchModeTabs";
@@ -31,6 +31,12 @@ const SORTS = [
   { key: "name", label: "Name (A-Z)" },
   { key: "nearest", label: "Nearest to me" },
 ];
+
+const RESULT_VIEWS = [
+  { key: "list", label: "List", Icon: List },
+  { key: "gallery", label: "Gallery", Icon: Grid2X2 }
+];
+const VENDORS_VIEW_STORAGE_KEY = "stora:vendors:view";
 
 const BUSINESS_CATEGORY_LABELS = {
   retail: "Retail",
@@ -68,6 +74,16 @@ function isScopeBusinessCategoryCompatible(scope, businessCategory) {
   return true;
 }
 
+function getPersistedVendorsView() {
+  if (typeof window === "undefined") return "";
+  try {
+    const storedView = window.localStorage.getItem(VENDORS_VIEW_STORAGE_KEY) || "";
+    return RESULT_VIEWS.some((view) => view.key === storedView) ? storedView : "";
+  } catch {
+    return "";
+  }
+}
+
 function VendorsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -80,6 +96,8 @@ function VendorsPageInner() {
   const urlDeliverableOnly = searchParams.get("deliverableOnly") === "true";
   const urlAiMode = searchParams.get("mode") === "ai";
   const urlScope = SCOPES.some((s) => s.key === searchParams.get("scope")) ? searchParams.get("scope") : "all";
+  const urlViewParam = searchParams.get("view") || "";
+  const urlView = RESULT_VIEWS.some((view) => view.key === urlViewParam) ? urlViewParam : "";
   const urlBusinessCategory = BUSINESS_CATEGORY_VALUES.includes((searchParams.get("businessCategory") || "").toLowerCase())
     ? (searchParams.get("businessCategory") || "").toLowerCase()
     : "";
@@ -99,6 +117,7 @@ function VendorsPageInner() {
   const [sort, setSort] = useState(urlSort);
   const [categories, setCategories] = useState(urlCategories);
   const [scope, setScope] = useState(urlScope);
+  const [view, setView] = useState(urlView || "list");
   const [businessCategory, setBusinessCategory] = useState(urlBusinessCategory);
   const [businessSubcategory, setBusinessSubcategory] = useState(urlBusinessSubcategory);
   const [businessSubcategories, setBusinessSubcategories] = useState(urlBusinessSubcategories);
@@ -125,12 +144,33 @@ function VendorsPageInner() {
     if (deliverableOnly && !deliveryState) setDeliverableOnly(false);
   }, [deliverableOnly, deliveryState]);
 
+  // URL view param wins. Without one, fall back to last choice stored locally.
+  useEffect(() => {
+    if (urlView) {
+      setView(urlView);
+      return;
+    }
+
+    const persistedView = getPersistedVendorsView();
+    if (persistedView) setView(persistedView);
+  }, [urlView]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(VENDORS_VIEW_STORAGE_KEY, view);
+    } catch {
+      // Ignore storage failures (private mode/quota); keep in-memory view state.
+    }
+  }, [view]);
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (sort !== "featured") params.set("sort", sort);
     if (categories.length) params.set("category", categories.join(","));
     if (scope !== "all") params.set("scope", scope);
+    if (view !== "list") params.set("view", view);
     if (businessCategory) params.set("businessCategory", businessCategory);
     if (businessSubcategory) params.set("businessSubcategory", businessSubcategory);
     if (businessSubcategories.length) params.set("businessSubcategories", businessSubcategories.join(","));
@@ -140,7 +180,7 @@ function VendorsPageInner() {
     const qs = params.toString();
     router.replace(qs ? `/vendors?${qs}` : "/vendors", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, sort, categories, scope, businessCategory, businessSubcategory, businessSubcategories, state, deliverableOnly, aiMode]);
+  }, [q, sort, categories, scope, view, businessCategory, businessSubcategory, businessSubcategories, state, deliverableOnly, aiMode]);
 
   // Switching scope swaps which category taxonomy is even visible (product
   // vs. service categories, see categoryOptions below) -- clearing the
@@ -342,6 +382,26 @@ function VendorsPageInner() {
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-900 mb-1">
             {q ? `Businesses matching "${q}"` : "All businesses"}
           </h1>
+        </div>
+
+        <div className="flex justify-end mb-4">
+          <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {RESULT_VIEWS.map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  view === key
+                    ? "bg-white text-brand-800 shadow-sm"
+                    : "text-gray-600 hover:text-brand-700 hover:bg-gray-200"
+                }`}
+                aria-label={`${label} view`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Products vs. services vendors are already one directory (this
@@ -614,9 +674,9 @@ function VendorsPageInner() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className={view === "list" ? "space-y-4" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"}>
               {vendors.map((store) => (
-                <VendorSearchCard key={store.id} store={store} />
+                <VendorSearchCard key={store.id} store={store} view={view} />
               ))}
             </div>
 
