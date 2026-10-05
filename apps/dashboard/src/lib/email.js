@@ -4,6 +4,7 @@ import { getSaleReceiptTemplate } from './email/templates/saleReceipt.js';
 import { getDeliveryScheduledTemplate } from './email/templates/deliveryScheduled.js';
 import { getVerificationEmailTemplate } from './email/templates/verification.js';
 import { getBusinessClaimEmailTemplate } from './email/templates/businessClaim.js';
+import { getFullStoreEnforcementNoticeTemplate } from './email/templates/fullStoreEnforcementNotice.js';
 import { getWelcomeEmailTemplate } from './email/templates/welcome.js';
 import { getPasswordResetTemplate } from './email/templates/passwordReset.js';
 import { getSubscriptionUpdateTemplate } from './email/templates/subscription.js';
@@ -158,6 +159,15 @@ export const sendVerificationEmail = async (email, verificationCode, firstName) 
 // recipient/purpose than sendVerificationEmail above.
 export const sendBusinessClaimEmail = async (email, verificationCode, storeName) => {
   const { html, text, subject } = getBusinessClaimEmailTemplate(verificationCode, storeName, email);
+  return await sendEmail(email, subject, html, text);
+};
+
+// One-time notice to existing full-store vendors ahead of the 2026-10-12
+// commerce-access enforcement switch -- see
+// apps/dashboard/src/lib/fullStoreSubscription.js and the email template's
+// own comment for the full context.
+export const sendFullStoreEnforcementNoticeEmail = async (email, storeName) => {
+  const { html, text, subject } = getFullStoreEnforcementNoticeTemplate(storeName, email);
   return await sendEmail(email, subject, html, text);
 };
 

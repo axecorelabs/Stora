@@ -1,29 +1,27 @@
 "use client";
 import { Check } from "lucide-react";
 
-// Shared by the onboarding wizard's 'subscribe' step and
-// /dashboard/subscription. Every cycle here is the SAME plan at a
-// different commitment length, not a different tier -- so this renders as
-// one segmented control (pick a cadence), not a row of separate price
-// cards implying a product comparison. The live price itself lives in the
-// parent's ledger panel, not repeated per-pill here.
+// Full-store's counterpart to ListingPlanPicker.js -- same segmented-control
+// shape (see that file's comment for why: one plan, pick a cadence, not a
+// row of competing price cards), full-store's own value props, and a 4th
+// cycle (3 months).
 const VALUE_PROPS = [
-  "Chat with customers on WhatsApp, not just phone or email",
-  "Show up to 10 real photos of your business",
-  "Let customers leave reviews that build trust",
-  "Rank above free listings in search and on the homepage"
+  "Sell products with a full storefront and checkout",
+  "Accept and manage customer orders",
+  "Use POS, inventory, and delivery tools",
+  "Keep your storefront and payouts active"
 ];
 
-const CYCLE_ORDER = ["monthly", "6month", "annual"];
+const CYCLE_ORDER = ["monthly", "3month", "6month", "annual"];
 
-export default function ListingPlanPicker({ listingPlans, selectedCycle, onSelectCycle }) {
-  const availableCycles = CYCLE_ORDER.filter((cycle) => listingPlans?.[cycle]?.available);
+export default function FullStorePlanPicker({ fullStorePlans, selectedCycle, onSelectCycle }) {
+  const availableCycles = CYCLE_ORDER.filter((cycle) => fullStorePlans?.[cycle]?.available);
 
   return (
     <div className="text-left">
       <div className="inline-flex flex-wrap gap-1 rounded-xl bg-brand-50 p-1">
         {availableCycles.map((cycle) => {
-          const plan = listingPlans[cycle];
+          const plan = fullStorePlans[cycle];
           const isSelected = selectedCycle === cycle;
           return (
             <button

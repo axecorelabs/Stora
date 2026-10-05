@@ -53,7 +53,10 @@ export default function TurnstileWidget({ onVerify, onError }) {
         strategy="afterInteractive"
         onLoad={() => setScriptLoaded(true)}
       />
-      <div ref={containerRef} />
+      {/* Cloudflare renders into this div as a cross-origin iframe, so its
+          own internal UI can't be restyled from here -- overflow-hidden +
+          rounded just clips the iframe's own square corners from outside. */}
+      <div ref={containerRef} className="flex justify-center overflow-hidden rounded-xl" />
     </>
   );
 }

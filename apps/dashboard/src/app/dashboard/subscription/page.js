@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Button from "@/components/ui/Button";
 import ListingPlanPicker from "@/components/dashboard/ListingPlanPicker";
+import FullStorePlanPicker from "@/components/dashboard/FullStorePlanPicker";
 import { CheckCircle2, AlertCircle, Clock, ArrowUpRight, Loader2 } from "lucide-react";
 
-const CYCLE_UNIT_LABEL = { monthly: '/month', '6month': '/6 months', annual: '/year' };
+const CYCLE_UNIT_LABEL = { monthly: '/month', '3month': '/3 months', '6month': '/6 months', annual: '/year' };
+const CYCLE_CADENCE_LABEL = { monthly: 'every month', '3month': 'every 3 months', '6month': 'every 6 months', annual: 'every year' };
 
 function formatGraceDate(iso) {
   return new Date(iso).toLocaleDateString('en-NG', {
@@ -25,7 +27,7 @@ function StatusBanner({ status, mode, awaitingConfirmation = false, graceEndsAt 
 
   if (awaitingConfirmation) {
     return (
-      <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+      <div className="flex items-center gap-2 p-3.5 bg-green-50 border border-green-200 rounded-2xl text-sm text-green-800">
         <Clock className="w-4 h-4 flex-shrink-0" />
         Payment received. We are confirming your subscription and activation will complete shortly.
       </div>
@@ -34,7 +36,7 @@ function StatusBanner({ status, mode, awaitingConfirmation = false, graceEndsAt 
 
   if (status === 'active') {
     return (
-      <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+      <div className="flex items-center gap-2 p-3.5 bg-green-50 border border-green-200 rounded-2xl text-sm text-green-800">
         <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
         {isListing ? 'Your listing is live and visible to the public.' : 'Your full store subscription is active.'}
       </div>
@@ -49,7 +51,7 @@ function StatusBanner({ status, mode, awaitingConfirmation = false, graceEndsAt 
 
     if (graceActive) {
       return (
-        <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+        <div className="flex items-center gap-2 p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-800">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           Your last payment failed. You have until <strong>{formatGraceDate(graceEndsAt)}</strong> to resubscribe before storefront, POS, and inventory access is restricted.
         </div>
@@ -58,7 +60,7 @@ function StatusBanner({ status, mode, awaitingConfirmation = false, graceEndsAt 
 
     if (isLocked) {
       return (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+        <div className="flex items-center gap-2 p-3.5 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-800">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           Your grace period has ended. Storefront, POS, and inventory access is restricted until you resubscribe.
         </div>
@@ -66,7 +68,7 @@ function StatusBanner({ status, mode, awaitingConfirmation = false, graceEndsAt 
     }
 
     return (
-      <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+      <div className="flex items-center gap-2 p-3.5 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-800">
         <AlertCircle className="w-4 h-4 flex-shrink-0" />
         {isListing ? 'Your last payment failed. Your listing is hidden until you resubscribe.' : 'Your last payment failed. Resubscribe to keep full store billing active.'}
       </div>
@@ -74,16 +76,47 @@ function StatusBanner({ status, mode, awaitingConfirmation = false, graceEndsAt 
   }
   if (status === 'cancelled') {
     return (
-      <div className="flex items-center gap-2 p-3 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-700">
+      <div className="flex items-center gap-2 p-3.5 bg-gray-100 border border-gray-200 rounded-2xl text-sm text-gray-700">
         <Clock className="w-4 h-4 flex-shrink-0" />
         {isListing ? 'Your subscription is cancelled. Resubscribe to make your listing live again.' : 'Your subscription is cancelled. Resubscribe to reactivate billing.'}
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+    <div className="flex items-center gap-2 p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-800">
       <AlertCircle className="w-4 h-4 flex-shrink-0" />
       {isListing ? 'No active subscription. Subscribe to make your listing live.' : 'No active subscription. Subscribe to activate full-store billing.'}
+    </div>
+  );
+}
+
+// The page's one signature moment -- a receipt-style "ledger" panel (this
+// app's own brand palette is literally documented as "deep ledger green"
+// in globals.css) instead of another stack of competing price cards. Every
+// cycle is the SAME plan at a different commitment length, not a different
+// tier, so a dominant live price plus a dashed tear-line reads honestly as
+// "one plan, choose how often you pay" -- the picker (pills + value props)
+// stays on the ordinary white surface below it, not crammed inside the
+// dark panel where its light-toned internals wouldn't have contrast.
+function LedgerPanel({ planName, priceLabel, unitLabel, cadenceLabel, savingsPercent, nextChargeLabel }) {
+  return (
+    <div className="rounded-2xl bg-brand-900 px-6 py-6 sm:px-8 sm:py-7">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-300">{planName}</p>
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span className="font-display text-4xl font-bold text-gold-400 [font-variant-numeric:tabular-nums]">{priceLabel}</span>
+        <span className="text-sm text-brand-200">{unitLabel}</span>
+      </div>
+
+      <div className="my-5 border-t border-dashed border-brand-600" />
+
+      <div className="flex items-center justify-between text-sm text-brand-100">
+        <span>Billed {cadenceLabel}</span>
+        {nextChargeLabel ? (
+          <span className="text-brand-200">{nextChargeLabel}</span>
+        ) : savingsPercent > 0 ? (
+          <span className="font-semibold text-gold-400">You save {savingsPercent}%</span>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -199,11 +232,14 @@ export default function SubscriptionPage() {
   const isListing = sub?.platformMode === 'listing';
   const amountKobo = Number.isFinite(sub?.subscriptionAmountKobo) ? sub.subscriptionAmountKobo : null;
   const amountLabel = amountKobo ? `₦${(amountKobo / 100).toLocaleString()}` : 'Plan rate';
-  const cycleUnitLabel = isListing ? (CYCLE_UNIT_LABEL[sub?.billingCycle] || '/month') : '/month';
   const planName = isListing ? 'Business Listing' : 'Full Store';
   const awaitingConfirmation = Boolean(justPaid && isListing && !isActive);
-  const selectedPlan = sub?.listingPlans?.[selectedCycle];
+  const selectedPlan = isListing ? sub?.listingPlans?.[selectedCycle] : sub?.fullStorePlans?.[selectedCycle];
   const selectedPlanLabel = selectedPlan ? `₦${(selectedPlan.amountKobo / 100).toLocaleString()}${CYCLE_UNIT_LABEL[selectedCycle]}` : `${amountLabel}/month`;
+
+  const nextChargeLabel = sub?.subscriptionNextPaymentDate
+    ? `Next charge ${new Date(sub.subscriptionNextPaymentDate).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : null;
 
   return (
     <DashboardLayout title="Subscription" subtitle={isListing ? 'Manage your listing subscription' : 'Manage your full-store subscription'}>
@@ -218,100 +254,101 @@ export default function SubscriptionPage() {
         />
 
         {/* Plan card */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 space-y-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">{planName}</h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {isListing
-                  ? 'Showcase page, gallery, contact info'
-                  : 'Products, checkout, and full commerce tools'}
-              </p>
-            </div>
-            {!(isListing && !isActive) && (
-              <div className="text-right">
-                <p className="text-xl font-bold text-gray-900">{amountLabel}</p>
-                <p className="text-xs text-gray-500">{cycleUnitLabel.replace('/', '/ ')}</p>
-              </div>
-            )}
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 space-y-5">
+          <div>
+            <h2 className="font-display text-base font-semibold text-gray-900">{planName}</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {isListing
+                ? 'Showcase page, gallery, contact info'
+                : 'Products, checkout, and full commerce tools'}
+            </p>
           </div>
 
-          {sub?.subscriptionNextPaymentDate && isActive && (
-            <p className="text-xs text-gray-500">
-              Next charge: {new Date(sub.subscriptionNextPaymentDate).toLocaleDateString('en-NG', {
-                day: 'numeric', month: 'long', year: 'numeric'
-              })}
-            </p>
-          )}
-
-          {isListing && !isActive && !awaitingConfirmation ? (
-            <ListingPlanPicker listingPlans={sub?.listingPlans} selectedCycle={selectedCycle} onSelectCycle={setSelectedCycle} />
-          ) : (
+          {awaitingConfirmation ? (
             <ul className="text-sm text-gray-600 space-y-1.5">
-              {(isListing
-                ? [
-                    'Public showcase page at your subdomain',
-                    'Gallery of up to 10 images',
-                    'Contact button (phone, WhatsApp, email)',
-                    'Listed in Stora browse and search'
-                  ]
-                : [
-                    'Sell products with full storefront',
-                    'Accept and manage customer orders',
-                    'Delivery fee and inventory tools',
-                    'Commerce analytics in dashboard'
-                  ]).map(f => (
+              {[
+                'Public showcase page at your subdomain',
+                'Gallery of up to 10 images',
+                'Contact button (phone, WhatsApp, email)',
+                'Listed in Stora browse and search'
+              ].map(f => (
                 <li key={f} className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
                   {f}
                 </li>
               ))}
             </ul>
-          )}
+          ) : isActive ? (
+            <>
+              <LedgerPanel
+                planName={planName}
+                priceLabel={amountLabel}
+                unitLabel={CYCLE_UNIT_LABEL[sub?.billingCycle] || '/month'}
+                cadenceLabel={CYCLE_CADENCE_LABEL[sub?.billingCycle] || 'every month'}
+                savingsPercent={0}
+                nextChargeLabel={nextChargeLabel}
+              />
 
-          {!isActive && !awaitingConfirmation && (
-            <Button
-              variant="primary"
-              onClick={() => subscribeMutation.mutate()}
-              disabled={subscribeMutation.isPending}
-              className="w-full flex items-center justify-center gap-2"
-            >
-              {subscribeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {subscribeMutation.isPending ? 'Redirecting…' : `Subscribe — ${isListing ? selectedPlanLabel : `${amountLabel}/month`}`}
-            </Button>
-          )}
-
-          {isActive && !confirmCancel && (
-            <button
-              onClick={() => setConfirmCancel(true)}
-              className="w-full text-center text-xs text-gray-400 hover:text-red-500 transition-colors py-1"
-            >
-              Cancel subscription
-            </button>
-          )}
-
-          {confirmCancel && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm text-red-700">Your listing will be hidden immediately. Are you sure?</p>
-              <div className="flex gap-2">
-                <Button
-                  variant="danger"
-                  onClick={() => cancelMutation.mutate()}
-                  disabled={cancelMutation.isPending}
-                  className="flex-1 text-sm flex items-center justify-center gap-1"
+              {!confirmCancel && (
+                <button
+                  onClick={() => setConfirmCancel(true)}
+                  className="w-full text-center text-xs text-gray-400 hover:text-red-500 transition-colors py-1"
                 >
-                  {cancelMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                  {cancelMutation.isPending ? 'Cancelling…' : 'Yes, cancel'}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => setConfirmCancel(false)}
-                  className="flex-1 text-sm"
-                >
-                  Keep it
-                </Button>
-              </div>
-            </div>
+                  Cancel subscription
+                </button>
+              )}
+
+              {confirmCancel && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+                  <p className="text-sm text-red-700">Your listing will be hidden immediately. Are you sure?</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="danger"
+                      onClick={() => cancelMutation.mutate()}
+                      disabled={cancelMutation.isPending}
+                      className="flex-1 text-sm flex items-center justify-center gap-1"
+                    >
+                      {cancelMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      {cancelMutation.isPending ? 'Cancelling…' : 'Yes, cancel'}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setConfirmCancel(false)}
+                      className="flex-1 text-sm"
+                    >
+                      Keep it
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <LedgerPanel
+                planName={planName}
+                priceLabel={selectedPlan ? `₦${(selectedPlan.amountKobo / 100).toLocaleString()}` : amountLabel}
+                unitLabel={CYCLE_UNIT_LABEL[selectedCycle] || '/month'}
+                cadenceLabel={CYCLE_CADENCE_LABEL[selectedCycle] || 'every month'}
+                savingsPercent={selectedPlan?.savingsPercent || 0}
+                nextChargeLabel={null}
+              />
+
+              {isListing ? (
+                <ListingPlanPicker listingPlans={sub?.listingPlans} selectedCycle={selectedCycle} onSelectCycle={setSelectedCycle} />
+              ) : (
+                <FullStorePlanPicker fullStorePlans={sub?.fullStorePlans} selectedCycle={selectedCycle} onSelectCycle={setSelectedCycle} />
+              )}
+
+              <Button
+                variant="gold"
+                onClick={() => subscribeMutation.mutate()}
+                disabled={subscribeMutation.isPending}
+                className="w-full flex items-center justify-center gap-2"
+              >
+                {subscribeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {subscribeMutation.isPending ? 'Redirecting…' : `Subscribe — ${selectedPlanLabel}`}
+              </Button>
+            </>
           )}
         </div>
 

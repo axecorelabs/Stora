@@ -2,7 +2,13 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { normalizeWebsiteConfig } from '@/lib/listingSubscription';
 
 const DEFAULT_GRACE_DAYS = 7;
-const DEFAULT_ENFORCEMENT_START = '2026-09-30T00:00:00Z';
+// Real enforcement date, decided directly with the user: 7 days' notice
+// from when the enforcement-notice email goes out (2026-10-05), landing
+// on 2026-10-12. Vendors with full_store_subscription_status='none' get
+// restricted starting this date (see the 'none' branch below) -- the
+// 7-day run-up between the email and this date IS their notice period,
+// so there's no additional grace window after it the way past_due gets.
+const DEFAULT_ENFORCEMENT_START = '2026-10-12T00:00:00Z';
 
 export function getFullStoreEnforcementStartMs() {
   const configured = process.env.FULL_STORE_SUBSCRIPTION_ENFORCEMENT_START || DEFAULT_ENFORCEMENT_START;
@@ -72,8 +78,13 @@ export function evaluateFullStoreCommerceAccess(store, nowMs = Date.now()) {
     return { allowed: false, restrictedReason: 'subscription_cancelled', graceEndsAt, graceActive: false };
   }
 
-  // Treat 'none' as allowed during rollout; can be tightened later.
-  return { allowed: true, restrictedReason: null, graceEndsAt, graceActive: false };
+  // 'none' = never subscribed. Reaching this line already means we're past
+  // enforcementStartMs (checked above), and past that date every current
+  // full-store vendor has had 7 days' notice via the enforcement email --
+  // so this is now restricted, same shape as 'cancelled', not permanently
+  // allowed. /dashboard/subscription's own 'none'-status banner + the new
+  // FullStorePlanPicker give them a clear, immediate way to resolve it.
+  return { allowed: false, restrictedReason: 'subscription_required', graceEndsAt, graceActive: false };
 }
 
 async function setStorefrontEnabled(storeId, enabled) {
@@ -132,6 +143,7 @@ export async function upsertFullStoreSubscription({
   currentPeriodEnd = null,
   nextPaymentDate = null,
   cancelledAt = null,
+  billingCycle = null,
   metadata = null
 }) {
   const payload = {
@@ -146,6 +158,7 @@ export async function upsertFullStoreSubscription({
     current_period_end: currentPeriodEnd,
     next_payment_date: nextPaymentDate,
     cancelled_at: cancelledAt,
+    billing_cycle: billingCycle,
     metadata,
     updated_at: new Date().toISOString()
   };
@@ -168,6 +181,7 @@ export async function upsertFullStoreSubscriptionTransaction({
   providerCustomerCode = null,
   providerPlanCode = null,
   paidAt = null,
+  billingCycle = null,
   verificationPayload = null
 }) {
   if (!reference) return;
@@ -185,6 +199,7 @@ export async function upsertFullStoreSubscriptionTransaction({
     currency,
     status,
     paid_at: paidAt,
+    billing_cycle: billingCycle,
     authorization_url: authorizationUrl,
     verification_payload: verificationPayload,
     updated_at: new Date().toISOString()
@@ -231,6 +246,7 @@ export async function applyFullStoreActiveState({
   customerCode = null,
   planCode = null,
   paidAt = null,
+  billingCycle = null,
   raw = null
 }) {
   await supabaseAdmin
@@ -240,7 +256,8 @@ export async function applyFullStoreActiveState({
       full_store_subscription_paystack_code: subscriptionCode,
       full_store_subscription_next_payment_date: nextPaymentDate,
       full_store_subscription_grace_ends_at: null,
-      full_store_subscription_locked_at: null
+      full_store_subscription_locked_at: null,
+      full_store_subscription_billing_cycle: billingCycle
     })
     .eq('id', storeId)
     .eq('platform_mode', 'store');
@@ -255,6 +272,7 @@ export async function applyFullStoreActiveState({
     providerSubscriptionCode: subscriptionCode,
     providerPlanCode: planCode,
     nextPaymentDate,
+    billingCycle,
     metadata: raw
   });
 
@@ -271,6 +289,7 @@ export async function applyFullStoreActiveState({
       providerCustomerCode: customerCode,
       providerPlanCode: planCode,
       paidAt,
+      billingCycle,
       verificationPayload: raw
     });
   }
@@ -294,7 +313,8 @@ export async function applyFullStoreInactiveState({
     .update({
       full_store_subscription_status: status,
       full_store_subscription_grace_ends_at: graceEndsAt,
-      full_store_subscription_locked_at: lockedAt
+      full_store_subscription_locked_at: lockedAt,
+      full_store_subscription_billing_cycle: null
     })
     .eq('id', storeId)
     .eq('platform_mode', 'store');

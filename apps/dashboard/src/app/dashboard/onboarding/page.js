@@ -541,7 +541,13 @@ export default function OnboardingPage() {
               Your showcase page is ready. Here&apos;s what subscribing actually unlocks:
             </p>
             {listingPlans ? (
-              <ListingPlanPicker listingPlans={listingPlans} selectedCycle={selectedCycle} onSelectCycle={setSelectedCycle} />
+              <>
+                <p className="text-2xl font-bold text-gray-900 mb-4">
+                  ₦{(listingPlans[selectedCycle]?.amountKobo / 100).toLocaleString()}
+                  <span className="text-sm font-normal text-gray-500"> / {listingPlans[selectedCycle]?.label.toLowerCase()}</span>
+                </p>
+                <ListingPlanPicker listingPlans={listingPlans} selectedCycle={selectedCycle} onSelectCycle={setSelectedCycle} />
+              </>
             ) : (
               <p className="text-2xl font-bold text-gray-900 mb-1">₦500<span className="text-sm font-normal text-gray-500">/month</span></p>
             )}
