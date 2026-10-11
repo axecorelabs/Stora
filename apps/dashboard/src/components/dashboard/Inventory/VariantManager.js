@@ -206,28 +206,24 @@ export default function VariantManager({
     }
   };
 
+  // Only re-stamps sizes still sitting at the PREVIOUS default -- a size
+  // whose quantity no longer matches it was deliberately hand-edited (see
+  // updateVariantSizeStock), and changing the default must never clobber
+  // that. Before this, nudging this field after customizing even one size
+  // silently wiped every manual edit back to one flat number.
   const handleDefaultStockChange = (value) => {
+    const previousDefault = parseInt(defaultStock) || 0;
+    const newDefault = parseInt(value) || 0;
     setDefaultStock(value);
-    
-    if (sizeMode === 'one-size') {
-      // Update all variants
+
+    if (sizeMode === 'one-size' || sizeMode === 'same') {
       const updatedVariants = variants.map(variant => ({
         ...variant,
-        sizes: [{
-          size: 'One Size',
-          quantityInStock: parseInt(value) || 0,
-          reorderLevel: 5
-        }]
-      }));
-      setVariants(updatedVariants);
-    } else if (sizeMode === 'same') {
-      // Update all sizes across all variants with new default
-      const updatedVariants = variants.map(variant => ({
-        ...variant,
-        sizes: variant.sizes.map(s => ({
-          ...s,
-          quantityInStock: parseInt(value) || 0
-        }))
+        sizes: variant.sizes.map(s =>
+          s.quantityInStock === previousDefault
+            ? { ...s, quantityInStock: newDefault }
+            : s
+        )
       }));
       setVariants(updatedVariants);
     }
@@ -427,8 +423,10 @@ export default function VariantManager({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      handleSharedSizeToggle(customSize);
-                      setCustomSize('');
+                      if (customSize.trim()) {
+                        handleSharedSizeToggle(customSize.trim());
+                        setCustomSize('');
+                      }
                     }
                   }}
                   placeholder="Enter size and press Enter"
@@ -437,8 +435,10 @@ export default function VariantManager({
                 <button
                   type="button"
                   onClick={() => {
-                    handleSharedSizeToggle(customSize);
-                    setCustomSize('');
+                    if (customSize.trim()) {
+                      handleSharedSizeToggle(customSize.trim());
+                      setCustomSize('');
+                    }
                   }}
                   className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
                 >
