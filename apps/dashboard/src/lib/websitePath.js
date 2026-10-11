@@ -25,10 +25,14 @@ import { supabaseAdmin } from './supabase';
 // websitePath is set), so the very same reserved words need blocking right
 // where that slug is first generated, not just on the separate opt-in
 // custom-address path this file was originally written for.
+// "lagoslife" -- lagoslife.stora.com.ng is its own standalone Cloudflare
+// Worker (workers/lagoslife-leaderboard), unrelated to any vendor's
+// storefront. Reserved here too so no vendor can ever be assigned it as
+// their own store's website address.
 export const RESERVED_SUBDOMAINS = new Set([
   'www', 'app', 'api', 'mail', 'admin', 'support', 'help', 'status',
   'cdn', 'assets', 'blog', 'docs', 'storage', 'biterave',
-  'meals', 'groceries', 'restaurants'
+  'meals', 'groceries', 'restaurants', 'lagoslife'
 ]);
 
 // Same DNS-label shape check workers/subdomain-router's Cloudflare Worker

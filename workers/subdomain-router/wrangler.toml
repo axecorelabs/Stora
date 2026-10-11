@@ -66,7 +66,14 @@ STORE_ORIGIN_HOST = "www.stora.com.ng"
 # image host for Cloudflare R2. Missing here broke every product/store
 # image on the live site: requests were getting forwarded into the store
 # app instead of served straight from R2.
-RESERVED_SUBDOMAINS = "www,app,api,mail,admin,support,help,status,cdn,assets,blog,docs,storage"
+# "lagoslife" -- lagoslife.stora.com.ng, a separate standalone Cloudflare
+# Worker (workers/lagoslife-leaderboard) with its own dedicated `routes`
+# entry, which wins on specificity over this file's *.stora.com.ng/*
+# wildcard regardless of this list. Added here purely as defense in depth
+# per this comment's own rule, so a request that somehow still reaches
+# THIS Worker for that host is passed through rather than wrongly treated
+# as an unknown vendor slug and proxied to the main store origin.
+RESERVED_SUBDOMAINS = "www,app,api,mail,admin,support,help,status,cdn,assets,blog,docs,storage,lagoslife"
 
 # Which of the reserved labels above is the actual marketplace site
 # rather than some other reserved service (the dashboard at app, R2 at

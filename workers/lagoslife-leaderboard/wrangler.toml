@@ -1,0 +1,204 @@
+name = "stora-lagoslife-leaderboard"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Its own dedicated route, not the subdomain-router's *.stora.com.ng/*
+# wildcard -- Cloudflare dispatches by most-specific route match, so this
+# wins for lagoslife.stora.com.ng with no changes needed to that other
+# Worker for routing to work. Requires an actual DNS record for this host
+# in the zone, PROXIED (orange cloud) -- a grey-cloud (DNS-only) record
+# never reaches a Worker route at all. Target content of that record
+# doesn't matter (this Worker intercepts before any origin fetch); see
+# README/plan for the exact manual step.
+#
+# lagoslifegames.com.ng and lagoslifeforbes.com.ng both run ALONGSIDE
+# the stora.com.ng route above, not in place of it (deliberate -- every
+# hostname stays live, no redirect). Each still requires: a proxied
+# (orange-cloud) DNS record for both the apex and www in that zone, and
+# TURNSTILE_SITE_KEY's allowed-hostnames list (Cloudflare Turnstile
+# dashboard) to include the domain -- it's currently scoped to
+# lagoslife.stora.com.ng only, and the submit form's bot check will
+# silently fail to render on any hostname not on that list.
+#
+# lagoslifeforbes.com.ng is commented out below: wrangler deploy fails
+# outright ("Could not find zone") if a route names a zone that doesn't
+# exist yet in this Cloudflare account, which blocks every deploy of
+# this Worker, not just this domain's. Uncomment once
+# lagoslifeforbes.com.ng exists as its own Zone here (register it, or
+# point an existing registration's nameservers at Cloudflare).
+routes = [
+  { pattern = "lagoslife.stora.com.ng/*", zone_name = "stora.com.ng" },
+  { pattern = "lagoslifegames.com.ng/*", zone_name = "lagoslifegames.com.ng" },
+  { pattern = "www.lagoslifegames.com.ng/*", zone_name = "lagoslifegames.com.ng" },
+  { pattern = "lagoslifeforbes.com.ng/*", zone_name = "lagoslifeforbes.com.ng" },
+  { pattern = "www.lagoslifeforbes.com.ng/*", zone_name = "lagoslifeforbes.com.ng" }
+]
+
+[vars]
+# Public Turnstile site key -- safe to commit (it's embedded in the HTML
+# the browser already receives). Create a DEDICATED site key scoped to
+# this hostname rather than reusing apps/store's -- keeps this side
+# feature's bot traffic out of the real signup funnel's analytics, and
+# Turnstile keys are hostname-allowlisted anyway.
+TURNSTILE_SITE_KEY = "0x4AAAAAAFPPV-lza9AqG105"
+
+# Business-rule throttle on /api/submit -- enforced in src/db.js against
+# D1, NOT the [[ratelimits]] binding below, since that binding's `period`
+# can only be 10 or 60 (a hard Cloudflare constraint) and can't express
+# "a few per hour" on its own.
+MAX_SUBMISSIONS_PER_HOUR_PER_IP = "3"
+
+# Upper bound on an uploaded screenshot, checked against Content-Length
+# BEFORE request.formData() is ever called -- rejects an oversized body
+# without buffering it.
+MAX_SCREENSHOT_BYTES = "5242880"
+
+# Same idea, for an account avatar upload (POST /api/account/avatar) --
+# smaller cap than a screenshot since an avatar is just a small square photo.
+MAX_AVATAR_BYTES = "2097152"
+
+# Upper bound on a paid-ad image upload (POST /api/ads/create).
+MAX_AD_IMAGE_BYTES = "3145728"
+
+# Self-serve ad pricing, in kobo (NGN x100). Paid once per ad via Paystack
+# (src/paystack.js) -- not a recurring plan, so this is a plain amount, not
+# a Paystack plan code. Duration for the day/week/month tiers is fixed
+# application logic (src/db.js's AD_DURATION_DAYS), not configurable here.
+# Tiers map to placements via src/index.js's SLOT_CONFIG:
+#   premium  -- ranking_top (the top-of-leaderboard slot)
+#   standard -- ranking_bottom, profile_tab
+#   campaign -- campaign_banner (flat fee, not day/week/month -- see below)
+AD_PRICE_PREMIUM_DAY_KOBO = "3500000"
+AD_PRICE_PREMIUM_WEEK_KOBO = "20000000"
+AD_PRICE_PREMIUM_MONTH_KOBO = "70000000"
+
+AD_PRICE_STANDARD_DAY_KOBO = "1200000"
+AD_PRICE_STANDARD_WEEK_KOBO = "7500000"
+AD_PRICE_STANDARD_MONTH_KOBO = "24000000"
+
+# Sponsors one specific campaign for its whole run (duration is the
+# campaign's own, not advertiser-chosen) -- only purchasable while a
+# campaign is active, see handleCreateAd's campaign_banner branch.
+AD_PRICE_CAMPAIGN_BANNER_KOBO = "15000000"
+
+# Paid perk, not ad inventory -- shows an account's own social handles
+# next to their leaderboard entries for however many days they pick.
+# Flat per-day rate, not a tiered package -- deliberately a low-friction
+# impulse "nudge" (pitched right after a balance submission) rather than
+# a subscription-style decision, so no bulk-discount tiers to weigh.
+SOCIAL_UNLOCK_PRICE_PER_DAY_KOBO = "50000"
+
+# Filled in after `wrangler d1 create lagoslife-leaderboard` -- paste the
+# printed database_id here. Schema lives in migrations/0001_init.sql,
+# applied via `npm run db:migrate:local` / `db:migrate:remote`.
+[[d1_databases]]
+binding = "DB"
+database_name = "lagoslife-leaderboard"
+database_id = "a3ebd274-408b-417a-a178-9c87cc0db3c3"
+
+# Filled in after `wrangler r2 bucket create lagoslife-leaderboard-screenshots`.
+# Kept PRIVATE -- no public access / custom domain configured on this
+# bucket. Screenshots are only ever read back through the Basic-Auth-gated
+# /admin/screenshot/:id route (src/index.js), never served directly.
+[[r2_buckets]]
+binding = "SCREENSHOTS_BUCKET"
+bucket_name = "lagoslife-leaderboard-screenshots"
+
+# Live + all-time visitor counting -- a single global Durable Object
+# instance (src/presenceObject.js), not D1: every open tab pings this
+# every ~25-30s, which is exactly the tiny-high-frequency-read/write
+# workload a DO serves from memory/its own embedded SQLite, where D1 would
+# mean a real network round trip per ping under real traffic. The class is
+# exported from src/index.js (the `main` module) since that's where
+# wrangler resolves `class_name` against.
+[[durable_objects.bindings]]
+name = "PRESENCE_DO"
+class_name = "PresenceCounter"
+
+# `new_sqlite_classes` (not the legacy `new_classes`) opts this DO into the
+# SQLite-backed storage API (`ctx.storage.sql`) presenceObject.js uses,
+# rather than the older raw key-value DO storage.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PresenceCounter"]
+
+# Flood guard on /api/submit -- a cheap first-pass filter against scripted
+# rapid-fire abuse, checked before Turnstile/D1/R2 work. Fails OPEN on a
+# limiter error (same convention as workers/subdomain-router's own
+# BROWSE_RATE_LIMITER) -- this is a defense-in-depth layer, not the real
+# throttle (see MAX_SUBMISSIONS_PER_HOUR_PER_IP above, which fails CLOSED).
+# namespace_id just needs to be unique within this Cloudflare account
+# across every Worker's [[ratelimits]] blocks -- subdomain-router already
+# uses 1001, so this uses 1002; verify no collision before deploying.
+[[ratelimits]]
+name = "SUBMIT_FLOOD_LIMITER"
+namespace_id = "1002"
+
+[ratelimits.simple]
+limit = 5
+period = 60
+
+# Flood guard on POST /api/auth/signup and /api/auth/login -- separate
+# budget from submissions, since credential-guessing/account-creation
+# spam is a distinct abuse vector. Fails OPEN on a limiter error, same
+# convention as SUBMIT_FLOOD_LIMITER above; PBKDF2's deliberately slow
+# hashing (src/auth.js) is the other layer of brute-force resistance here.
+[[ratelimits]]
+name = "AUTH_FLOOD_LIMITER"
+namespace_id = "1003"
+
+[ratelimits.simple]
+limit = 5
+period = 60
+
+# Flood guard on POST /api/presence/ping -- generous (30/60s) since many
+# real visitors legitimately share one IP behind carrier-grade NAT (common
+# on Nigerian mobile networks), and legitimate pings are ~1 per 25-30s per
+# browser tab anyway. Only here to block an outright scripted spam loop,
+# not to throttle normal shared-IP traffic.
+[[ratelimits]]
+name = "PRESENCE_FLOOD_LIMITER"
+namespace_id = "1005"
+
+[ratelimits.simple]
+limit = 30
+period = 60
+
+# Flood guard on the ads + social-unlock payment flow (create/pay/confirm
+# for both) -- added after an audit found this entire flow (built after
+# the three limiters above) had never been given one. Each of these
+# endpoints either creates a pending paid row or calls out to Paystack's
+# API (initializeTransaction/verifyTransaction) -- all gated by session
+# auth already, but auth alone doesn't throttle an authenticated account
+# hammering Paystack calls. Fails OPEN, same convention as every limiter
+# above.
+[[ratelimits]]
+name = "PAYMENT_FLOOD_LIMITER"
+namespace_id = "1006"
+
+[ratelimits.simple]
+limit = 10
+period = 60
+
+# Secrets, deliberately NOT set here (this file is committed to git) --
+# set each with `npx wrangler secret put <NAME>` from inside this directory:
+#   TURNSTILE_SECRET_KEY  -- paired with TURNSTILE_SITE_KEY above
+#   ADMIN_SECRET           -- shared secret for the /admin Basic Auth gate
+#                             (format: "username:password", checked as-is
+#                             in src/adminAuth.js)
+#   IP_HASH_SALT            -- random value (e.g. `openssl rand -hex 32`),
+#                             salts the sha256 hash of a submitter's IP so
+#                             the raw IP is never stored (see src/db.js)
+#   PAYSTACK_SECRET_KEY     -- from your Paystack dashboard (same account
+#                             apps/dashboard already uses is fine -- ad
+#                             payments just land as separate transactions
+#                             under the same merchant account). Also used
+#                             to verify the x-paystack-signature header on
+#                             incoming webhooks (src/paystack.js).
+#
+# Also required (not a secret, but an external manual step): register
+#   https://lagoslife.stora.com.ng/api/webhooks/paystack
+# as a webhook URL in the Paystack dashboard (Settings -> API Keys & Webhooks),
+# so a successful charge.success event is a safety net even if a buyer
+# never makes it back from Paystack's checkout page (src/index.js's
+# handlePaystackWebhook).
