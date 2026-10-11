@@ -40,15 +40,6 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
-  const [showVariantManager, setShowVariantManager] = useState(false);
-  const [tempVariant, setTempVariant] = useState({
-    size: '',
-    color: '',
-    quantityInStock: '',
-    reorderLevel: 5,
-    images: []
-  });
-  const [editingVariantIndex, setEditingVariantIndex] = useState(null);
   const [detectedColorVariants, setDetectedColorVariants] = useState([]);
   const [variants, setVariants] = useState([]);
 
@@ -534,21 +525,6 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
     })));
   };
 
-  // Toggle variant mode - simplified
-  const toggleVariantMode = () => {
-    setFormData(prev => ({
-      ...prev,
-      hasVariants: !prev.hasVariants,
-      variants: !prev.hasVariants ? prev.variants : [],
-      quantityInStock: !prev.hasVariants ? '' : prev.quantityInStock
-    }));
-
-    if (!formData.hasVariants) {
-      setShowVariantManager(true);
-    }
-  };
-
-
   // Get available sizes from category details - but don't use it to limit variant manager
   const getAvailableSizes = () => {
     if (formData.category === 'Clothing' && formData.clothingDetails) {
@@ -578,83 +554,6 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
           ...prev.shoesDetails,
           sizes: sizes // Replace with all unique sizes from variants
         }
-      }));
-    }
-  };
-
-  // Check for duplicate variant
-  const isDuplicateVariant = (size, color, excludeIndex = null) => {
-    return formData.variants.some((variant, index) => 
-      index !== excludeIndex && 
-      variant.size === size && 
-      variant.color === color
-    );
-  };
-
-  // Add or update variant
-  const handleSaveVariant = () => {
-    if (!tempVariant.size || !tempVariant.color) {
-      alert('Please select both size and color');
-      return;
-    }
-
-    if (!tempVariant.quantityInStock || tempVariant.quantityInStock < 0) {
-      alert('Please enter a valid quantity');
-      return;
-    }
-
-    if (isDuplicateVariant(tempVariant.size, tempVariant.color, editingVariantIndex)) {
-      alert('This size/color combination already exists');
-      return;
-    }
-
-    // Get images tagged with this color
-    const variantImages = imagePreviews
-      .filter(img => img.colorTag === tempVariant.color)
-      .map(img => img.url);
-
-    const newVariant = {
-      ...tempVariant,
-      quantityInStock: parseInt(tempVariant.quantityInStock),
-      reorderLevel: parseInt(tempVariant.reorderLevel) || 5,
-      images: variantImages,
-      sku: `${formData.category.substring(0, 3).toUpperCase()}-${tempVariant.color.substring(0, 3).toUpperCase()}-${tempVariant.size}`
-    };
-
-    if (editingVariantIndex !== null) {
-      // Update existing variant
-      const updatedVariants = [...formData.variants];
-      updatedVariants[editingVariantIndex] = newVariant;
-      setFormData(prev => ({ ...prev, variants: updatedVariants }));
-      setEditingVariantIndex(null);
-    } else {
-      // Add new variant
-      setFormData(prev => ({
-        ...prev,
-        variants: [...prev.variants, newVariant]
-      }));
-    }
-
-    // Reset temp variant
-    setTempVariant({
-      size: '',
-      color: '',
-      quantityInStock: '',
-      reorderLevel: 5,
-      images: []
-    });
-  };
-
-  const editVariant = (index) => {
-    setTempVariant(formData.variants[index]);
-    setEditingVariantIndex(index);
-  };
-
-  const deleteVariant = (index) => {
-    if (confirm('Are you sure you want to delete this variant?')) {
-      setFormData(prev => ({
-        ...prev,
-        variants: prev.variants.filter((_, i) => i !== index)
       }));
     }
   };
