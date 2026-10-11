@@ -1088,46 +1088,56 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {formData.category === 'Food' 
-                      ? 'How many do you plan to sell? *' 
-                      : 'How many do you have right now? *'
-                    }
-                  </label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    {formData.category === 'Food'
-                      ? 'Your sales target (you can update this anytime)'
-                      : detectedColorVariants.length >= 2
-                      ? 'Total stock calculated from your variants above'
-                      : 'Count how many you have in your shop or store right now'
-                    }
-                  </p>
-                  <input
-                    type="number"
-                    name="quantityInStock"
-                    value={formData.quantityInStock}
-                    onChange={handleChange}
-                    min="0"
-                    step="1"
-                    placeholder="0"
-                    disabled={detectedColorVariants.length >= 2}
-                    readOnly={detectedColorVariants.length >= 2}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
-                      errors.quantityInStock ? 'border-red-300' : 'border-gray-300'
-                    } ${detectedColorVariants.length >= 2 ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                  />
-                  {detectedColorVariants.length >= 2 && (
-                    <div className="mt-2 space-y-1">
-                      <p className="text-xs text-blue-600">
-                        ℹ️ Auto-calculated from {variants.length} color variant(s)
+                  {/* Variant quantities are already set per-size in the
+                      VariantManager step above -- this must read as a
+                      summary of that, never as a second place asking the
+                      same question. A disabled-but-still-input-styled box
+                      with a "*" required marker read as a duplicate
+                      quantity prompt even though only one copy was ever
+                      editable. */}
+                  {detectedColorVariants.length >= 2 ? (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Total stock
+                      </label>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Set per size in your variants above -- this is just the total across all of them.
                       </p>
-                      <p className="text-xs text-gray-500">
-                        Current total: <span className="font-semibold text-gray-900">{formData.quantityInStock || '0'}</span> units
+                      <div className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl flex items-baseline gap-1.5">
+                        <span className="text-lg font-semibold text-gray-900">{formData.quantityInStock || '0'}</span>
+                        <span className="text-sm text-gray-500">across {variants.length} color variant(s)</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {formData.category === 'Food'
+                          ? 'How many do you plan to sell? *'
+                          : 'How many do you have right now? *'
+                        }
+                      </label>
+                      <p className="text-xs text-gray-500 mb-2">
+                        {formData.category === 'Food'
+                          ? 'Your sales target (you can update this anytime)'
+                          : 'Count how many you have in your shop or store right now'
+                        }
                       </p>
-                    </div>
-                  )}
-                  {errors.quantityInStock && (
-                    <p className="text-red-500 text-xs mt-1">{errors.quantityInStock}</p>
+                      <input
+                        type="number"
+                        name="quantityInStock"
+                        value={formData.quantityInStock}
+                        onChange={handleChange}
+                        min="0"
+                        step="1"
+                        placeholder="0"
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-black ${
+                          errors.quantityInStock ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                      />
+                      {errors.quantityInStock && (
+                        <p className="text-red-500 text-xs mt-1">{errors.quantityInStock}</p>
+                      )}
+                    </>
                   )}
                 </div>
 

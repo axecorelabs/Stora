@@ -167,6 +167,22 @@ export default function VariantManager({
     setVariants(updatedVariants);
   };
 
+  // "one-size"/"same" mode's one shared quantity-per-size table -- every
+  // color already carries identical sizes in these modes (see the
+  // detectedColors effect and handleSharedSizeToggle), so a size's
+  // quantity is set once here and applied to that size across every
+  // color, instead of the vendor re-entering the same number once per
+  // color. Only "different" mode still needs per-color editing below,
+  // since colors can genuinely diverge there.
+  const updateSharedSizeStock = (size, quantity) => {
+    const qty = parseInt(quantity) || 0;
+    const updatedVariants = variants.map(variant => ({
+      ...variant,
+      sizes: variant.sizes.map(s => (s.size === size ? { ...s, quantityInStock: qty } : s))
+    }));
+    setVariants(updatedVariants);
+  };
+
   const toggleSizeForVariant = (colorIndex, size) => {
     const updatedVariants = [...variants];
     const variant = updatedVariants[colorIndex];
@@ -472,16 +488,63 @@ export default function VariantManager({
         </div>
       )}
 
-      {/* Variant List */}
+      {/* Stock by size -- one shared table instead of repeating the same
+          sizes/quantities inside every color's own accordion below. */}
+      {(sizeMode === 'one-size' || sizeMode === 'same') && variants[0]?.sizes.length > 0 && (
+        <div className="mb-6">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">Stock by size</h4>
+          <p className="text-xs text-gray-500 mb-3">
+            Applies across all {variants.length} color variant(s) -- no need to set it again per color.
+          </p>
+          <div className="space-y-2">
+            {variants[0].sizes.map((sizeObj) => (
+              <div key={sizeObj.size} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                <div className="flex-1 text-sm font-medium text-gray-900">{sizeObj.size}</div>
+                <div className="w-32">
+                  <input
+                    type="number"
+                    value={sizeObj.quantityInStock}
+                    onChange={(e) => updateSharedSizeStock(sizeObj.size, e.target.value)}
+                    min="0"
+                    placeholder="0"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm text-black"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Variant List -- "different" mode still needs the full per-color
+          accordion below (colors can genuinely diverge there). "one-size"
+          and "same" already got their one shared quantity table above, so
+          this is just a read-only roll call of which colors exist --
+          nothing left to set per color, so nothing to expand. */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">
-          <h4 className="text-sm font-medium text-gray-700">Variant Stock Details</h4>
+          <h4 className="text-sm font-medium text-gray-700">
+            {sizeMode === 'different' ? 'Variant Stock Details' : 'Color variants'}
+          </h4>
           <div className="text-sm text-gray-600">
             Total Stock: <span className="font-semibold text-gray-900">{calculateTotalStock()}</span>
           </div>
         </div>
 
-        {variants.map((variant, colorIndex) => (
+        {sizeMode !== 'different' ? (
+          <div className="flex flex-wrap gap-2">
+            {variants.map((variant, colorIndex) => (
+              <div key={colorIndex} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg">
+                <div
+                  className="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0"
+                  style={{ backgroundColor: variant.color.toLowerCase() }}
+                  title={variant.color}
+                />
+                <span className="text-sm font-medium text-gray-900">{variant.color}</span>
+              </div>
+            ))}
+          </div>
+        ) : variants.map((variant, colorIndex) => (
           <div key={colorIndex} className="border border-gray-200 rounded-xl overflow-hidden">
             {/* Variant Header -- stacks on narrow screens instead of
                 squeezing color name/size count/stock/chevron into one
