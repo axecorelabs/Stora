@@ -25,7 +25,7 @@ const ONBOARDING_CLAIM_STORE_ID_KEY = 'stora-onboarding-claim-store-id';
 // avoid a redirect loop with DashboardLayout's own
 // "onboarding incomplete -> push here" effect.
 export default function OnboardingPage() {
-  const { user, loading, isAuthenticated, secureApiCall, checkAuth } = useAuth();
+  const { user, loading, isAuthenticated, secureApiCall, checkAuth, signOut } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   // This hook's own `['store']` query fetches on mount (during the 'name'
@@ -293,6 +293,13 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-10 sm:py-16">
+      <button
+        type="button"
+        onClick={signOut}
+        className="fixed top-4 right-4 sm:top-6 sm:right-6 text-sm font-medium text-gray-500 hover:text-gray-900"
+      >
+        Log out
+      </button>
       <img src="/stora.png" alt="Stora" className="w-12 h-12 object-contain mb-6" />
 
       <div className={`w-full ${step === 'business' ? 'max-w-2xl' : step === 'branding' ? 'max-w-3xl' : 'max-w-lg'}`}>
