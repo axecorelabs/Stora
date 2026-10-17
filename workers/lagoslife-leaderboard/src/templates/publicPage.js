@@ -44,6 +44,10 @@ const ICON_EYE_OFF = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none
 const ICON_USERS = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
 const ICON_ARROW_RIGHT = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
 const ICON_ARROW_LEFT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>';
+// Real sourced icon (Lucide "chevron-down", ISC-licensed, pulled via
+// cdn.jsdelivr.net/npm/lucide-static) -- the "more games coming soon"
+// collapsible toggle.
+const ICON_CHEVRON_DOWN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
 const ICON_MEGAPHONE = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>';
 const ICON_BELL = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
 // Real sourced icon (Lucide "bell-off", ISC-licensed, pulled via
@@ -246,6 +250,34 @@ export function renderPublicPage(env) {
   .stora-promo-title { font-weight: 800; color: var(--gold); font-size: 0.92rem; }
   .stora-promo-sub { font-size: 0.76rem; color: rgba(255,255,255,0.72); }
   .stora-promo-arrow { flex-shrink: 0; color: var(--gold); }
+
+  /* -- "More games coming soon" collapsible teaser -- */
+  .coming-soon-section { margin-bottom: 20px; }
+  .coming-soon-toggle {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 13px 16px; cursor: pointer; font-family: inherit;
+  }
+  .coming-soon-toggle-text { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.88rem; color: var(--text); }
+  .coming-soon-chevron { display: flex; color: var(--muted); transition: transform 0.2s ease; flex-shrink: 0; }
+  .coming-soon-toggle[aria-expanded="true"] .coming-soon-chevron { transform: rotate(180deg); }
+  .coming-soon-toggle[aria-expanded="true"] { border-radius: 14px 14px 0 0; border-bottom-color: transparent; }
+  .coming-soon-grid {
+    display: grid; grid-template-columns: 1fr; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-top: none;
+    border-radius: 0 0 14px 14px; padding: 4px 14px 14px;
+  }
+  @media (min-width: 560px) {
+    .coming-soon-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .coming-soon-grid[hidden] { display: none; }
+  .coming-soon-card { background: #fff; border: 1px dashed var(--border); border-radius: 12px; padding: 12px 14px; }
+  .coming-soon-tag {
+    display: inline-block; background: var(--field-bg); color: var(--gold-deep); font-size: 0.64rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; margin-bottom: 7px;
+  }
+  .coming-soon-title { font-weight: 800; font-size: 0.86rem; color: var(--text); margin-bottom: 3px; }
+  .coming-soon-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.4; margin: 0; }
   /* Ranking's own top spacing comes from .disclaimer's margin -- the
      Profile view has nothing playing that role, so without this its
      content sits flush against the divider above. */
@@ -900,6 +932,45 @@ export function renderPublicPage(env) {
       <img id="sponsored-image-bottom" src="" alt="Sponsored">
       <span class="sponsored-tag">Sponsored</span>
     </a>
+
+    <div class="coming-soon-section">
+      <button type="button" class="coming-soon-toggle" id="coming-soon-toggle" aria-expanded="false" aria-controls="coming-soon-grid">
+        <span class="coming-soon-toggle-text">${ICON_TROPHY_SM} More games coming soon</span>
+        <span class="coming-soon-chevron">${ICON_CHEVRON_DOWN}</span>
+      </button>
+      <div class="coming-soon-grid" id="coming-soon-grid" hidden>
+        <div class="coming-soon-card">
+          <span class="coming-soon-tag">Coming soon</span>
+          <div class="coming-soon-title">\u{1faab} Poorest Player</div>
+          <p class="coming-soon-desc">Dead broke and proud? Prove you're the realest struggler in Lagos Life.</p>
+        </div>
+        <div class="coming-soon-card">
+          <span class="coming-soon-tag">Coming soon</span>
+          <div class="coming-soon-title">\u{1f393} Most Certified</div>
+          <p class="coming-soon-desc">Stack the most in-game certifications and take the crown.</p>
+        </div>
+        <div class="coming-soon-card">
+          <span class="coming-soon-tag">Coming soon</span>
+          <div class="coming-soon-title">⭐ Most Popular</div>
+          <p class="coming-soon-desc">Biggest fanbase in Lagos Life -- flex your following.</p>
+        </div>
+        <div class="coming-soon-card">
+          <span class="coming-soon-tag">Coming soon</span>
+          <div class="coming-soon-title">\u{1f4bc} Most Influential Businessperson</div>
+          <p class="coming-soon-desc">Build the biggest business empire in the game.</p>
+        </div>
+        <div class="coming-soon-card">
+          <span class="coming-soon-tag">Coming soon</span>
+          <div class="coming-soon-title">\u{1f48e} Biggest Flex</div>
+          <p class="coming-soon-desc">Cars, mansion, garage -- show off your whole collection.</p>
+        </div>
+        <div class="coming-soon-card">
+          <span class="coming-soon-tag">Coming soon</span>
+          <div class="coming-soon-title">\u{1f3a4} Most Booked Musician</div>
+          <p class="coming-soon-desc">Most gigs booked in-game. Prove you're the hottest act.</p>
+        </div>
+      </div>
+    </div>
 
     <a class="stora-promo-banner" href="https://stora.com.ng" target="_blank" rel="noopener noreferrer">
       <span class="stora-promo-text">
@@ -2383,6 +2454,20 @@ loadSponsoredAd('ranking_top', '');
 loadSponsoredAd('ranking_bottom', '-bottom');
 loadSponsoredAd('profile_tab', '-profile');
 loadSponsoredAd('campaign_banner', '-campaign');
+
+// "More games coming soon" teaser -- collapsed by default so it doesn't
+// compete with the live leaderboard above it; purely a static preview,
+// no fetch involved.
+(function () {
+  var toggle = document.getElementById('coming-soon-toggle');
+  var grid = document.getElementById('coming-soon-grid');
+  if (!toggle || !grid) return;
+  toggle.addEventListener('click', function () {
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+    grid.hidden = expanded;
+  });
+})();
 
 // Paystack redirects the browser back here with ?ad_confirm=<id> (plus
 // its own reference/trxref params) after checkout -- confirm the payment
