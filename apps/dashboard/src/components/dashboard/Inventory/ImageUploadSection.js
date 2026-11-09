@@ -229,8 +229,11 @@ export default function ImageUploadSection({
                   </div>
                 )}
 
-                {/* Actions Overlay */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                {/* Actions Overlay -- always visible below sm (touchscreens
+                    have no real :hover, so group-hover alone left these
+                    buttons unreachable on mobile); hover-revealed on sm+
+                    where a pointer actually hovers. */}
+                <div className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   {!preview.isPrimary && (
                     <button
                       type="button"
