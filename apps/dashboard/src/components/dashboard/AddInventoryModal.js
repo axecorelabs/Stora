@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Package, Tag, DollarSign, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import CustomDropdown from "../ui/CustomDropdown";
 import { useAuth } from "@/contexts/AuthContext";
+import { useInventoryDraft } from "@/hooks/useInventoryDraft";
 import { compressImageIfNeeded } from "@/lib/imageCompression";
 import { CATEGORY_VALUES } from "@stora/shared-constants";
 
@@ -10,9 +11,11 @@ import { CATEGORY_VALUES } from "@stora/shared-constants";
 import ImageUploadSection from "./Inventory/ImageUploadSection";
 import VariantManager from "./Inventory/VariantManager";
 import CategoryDetailsRenderer from "./Inventory/Categories/CategoryDetailsRenderer";
+import ResumeDraftBanner from "./Inventory/ResumeDraftBanner";
+import DiscardDraftModal from "./Inventory/DiscardDraftModal";
 
 export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
-  const { secureFormDataCall } = useAuth();
+  const { secureFormDataCall, user } = useAuth();
   const multiImageInputRef = useRef(null);
   
   const [currentStep, setCurrentStep] = useState(1);
@@ -42,6 +45,53 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [detectedColorVariants, setDetectedColorVariants] = useState([]);
   const [variants, setVariants] = useState([]);
+
+  const {
+    hasDraft,
+    draftSavedAt,
+    draftProductName,
+    draftImageCount,
+    resumeDraft,
+    discardDraft,
+    clearDraftOnSuccess
+  } = useInventoryDraft({
+    ownerId: user?.id,
+    context: 'add-product',
+    formData,
+    setFormData,
+    selectedImages,
+    setSelectedImages,
+    imagePreviews,
+    setImagePreviews,
+    variants,
+    setVariants,
+    detectedColorVariants,
+    setDetectedColorVariants,
+    currentStep,
+    setCurrentStep
+  });
+
+  // Mirrors add/page.js's own discard flow -- two distinct triggers
+  // share the same confirmation modal: rejecting an old resumed draft
+  // (stays open, starting fresh) vs. the main Cancel/backdrop-close
+  // (also closes the modal).
+  const isDraftTrivial = !formData.productName?.trim() && imagePreviews.length === 0;
+  const [discardIntent, setDiscardIntent] = useState(null); // null | 'cancel' | 'reject-resume'
+
+  const handleRequestClose = () => {
+    if (isDraftTrivial) {
+      onClose();
+      return;
+    }
+    setDiscardIntent('cancel');
+  };
+
+  const handleConfirmDiscard = async () => {
+    await discardDraft();
+    const shouldClose = discardIntent === 'cancel';
+    setDiscardIntent(null);
+    if (shouldClose) onClose();
+  };
 
   const unitOptions = [
     { value: 'Piece', label: 'Piece' },
@@ -780,7 +830,12 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
       };
       
       await onSubmit(inventoryData);
-      
+
+      // Clear the draft before resetting -- a just-created product
+      // should never resurface as a stale "resume?" prompt next time
+      // this modal opens.
+      await clearDraftOnSuccess();
+
       // Reset form
       setFormData({
         productName: '',
@@ -846,12 +901,32 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleRequestClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
+
+        {hasDraft && (
+          <div className="px-6 pt-6">
+            <ResumeDraftBanner
+              productName={draftProductName}
+              savedAt={draftSavedAt}
+              onResume={resumeDraft}
+              onDiscard={() => setDiscardIntent('reject-resume')}
+            />
+          </div>
+        )}
+
+        {discardIntent && (
+          <DiscardDraftModal
+            productName={formData.productName?.trim() || draftProductName}
+            imageCount={imagePreviews.length || draftImageCount}
+            onKeepEditing={() => setDiscardIntent(null)}
+            onDiscard={handleConfirmDiscard}
+          />
+        )}
 
         {/* Progress Steps */}
         <div className="px-6 pt-6">
@@ -1354,7 +1429,7 @@ export default function AddInventoryModal({ isOpen, onClose, onSubmit }) {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-6 border-t border-gray-200 mt-8">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleRequestClose}
               className="w-full sm:w-auto order-last sm:order-first px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
             >
               Cancel

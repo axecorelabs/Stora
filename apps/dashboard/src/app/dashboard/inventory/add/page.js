@@ -6,6 +6,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/hooks/useInventoryData";
+import { useInventoryDraft } from "@/hooks/useInventoryDraft";
 import { compressImageIfNeeded } from "@/lib/imageCompression";
 import { CATEGORY_VALUES } from "@stora/shared-constants";
 
@@ -13,13 +14,15 @@ import { CATEGORY_VALUES } from "@stora/shared-constants";
 import ImageUploadSection from "@/components/dashboard/Inventory/ImageUploadSection";
 import VariantManager from "@/components/dashboard/Inventory/VariantManager";
 import CategoryDetailsRenderer from "@/components/dashboard/Inventory/Categories/CategoryDetailsRenderer";
+import ResumeDraftBanner from "@/components/dashboard/Inventory/ResumeDraftBanner";
+import DiscardDraftModal from "@/components/dashboard/Inventory/DiscardDraftModal";
 
 export default function AddInventoryPage() {
   const router = useRouter();
-  const { secureFormDataCall } = useAuth();
+  const { secureFormDataCall, user } = useAuth();
   const { addItem, isAddingItem } = useInventoryData();
   const multiImageInputRef = useRef(null);
-  
+
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     productName: '',
@@ -56,6 +59,54 @@ export default function AddInventoryPage() {
   const [editingVariantIndex, setEditingVariantIndex] = useState(null);
   const [detectedColorVariants, setDetectedColorVariants] = useState([]);
   const [variants, setVariants] = useState([]);
+
+  const {
+    hasDraft,
+    draftSavedAt,
+    draftProductName,
+    draftImageCount,
+    resumeDraft,
+    discardDraft,
+    clearDraftOnSuccess
+  } = useInventoryDraft({
+    ownerId: user?.id,
+    context: 'add-product',
+    formData,
+    setFormData,
+    selectedImages,
+    setSelectedImages,
+    imagePreviews,
+    setImagePreviews,
+    variants,
+    setVariants,
+    detectedColorVariants,
+    setDetectedColorVariants,
+    currentStep,
+    setCurrentStep
+  });
+
+  // Cancel is a no-op when there's nothing worth losing yet -- only
+  // gated behind the discard-confirmation once a name or an image has
+  // actually been entered. Two distinct triggers share the same modal:
+  // rejecting an old resumed-from-last-visit draft (stays on this page,
+  // starting fresh) vs. the main Cancel button (also navigates away).
+  const isDraftTrivial = !formData.productName?.trim() && imagePreviews.length === 0;
+  const [discardIntent, setDiscardIntent] = useState(null); // null | 'cancel' | 'reject-resume'
+
+  const handleCancelClick = () => {
+    if (isDraftTrivial) {
+      router.push('/dashboard/inventory');
+      return;
+    }
+    setDiscardIntent('cancel');
+  };
+
+  const handleConfirmDiscard = async () => {
+    await discardDraft();
+    const shouldNavigateAway = discardIntent === 'cancel';
+    setDiscardIntent(null);
+    if (shouldNavigateAway) router.push('/dashboard/inventory');
+  };
 
   const unitOptions = [
     { value: 'Piece', label: 'Piece' },
@@ -666,7 +717,11 @@ export default function AddInventoryPage() {
 
       // Submit to API
       await addItem(payload);
-      
+
+      // Clear the draft before leaving -- a just-created product should
+      // never resurface as a stale "resume?" prompt on the next visit.
+      await clearDraftOnSuccess();
+
       // Navigate back to inventory page on success
       router.push('/dashboard/inventory');
     } catch (error) {
@@ -787,6 +842,24 @@ export default function AddInventoryPage() {
           </div>
         </div>
       </div>
+
+      {hasDraft && (
+        <ResumeDraftBanner
+          productName={draftProductName}
+          savedAt={draftSavedAt}
+          onResume={resumeDraft}
+          onDiscard={() => setDiscardIntent('reject-resume')}
+        />
+      )}
+
+      {discardIntent && (
+        <DiscardDraftModal
+          productName={formData.productName?.trim() || draftProductName}
+          imageCount={imagePreviews.length || draftImageCount}
+          onKeepEditing={() => setDiscardIntent(null)}
+          onDiscard={handleConfirmDiscard}
+        />
+      )}
 
       {/* Form Content */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
@@ -1255,7 +1328,7 @@ export default function AddInventoryPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-6 border-t border-gray-200 mt-8">
             <button
               type="button"
-              onClick={() => router.push('/dashboard/inventory')}
+              onClick={handleCancelClick}
               className="w-full sm:w-auto order-last sm:order-first px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
             >
               Cancel

@@ -5,9 +5,12 @@ import { ChevronRight, Package, Tag, DollarSign, ChevronLeft, Check, UtensilsCro
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/hooks/useInventoryData";
+import { useInventoryDraft } from "@/hooks/useInventoryDraft";
 import { compressImageIfNeeded } from "@/lib/imageCompression";
 import ImageUploadSection from "@/components/dashboard/Inventory/ImageUploadSection";
 import FoodDetailsSection from "@/components/dashboard/Inventory/Categories/FoodDetailsSection";
+import ResumeDraftBanner from "@/components/dashboard/Inventory/ResumeDraftBanner";
+import DiscardDraftModal from "@/components/dashboard/Inventory/DiscardDraftModal";
 
 // Dedicated menu-item flow for Restaurant Mode stores -- category is always
 // 'Food' (no dropdown, no other category ever reachable here; a restaurant
@@ -21,7 +24,7 @@ import FoodDetailsSection from "@/components/dashboard/Inventory/Categories/Food
 // still has the generic flow available via "Add Other Item" for that.
 export default function AddMenuItemPage() {
   const router = useRouter();
-  const { secureFormDataCall } = useAuth();
+  const { secureFormDataCall, user } = useAuth();
   const { addItem } = useInventoryData();
   const multiImageInputRef = useRef(null);
 
@@ -59,6 +62,46 @@ export default function AddMenuItemPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
+
+  const {
+    hasDraft,
+    draftSavedAt,
+    draftProductName,
+    draftImageCount,
+    resumeDraft,
+    discardDraft,
+    clearDraftOnSuccess
+  } = useInventoryDraft({
+    ownerId: user?.id,
+    context: 'add-menu-item',
+    formData,
+    setFormData,
+    selectedImages,
+    setSelectedImages,
+    imagePreviews,
+    setImagePreviews,
+    currentStep,
+    setCurrentStep
+  });
+
+  // Mirrors add/page.js's own discard flow.
+  const isDraftTrivial = !formData.productName?.trim() && imagePreviews.length === 0;
+  const [discardIntent, setDiscardIntent] = useState(null); // null | 'cancel' | 'reject-resume'
+
+  const handleCancelClick = () => {
+    if (isDraftTrivial) {
+      router.push('/dashboard/inventory');
+      return;
+    }
+    setDiscardIntent('cancel');
+  };
+
+  const handleConfirmDiscard = async () => {
+    await discardDraft();
+    const shouldNavigateAway = discardIntent === 'cancel';
+    setDiscardIntent(null);
+    if (shouldNavigateAway) router.push('/dashboard/inventory');
+  };
 
   const tagOptions = [
     { value: 'New arrivals', label: 'New arrivals' },
@@ -270,6 +313,7 @@ export default function AddMenuItemPage() {
       };
 
       await addItem(payload);
+      await clearDraftOnSuccess();
       router.push('/dashboard/inventory');
     } catch (error) {
       console.error('Error adding menu item:', error);
@@ -357,6 +401,24 @@ export default function AddMenuItemPage() {
           </div>
         </div>
       </div>
+
+      {hasDraft && (
+        <ResumeDraftBanner
+          productName={draftProductName}
+          savedAt={draftSavedAt}
+          onResume={resumeDraft}
+          onDiscard={() => setDiscardIntent('reject-resume')}
+        />
+      )}
+
+      {discardIntent && (
+        <DiscardDraftModal
+          productName={formData.productName?.trim() || draftProductName}
+          imageCount={imagePreviews.length || draftImageCount}
+          onKeepEditing={() => setDiscardIntent(null)}
+          onDiscard={handleConfirmDiscard}
+        />
+      )}
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
         <form onSubmit={(e) => e.preventDefault()} onKeyDown={(e) => {
@@ -648,7 +710,7 @@ export default function AddMenuItemPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-6 border-t border-gray-200 mt-8">
             <button
               type="button"
-              onClick={() => router.push('/dashboard/inventory')}
+              onClick={handleCancelClick}
               className="w-full sm:w-auto order-last sm:order-first px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
             >
               Cancel

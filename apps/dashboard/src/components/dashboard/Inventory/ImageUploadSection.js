@@ -1,6 +1,6 @@
 "use client";
 import { Upload, Check, Trash2, ImageIcon, Info, Sparkles } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import { PRODUCT_COLORS, PRODUCT_COLOR_HEX } from "@/lib/productColors";
@@ -35,6 +35,23 @@ export default function ImageUploadSection({
   errors
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipRef = useRef(null);
+
+  // Tap-to-toggle + click-outside-to-close, not hover -- same
+  // onMouseEnter/onMouseLeave-only pattern as the image delete/set-main
+  // buttons fixed in ImageUploadSection's Actions Overlay, and touch
+  // devices have no hover state to trigger it at all. Matches
+  // CustomDropdown's own click-outside convention.
+  useEffect(() => {
+    if (!showTooltip) return;
+    const handleClickOutside = (event) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(event.target)) {
+        setShowTooltip(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showTooltip]);
 
   // Check if category supports color tagging -- 'Other' is the catch-all
   // for items that don't fit any specific category, not a reason to
@@ -133,11 +150,10 @@ export default function ImageUploadSection({
                   <span className="font-medium text-brand-900">
                     Product Variants
                   </span>
-                  <div className="relative">
+                  <div className="relative" ref={tooltipRef}>
                     <button
                       type="button"
-                      onMouseEnter={() => setShowTooltip(true)}
-                      onMouseLeave={() => setShowTooltip(false)}
+                      onClick={() => setShowTooltip((prev) => !prev)}
                       className="p-1 text-brand-700 hover:bg-brand-100 rounded-full transition-colors"
                     >
                       <Info className="w-4 h-4" />
