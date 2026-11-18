@@ -165,10 +165,18 @@ export async function GET(req) {
     const sortField = sortFieldMap[sortBy] || null;
 
     // Build query
+    // is_deleted excluded here too, not just on the public storefront's
+    // own queries (findInventoryByStoreId/countStoreProducts in
+    // apps/store) -- without it, a soft-deleted item stayed visible in
+    // the vendor's own list (e.g. under the "Inactive" filter) forever,
+    // looking exactly like a live product, while silently never showing
+    // on the storefront. Deleted should mean deleted everywhere, not
+    // just publicly.
     let query = supabaseAdmin
       .from('inventory')
       .select('*', { count: 'exact' })
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .eq('is_deleted', false);
 
     // Filter by category
     if (category) {
