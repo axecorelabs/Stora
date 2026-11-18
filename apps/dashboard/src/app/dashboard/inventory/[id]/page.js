@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertTriangle } from "lucide-react";
@@ -27,6 +27,23 @@ export default function InventoryDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { secureApiCall } = useAuth();
+  const queryClient = useQueryClient();
+  // This page manages its own item/batch state (setItem/fetchItemDetails
+  // below) entirely separately from useInventoryData's react-query cache --
+  // the list page (apps/dashboard/src/app/dashboard/inventory/page.js) reads
+  // from that cache, including into its mobile "stock details" modal
+  // (mobileDetailItem, a snapshot of whatever item object the row passed
+  // in). Editing/adjusting stock/adding a batch here updated the server
+  // and this page's own local state correctly, but never told that shared
+  // cache anything changed -- so navigating back to the list and tapping
+  // the same row again could show the pre-edit price for up to
+  // staleTime (2 minutes) or until some other refetch happened to occur.
+  // Same three keys useInventoryData's own mutations already invalidate.
+  const invalidateSharedInventoryCache = () => {
+    queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    queryClient.invalidateQueries({ queryKey: ['inventory-stats-page'] });
+    queryClient.invalidateQueries({ queryKey: ['inventory-stats'] });
+  };
   const [item, setItem] = useState(null);
   const [activeBatches, setActiveBatches] = useState([]);
   const [allBatches, setAllBatches] = useState([]);
@@ -183,6 +200,7 @@ export default function InventoryDetailPage() {
         
         console.log('Local state updated with new data');
         setIsEditModalOpen(false);
+        invalidateSharedInventoryCache();
         return response;
       } else {
         throw new Error(response.message || 'Failed to update item');
@@ -203,6 +221,7 @@ export default function InventoryDetailPage() {
 
       if (response.success) {
         await fetchItemDetails();
+        invalidateSharedInventoryCache();
         return response;
       } else {
         throw new Error(response.message || 'Failed to update stock');
@@ -223,6 +242,7 @@ export default function InventoryDetailPage() {
 
       if (response.success) {
         await fetchItemDetails();
+        invalidateSharedInventoryCache();
         return response;
       } else {
         throw new Error(response.message || 'Failed to add batch');
@@ -245,6 +265,7 @@ export default function InventoryDetailPage() {
         throw new Error(response.message || 'Failed to delete item');
       }
 
+      invalidateSharedInventoryCache();
       router.push('/dashboard/inventory');
     } catch (error) {
       console.error('Error deleting item:', error);
