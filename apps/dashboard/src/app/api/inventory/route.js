@@ -6,6 +6,7 @@ import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 import { embedProductById, embedStoreById } from '@/lib/openrouter';
 import { captureServerEvent } from '@/lib/posthog-server';
 import { normalizeExtraDefinitions } from '@stora/shared-constants';
+import { GENERIC_SERVER_ERROR_MESSAGE } from '@/lib/apiErrors';
 
 // Helper to transform inventory data for response (snake_case to camelCase).
 // Every product has >=1 real inventory_variants row now (see
@@ -334,7 +335,7 @@ export async function GET(req) {
   } catch (error) {
     console.error('Inventory fetch error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
       { status: 500 }
     );
   }
@@ -426,7 +427,7 @@ export async function POST(req) {
         );
       }
       return NextResponse.json(
-        { success: false, message: 'Failed to create inventory item' },
+        { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
         { status: 500 }
       );
     }
@@ -481,7 +482,7 @@ export async function POST(req) {
       // depends on (checkout, POS, stock RPCs all require a real variant).
       await supabaseAdmin.from('inventory').delete().eq('id', newItem.id);
       return NextResponse.json(
-        { success: false, message: 'Failed to create product variant' },
+        { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
         { status: 500 }
       );
     }
@@ -571,7 +572,7 @@ export async function POST(req) {
   } catch (error) {
     console.error('Inventory creation error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
       { status: 500 }
     );
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireCommerceApiAccess } from '@/lib/storeAccess';
+import { GENERIC_SERVER_ERROR_MESSAGE } from '@/lib/apiErrors';
 
 // Helper to transform batch data
 function transformBatch(batch) {
@@ -123,7 +124,7 @@ export async function GET(req, { params }) {
     if (batchError) {
       console.error('Batch fetch error:', batchError);
       return NextResponse.json(
-        { success: false, message: 'Failed to fetch batches' },
+        { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
         { status: 500 }
       );
     }
@@ -164,7 +165,7 @@ export async function GET(req, { params }) {
   } catch (error) {
     console.error('Batch fetch error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
       { status: 500 }
     );
   }
@@ -293,7 +294,7 @@ export async function POST(req, { params }) {
   } catch (error) {
     console.error('Batch creation error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
       { status: 500 }
     );
   }
@@ -408,7 +409,7 @@ export async function PATCH(req, { params }) {
   } catch (error) {
     console.error('Batch update error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
       { status: 500 }
     );
   }

@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import posthog from 'posthog-js';
+import { GENERIC_SERVER_ERROR_MESSAGE, NETWORK_ERROR_MESSAGE, isNetworkError } from '@/lib/apiErrors';
 
 const AuthContext = createContext({});
 
@@ -64,13 +65,18 @@ export const AuthProvider = ({ children }) => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
+        // No parseable message from the server at all (rare -- almost
+        // every route in this app returns a real `message`) and a true
+        // server-side failure: fall back to the same honest, actionable
+        // text every other unhandled 5xx gets, not a bare "HTTP 500".
+        const fallback = response.status >= 500 ? GENERIC_SERVER_ERROR_MESSAGE : `HTTP ${response.status}`;
+
         // For auth endpoints, return the error instead of throwing
         if (url.includes('/auth/signin') || url.includes('/auth/signup')) {
-          return { success: false, message: errorData.message || `HTTP ${response.status}` };
+          return { success: false, message: errorData.message || fallback };
         }
-        
-        throw new Error(errorData.message || `HTTP ${response.status}`);
+
+        throw new Error(errorData.message || fallback);
       }
 
       return await response.json();
@@ -79,8 +85,16 @@ export const AuthProvider = ({ children }) => {
       if (error.name === 'AbortError') {
         return { success: false, aborted: true };
       }
-      
+
       console.error('API call error:', error);
+      // A network-level failure (offline, DNS, dropped connection) never
+      // reaches the server, so it never gets a real message -- just
+      // fetch()'s own raw TypeError text ("Failed to fetch" etc.),
+      // meaningless to a vendor. Give it the same treatment as a real
+      // server error: honest, and tells them what to do.
+      if (isNetworkError(error)) {
+        throw new Error(NETWORK_ERROR_MESSAGE);
+      }
       throw error;
     }
   };
@@ -115,13 +129,22 @@ export const AuthProvider = ({ children }) => {
         // rather than `message` -- without this fallback, their real
         // validation/failure text was silently discarded in favor of a
         // generic "HTTP 400" here, then a hardcoded string on top of that
-        // by whichever catch block eventually alert()s it.
-        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
+        // by whichever catch block eventually alert()s it. For a true
+        // server-side failure with no parseable message at all, fall back
+        // to the same honest text every other unhandled 5xx gets.
+        const fallback = response.status >= 500 ? GENERIC_SERVER_ERROR_MESSAGE : `HTTP ${response.status}`;
+        throw new Error(errorData.message || errorData.error || fallback);
       }
 
       return await response.json();
     } catch (error) {
       console.error('FormData API call failed:', error);
+      // Same treatment as secureApiCall -- a dropped connection mid image
+      // upload (very real on the mobile connections most vendors are on)
+      // should never surface fetch()'s own raw TypeError text.
+      if (isNetworkError(error)) {
+        throw new Error(NETWORK_ERROR_MESSAGE);
+      }
       throw error;
     }
   };

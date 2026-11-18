@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireCommerceApiAccess } from '@/lib/storeAccess';
+import { GENERIC_SERVER_ERROR_MESSAGE } from '@/lib/apiErrors';
 
 // Helper to transform batch data
 function transformBatch(batch) {
@@ -131,7 +132,7 @@ export async function PUT(req, { params }) {
 
         if (batchError) {
           console.error('Batch creation error:', batchError);
-          return NextResponse.json({ success: false, message: 'Failed to create batch' }, { status: 500 });
+          return NextResponse.json({ success: false, message: GENERIC_SERVER_ERROR_MESSAGE }, { status: 500 });
         }
 
         const result = rpcResult?.[0];
@@ -157,7 +158,7 @@ export async function PUT(req, { params }) {
 
         if (addError) {
           console.error('Add to batch error:', addError);
-          return NextResponse.json({ success: false, message: addError.message || 'Failed to update batch' }, { status: 500 });
+          return NextResponse.json({ success: false, message: addError.message || GENERIC_SERVER_ERROR_MESSAGE }, { status: 500 });
         }
 
         const result = rpcResult?.[0];
@@ -190,7 +191,7 @@ export async function PUT(req, { params }) {
 
       if (removeError) {
         console.error('Remove stock error:', removeError);
-        return NextResponse.json({ success: false, message: removeError.message || 'Failed to remove stock' }, { status: 500 });
+        return NextResponse.json({ success: false, message: removeError.message || GENERIC_SERVER_ERROR_MESSAGE }, { status: 500 });
       }
 
       const result = rpcResult?.[0];
@@ -223,7 +224,7 @@ export async function PUT(req, { params }) {
   } catch (error) {
     console.error('Stock update error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
       { status: 500 }
     );
   }

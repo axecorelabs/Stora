@@ -5,6 +5,7 @@ import { backfillMissingSkus } from '@/lib/inventorySku';
 import { backfillMissingStoreIds } from '@/lib/inventoryStoreId';
 import { embedProductById, embedStoreById } from '@/lib/openrouter';
 import { normalizeExtraDefinitions } from '@stora/shared-constants';
+import { GENERIC_SERVER_ERROR_MESSAGE } from '@/lib/apiErrors';
 
 // Helper to transform inventory data for response. Every product has >=1
 // real inventory_variants row now -- stock/price are always derived from
@@ -167,7 +168,7 @@ export async function GET(req, { params }) {
   } catch (error) {
     console.error('Inventory item fetch error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
       { status: 500 }
     );
   }
@@ -394,7 +395,7 @@ export async function DELETE(req, { params }) {
   } catch (error) {
     console.error('Inventory item delete error:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
       { status: 500 }
     );
   }

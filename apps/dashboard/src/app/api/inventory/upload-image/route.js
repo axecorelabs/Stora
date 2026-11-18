@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireCommerceApiAccess } from '@/lib/storeAccess';
 import { uploadToR2, generateFileKey, validateImageFile } from '@/lib/r2';
+import { GENERIC_SERVER_ERROR_MESSAGE } from '@/lib/apiErrors';
 
 export async function POST(req) {
   try {
@@ -48,7 +49,7 @@ export async function POST(req) {
   } catch (error) {
     console.error('Image upload error:', error);
     return NextResponse.json(
-      { success: false, message: 'Failed to upload image' },
+      { success: false, message: GENERIC_SERVER_ERROR_MESSAGE },
       { status: 500 }
     );
   }
