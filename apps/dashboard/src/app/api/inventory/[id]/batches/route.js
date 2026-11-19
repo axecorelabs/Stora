@@ -12,6 +12,7 @@ function transformBatch(batch) {
     mongoId: batch.mongo_id,
     userId: batch.user_id,
     productId: batch.inventory_id,
+    variantId: batch.variant_id,
     batchCode: batch.batch_code,
     quantityIn: batch.quantity_in,
     quantitySold: batch.quantity_sold,
@@ -47,6 +48,12 @@ export async function GET(req, { params }) {
     const sortOrder = searchParams.get('sortOrder') === '1';
     const latest = searchParams.get('latest') === 'true';
     const active = searchParams.get('active') === 'true';
+    // Scopes batches to one variant of a multi-variant product --
+    // without this, every variant's batches came back mixed together
+    // with no way to tell them apart (StockUpdateModal.js's variant
+    // picker needs exactly one variant's own batches to populate its
+    // batch dropdown).
+    const variantId = searchParams.get('variantId');
 
     // Verify the inventory item belongs to the user
     const { data: inventory, error: invError } = await supabaseAdmin
@@ -65,12 +72,15 @@ export async function GET(req, { params }) {
 
     // If active=true, return the current active batch (FIFO - oldest active batch with stock)
     if (active) {
-      const { data: activeBatch } = await supabaseAdmin
+      let activeQuery = supabaseAdmin
         .from('inventory_batches')
         .select('*')
         .eq('inventory_id', productId)
         .eq('status', 'active')
-        .gt('quantity_remaining', 0)
+        .gt('quantity_remaining', 0);
+      if (variantId) activeQuery = activeQuery.eq('variant_id', variantId);
+
+      const { data: activeBatch } = await activeQuery
         .order('date_received', { ascending: true })
         .limit(1)
         .single();
@@ -83,10 +93,13 @@ export async function GET(req, { params }) {
 
     // If latest=true, return only the most recent batch
     if (latest) {
-      const { data: latestBatch } = await supabaseAdmin
+      let latestQuery = supabaseAdmin
         .from('inventory_batches')
         .select('*')
-        .eq('inventory_id', productId)
+        .eq('inventory_id', productId);
+      if (variantId) latestQuery = latestQuery.eq('variant_id', variantId);
+
+      const { data: latestBatch } = await latestQuery
         .order('date_received', { ascending: false })
         .limit(1)
         .single();
@@ -105,6 +118,10 @@ export async function GET(req, { params }) {
 
     if (status) {
       query = query.eq('status', status);
+    }
+
+    if (variantId) {
+      query = query.eq('variant_id', variantId);
     }
 
     // Map sort field names

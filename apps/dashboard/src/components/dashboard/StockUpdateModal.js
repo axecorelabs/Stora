@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
   const { secureApiCall } = useAuth();
   const [updateType, setUpdateType] = useState('add');
+  const [selectedVariantId, setSelectedVariantId] = useState('');
   const [activeBatches, setActiveBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -15,13 +16,19 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Fetch active batches for this item
-  const fetchActiveBatches = async () => {
+  // A product with more than one variant needs its batches scoped to
+  // whichever one is selected -- otherwise every variant's batches come
+  // back mixed together with no way to tell them apart (each batch
+  // belongs to exactly one variant). A simple, single-variant product
+  // (the overwhelming majority) has nothing to scope by, so variantId
+  // stays unset for it, same request shape as before this existed.
+  const fetchActiveBatches = async (variantId) => {
     if (!item?._id) return;
-    
+
     setLoading(true);
     try {
-      const response = await secureApiCall(`/api/inventory/${item._id}/batches?status=active`);
+      const query = variantId ? `&variantId=${variantId}` : '';
+      const response = await secureApiCall(`/api/inventory/${item._id}/batches?status=active${query}`);
       if (response.success) {
         setActiveBatches(response.data.batches);
       }
@@ -30,6 +37,35 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Variant dropdown options -- only ever rendered when there's more
+  // than one, see the JSX below. Mirrors AddBatchModal.js's own
+  // color/size variant shape (item.variants[], already populated by
+  // every caller of this modal -- no new prop plumbing needed).
+  const getVariantOptions = () => {
+    return (item?.variants || [])
+      .filter((v) => v.isActive !== false)
+      .map((v) => ({
+        value: v._id,
+        label: `${v.color || 'Default'} - ${v.size || 'One Size'} (${v.quantityInStock ?? 0} in stock)`
+      }));
+  };
+
+  const getSelectedVariant = () => {
+    if (!item?.variants) return null;
+    return item.variants.find((v) => v._id === selectedVariantId) || null;
+  };
+
+  const handleVariantChange = (value) => {
+    setSelectedVariantId(value);
+    // A batch selected under the previous variant is meaningless here --
+    // batches don't span variants.
+    setSelectedBatch('');
+    if (errors.variant) {
+      setErrors((prev) => ({ ...prev, variant: '' }));
+    }
+    fetchActiveBatches(value);
   };
 
   const addReasonOptions = [
@@ -54,16 +90,25 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
     { value: 'Other', label: 'Other' }
   ];
 
-  // Reset form when modal opens/closes or item changes
+  // Reset form when modal opens/closes or item changes. A single-variant
+  // product (the common case) auto-selects its one variant silently --
+  // same experience as before this picker existed. A multi-variant
+  // product starts unselected, forcing a real pick before anything else
+  // is enabled (see the disabled condition on the submit button below).
   useEffect(() => {
     if (isOpen && item) {
+      const variants = item.variants || [];
+      const autoSelectedId = variants.length === 1 ? variants[0]._id : '';
+
       setUpdateType('add');
+      setSelectedVariantId(autoSelectedId);
       setSelectedBatch('');
       setQuantity('');
       setReason('');
       setErrors({});
-      fetchActiveBatches();
+      fetchActiveBatches(autoSelectedId || undefined);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, item]);
 
   // Get batch options for dropdown
@@ -132,11 +177,15 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
+    if ((item.variants || []).length > 1 && !selectedVariantId) {
+      newErrors.variant = 'Please select which variant you\'re updating';
+    }
+
     if (!quantity || parseFloat(quantity) <= 0) {
       newErrors.quantity = 'Please enter a valid quantity';
     }
-    
+
     if (updateType === 'subtract') {
       if (!selectedBatch) {
         newErrors.batch = 'Please select a batch to remove stock from';
@@ -173,7 +222,8 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
         quantity: parseFloat(quantity),
         reason: reason.trim(),
         batchId: selectedBatch === 'new_batch' ? null : selectedBatch,
-        createNewBatch: selectedBatch === 'new_batch'
+        createNewBatch: selectedBatch === 'new_batch',
+        variantId: selectedVariantId || undefined
       };
       
       await onSubmit(item._id, updateData);
@@ -191,30 +241,44 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
     }
   };
 
+  // For a multi-variant product, "current stock" means the selected
+  // variant's own number, not the product-wide total across every
+  // variant -- falls back to the product's own fields for a
+  // single-variant product (unchanged from before this picker existed).
+  const getCurrentStockBase = () => {
+    const variant = getSelectedVariant();
+    if (variant) {
+      return { quantityInStock: variant.quantityInStock || 0, reorderLevel: variant.reorderLevel ?? item?.reorderLevel };
+    }
+    return { quantityInStock: item?.quantityInStock || 0, reorderLevel: item?.reorderLevel };
+  };
+
   const calculateNewStock = () => {
-    if (!quantity || !item) return item?.quantityInStock || 0;
-    
+    const { quantityInStock } = getCurrentStockBase();
+    if (!quantity || !item) return quantityInStock;
+
     const change = parseFloat(quantity) || 0;
-    const current = item.quantityInStock || 0;
-    
+
     if (updateType === 'add') {
-      return current + change;
+      return quantityInStock + change;
     } else {
-      return Math.max(0, current - change);
+      return Math.max(0, quantityInStock - change);
     }
   };
 
   const getStatusColor = (stock) => {
     if (!item) return 'text-gray-600';
+    const { reorderLevel } = getCurrentStockBase();
     if (stock === 0) return 'text-red-600';
-    if (stock <= item.reorderLevel) return 'text-yellow-600';
+    if (stock <= reorderLevel) return 'text-yellow-600';
     return 'text-green-600';
   };
 
   const getStatusText = (stock) => {
     if (!item) return 'Unknown';
+    const { reorderLevel } = getCurrentStockBase();
     if (stock === 0) return 'Out of Stock';
-    if (stock <= item.reorderLevel) return 'Low Stock';
+    if (stock <= reorderLevel) return 'Low Stock';
     return 'In Stock';
   };
 
@@ -251,7 +315,7 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
             <div>
               <p className="text-sm text-gray-600 mb-1">Current Stock</p>
               <div className="flex items-center justify-center space-x-2">
-                <span className="text-2xl font-bold text-gray-900">{item.quantityInStock}</span>
+                <span className="text-2xl font-bold text-gray-900">{getCurrentStockBase().quantityInStock}</span>
                 <span className="text-sm text-gray-500">{item.unitOfMeasure}</span>
               </div>
             </div>
@@ -270,6 +334,27 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
             {errors.submit && (
               <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600 text-sm">{errors.submit}</p>
+              </div>
+            )}
+
+            {/* Variant Selection -- only rendered for a product with more
+                than one variant; a simple product auto-selects its one
+                variant on open and never sees this at all. */}
+            {(item.variants || []).length > 1 && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Which variant?
+                </label>
+                <CustomDropdown
+                  options={getVariantOptions()}
+                  value={selectedVariantId}
+                  onChange={handleVariantChange}
+                  placeholder="Select a variant"
+                  error={!!errors.variant}
+                />
+                {errors.variant && (
+                  <p className="text-red-500 text-xs mt-1">{errors.variant}</p>
+                )}
               </div>
             )}
 
@@ -476,7 +561,7 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting || !quantity || !reason || !selectedBatch}
+              disabled={isSubmitting || !quantity || !reason || !selectedBatch || ((item.variants || []).length > 1 && !selectedVariantId)}
               className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 updateType === 'add'
                   ? 'bg-green-600 text-white hover:bg-green-700'
