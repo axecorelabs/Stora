@@ -351,6 +351,7 @@ export default function StockUpdateModal({ isOpen, onClose, onSubmit, item }) {
                   onChange={handleVariantChange}
                   placeholder="Select a variant"
                   error={!!errors.variant}
+                  searchable
                 />
                 {errors.variant && (
                   <p className="text-red-500 text-xs mt-1">{errors.variant}</p>
