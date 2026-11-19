@@ -101,9 +101,16 @@ export default function CartItem({
             </button>
           </div>
 
-          <p className="text-lg md:text-2xl font-bold mb-2 md:mb-4" style={{ color: primaryColor }}>
-            {formatPrice(item.price)}
-          </p>
+          <div className="flex items-center gap-2 mb-2 md:mb-4">
+            <p className="text-lg md:text-2xl font-bold" style={{ color: primaryColor }}>
+              {formatPrice(item.price)}
+            </p>
+            {item.price_changed && (
+              <span className="text-[10px] md:text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                Price updated
+              </span>
+            )}
+          </div>
 
           {/* Quantity Controls */}
           <div className="flex items-center gap-2 md:gap-4">

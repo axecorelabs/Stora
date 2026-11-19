@@ -453,11 +453,41 @@ export async function enrichCartWithProductData(cart, attributionByStoreId = new
         // revive a possibly-stale flat stock number for an item whose
         // batches are genuinely sold out.
         const batches = await findActiveBatchesByInventoryId(item.product_id);
-        const { sellingPrice: currentPrice, availableQuantity: availableStock } =
+        const { sellingPrice: currentBasePrice, availableQuantity: availableStock } =
           await resolveBatchPricing(product, batches, item.product_snapshot?.variant?.variant_id || null);
+
+        // Extras cost must be folded in here too -- item.price (the
+        // stored snapshot) already includes it for a food item
+        // (prepareCartItemData below does the same addition), so
+        // comparing against resolveBatchPricing's base-only price alone
+        // compared apples to oranges and flagged price_changed as true
+        // for every item with extras regardless of whether the actual
+        // base price had moved. Mirrors orders/create/route.js's own
+        // already-correct computation exactly.
+        const extrasDefinitions = normalizeExtraDefinitions(product.categoryDetails?.food?.extras);
+        const { unitCost: extrasUnitCost, errors: extrasErrors } =
+          resolveExtrasSelection(extrasDefinitions, item.modifiers?.extras);
+        const currentPrice = parseFloat(currentBasePrice) + (extrasErrors.length > 0 ? 0 : extrasUnitCost);
+
+        const priceChanged = parseFloat(currentPrice) !== parseFloat(item.price);
+        if (priceChanged) {
+          // Correct the stored snapshot immediately, not just the
+          // response -- a vendor's price change should actually reach
+          // the cart, not just be noted and left stale for the next
+          // checkout attempt to reject at the last second. Best-effort:
+          // a failure here shouldn't break cart loading, the response
+          // below is still corrected for this request either way.
+          try {
+            await updateCartItem(item.id, { price: currentPrice, subtotal: currentPrice * item.quantity });
+          } catch (updateError) {
+            console.error(`Error persisting corrected price for cart item ${item.id}:`, updateError);
+          }
+        }
 
         return {
           ...item,
+          price: currentPrice,
+          subtotal: currentPrice * item.quantity,
           product_data: {
             product_name: product.productName,
             sku: product.sku,
@@ -468,7 +498,7 @@ export async function enrichCartWithProductData(cart, attributionByStoreId = new
           current_price: currentPrice,
           available_stock: availableStock,
           isAvailable: product.isActive && availableStock >= item.quantity,
-          price_changed: parseFloat(currentPrice) !== parseFloat(item.price),
+          price_changed: priceChanged,
           stock_sufficient: availableStock >= item.quantity,
           store_delivery_states: deliveryStatesByStore[item.store_id] ?? null,
           store_paystack_ready: paystackReadyByStore[item.store_id] ?? false,
